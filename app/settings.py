@@ -11,21 +11,44 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+def load_env_file():
+    """Load environment variables from .env file"""
+    env_file = BASE_DIR / '.env'
+    if env_file.exists():
+        with open(env_file, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    os.environ[key] = value
+
+
+def get_required_env(key, default=None):
+    """Get required environment variable or return default"""
+    value = os.environ.get(key, default)
+    return value
+
+
+# Load environment variables from .env file
+load_env_file()
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-n8kuib$^bo!$ko#5l$nqd1coof%4ftz55mm&_n)(q7e#v&p*2^'
+SECRET_KEY = get_required_env('SECRET_KEY', 'django-insecure-n8kuib$^bo!$ko#5l$nqd1coof%4ftz55mm&_n)(q7e#v&p*2^')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = get_required_env('DEBUG', 'True').lower() in ('true', '1', 'yes')
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = get_required_env('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
 
 # Application definition
@@ -83,8 +106,12 @@ WSGI_APPLICATION = 'app.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': get_required_env('DB_NAME', 'smarthome_db'),
+        'USER': get_required_env('DB_USER', 'postgres'),
+        'PASSWORD': get_required_env('DB_PASSWORD', ''),
+        'HOST': get_required_env('DB_HOST', 'localhost'),
+        'PORT': get_required_env('DB_PORT', '5432'),
     }
 }
 
