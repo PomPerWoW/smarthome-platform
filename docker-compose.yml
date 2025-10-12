@@ -57,6 +57,24 @@ services:
     volumes:
       - .:/app
 
+  nginx:
+    image: nginx:alpine
+    container_name: smarthome_nginx
+    ports: ["80:80"]
+    depends_on:
+      backend:
+        condition: service_started
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      # (optional) serve collected static/media directly
+      # - ./static:/var/www/static:ro
+      # - ./media:/var/www/media:ro
+    healthcheck:
+      test: ["CMD-SHELL", "nginx -t"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
 volumes:
   db_data:
   redis_data:
