@@ -144,25 +144,3 @@ token = response.json()["token"]
 headers = {"Authorization": f"Token {token}"}
 response = requests.get("http://127.0.0.1:8000/api/protected-endpoint/", headers=headers)
 ```
-
-## Running the Server
-
-1. Activate the virtual environment:
-   ```bash
-   source venv/bin/activate
-   ```
-
-2. Run migrations:
-   ```bash
-   python manage.py migrate
-   ```
-
-3. Start the development server:
-   ```bash
-   python manage.py runserver
-   ```
-
-4. Test the API:
-   ```bash
-   python test_api.py
-   ```

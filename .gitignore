@@ -231,3 +231,19 @@ node_modules/
 # Temporary folders
 tmp/
 temp/
+
+# PostgreSQL
+*.sql
+*.dump
+pg_log/
+postgresql.conf
+pg_hba.conf
+
+# Database backups
+*.backup
+*.bak
+
+# Environment files
+.env
+.env.local
+.env.production
