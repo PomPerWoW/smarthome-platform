@@ -107,14 +107,15 @@ WSGI_APPLICATION = 'app.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': get_required_env('DB_NAME', 'smarthome_db'),
-        'USER': get_required_env('DB_USER', 'postgres'),
-        'PASSWORD': get_required_env('DB_PASSWORD', ''),
-        'HOST': get_required_env('DB_HOST', 'localhost'),
-        'PORT': get_required_env('DB_PORT', '5432'),
+        'NAME': get_required_env('DB_NAME'),
+        'USER': get_required_env('DB_USER'),
+        'PASSWORD': get_required_env('DB_PASSWORD'),
+        'HOST': get_required_env('DB_HOST'),
+        'PORT': get_required_env('DB_PORT'),
     }
 }
 
+print(DATABASES)
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
