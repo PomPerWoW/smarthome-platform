@@ -4,7 +4,7 @@
 
 ### Base URL
 ```
-http://127.0.0.1:8000/api/auth/
+http://127.0.0.1:5500/api/auth/
 ```
 
 ## 1. User Registration
@@ -97,7 +97,7 @@ Authorization: Token your_auth_token_here
 
 **Register:**
 ```bash
-curl -X POST http://127.0.0.1:8000/api/auth/register/ \
+curl -X POST http://127.0.0.1:5500/api/auth/register/ \
   -H "Content-Type: application/json" \
   -d '{
     "email": "test@example.com",
@@ -108,7 +108,7 @@ curl -X POST http://127.0.0.1:8000/api/auth/register/ \
 
 **Login:**
 ```bash
-curl -X POST http://127.0.0.1:8000/api/auth/login/ \
+curl -X POST http://127.0.0.1:5500/api/auth/login/ \
   -H "Content-Type: application/json" \
   -d '{
     "email": "test@example.com",
@@ -129,7 +129,7 @@ register_data = {
     "password": "testpassword123",
     "password_confirm": "testpassword123"
 }
-response = requests.post("http://127.0.0.1:8000/api/auth/register/", json=register_data)
+response = requests.post("http://127.0.0.1:5500/api/auth/register/", json=register_data)
 token = response.json()["token"]
 
 # Login
@@ -137,10 +137,10 @@ login_data = {
     "email": "test@example.com",
     "password": "testpassword123"
 }
-response = requests.post("http://127.0.0.1:8000/api/auth/login/", json=login_data)
+response = requests.post("http://127.0.0.1:5500/api/auth/login/", json=login_data)
 token = response.json()["token"]
 
 # Use token in authenticated requests
 headers = {"Authorization": f"Token {token}"}
-response = requests.get("http://127.0.0.1:8000/api/protected-endpoint/", headers=headers)
+response = requests.get("http://127.0.0.1:5500/api/protected-endpoint/", headers=headers)
 ```

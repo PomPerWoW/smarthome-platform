@@ -6,7 +6,7 @@ services:
       POSTGRES_DB: smarthome_db
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-    ports: ["5432:5432"]
+    ports: ["5501:5501"]
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:
@@ -20,7 +20,7 @@ services:
     container_name: smarthome_redis
     command: ["redis-server", "--appendonly", "yes"]
     ports:
-      - "6379:6379"
+      - "5503:5503"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -34,7 +34,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: smarthome_backend
-    command: python manage.py runserver 0.0.0.0:8000
+    command: python manage.py runserver 0.0.0.0:5500
     env_file:
       - .env
     environment:
@@ -45,21 +45,21 @@ services:
       DEBUG: "True"
       ALLOWED_HOSTS: "localhost,127.0.0.1,0.0.0.0"
       REDIS_HOST: redis
-      REDIS_PORT: "6379"
+      REDIS_PORT: "5503"
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
     ports:
-      - "8000:8000"
+      - "5500:5500"
     volumes:
       - .:/app
 
   nginx:
     image: nginx:alpine
     container_name: smarthome_nginx
-    ports: ["80:80"]
+    ports: ["5502:5502"]
     depends_on:
       backend:
         condition: service_started

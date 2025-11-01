@@ -30,7 +30,7 @@ RUN poetry install --no-interaction --no-ansi --only main --no-root
 # ---- app ----
 COPY . /app
 
-EXPOSE 8000
+EXPOSE 5500
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
