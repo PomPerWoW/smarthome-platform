@@ -16,7 +16,6 @@ import os
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
 def load_env_file():
     """Load environment variables from .env file"""
     env_file = BASE_DIR / '.env'
@@ -60,10 +59,12 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.gis',
     'rest_framework',
     'rest_framework.authtoken',
     'debug_toolbar',
     'accounts',
+    'home',
 ]
 
 MIDDLEWARE = [
@@ -106,7 +107,7 @@ WSGI_APPLICATION = 'app.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
+        'ENGINE': 'django.contrib.gis.db.backends.postgis',
         'NAME': get_required_env('DB_NAME'),
         'USER': get_required_env('DB_USER'),
         'PASSWORD': get_required_env('DB_PASSWORD'),
@@ -114,6 +115,8 @@ DATABASES = {
         'PORT': get_required_env('DB_PORT'),
     }
 }
+
+ZODB_FILE = BASE_DIR / "database/zodb_home.fs"
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
