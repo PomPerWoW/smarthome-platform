@@ -7,7 +7,7 @@ until python - <<'PY'
 import os, socket
 s=socket.socket()
 host=os.environ.get("DB_HOST","localhost")
-port=int(os.environ.get("DB_PORT","5501"))
+port=int(os.environ.get("DB_PORT","5432"))
 try:
     s.settimeout(2)
     s.connect((host,port))
