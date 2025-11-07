@@ -48,6 +48,36 @@ def _get_home_floor_room(root, home_id, floor_id=None, room_id=None) -> Tuple[An
             raise Http404("Room not found")
     return home, floor, room
 
+class HomeFullDataView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        with get_connection() as (conn, root):
+            homes_data = []
+            for _, home in root["homes"].items():
+                floors_data = []
+                for _, floor in home.floors.items():
+                    rooms_data = []
+                    for _, room in floor.rooms.items():
+                        devices_data = [_device_to_dict(d) for _, d in room.devices.items()]
+                        rooms_data.append({
+                            "id": str(room.id),
+                            "name": room.name,
+                            "devices": devices_data,
+                        })
+                    floors_data.append({
+                        "id": str(floor.id),
+                        "name": floor.name,
+                        "number": floor.number,
+                        "rooms": rooms_data,
+                    })
+                homes_data.append({
+                    "id": str(home.id),
+                    "name": home.name,
+                    "floors": floors_data,
+                })
+            return Response(homes_data)
+
 
 class HomeListCreateView(APIView):
     permission_classes = [IsAuthenticated]
