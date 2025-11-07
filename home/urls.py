@@ -3,6 +3,9 @@ from . import views
 
 
 urlpatterns = [
+    # view DB    
+    path('homes/all/', views.HomeFullDataView.as_view(), name='home-full-data'),
+
     # Homes
     path('homes/', views.HomeListCreateView.as_view(), name='home-list-create'),
     path('homes/<uuid:home_id>/', views.HomeDetailView.as_view(), name='home-detail'),
