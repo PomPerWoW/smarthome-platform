@@ -15,20 +15,6 @@ services:
       timeout: 3s
       retries: 10
 
-  redis:
-    image: redis:7-alpine
-    container_name: smarthome_redis
-    command: ["redis-server", "--appendonly", "yes"]
-    ports:
-      - "5503:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-
   backend:
     build:
       context: .
@@ -44,12 +30,8 @@ services:
       DJANGO_SETTINGS_MODULE: app.settings
       DEBUG: "True"
       ALLOWED_HOSTS: "localhost,127.0.0.1,0.0.0.0"
-      REDIS_HOST: redis
-      REDIS_PORT: "6379"
     depends_on:
       db:
-        condition: service_healthy
-      redis:
         condition: service_healthy
     ports:
       - "5500:5500"
@@ -76,4 +58,3 @@ services:
 
 volumes:
   db_data:
-  redis_data:
