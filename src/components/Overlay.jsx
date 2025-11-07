@@ -1,4 +1,4 @@
-// Get Reflex URL from environment or use default
+// Get Reflex URL from nvironment or use default
 const REFLEX_URL = import.meta.env.VITE_REFLEX_URL || 'http://localhost:3000'
 
 export function Overlay({ hoveredDevice }) {
@@ -8,7 +8,6 @@ export function Overlay({ hoveredDevice }) {
 
   return (
     <div className="overlay">
-      {/* Header */}
       <header className="header">
         <div className="logo">SmartHomeAR</div>
         <nav className="nav">
@@ -26,7 +25,6 @@ export function Overlay({ hoveredDevice }) {
         </div>
       </header>
 
-      {/* Hero Section */}
       <div className="hero">
         <h1>Control Your Home with AR</h1>
         <p>Experience the future of smart home management with augmented reality visualization and intelligent automation.</p>
@@ -35,7 +33,7 @@ export function Overlay({ hoveredDevice }) {
         </button>
       </div>
 
-      {/* Device Info (shows when hovering) */}
+      {/* Device Info (show when hovering) */}
       {hoveredDevice && (
         <div className="device-info">
           <h3>{hoveredDevice.name}</h3>
@@ -48,7 +46,6 @@ export function Overlay({ hoveredDevice }) {
         </div>
       )}
 
-      {/* Features Grid */}
       {!hoveredDevice && (
         <div className="features-grid">
           <div className="feature-card">
