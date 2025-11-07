@@ -8,13 +8,18 @@ import { Overlay } from './components/Overlay'
 
 function App() {
   const [hoveredDevice, setHoveredDevice] = useState(null)
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
 
   const handleDeviceHover = (device) => {
     setHoveredDevice(device)
   }
 
+  const handleMouseMove = (e) => {
+    setMousePosition({ x: e.clientX, y: e.clientY })
+  }
+
   return (
-    <>
+    <div onMouseMove={handleMouseMove} style={{ width: '100vw', height: '100vh' }}>
       <Canvas
         flat
         dpr={[1, 1.5]}
@@ -43,8 +48,8 @@ function App() {
         </Bvh>
       </Canvas>
 
-      <Overlay hoveredDevice={hoveredDevice} />
-    </>
+      <Overlay hoveredDevice={hoveredDevice} mousePosition={mousePosition} />
+    </div>
   )
 }
 
