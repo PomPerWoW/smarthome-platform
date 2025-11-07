@@ -1,15 +1,52 @@
-// Get Reflex URL from nvironment or use default
 const REFLEX_URL = import.meta.env.VITE_REFLEX_URL || 'http://localhost:3000'
 
-export function Overlay({ hoveredDevice }) {
+export function Overlay({ hoveredDevice, mousePosition }) {
   const handleNavigation = (path) => {
     window.location.href = `${REFLEX_URL}${path}`
+  }
+
+  const getTooltipStyle = () => {
+    if (!hoveredDevice) return {}
+
+    const offset = 20
+    const tooltipWidth = 280
+    const tooltipHeight = 200
+
+    let left = mousePosition.x + offset
+    let top = mousePosition.y + offset
+
+    // Check if tooltip would go off right edge of screen
+    if (left + tooltipWidth > window.innerWidth) {
+      left = mousePosition.x - tooltipWidth - offset
+    }
+
+    // Check if tooltip would go off bottom edge of screen
+    if (top + tooltipHeight > window.innerHeight) {
+      top = mousePosition.y - tooltipHeight - offset
+    }
+
+    // Ensure tooltip doesn't go off left edge
+    if (left < 0) {
+      left = offset
+    }
+
+    // Ensure tooltip doesn't go off top edge
+    if (top < 0) {
+      top = offset
+    }
+
+    return {
+      position: 'fixed',
+      left: `${left}px`,
+      top: `${top}px`,
+      transform: 'none'
+    }
   }
 
   return (
     <div className="overlay">
       <header className="header">
-        <div className="logo">SmartHomeAR</div>
+        <div className="logo">Smart Home AR</div>
         <nav className="nav">
           <a href="#features">Features</a>
           <a href="#pricing">Pricing</a>
@@ -35,7 +72,7 @@ export function Overlay({ hoveredDevice }) {
 
       {/* Device Info (show when hovering) */}
       {hoveredDevice && (
-        <div className="device-info">
+        <div className="device-info" style={getTooltipStyle()}>
           <h3>{hoveredDevice.name}</h3>
           <div className="device-type">{hoveredDevice.type}</div>
           <ul className="features">
