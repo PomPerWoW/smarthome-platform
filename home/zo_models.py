@@ -20,7 +20,7 @@ class Device(Persistent):
             self.is_on = bool(on)
 
     # position: set/get handled in DRF view to also persist PostGIS history
-    def set_position(self, lon: float, lat: float, alt: Optional[float] = None):
+    def set_position(self, lon: float, lat: float, alt: float):
         self.position = (lon, lat, alt)
 
     def get_position(self):
