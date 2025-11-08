@@ -29,7 +29,7 @@ services:
       DB_PASSWORD: postgres
       DJANGO_SETTINGS_MODULE: app.settings
       DEBUG: "True"
-      ALLOWED_HOSTS: "localhost,127.0.0.1,0.0.0.0"
+      ALLOWED_HOSTS: "localhost,127.0.0.1,0.0.0.0,turing.se.kmitl.ac.th"
     depends_on:
       db:
         condition: service_healthy
