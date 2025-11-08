@@ -47,7 +47,7 @@ SECRET_KEY = get_required_env('SECRET_KEY', 'django-insecure-n8kuib$^bo!$ko#5l$n
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = get_required_env('DEBUG', 'True').lower() in ('true', '1', 'yes')
 
-ALLOWED_HOSTS = get_required_env('ALLOWED_HOSTS', 'localhost,127.0.0.1', 'turing.se.kmitl.ac.th').split(',')
+ALLOWED_HOSTS = get_required_env('ALLOWED_HOSTS', 'localhost,127.0.0.1,turing.se.kmitl.ac.th').split(',')
 
 
 # Application definition
