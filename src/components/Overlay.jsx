@@ -1,47 +1,47 @@
-const REFLEX_URL = import.meta.env.VITE_REFLEX_URL || 'http://localhost:3000'
+const REFLEX_URL = import.meta.env.VITE_REFLEX_URL || "http://localhost:3000";
 
 export function Overlay({ hoveredDevice, mousePosition }) {
   const handleNavigation = (path) => {
-    window.location.href = `${REFLEX_URL}${path}`
-  }
+    window.location.href = `${REFLEX_URL}${path}`;
+  };
 
   const getTooltipStyle = () => {
-    if (!hoveredDevice) return {}
+    if (!hoveredDevice) return {};
 
-    const offset = 20
-    const tooltipWidth = 280
-    const tooltipHeight = 200
+    const offset = 20;
+    const tooltipWidth = 280;
+    const tooltipHeight = 200;
 
-    let left = mousePosition.x + offset
-    let top = mousePosition.y + offset
+    let left = mousePosition.x + offset;
+    let top = mousePosition.y + offset;
 
     // Check if tooltip would go off right edge of screen
     if (left + tooltipWidth > window.innerWidth) {
-      left = mousePosition.x - tooltipWidth - offset
+      left = mousePosition.x - tooltipWidth - offset;
     }
 
     // Check if tooltip would go off bottom edge of screen
     if (top + tooltipHeight > window.innerHeight) {
-      top = mousePosition.y - tooltipHeight - offset
+      top = mousePosition.y - tooltipHeight - offset;
     }
 
     // Ensure tooltip doesn't go off left edge
     if (left < 0) {
-      left = offset
+      left = offset;
     }
 
     // Ensure tooltip doesn't go off top edge
     if (top < 0) {
-      top = offset
+      top = offset;
     }
 
     return {
-      position: 'fixed',
+      position: "fixed",
       left: `${left}px`,
       top: `${top}px`,
-      transform: 'none'
-    }
-  }
+      transform: "none",
+    };
+  };
 
   return (
     <div className="overlay">
@@ -53,10 +53,16 @@ export function Overlay({ hoveredDevice, mousePosition }) {
           <a href="#about">About</a>
         </nav>
         <div className="cta-buttons">
-          <button className="btn btn-secondary" onClick={() => handleNavigation('/login')}>
+          <button
+            className="btn btn-secondary"
+            onClick={() => handleNavigation("/login")}
+          >
             Sign In
           </button>
-          <button className="btn btn-primary" onClick={() => handleNavigation('/signup')}>
+          <button
+            className="btn btn-primary"
+            onClick={() => handleNavigation("/signup")}
+          >
             Get Started
           </button>
         </div>
@@ -64,9 +70,15 @@ export function Overlay({ hoveredDevice, mousePosition }) {
 
       <div className="hero">
         <h1>Control Your Home with AR</h1>
-        <p>Experience the future of smart home management with augmented reality visualization and intelligent automation.</p>
-        <button className="btn btn-primary" onClick={() => handleNavigation('/signup')}>
-          Start Free Trial
+        <p>
+          Experience the future of smart home management with augmented reality
+          visualization and intelligent automation.
+        </p>
+        <button
+          className="btn btn-primary"
+          onClick={() => handleNavigation("/signup")}
+        >
+          Get Started
         </button>
       </div>
 
@@ -104,6 +116,5 @@ export function Overlay({ hoveredDevice, mousePosition }) {
         </div>
       )}
     </div>
-  )
+  );
 }
-
