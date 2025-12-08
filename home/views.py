@@ -1,5 +1,5 @@
-from typing import Any, Dict, Tuple
 import uuid
+from typing import Any, Dict, Tuple
 
 from django.contrib.gis.geos import Point
 from django.http import Http404
@@ -10,23 +10,26 @@ from rest_framework.views import APIView
 
 from .models import PositionHistory, UserHome
 from .serializers import (
-    HomeSerializer,
-    FloorSerializer,
-    RoomSerializer,
-    DeviceSerializer,
-    LightbulbSerializer,
-    TelevisionSerializer,
-    FanSerializer,
-    AirConditionerSerializer,
-    TogglePowerSerializer,
-    SetPositionSerializer,
-    LightbulbSetSerializer,
-    TelevisionSetSerializer,
-    FanSetSerializer,
     AirConditionerSetSerializer,
+    FanSetSerializer,
+    FloorSerializer,
+    HomeSerializer,
+    LightbulbSetSerializer,
+    RoomSerializer,
+    SetPositionSerializer,
+    TelevisionSetSerializer,
+    TogglePowerSerializer,
 )
-from .zodb_store import get_connection, commit, abort
-from .zo_models import Home, Floor, Room, Device, Lightbulb, Television, Fan, AirConditioner
+from .zo_models import (
+    AirConditioner,
+    Fan,
+    Floor,
+    Home,
+    Lightbulb,
+    Room,
+    Television,
+)
+from .zodb_store import commit, get_connection
 
 
 def _key(value) -> str:
@@ -40,7 +43,7 @@ def _check_home_ownership(user, home_id: uuid.UUID) -> bool:
 
 def _get_user_home_ids(user) -> list:
     """Get list of home IDs owned by a user"""
-    return list(UserHome.objects.filter(user=user).values_list('home_id', flat=True))
+    return list(UserHome.objects.filter(user=user).values_list("home_id", flat=True))
 
 
 def _find_device_in_user_homes(root, device_id, user) -> Tuple[Any, Any]:
@@ -58,16 +61,18 @@ def _find_device_in_user_homes(root, device_id, user) -> Tuple[Any, Any]:
     return None, None
 
 
-def _get_home_floor_room(root, home_id, floor_id=None, room_id=None, user=None) -> Tuple[Any, Any, Any]:
+def _get_home_floor_room(
+    root, home_id, floor_id=None, room_id=None, user=None
+) -> Tuple[Any, Any, Any]:
     """Get home, floor, and room with ownership check"""
     home = root["homes"].get(_key(home_id))
     if home is None:
         raise Http404("Home not found")
-    
+
     # Check ownership if user is provided
     if user is not None and not _check_home_ownership(user, home.id):
         raise Http404("Home not found or access denied")
-    
+
     floor = None
     room = None
     if floor_id is not None:
@@ -79,6 +84,7 @@ def _get_home_floor_room(root, home_id, floor_id=None, room_id=None, user=None) 
         if room is None:
             raise Http404("Room not found")
     return home, floor, room
+
 
 class HomeFullDataView(APIView):
     permission_classes = [IsAuthenticated]
@@ -95,23 +101,31 @@ class HomeFullDataView(APIView):
                     for _, floor in home.floors.items():
                         rooms_data = []
                         for _, room in floor.rooms.items():
-                            devices_data = [_device_to_dict(d) for _, d in room.devices.items()]
-                            rooms_data.append({
-                                "id": str(room.id),
-                                "name": room.name,
-                                "devices": devices_data,
-                            })
-                        floors_data.append({
-                            "id": str(floor.id),
-                            "name": floor.name,
-                            "number": floor.number,
-                            "rooms": rooms_data,
-                        })
-                    homes_data.append({
-                        "id": str(home.id),
-                        "name": home.name,
-                        "floors": floors_data,
-                    })
+                            devices_data = [
+                                _device_to_dict(d) for _, d in room.devices.items()
+                            ]
+                            rooms_data.append(
+                                {
+                                    "id": str(room.id),
+                                    "name": room.name,
+                                    "devices": devices_data,
+                                }
+                            )
+                        floors_data.append(
+                            {
+                                "id": str(floor.id),
+                                "name": floor.name,
+                                "number": floor.number,
+                                "rooms": rooms_data,
+                            }
+                        )
+                    homes_data.append(
+                        {
+                            "id": str(home.id),
+                            "name": home.name,
+                            "floors": floors_data,
+                        }
+                    )
             return Response(homes_data)
 
 
@@ -137,7 +151,9 @@ class HomeListCreateView(APIView):
             commit()
             # Assign home to the user
             UserHome.objects.create(user=user, home_id=home.id)
-            return Response({"id": str(home.id), "name": home.name}, status=status.HTTP_201_CREATED)
+            return Response(
+                {"id": str(home.id), "name": home.name}, status=status.HTTP_201_CREATED
+            )
 
 
 class HomeDetailView(APIView):
@@ -149,10 +165,10 @@ class HomeDetailView(APIView):
             home_id_uuid = uuid.UUID(str(home_id))
         except ValueError:
             raise Http404("Invalid home ID")
-        
+
         if not _check_home_ownership(user, home_id_uuid):
             raise Http404("Home not found or access denied")
-        
+
         with get_connection() as (conn, root):
             home = root["homes"].get(_key(home_id))
             if not home:
@@ -165,10 +181,10 @@ class HomeDetailView(APIView):
             home_id_uuid = uuid.UUID(str(home_id))
         except ValueError:
             raise Http404("Invalid home ID")
-        
+
         if not _check_home_ownership(user, home_id_uuid):
             raise Http404("Home not found or access denied")
-        
+
         with get_connection() as (conn, root):
             key = _key(home_id)
             if key in root["homes"]:
@@ -188,7 +204,9 @@ class FloorListCreateView(APIView):
         with get_connection() as (conn, root):
             home, _, _ = _get_home_floor_room(root, home_id, user=user)
             floors = [f for _, f in home.floors.items()]
-            data = [{"id": str(f.id), "name": f.name, "number": f.number} for f in floors]
+            data = [
+                {"id": str(f.id), "name": f.name, "number": f.number} for f in floors
+            ]
             return Response(data)
 
     def post(self, request, home_id):
@@ -197,10 +215,16 @@ class FloorListCreateView(APIView):
         serializer.is_valid(raise_exception=True)
         with get_connection() as (conn, root):
             home, _, _ = _get_home_floor_room(root, home_id, user=user)
-            floor = Floor(name=serializer.validated_data["name"], number=serializer.validated_data["number"])
+            floor = Floor(
+                name=serializer.validated_data["name"],
+                number=serializer.validated_data["number"],
+            )
             home.floors[str(floor.id)] = floor
             commit()
-            return Response({"id": str(floor.id), "name": floor.name, "number": floor.number}, status=status.HTTP_201_CREATED)
+            return Response(
+                {"id": str(floor.id), "name": floor.name, "number": floor.number},
+                status=status.HTTP_201_CREATED,
+            )
 
 
 class FloorDetailView(APIView):
@@ -210,7 +234,9 @@ class FloorDetailView(APIView):
         user = request.user
         with get_connection() as (conn, root):
             _, floor, _ = _get_home_floor_room(root, home_id, floor_id, user=user)
-            return Response({"id": str(floor.id), "name": floor.name, "number": floor.number})
+            return Response(
+                {"id": str(floor.id), "name": floor.name, "number": floor.number}
+            )
 
     def delete(self, request, home_id, floor_id):
         user = request.user
@@ -241,7 +267,9 @@ class RoomListCreateView(APIView):
             room = Room(name=serializer.validated_data["name"])
             floor.rooms[str(room.id)] = room
             commit()
-            return Response({"id": str(room.id), "name": room.name}, status=status.HTTP_201_CREATED)
+            return Response(
+                {"id": str(room.id), "name": room.name}, status=status.HTTP_201_CREATED
+            )
 
 
 class RoomDetailView(APIView):
@@ -250,13 +278,17 @@ class RoomDetailView(APIView):
     def get(self, request, home_id, floor_id, room_id):
         user = request.user
         with get_connection() as (conn, root):
-            _, _, room = _get_home_floor_room(root, home_id, floor_id, room_id, user=user)
+            _, _, room = _get_home_floor_room(
+                root, home_id, floor_id, room_id, user=user
+            )
             return Response({"id": str(room.id), "name": room.name})
 
     def delete(self, request, home_id, floor_id, room_id):
         user = request.user
         with get_connection() as (conn, root):
-            _, floor, room = _get_home_floor_room(root, home_id, floor_id, room_id, user=user)
+            _, floor, room = _get_home_floor_room(
+                root, home_id, floor_id, room_id, user=user
+            )
             del floor.rooms[str(room.id)]
             commit()
             return Response(status=status.HTTP_204_NO_CONTENT)
@@ -270,9 +302,17 @@ def _device_to_dict(device) -> Dict[str, Any]:
         "position": list(device.position) if device.position else None,
     }
     if isinstance(device, Lightbulb):
-        base.update({"type": "lightbulb", "brightness": device.brightness, "colour": device.colour})
+        base.update(
+            {
+                "type": "lightbulb",
+                "brightness": device.brightness,
+                "colour": device.colour,
+            }
+        )
     elif isinstance(device, Television):
-        base.update({"type": "television", "volume": device.volume, "channel": device.channel})
+        base.update(
+            {"type": "television", "volume": device.volume, "channel": device.channel}
+        )
     elif isinstance(device, Fan):
         base.update({"type": "fan", "speed": device.speed, "swing": device.swing})
     elif isinstance(device, AirConditioner):
@@ -282,13 +322,45 @@ def _device_to_dict(device) -> Dict[str, Any]:
     return base
 
 
+class AllDevicesView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        user_home_ids = _get_user_home_ids(user)
+
+        with get_connection() as (conn, root):
+            all_devices = []
+
+            for home_id_str, home in root["homes"].items():
+                if home.id not in user_home_ids:
+                    continue
+
+                for floor_id_str, floor in home.floors.items():
+                    for room_id_str, room in floor.rooms.items():
+                        for device_id_str, device in room.devices.items():
+                            device_dict = _device_to_dict(device)
+
+                            device_dict["home_id"] = str(home.id)
+                            device_dict["home_name"] = home.name
+                            device_dict["floor_id"] = str(floor.id)
+                            device_dict["floor_name"] = floor.name
+                            device_dict["room_id"] = str(room.id)
+                            device_dict["room_name"] = room.name
+                            all_devices.append(device_dict)
+
+            return Response(all_devices)
+
+
 class DeviceListCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, home_id, floor_id, room_id):
         user = request.user
         with get_connection() as (conn, root):
-            _, _, room = _get_home_floor_room(root, home_id, floor_id, room_id, user=user)
+            _, _, room = _get_home_floor_room(
+                root, home_id, floor_id, room_id, user=user
+            )
             devices = [d for _, d in room.devices.items()]
             data = [_device_to_dict(d) for d in devices]
             return Response(data)
@@ -298,7 +370,10 @@ class DeviceListCreateView(APIView):
         device_type = request.data.get("type")
         name = request.data.get("name")
         if not device_type or not name:
-            return Response({"detail": "'type' and 'name' are required"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "'type' and 'name' are required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         type_map = {
             "lightbulb": Lightbulb,
@@ -308,10 +383,14 @@ class DeviceListCreateView(APIView):
         }
         cls = type_map.get(str(device_type).lower())
         if not cls:
-            return Response({"detail": "Unknown device type"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "Unknown device type"}, status=status.HTTP_400_BAD_REQUEST
+            )
 
         with get_connection() as (conn, root):
-            _, _, room = _get_home_floor_room(root, home_id, floor_id, room_id, user=user)
+            _, _, room = _get_home_floor_room(
+                root, home_id, floor_id, room_id, user=user
+            )
             device = cls(name=name)
             room.devices[str(device.id)] = device
             commit()
@@ -324,7 +403,9 @@ class DeviceDetailView(APIView):
     def get(self, request, home_id, floor_id, room_id, device_id):
         user = request.user
         with get_connection() as (conn, root):
-            _, _, room = _get_home_floor_room(root, home_id, floor_id, room_id, user=user)
+            _, _, room = _get_home_floor_room(
+                root, home_id, floor_id, room_id, user=user
+            )
             device = room.devices.get(_key(device_id))
             if not device:
                 raise Http404
@@ -333,7 +414,9 @@ class DeviceDetailView(APIView):
     def delete(self, request, home_id, floor_id, room_id, device_id):
         user = request.user
         with get_connection() as (conn, root):
-            _, _, room = _get_home_floor_room(root, home_id, floor_id, room_id, user=user)
+            _, _, room = _get_home_floor_room(
+                root, home_id, floor_id, room_id, user=user
+            )
             key = _key(device_id)
             if key in room.devices:
                 del room.devices[key]
@@ -366,7 +449,13 @@ class DevicePositionView(APIView):
         with get_connection() as (conn, root):
             device, _ = _find_device_in_user_homes(root, device_id, user)
             if device:
-                return Response({"position": list(device.get_position()) if device.get_position() else None})
+                return Response(
+                    {
+                        "position": list(device.get_position())
+                        if device.get_position()
+                        else None
+                    }
+                )
             raise Http404
 
     def post(self, request, device_id):
@@ -496,5 +585,3 @@ class AirConditionerControlView(APIView):
                 commit()
                 return Response(_device_to_dict(device))
             raise Http404
-
-
