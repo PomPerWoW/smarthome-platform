@@ -2,7 +2,7 @@ from django.conf import settings
 from django.contrib.auth import login
 from rest_framework import status
 from rest_framework.authtoken.models import Token
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
@@ -10,6 +10,7 @@ from .serializers import UserLoginSerializer, UserRegistrationSerializer, UserSe
 
 
 @api_view(["POST"])
+@authentication_classes([])
 @permission_classes([AllowAny])
 def register(request):
     serializer = UserRegistrationSerializer(data=request.data)
@@ -31,6 +32,7 @@ def register(request):
 
 
 @api_view(["POST"])
+@authentication_classes([])
 @permission_classes([AllowAny])
 def login_view(request):
     serializer = UserLoginSerializer(data=request.data)
