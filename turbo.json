@@ -12,6 +12,7 @@
       "cache": false
     },
     "dev": {
+      "dependsOn": ["install"],
       "cache": false,
       "persistent": true
     },
