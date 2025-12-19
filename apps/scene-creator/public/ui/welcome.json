@@ -1,0 +1,1193 @@
+{
+  "element": {
+    "type": "container",
+    "sourceTag": "div",
+    "children": [
+      {
+        "type": "container",
+        "sourceTag": "div",
+        "children": [
+          {
+            "type": "container",
+            "sourceTag": "div",
+            "children": [
+              {
+                "sourceTag": "houseicon",
+                "type": "custom",
+                "children": [],
+                "properties": {
+                  "class": "logo-icon"
+                },
+                "dataUid": "uid-4"
+              }
+            ],
+            "properties": {},
+            "dataUid": "uid-3"
+          },
+          {
+            "sourceTag": "span",
+            "type": "custom",
+            "children": [
+              "SmartHome Platform"
+            ],
+            "properties": {
+              "class": "heading"
+            },
+            "dataUid": "uid-5"
+          }
+        ],
+        "properties": {
+          "class": "logo-section"
+        },
+        "dataUid": "uid-2"
+      },
+      {
+        "sourceTag": "span",
+        "type": "custom",
+        "children": [
+          "Control your smart home devices in augmented reality. Tap, grab, and interact with your devices in 3D space."
+        ],
+        "properties": {
+          "class": "sub-heading"
+        },
+        "dataUid": "uid-6"
+      },
+      {
+        "type": "container",
+        "sourceTag": "div",
+        "children": [
+          {
+            "type": "container",
+            "sourceTag": "div",
+            "children": [
+              {
+                "type": "container",
+                "sourceTag": "div",
+                "children": [
+                  {
+                    "sourceTag": "usericon",
+                    "type": "custom",
+                    "children": [],
+                    "properties": {
+                      "class": "info-icon"
+                    },
+                    "dataUid": "uid-10"
+                  }
+                ],
+                "properties": {},
+                "dataUid": "uid-9"
+              },
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "Loading..."
+                ],
+                "properties": {
+                  "class": "info-text",
+                  "id": "user-email"
+                },
+                "dataUid": "uid-11"
+              }
+            ],
+            "properties": {
+              "class": "info-row"
+            },
+            "dataUid": "uid-8"
+          },
+          {
+            "type": "container",
+            "sourceTag": "div",
+            "children": [
+              {
+                "type": "container",
+                "sourceTag": "div",
+                "children": [
+                  {
+                    "sourceTag": "cpuicon",
+                    "type": "custom",
+                    "children": [],
+                    "properties": {
+                      "class": "info-icon"
+                    },
+                    "dataUid": "uid-14"
+                  }
+                ],
+                "properties": {},
+                "dataUid": "uid-13"
+              },
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "Loading devices..."
+                ],
+                "properties": {
+                  "class": "info-text",
+                  "id": "device-stats"
+                },
+                "dataUid": "uid-15"
+              }
+            ],
+            "properties": {
+              "class": "info-row"
+            },
+            "dataUid": "uid-12"
+          }
+        ],
+        "properties": {
+          "class": "info-section"
+        },
+        "dataUid": "uid-7"
+      },
+      {
+        "type": "container",
+        "sourceTag": "div",
+        "children": [
+          {
+            "sourceTag": "button",
+            "type": "custom",
+            "children": [
+              {
+                "type": "container",
+                "sourceTag": "div",
+                "children": [
+                  {
+                    "type": "container",
+                    "sourceTag": "div",
+                    "children": [
+                      {
+                        "sourceTag": "glassesicon",
+                        "type": "custom",
+                        "children": [],
+                        "properties": {
+                          "class": "btn-icon"
+                        },
+                        "dataUid": "uid-20"
+                      }
+                    ],
+                    "properties": {},
+                    "dataUid": "uid-19"
+                  },
+                  {
+                    "sourceTag": "span",
+                    "type": "custom",
+                    "children": [
+                      "Enter AR"
+                    ],
+                    "properties": {
+                      "class": "btn-text"
+                    },
+                    "dataUid": "uid-21"
+                  }
+                ],
+                "properties": {
+                  "class": "button-content"
+                },
+                "dataUid": "uid-18"
+              }
+            ],
+            "properties": {
+              "class": "primary-btn",
+              "id": "xr-button"
+            },
+            "dataUid": "uid-17"
+          },
+          {
+            "type": "container",
+            "sourceTag": "div",
+            "children": [
+              {
+                "sourceTag": "button",
+                "type": "custom",
+                "children": [
+                  {
+                    "type": "container",
+                    "sourceTag": "div",
+                    "children": [
+                      {
+                        "type": "container",
+                        "sourceTag": "div",
+                        "children": [
+                          {
+                            "sourceTag": "layoutgridicon",
+                            "type": "custom",
+                            "children": [],
+                            "properties": {
+                              "class": "btn-icon"
+                            },
+                            "dataUid": "uid-26"
+                          }
+                        ],
+                        "properties": {},
+                        "dataUid": "uid-25"
+                      },
+                      {
+                        "sourceTag": "span",
+                        "type": "custom",
+                        "children": [
+                          "Devices"
+                        ],
+                        "properties": {
+                          "class": "btn-text"
+                        },
+                        "dataUid": "uid-27"
+                      }
+                    ],
+                    "properties": {
+                      "class": "button-content"
+                    },
+                    "dataUid": "uid-24"
+                  }
+                ],
+                "properties": {
+                  "class": "secondary-btn",
+                  "id": "devices-button"
+                },
+                "dataUid": "uid-23"
+              },
+              {
+                "sourceTag": "button",
+                "type": "custom",
+                "children": [
+                  {
+                    "type": "container",
+                    "sourceTag": "div",
+                    "children": [
+                      {
+                        "type": "container",
+                        "sourceTag": "div",
+                        "children": [
+                          {
+                            "sourceTag": "refreshcwicon",
+                            "type": "custom",
+                            "children": [],
+                            "properties": {
+                              "class": "btn-icon"
+                            },
+                            "dataUid": "uid-31"
+                          }
+                        ],
+                        "properties": {},
+                        "dataUid": "uid-30"
+                      },
+                      {
+                        "sourceTag": "span",
+                        "type": "custom",
+                        "children": [
+                          "Refresh"
+                        ],
+                        "properties": {
+                          "class": "btn-text"
+                        },
+                        "dataUid": "uid-32"
+                      }
+                    ],
+                    "properties": {
+                      "class": "button-content"
+                    },
+                    "dataUid": "uid-29"
+                  }
+                ],
+                "properties": {
+                  "class": "secondary-btn",
+                  "id": "refresh-button"
+                },
+                "dataUid": "uid-28"
+              }
+            ],
+            "properties": {
+              "class": "button-row"
+            },
+            "dataUid": "uid-22"
+          }
+        ],
+        "properties": {
+          "class": "button-group"
+        },
+        "dataUid": "uid-16"
+      },
+      {
+        "type": "container",
+        "sourceTag": "div",
+        "children": [
+          {
+            "type": "container",
+            "sourceTag": "div",
+            "children": [
+              {
+                "type": "container",
+                "sourceTag": "div",
+                "children": [
+                  {
+                    "sourceTag": "mousepointerclickicon",
+                    "type": "custom",
+                    "children": [],
+                    "properties": {
+                      "class": "footer-icon"
+                    },
+                    "dataUid": "uid-36"
+                  }
+                ],
+                "properties": {},
+                "dataUid": "uid-35"
+              },
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "Click to control"
+                ],
+                "properties": {
+                  "class": "footer-text"
+                },
+                "dataUid": "uid-37"
+              },
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "|"
+                ],
+                "properties": {
+                  "class": "footer-text"
+                },
+                "dataUid": "uid-38"
+              },
+              {
+                "type": "container",
+                "sourceTag": "div",
+                "children": [
+                  {
+                    "sourceTag": "gripicon",
+                    "type": "custom",
+                    "children": [],
+                    "properties": {
+                      "class": "footer-icon"
+                    },
+                    "dataUid": "uid-40"
+                  }
+                ],
+                "properties": {},
+                "dataUid": "uid-39"
+              },
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "Grab to move"
+                ],
+                "properties": {
+                  "class": "footer-text"
+                },
+                "dataUid": "uid-41"
+              }
+            ],
+            "properties": {
+              "class": "footer-row"
+            },
+            "dataUid": "uid-34"
+          }
+        ],
+        "properties": {
+          "class": "footer"
+        },
+        "dataUid": "uid-33"
+      }
+    ],
+    "properties": {
+      "class": "panel-container"
+    },
+    "dataUid": "uid-1"
+  },
+  "classes": {
+    "panel-container": {
+      "content": {
+        "alignItems": "flex-start",
+        "padding": "2",
+        "width": "50",
+        "height": "auto",
+        "display": "flex",
+        "flexDirection": "column",
+        "backgroundColor": "#09090b",
+        "borderColor": "#27272a",
+        "borderWidth": "0.15",
+        "borderRadius": 2
+      }
+    },
+    "logo-section": {
+      "content": {
+        "display": "flex",
+        "flexDirection": "row",
+        "alignItems": "center",
+        "gap": "1.5",
+        "marginBottom": "1"
+      }
+    },
+    "logo-icon": {
+      "content": {
+        "width": "5",
+        "height": "5",
+        "color": "#3b82f6"
+      }
+    },
+    "heading": {
+      "content": {
+        "fontSize": "3.5",
+        "fontWeight": "bold",
+        "color": "#fafafa",
+        "textAlign": "left"
+      }
+    },
+    "sub-heading": {
+      "content": {
+        "fontSize": "1.8",
+        "color": "#a1a1aa",
+        "textAlign": "left",
+        "marginTop": "0.5",
+        "lineHeight": "1.4"
+      }
+    },
+    "info-section": {
+      "content": {
+        "display": "flex",
+        "flexDirection": "column",
+        "gap": "1",
+        "marginTop": "2",
+        "width": "100%"
+      }
+    },
+    "info-row": {
+      "content": {
+        "display": "flex",
+        "flexDirection": "row",
+        "alignItems": "center",
+        "gap": "1",
+        "padding": "1 1.5",
+        "backgroundColor": "#18181b",
+        "borderRadius": 1,
+        "width": "100%"
+      }
+    },
+    "info-icon": {
+      "content": {
+        "width": "2",
+        "height": "2",
+        "color": "#71717a"
+      }
+    },
+    "info-text": {
+      "content": {
+        "fontSize": "1.8",
+        "color": "#a1a1aa"
+      }
+    },
+    "button-group": {
+      "content": {
+        "display": "flex",
+        "flexDirection": "column",
+        "gap": "1",
+        "marginTop": "2.5",
+        "width": "100%"
+      }
+    },
+    "button-content": {
+      "content": {
+        "display": "flex",
+        "flexDirection": "row",
+        "alignItems": "center",
+        "justifyContent": "center",
+        "gap": "1"
+      }
+    },
+    "button-row": {
+      "content": {
+        "display": "flex",
+        "flexDirection": "row",
+        "gap": "1",
+        "width": "100%"
+      }
+    },
+    "primary-btn": {
+      "content": {
+        "width": "100%",
+        "padding": "1.5",
+        "backgroundColor": "#3b82f6",
+        "borderRadius": 1,
+        "display": "flex",
+        "alignItems": "center",
+        "justifyContent": "center",
+        "cursor": "pointer"
+      }
+    },
+    "secondary-btn": {
+      "content": {
+        "flex": "1",
+        "padding": "1.2",
+        "backgroundColor": "#27272a",
+        "borderRadius": 1,
+        "display": "flex",
+        "alignItems": "center",
+        "justifyContent": "center",
+        "cursor": "pointer"
+      }
+    },
+    "btn-text": {
+      "content": {
+        "fontSize": "1.8",
+        "color": "#fafafa"
+      }
+    },
+    "btn-icon": {
+      "content": {
+        "width": "2",
+        "height": "2",
+        "color": "#fafafa"
+      }
+    },
+    "footer": {
+      "content": {
+        "marginTop": "2",
+        "paddingTop": "1.5",
+        "borderTopWidth": "0.1",
+        "borderTopColor": "#27272a",
+        "width": "100%"
+      }
+    },
+    "footer-row": {
+      "content": {
+        "display": "flex",
+        "flexDirection": "row",
+        "alignItems": "center",
+        "justifyContent": "center",
+        "gap": "0.5"
+      }
+    },
+    "footer-icon": {
+      "content": {
+        "width": "1.5",
+        "height": "1.5",
+        "color": "#52525b"
+      }
+    },
+    "footer-text": {
+      "content": {
+        "fontSize": "1.4",
+        "color": "#52525b",
+        "textAlign": "center"
+      }
+    }
+  },
+  "ranges": {
+    "panel-container": {
+      "start": {
+        "line": 1,
+        "column": 2
+      },
+      "end": {
+        "line": 1,
+        "column": 18
+      }
+    },
+    "logo-section": {
+      "start": {
+        "line": 14,
+        "column": 2
+      },
+      "end": {
+        "line": 14,
+        "column": 15
+      }
+    },
+    "logo-icon": {
+      "start": {
+        "line": 22,
+        "column": 2
+      },
+      "end": {
+        "line": 22,
+        "column": 12
+      }
+    },
+    "heading": {
+      "start": {
+        "line": 28,
+        "column": 2
+      },
+      "end": {
+        "line": 28,
+        "column": 10
+      }
+    },
+    "sub-heading": {
+      "start": {
+        "line": 35,
+        "column": 2
+      },
+      "end": {
+        "line": 35,
+        "column": 14
+      }
+    },
+    "info-section": {
+      "start": {
+        "line": 43,
+        "column": 2
+      },
+      "end": {
+        "line": 43,
+        "column": 15
+      }
+    },
+    "info-row": {
+      "start": {
+        "line": 51,
+        "column": 2
+      },
+      "end": {
+        "line": 51,
+        "column": 11
+      }
+    },
+    "info-icon": {
+      "start": {
+        "line": 62,
+        "column": 2
+      },
+      "end": {
+        "line": 62,
+        "column": 12
+      }
+    },
+    "info-text": {
+      "start": {
+        "line": 68,
+        "column": 2
+      },
+      "end": {
+        "line": 68,
+        "column": 12
+      }
+    },
+    "button-group": {
+      "start": {
+        "line": 73,
+        "column": 2
+      },
+      "end": {
+        "line": 73,
+        "column": 15
+      }
+    },
+    "button-content": {
+      "start": {
+        "line": 81,
+        "column": 2
+      },
+      "end": {
+        "line": 81,
+        "column": 17
+      }
+    },
+    "button-row": {
+      "start": {
+        "line": 89,
+        "column": 2
+      },
+      "end": {
+        "line": 89,
+        "column": 13
+      }
+    },
+    "primary-btn": {
+      "start": {
+        "line": 96,
+        "column": 2
+      },
+      "end": {
+        "line": 96,
+        "column": 14
+      }
+    },
+    "secondary-btn": {
+      "start": {
+        "line": 107,
+        "column": 2
+      },
+      "end": {
+        "line": 107,
+        "column": 16
+      }
+    },
+    "btn-text": {
+      "start": {
+        "line": 118,
+        "column": 2
+      },
+      "end": {
+        "line": 118,
+        "column": 11
+      }
+    },
+    "btn-icon": {
+      "start": {
+        "line": 123,
+        "column": 2
+      },
+      "end": {
+        "line": 123,
+        "column": 11
+      }
+    },
+    "footer": {
+      "start": {
+        "line": 129,
+        "column": 2
+      },
+      "end": {
+        "line": 129,
+        "column": 9
+      }
+    },
+    "footer-row": {
+      "start": {
+        "line": 137,
+        "column": 2
+      },
+      "end": {
+        "line": 137,
+        "column": 13
+      }
+    },
+    "footer-icon": {
+      "start": {
+        "line": 145,
+        "column": 2
+      },
+      "end": {
+        "line": 145,
+        "column": 14
+      }
+    },
+    "footer-text": {
+      "start": {
+        "line": 151,
+        "column": 2
+      },
+      "end": {
+        "line": 151,
+        "column": 14
+      }
+    },
+    "uid-1": {
+      "start": {
+        "line": 158,
+        "column": 0
+      },
+      "end": {
+        "line": 228,
+        "column": 6
+      }
+    },
+    "uid-2": {
+      "start": {
+        "line": 159,
+        "column": 2
+      },
+      "end": {
+        "line": 164,
+        "column": 8
+      }
+    },
+    "uid-3": {
+      "start": {
+        "line": 160,
+        "column": 4
+      },
+      "end": {
+        "line": 162,
+        "column": 10
+      }
+    },
+    "uid-4": {
+      "start": {
+        "line": 161,
+        "column": 6
+      },
+      "end": {
+        "line": 162,
+        "column": 4
+      }
+    },
+    "uid-5": {
+      "start": {
+        "line": 163,
+        "column": 4
+      },
+      "end": {
+        "line": 163,
+        "column": 51
+      }
+    },
+    "uid-6": {
+      "start": {
+        "line": 165,
+        "column": 2
+      },
+      "end": {
+        "line": 167,
+        "column": 9
+      }
+    },
+    "uid-7": {
+      "start": {
+        "line": 169,
+        "column": 2
+      },
+      "end": {
+        "line": 183,
+        "column": 8
+      }
+    },
+    "uid-8": {
+      "start": {
+        "line": 170,
+        "column": 4
+      },
+      "end": {
+        "line": 175,
+        "column": 10
+      }
+    },
+    "uid-9": {
+      "start": {
+        "line": 171,
+        "column": 6
+      },
+      "end": {
+        "line": 173,
+        "column": 12
+      }
+    },
+    "uid-10": {
+      "start": {
+        "line": 172,
+        "column": 8
+      },
+      "end": {
+        "line": 173,
+        "column": 6
+      }
+    },
+    "uid-11": {
+      "start": {
+        "line": 174,
+        "column": 6
+      },
+      "end": {
+        "line": 174,
+        "column": 63
+      }
+    },
+    "uid-12": {
+      "start": {
+        "line": 177,
+        "column": 4
+      },
+      "end": {
+        "line": 182,
+        "column": 10
+      }
+    },
+    "uid-13": {
+      "start": {
+        "line": 178,
+        "column": 6
+      },
+      "end": {
+        "line": 180,
+        "column": 12
+      }
+    },
+    "uid-14": {
+      "start": {
+        "line": 179,
+        "column": 8
+      },
+      "end": {
+        "line": 180,
+        "column": 6
+      }
+    },
+    "uid-15": {
+      "start": {
+        "line": 181,
+        "column": 6
+      },
+      "end": {
+        "line": 181,
+        "column": 73
+      }
+    },
+    "uid-16": {
+      "start": {
+        "line": 185,
+        "column": 2
+      },
+      "end": {
+        "line": 213,
+        "column": 8
+      }
+    },
+    "uid-17": {
+      "start": {
+        "line": 186,
+        "column": 4
+      },
+      "end": {
+        "line": 193,
+        "column": 13
+      }
+    },
+    "uid-18": {
+      "start": {
+        "line": 187,
+        "column": 6
+      },
+      "end": {
+        "line": 192,
+        "column": 12
+      }
+    },
+    "uid-19": {
+      "start": {
+        "line": 188,
+        "column": 8
+      },
+      "end": {
+        "line": 190,
+        "column": 14
+      }
+    },
+    "uid-20": {
+      "start": {
+        "line": 189,
+        "column": 10
+      },
+      "end": {
+        "line": 190,
+        "column": 8
+      }
+    },
+    "uid-21": {
+      "start": {
+        "line": 191,
+        "column": 8
+      },
+      "end": {
+        "line": 191,
+        "column": 46
+      }
+    },
+    "uid-22": {
+      "start": {
+        "line": 195,
+        "column": 4
+      },
+      "end": {
+        "line": 212,
+        "column": 10
+      }
+    },
+    "uid-23": {
+      "start": {
+        "line": 196,
+        "column": 6
+      },
+      "end": {
+        "line": 203,
+        "column": 15
+      }
+    },
+    "uid-24": {
+      "start": {
+        "line": 197,
+        "column": 8
+      },
+      "end": {
+        "line": 202,
+        "column": 14
+      }
+    },
+    "uid-25": {
+      "start": {
+        "line": 198,
+        "column": 10
+      },
+      "end": {
+        "line": 200,
+        "column": 16
+      }
+    },
+    "uid-26": {
+      "start": {
+        "line": 199,
+        "column": 12
+      },
+      "end": {
+        "line": 200,
+        "column": 10
+      }
+    },
+    "uid-27": {
+      "start": {
+        "line": 201,
+        "column": 10
+      },
+      "end": {
+        "line": 201,
+        "column": 47
+      }
+    },
+    "uid-28": {
+      "start": {
+        "line": 204,
+        "column": 6
+      },
+      "end": {
+        "line": 211,
+        "column": 15
+      }
+    },
+    "uid-29": {
+      "start": {
+        "line": 205,
+        "column": 8
+      },
+      "end": {
+        "line": 210,
+        "column": 14
+      }
+    },
+    "uid-30": {
+      "start": {
+        "line": 206,
+        "column": 10
+      },
+      "end": {
+        "line": 208,
+        "column": 16
+      }
+    },
+    "uid-31": {
+      "start": {
+        "line": 207,
+        "column": 12
+      },
+      "end": {
+        "line": 208,
+        "column": 10
+      }
+    },
+    "uid-32": {
+      "start": {
+        "line": 209,
+        "column": 10
+      },
+      "end": {
+        "line": 209,
+        "column": 47
+      }
+    },
+    "uid-33": {
+      "start": {
+        "line": 215,
+        "column": 2
+      },
+      "end": {
+        "line": 227,
+        "column": 8
+      }
+    },
+    "uid-34": {
+      "start": {
+        "line": 216,
+        "column": 4
+      },
+      "end": {
+        "line": 226,
+        "column": 10
+      }
+    },
+    "uid-35": {
+      "start": {
+        "line": 217,
+        "column": 6
+      },
+      "end": {
+        "line": 219,
+        "column": 12
+      }
+    },
+    "uid-36": {
+      "start": {
+        "line": 218,
+        "column": 8
+      },
+      "end": {
+        "line": 219,
+        "column": 6
+      }
+    },
+    "uid-37": {
+      "start": {
+        "line": 220,
+        "column": 6
+      },
+      "end": {
+        "line": 220,
+        "column": 55
+      }
+    },
+    "uid-38": {
+      "start": {
+        "line": 221,
+        "column": 6
+      },
+      "end": {
+        "line": 221,
+        "column": 40
+      }
+    },
+    "uid-39": {
+      "start": {
+        "line": 222,
+        "column": 6
+      },
+      "end": {
+        "line": 224,
+        "column": 12
+      }
+    },
+    "uid-40": {
+      "start": {
+        "line": 223,
+        "column": 8
+      },
+      "end": {
+        "line": 224,
+        "column": 6
+      }
+    },
+    "uid-41": {
+      "start": {
+        "line": 225,
+        "column": 6
+      },
+      "end": {
+        "line": 225,
+        "column": 51
+      }
+    }
+  }
+}
