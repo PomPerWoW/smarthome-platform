@@ -95,9 +95,9 @@ CORS_ALLOW_ALL_ORIGINS = DEBUG
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
-    "https://localhost:3003",
     "http://127.0.0.1:3000",
-    "https://127.0.0.1:3003",
+    "https://localhost:8081",
+    "https://127.0.0.1:8081",
 ]
 
 CORS_ALLOW_CREDENTIALS = True
@@ -124,7 +124,7 @@ CORS_ALLOW_METHODS = [
 ]
 
 # Scene Creator Configuration
-SCENE_CREATOR_URL = get_required_env("SCENE_CREATOR_URL", "https://localhost:3003")
+SCENE_CREATOR_URL = get_required_env("SCENE_CREATOR_URL", "https://localhost:8081")
 
 ROOT_URLCONF = "app.urls"
 
