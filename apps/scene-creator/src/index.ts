@@ -83,7 +83,7 @@ const assets: AssetManifest = {
 
 async function main(): Promise<void> {
   console.log("🏠 ==========================================");
-  console.log("🏠 SmartHomeAR Scene Creator starting...");
+  console.log("🏠 SmartHome Platform Scene Creator starting...");
   console.log("🏠 ==========================================");
 
   let user: { email: string } | null = null;
@@ -192,7 +192,7 @@ async function main(): Promise<void> {
     console.log("✅ Devices rendered in scene");
   }
 
-  console.log("🚀 SmartHomeAR Scene Creator ready!");
+  console.log("🚀 SmartHome Platform Scene Creator ready!");
   console.log("───────────────────────────────────");
   console.log(`   👤 User: ${user?.email}`);
   console.log(`   📱 Devices: ${store.getDeviceCount()}`);
