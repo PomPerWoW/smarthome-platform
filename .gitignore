@@ -1,61 +1,177 @@
-# Dependencies
+# ===== Dependencies =====
 node_modules/
-.pnpm-debug.log*
+.pnpm-store/
+bun.lockb
 
-# Build outputs
+# ===== Build Outputs =====
 dist/
+dist-ssr/
+build/
 *.tsbuildinfo
 
-# Environment files
+# ===== Environment Files =====
 .env
 .env.local
+.env.*.local
+.env.development
+.env.test
 .env.production
+*.local
 
-# IDE files
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Logs
+# ===== Logs =====
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+lerna-debug.log*
 
-# Runtime data
-pids
-*.pid
-*.seed
-*.pid.lock
-
-# Coverage directory used by tools like istanbul
-coverage/
-*.lcov
-
-# Temporary files
-.tmp/
-.temp/
-
-# Editor directories and files
+# ===== IDE / Editor =====
 .vscode/*
 !.vscode/extensions.json
-.idea
+!.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*~
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
 
-# Local SSL certificates (auto-generated)
-.cert/
+# ===== OS Files =====
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 
-# Meta Spatial Editor exports
+# ===== Python / Django =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+*.manifest
+*.spec
+pip-log.txt
+pip-delete-this-directory.txt
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+*.mo
+*.pot
+db.sqlite3
+db.sqlite3-journal
+instance/
+.webassets-cache
+.scrapy
+docs/_build/
+.ipynb_checkpoints
+profile_default/
+ipython_config.py
+.python-version
+__pypackages__/
+celerybeat-schedule
+celerybeat.pid
+*.sage.py
+.venv/
+venv/
+ENV/
+env/
+env.bak/
+venv.bak/
+.spyderproject
+.spyproject
+.ropeproject
+/site
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+media/
+staticfiles/
+
+# ===== Nx / Turborepo =====
+.nx/
+.turbo/
+
+# ===== Coverage =====
+coverage/
+*.lcov
+.nyc_output/
+
+# ===== Runtime =====
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# ===== Temporary =====
+tmp/
+temp/
+.tmp/
+.temp/
+
+# ===== Database =====
+*.sql
+*.dump
+pg_log/
+*.backup
+*.bak
+
+# ===== Generated Files =====
+# TanStack Router
+**/routeTree.gen.ts
+
+# Meta Spatial Editor
 public/gltf/generated/
 public/glxf/
 public/ui/
+
+# ZODB
+data/
+*.fs
+*.fs.index
+*.fs.lock
+*.fs.tmp
+
+# ===== Misc =====
+.cache/
+.parcel-cache/
+.next/
+.nuxt/
+.vuepress/dist
+.serverless/
+.fusebox/
+.dynamodb/
+.tern-port
+.vscode-test/
+.cert/
