@@ -7,16 +7,6 @@ export const DEVICE_SCALES: Record<DeviceType, number> = {
   [DeviceType.AirConditioner]: 0.2,
 };
 
-export const DEFAULT_SPAWN_POSITIONS: Record<
-  DeviceType,
-  [number, number, number]
-> = {
-  [DeviceType.Lightbulb]: [-0.5, 1.5, -1],
-  [DeviceType.Television]: [0.5, 1.2, -1.5],
-  [DeviceType.Fan]: [-0.8, 0.8, -1],
-  [DeviceType.AirConditioner]: [0.8, 1.8, -1],
-};
-
 export const DEVICE_ICONS: Record<DeviceType, string> = {
   [DeviceType.Lightbulb]: "💡",
   [DeviceType.Television]: "📺",
@@ -57,3 +47,10 @@ export const TV_CHANNEL_MIN = 1;
 export const LIGHTBULB_BRIGHTNESS_MIN = 0;
 export const LIGHTBULB_BRIGHTNESS_MAX = 100;
 export const LIGHTBULB_BRIGHTNESS_STEP = 10;
+
+export const DEVICE_ASSET_KEYS: Record<DeviceType, string> = {
+  [DeviceType.Lightbulb]: "lightbulb",
+  [DeviceType.Television]: "television",
+  [DeviceType.Fan]: "fan",
+  [DeviceType.AirConditioner]: "air_conditioner",
+};

@@ -2,11 +2,7 @@ import {
   createSystem,
   Entity,
   Interactable,
-  OneHandGrabbable,
   Object3D,
-  Mesh,
-  MeshStandardMaterial,
-  Color,
   Box3,
   Vector3,
   AssetManager,
@@ -15,27 +11,19 @@ import {
 } from "@iwsdk/core";
 
 import { deviceStore, getStore } from "../store/DeviceStore";
-import { Device, DeviceType } from "../types";
+import { Device, DeviceType, DeviceRecord } from "../types";
 import { DeviceComponent } from "../components/DeviceComponent";
-import { stringifyDeviceProperties, getDeviceProperties } from "../utils";
-import { DEVICE_SCALES, DEFAULT_SPAWN_POSITIONS } from "../constants";
-
-const DEVICE_ASSET_KEYS: Record<DeviceType, string> = {
-  [DeviceType.Lightbulb]: "lightbulb",
-  [DeviceType.Television]: "television",
-  [DeviceType.Fan]: "fan",
-  [DeviceType.AirConditioner]: "air_conditioner",
-};
+import { BaseDevice, DeviceFactory } from "../entities";
+import { DEVICE_ASSET_KEYS } from "../constants";
 
 export class DeviceRendererSystem extends createSystem({
   devices: {
     required: [DeviceComponent],
   },
 }) {
-  private deviceEntities: Map<string, Entity> = new Map();
+  private deviceRecords: Map<string, DeviceRecord> = new Map();
   private modelCache: Map<DeviceType, Object3D> = new Map();
   private initialized = false;
-  private spawnIndex = 0;
   private unsubscribe?: () => void;
 
   init() {
@@ -68,7 +56,7 @@ export class DeviceRendererSystem extends createSystem({
 
     this.initialized = true;
     console.log(
-      `[DeviceRenderer] Initialized ${this.deviceEntities.size} device entities`,
+      `[DeviceRenderer] Initialized ${this.deviceRecords.size} device entities`,
     );
   }
 
@@ -104,43 +92,28 @@ export class DeviceRendererSystem extends createSystem({
     }
   }
 
-  private createDeviceEntity(device: Device): Entity | null {
-    const cachedModel = this.getModelFromAssetManager(device.type);
+  private createDeviceEntity(data: Device): DeviceRecord | null {
+    const device = DeviceFactory.create(data);
+
+    const cachedModel = this.getModelFromAssetManager(data.type);
     if (!cachedModel) {
-      console.warn(`[DeviceRenderer] No model available for ${device.type}`);
+      console.error(`[DeviceRenderer] No model available for ${data.type}`);
       return null;
     }
 
     const model = cachedModel.clone();
-    const scale = DEVICE_SCALES[device.type];
-    model.scale.setScalar(scale);
-
-    if (device.position && device.position[0] !== null) {
-      model.position.set(
-        device.position[0],
-        device.position[1],
-        device.position[2],
-      );
-    } else {
-      const defaultPos = DEFAULT_SPAWN_POSITIONS[device.type];
-      const offset = this.spawnIndex * 0.3;
-      model.position.set(
-        defaultPos[0] + offset,
-        defaultPos[1],
-        defaultPos[2] - (this.spawnIndex % 3) * 0.2,
-      );
-      this.spawnIndex++;
-    }
+    model.scale.setScalar(device.getScale());
+    model.position.set(data.position[0], data.position[1], data.position[2]);
 
     this.world.scene.add(model);
 
     const entity = this.world.createTransformEntity(model);
 
     entity.addComponent(DeviceComponent, {
-      deviceId: device.id,
-      deviceType: device.type,
-      isOn: device.is_on,
-      properties: stringifyDeviceProperties(getDeviceProperties(device)),
+      deviceId: data.id,
+      deviceType: data.type,
+      isOn: data.is_on,
+      properties: JSON.stringify(device.getProperties()),
     });
 
     entity.addComponent(Interactable);
@@ -148,86 +121,69 @@ export class DeviceRendererSystem extends createSystem({
       movementMode: MovementMode.MoveFromTarget,
     });
 
-    this.updateDeviceVisuals(model, device);
-    this.deviceEntities.set(device.id, entity);
+    device.updateVisuals(model);
+
+    const record: DeviceRecord = { entity, device };
+    this.deviceRecords.set(data.id, record);
 
     console.log(
-      `[DeviceRenderer] Created entity for ${device.name} (${device.type})`,
+      `[DeviceRenderer] Created entity for ${data.name} (${data.type})`,
     );
-    return entity;
-  }
-
-  private updateDeviceVisuals(object3D: Object3D, device: Device): void {
-    object3D.traverse((child) => {
-      if (child instanceof Mesh) {
-        const material = child.material;
-
-        if (material instanceof MeshStandardMaterial) {
-          if (!device.is_on) {
-            material.emissiveIntensity = 0;
-            material.opacity = 0.5;
-            material.transparent = true;
-          } else {
-            material.opacity = 1;
-            material.transparent = false;
-
-            // Only apply emissive color to the "bulb" material of lightbulb models
-            if (
-              device.type === DeviceType.Lightbulb &&
-              material.name === "bulb"
-            ) {
-              const colour = device.colour || "#ffffff";
-              const brightness = device.brightness || 0;
-
-              material.emissive = new Color(colour);
-              material.emissiveIntensity = (brightness / 100) * 0.5;
-            }
-          }
-        }
-      }
-    });
+    return record;
   }
 
   private syncDevicesWithScene(devices: Device[]): void {
     const currentIds = new Set(devices.map((d) => d.id));
 
-    for (const [id, entity] of this.deviceEntities) {
+    // Remove deleted devices
+    for (const [id, record] of this.deviceRecords) {
       if (!currentIds.has(id)) {
         console.log(`[DeviceRenderer] Removing deleted device: ${id}`);
-        const obj = entity.object3D;
+        const obj = record.entity.object3D;
         if (obj?.parent) {
           obj.parent.remove(obj);
         }
-        entity.destroy();
-        this.deviceEntities.delete(id);
+        record.entity.destroy();
+        this.deviceRecords.delete(id);
       }
     }
 
-    for (const device of devices) {
-      const existing = this.deviceEntities.get(device.id);
+    // Update or create devices
+    for (const data of devices) {
+      const existing = this.deviceRecords.get(data.id);
       if (existing) {
-        this.updateDeviceEntity(existing, device);
+        this.updateDeviceEntity(existing, data);
       } else {
-        this.createDeviceEntity(device);
+        this.createDeviceEntity(data);
       }
     }
   }
 
-  private updateDeviceEntity(entity: Entity, device: Device): void {
-    entity.setValue(DeviceComponent, "isOn", device.is_on);
-    entity.setValue(
+  private updateDeviceEntity(record: DeviceRecord, data: Device): void {
+    DeviceFactory.update(record.device, data);
+
+    record.entity.setValue(DeviceComponent, "isOn", data.is_on);
+    record.entity.setValue(
       DeviceComponent,
       "properties",
-      stringifyDeviceProperties(getDeviceProperties(device)),
+      JSON.stringify(record.device.getProperties()),
     );
 
-    if (entity.object3D) {
-      this.updateDeviceVisuals(entity.object3D, device);
+    if (record.entity.object3D) {
+      record.device.updateVisuals(record.entity.object3D);
     }
   }
 
-  getEntityForDevice(deviceId: string): Entity | undefined {
-    return this.deviceEntities.get(deviceId);
+  getDevice(deviceId: string): BaseDevice | undefined {
+    return this.deviceRecords.get(deviceId)?.device;
+  }
+
+  getEntity(deviceId: string): Entity | undefined {
+    return this.deviceRecords.get(deviceId)?.entity;
+  }
+
+  getRecord(deviceId: string): DeviceRecord | undefined {
+    return this.deviceRecords.get(deviceId);
   }
 
   getDeviceIdFromEntity(entity: Entity): string | null {
@@ -239,10 +195,10 @@ export class DeviceRendererSystem extends createSystem({
   }
 
   async saveDevicePosition(deviceId: string): Promise<void> {
-    const entity = this.deviceEntities.get(deviceId);
-    if (!entity?.object3D) return;
+    const record = this.deviceRecords.get(deviceId);
+    if (!record?.entity.object3D) return;
 
-    const pos = entity.object3D.position;
+    const pos = record.entity.object3D.position;
     console.log(
       `[DeviceRenderer] Saving position for ${deviceId}:`,
       pos.toArray(),
@@ -251,25 +207,17 @@ export class DeviceRendererSystem extends createSystem({
     await getStore().updateDevicePosition(deviceId, pos.x, pos.y, pos.z);
   }
 
-  focusOnDevice(deviceId: string): void {
-    const entity = this.deviceEntities.get(deviceId);
-    if (!entity?.object3D) return;
-
-    const pos = entity.object3D.position;
-    console.log(`[DeviceRenderer] Focus on device at:`, pos.toArray());
-  }
-
   update(dt: number): void {}
 
   destroy(): void {
     this.unsubscribe?.();
-    for (const [id, entity] of this.deviceEntities) {
-      const obj = entity.object3D;
+    for (const [id, record] of this.deviceRecords) {
+      const obj = record.entity.object3D;
       if (obj?.parent) {
         obj.parent.remove(obj);
       }
     }
-    this.deviceEntities.clear();
+    this.deviceRecords.clear();
     this.modelCache.clear();
     console.log("[DeviceRenderer] System destroyed");
   }
