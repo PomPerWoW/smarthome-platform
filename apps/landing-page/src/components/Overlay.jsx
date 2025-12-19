@@ -1,8 +1,9 @@
-const REFLEX_URL = import.meta.env.VITE_REFLEX_URL || "http://localhost:3000";
+const FRONTEND_URL =
+  import.meta.env.VITE_FRONTEND_URL || "http://localhost:5173";
 
 export function Overlay({ hoveredDevice, mousePosition }) {
   const handleNavigation = (path) => {
-    window.location.href = `${REFLEX_URL}${path}`;
+    window.location.href = `${FRONTEND_URL}${path}`;
   };
 
   const getTooltipStyle = () => {

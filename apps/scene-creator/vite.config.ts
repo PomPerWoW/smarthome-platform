@@ -40,7 +40,11 @@ export default defineConfig({
   publicDir: "public",
   base: "./",
   define: {
-    "process.env.API_URL": JSON.stringify(process.env.API_URL || "http://127.0.0.1:5500"),
-    "process.env.DASHBOARD_URL": JSON.stringify(process.env.DASHBOARD_URL || "http://localhost:3000"),
+    "process.env.VITE_BACKEND_URL": JSON.stringify(
+      process.env.VITE_BACKEND_URL || "http://127.0.0.1:5500",
+    ),
+    "process.env.VITE_FRONTEND_URL": JSON.stringify(
+      process.env.VITE_FRONTEND_URL || "http://localhost:5173",
+    ),
   },
 });

@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     allowedHosts: ["turing.se.kmitl.ac.th"],
-    port: 5173,
+    port: 5174,
     host: true,
   },
 });
