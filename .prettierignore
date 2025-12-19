@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+
+# Generated files
+**/routeTree.gen.ts
+
+# Lock files
+package-lock.json
+bun.lockb
+pnpm-lock.yaml
+
+# Python
+apps/backend/
+__pycache__/
+*.pyc
