@@ -161,7 +161,7 @@
     <div>
       <HouseIcon class="logo-icon" />
     </div>
-    <span class="heading">SmartHomeAR</span>
+    <span class="heading">SmartHome Platform</span>
   </div>
   <span class="sub-heading">
     Control your smart home devices in augmented reality. Tap, grab, and interact with your devices in 3D space.
