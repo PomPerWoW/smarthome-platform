@@ -9,7 +9,7 @@ export const Route = createRootRoute({
 
 function RootLayout() {
   return (
-    <ThemeProvider defaultTheme="dark" storageKey="smarthomear-theme">
+    <ThemeProvider defaultTheme="dark" storageKey="smarthome-theme">
       {/* Header */}
       <header className="fixed top-0 right-0 z-50 p-4">
         <ModeToggle />
