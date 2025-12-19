@@ -1,0 +1,103 @@
+# ============================================================================
+# SmartHome Platform Production Docker Compose Configuration
+# ============================================================================
+# Usage: docker-compose -f docker-compose.production.yml --env-file .env.production up -d
+# ============================================================================
+
+version: "3.8"
+
+services:
+  db:
+    image: postgis/postgis:17-3.5-alpine
+    container_name: smarthome_postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${DB_EXTERNAL_PORT}:5432"
+    networks:
+      - smarthome_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile
+    container_name: smarthome_backend
+    command: gunicorn app.wsgi:application --bind 0.0.0.0:5500 --workers 4 --timeout 120
+    volumes:
+      - ./apps/backend:/app
+      - backend_static:/app/staticfiles
+      - backend_media:/app/media
+    ports:
+      - "${BACKEND_PORT}:5500"
+    networks:
+      - smarthome_network
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "${BACKEND_URL}/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build:
+      context: ./apps/frontend
+      dockerfile: Dockerfile
+    container_name: smarthome_frontend
+    ports:
+      - "${FRONTEND_PORT}:3000"
+      - "${FRONTEND_BACKEND_PORT}:8000"
+    networks:
+      - smarthome_network
+    depends_on:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "${FRONTEND_URL}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  landing-page:
+    build:
+      context: ./apps/landing-page
+      dockerfile: Dockerfile
+    container_name: smarthome_landing
+    ports:
+      - "${LANDING_PAGE_PORT}:5173"
+    networks:
+      - smarthome_network
+    restart: unless-stopped
+
+  scene-creator:
+    build:
+      context: ./apps/scene-creator
+      dockerfile: Dockerfile
+    container_name: smarthome_scene_creator
+    ports:
+      - "${SCENE_CREATOR_PORT}:80"
+    networks:
+      - smarthome_network
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  backend_static:
+    driver: local
+  backend_media:
+    driver: local
+
+networks:
+  smarthome_network:
+    driver: bridge

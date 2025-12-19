@@ -1,0 +1,90 @@
+services:
+  db:
+    image: postgis/postgis:17-3.6-alpine
+    platform: linux/amd64
+    container_name: smarthome_db
+    env_file:
+      - .env
+    ports:
+      - "${DB_EXTERNAL_PORT}:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d smarthome_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - smarthome-network
+
+  backend:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile
+    container_name: smarthome-backend
+    ports:
+      - "${BACKEND_PORT}:5500"
+    volumes:
+      - ./apps/backend:/app
+      - backend-data:/app/data
+    networks:
+      - smarthome-network
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./apps/frontend
+      dockerfile: Dockerfile
+    container_name: smarthome-frontend
+    ports:
+      - "${FRONTEND_PORT}:3000"
+      - "${FRONTEND_BACKEND_PORT}:8000"
+    env_file:
+      - .env
+    networks:
+      - smarthome-network
+    depends_on:
+      - backend
+
+  landing-page:
+    build:
+      context: ./apps/landing-page
+      dockerfile: Dockerfile
+    container_name: smarthome-landing
+    ports:
+      - "${LANDING_PAGE_PORT}:5173"
+    env_file:
+      - .env
+    networks:
+      - smarthome-network
+    depends_on:
+      - frontend
+
+  scene-creator:
+    build:
+      context: ./apps/scene-creator
+      dockerfile: Dockerfile
+    container_name: smarthome-scene-creator
+    env_file:
+      - .env
+    ports:
+      - "${SCENE_CREATOR_PORT}:80"
+    networks:
+      - smarthome-network
+    depends_on:
+      - backend
+
+volumes:
+  backend-data:
+    name: smarthome-backend-data
+  db_data:
+    name: smarthome-db-data
+
+networks:
+  smarthome-network:
+    driver: bridge
+    name: smarthome-network
