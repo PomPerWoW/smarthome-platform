@@ -5,13 +5,26 @@
       "dependsOn": ["^build"],
       "outputs": ["dist/**", "build/**", "staticfiles/**"]
     },
+    "install": {
+      "cache": false
+    },
+    "migrate": {
+      "cache": false
+    },
     "dev": {
       "cache": false,
       "persistent": true
     },
+    "@smarthome/backend#migrate": {
+      "dependsOn": ["@smarthome/backend#install"],
+      "cache": false
+    },
+    "@smarthome/backend#dev": {
+      "dependsOn": ["@smarthome/backend#migrate"],
+      "cache": false,
+      "persistent": true
+    },
     "lint": {},
-    "test": {},
-    "migrate": {},
-    "makemigrations": {}
+    "test": {}
   }
 }

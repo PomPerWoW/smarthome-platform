@@ -2,11 +2,12 @@
   "name": "@smarthome/backend",
   "private": true,
   "scripts": {
+    "install": "poetry install",
     "dev": "poetry run python manage.py runserver 0.0.0.0:5500",
     "migrate": "poetry run python manage.py migrate",
     "makemigrations": "poetry run python manage.py makemigrations",
     "shell": "poetry run python manage.py shell",
-    "lint": "ruff check . || echo 'ruff not installed'",
-    "test": "pytest || echo 'pytest not installed'"
+    "lint": "poetry run ruff check . || echo 'ruff not installed'",
+    "test": "poetry run pytest || echo 'pytest not installed'"
   }
 }
