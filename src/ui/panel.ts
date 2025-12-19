@@ -8,8 +8,8 @@ import {
   UIKit,
 } from "@iwsdk/core";
 
-import { getStore, deviceStore } from "./store/DeviceStore";
-import { getAuth } from "./api/auth";
+import { deviceStore, getStore } from "../store/DeviceStore";
+import { getAuth } from "../api/auth";
 
 export class PanelSystem extends createSystem({
   welcomePanel: {
