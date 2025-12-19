@@ -14,7 +14,6 @@ export const COLORS = {
 
 // Interaction constants
 export const DOUBLE_CLICK_THRESHOLD_MS = 300;
-export const HOVER_SCALE_FACTOR = 1.05;
 export const POSITION_CHANGE_THRESHOLD = 0.01;
 export const CLICK_TIMEOUT_MS = 1000;
 
