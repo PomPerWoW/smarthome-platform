@@ -11,7 +11,6 @@ import { DeviceComponent } from "../components/DeviceComponent";
 import { DeviceRendererSystem } from "./DeviceRendererSystem";
 import {
   DOUBLE_CLICK_THRESHOLD_MS,
-  HOVER_SCALE_FACTOR,
   POSITION_CHANGE_THRESHOLD,
   CLICK_TIMEOUT_MS,
 } from "../constants";
@@ -96,12 +95,12 @@ export class DeviceInteractionSystem extends createSystem({
 
   private handleHoverStart(deviceId: string, entity: Entity): void {
     const obj = entity.object3D;
-    obj?.scale.multiplyScalar(HOVER_SCALE_FACTOR);
+    // obj?.scale.multiplyScalar(HOVER_SCALE_FACTOR);
   }
 
   private handleHoverEnd(deviceId: string, entity: Entity): void {
     const obj = entity.object3D;
-    obj?.scale.multiplyScalar(1 / HOVER_SCALE_FACTOR);
+    // obj?.scale.multiplyScalar(1 / HOVER_SCALE_FACTOR);
   }
 
   onGrabStart(deviceId: string, entity: Entity): void {
