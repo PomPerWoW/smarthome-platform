@@ -10,7 +10,7 @@ export interface DeviceBase {
   name: string;
   type: DeviceType;
   is_on: boolean;
-  position: [number, number, number] | null;
+  position: [number, number, number];
   home_id: string;
   home_name: string;
   floor_id: string;
