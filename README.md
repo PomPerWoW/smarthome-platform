@@ -20,6 +20,7 @@ cd smarthome-platform
 
 # Install dependencies
 bun install
+bun install turbo --global (if bun run dev is not working)
 
 # Copy environment files
 cp apps/frontend/.env.example apps/frontend/.env
@@ -29,9 +30,6 @@ cp apps/backend/.env.example apps/backend/.env
 
 # Start database (Docker)
 cd apps/backend && docker compose up --build -d && cd ../..
-
-# Clear database and build fresh
-docker compose down -v && docker compose up --build -d
 
 # Run all apps
 bun run dev
@@ -63,6 +61,42 @@ bun run makemigrations --filter=@smarthome/backend
 | Scene Creator | 8081 | https://localhost:8081 |
 | Backend       | 5500 | http://localhost:5500  |
 | PostgreSQL    | 5432 | -                      |
+
+## ⚡ Turborepo
+
+This monorepo uses [Turborepo](https://turborepo.com/) for task orchestration.
+
+### Direct Turbo Commands
+
+```bash
+# Make sure to install turbo first
+bun install turbo --global
+
+# Run all dev servers
+turbo dev
+
+# Run specific app
+turbo dev --filter=@smarthome/frontend
+
+# Run multiple apps
+turbo dev --filter=@smarthome/frontend --filter=@smarthome/landing-page
+
+# Exclude an app
+turbo dev --filter='!@smarthome/backend'
+
+# Build all
+turbo build
+```
+
+### Task Dependencies
+
+```
+@smarthome/backend:
+  install → migrate → dev
+
+@smarthome/frontend, landing-page, scene-creator:
+  install → dev
+```
 
 ## 🐳 Docker
 
