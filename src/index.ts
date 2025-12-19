@@ -20,7 +20,7 @@ import { getStore, deviceStore } from "./store/DeviceStore";
 import { DeviceComponent } from "./components/DeviceComponent";
 import { DeviceRendererSystem } from "./systems/DeviceRendererSystem";
 import { DeviceInteractionSystem } from "./systems/DeviceInteractionSystem";
-import { PanelSystem } from "./panel";
+import { PanelSystem } from "./ui/panel";
 import { DeviceType, Lightbulb } from "./types";
 
 import * as LucideIconsKit from "@pmndrs/uikit-lucide";
