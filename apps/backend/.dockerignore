@@ -1,0 +1,10 @@
+# Ignore local artifacts
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.log
+*.sqlite3
+.env
+db_data/
+database/
