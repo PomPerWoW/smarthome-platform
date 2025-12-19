@@ -1,8 +1,9 @@
-# SmartHomeAR Backend API Documentation
+# SmartHome Platform Backend API Documentation
 
 **Base URL:** `http://127.0.0.1:5500`
 
 ## Table of Contents
+
 1. [Authentication](#authentication)
 2. [Home Management](#home-management)
 3. [Floor Management](#floor-management)
@@ -16,16 +17,19 @@
 ## Authentication
 
 All authenticated endpoints support three authentication methods:
+
 1. **Token Header**: `Authorization: Token your_auth_token_here` (recommended)
 2. **Cookie**: `auth_token` cookie set by login endpoint (for cross-origin)
 3. **URL Parameter**: `?token=your_auth_token_here` (for initial XR access)
 
 ### Base URL
+
 ```
 http://127.0.0.1:5500/api/auth/
 ```
 
 All endpoints except authentication require a token in the header:
+
 ```
 Authorization: Token your_auth_token_here
 ```
@@ -37,39 +41,43 @@ Authorization: Token your_auth_token_here
 **Description:** Register a new user account
 
 **Request Body:**
+
 ```json
 {
-    "email": "user@example.com",
-    "password": "your_password",
-    "password_confirm": "your_password"
+  "email": "user@example.com",
+  "password": "your_password",
+  "password_confirm": "your_password"
 }
 ```
 
 **Response (201 Created):**
+
 ```json
 {
-    "message": "User registered successfully",
-    "user": {
-        "id": 1,
-        "email": "user@example.com",
-        "first_name": "",
-        "last_name": "",
-        "date_joined": "2024-01-01T12:00:00Z"
-    },
-    "token": "your_auth_token_here"
+  "message": "User registered successfully",
+  "user": {
+    "id": 1,
+    "email": "user@example.com",
+    "first_name": "",
+    "last_name": "",
+    "date_joined": "2024-01-01T12:00:00Z"
+  },
+  "token": "your_auth_token_here"
 }
 ```
 
 **Error Response (400 Bad Request):**
+
 ```json
 {
-    "email": ["A user with this email already exists."],
-    "password": ["This field is required."],
-    "password_confirm": ["Passwords don't match."]
+  "email": ["A user with this email already exists."],
+  "password": ["This field is required."],
+  "password_confirm": ["Passwords don't match."]
 }
 ```
 
 **Example:**
+
 ```bash
 curl -X POST http://127.0.0.1:5500/api/auth/register/ \
   -H "Content-Type: application/json" \
@@ -87,41 +95,46 @@ curl -X POST http://127.0.0.1:5500/api/auth/register/ \
 **Description:** Authenticate a user and return an auth token. Also sets an `auth_token` cookie for cross-origin authentication (scene creator, etc.)
 
 **Request Body:**
+
 ```json
 {
-    "email": "user@example.com",
-    "password": "your_password"
+  "email": "user@example.com",
+  "password": "your_password"
 }
 ```
 
 **Response (200 OK):**
+
 ```json
 {
-    "message": "Login successful",
-    "user": {
-        "id": 1,
-        "email": "user@example.com",
-        "first_name": "",
-        "last_name": "",
-        "date_joined": "2024-01-01T12:00:00Z"
-    },
-    "token": "your_auth_token_here"
+  "message": "Login successful",
+  "user": {
+    "id": 1,
+    "email": "user@example.com",
+    "first_name": "",
+    "last_name": "",
+    "date_joined": "2024-01-01T12:00:00Z"
+  },
+  "token": "your_auth_token_here"
 }
 ```
 
 **Response Headers:**
+
 ```
 Set-Cookie: auth_token=your_auth_token_here; Max-Age=604800; Path=/; SameSite=None
 ```
 
 **Error Response (400 Bad Request):**
+
 ```json
 {
-    "non_field_errors": ["Invalid credentials."]
+  "non_field_errors": ["Invalid credentials."]
 }
 ```
 
 **Example:**
+
 ```bash
 curl -X POST http://127.0.0.1:5500/api/auth/login/ \
   -H "Content-Type: application/json" \
@@ -141,28 +154,31 @@ curl -X POST http://127.0.0.1:5500/api/auth/login/ \
 **Authentication:** Required
 
 **Response (200 OK):**
+
 ```json
 {
-    "authenticated": true,
-    "user": {
-        "id": 1,
-        "email": "user@example.com",
-        "first_name": "",
-        "last_name": "",
-        "date_joined": "2024-01-01T12:00:00Z"
-    },
-    "token": "your_auth_token_here"
+  "authenticated": true,
+  "user": {
+    "id": 1,
+    "email": "user@example.com",
+    "first_name": "",
+    "last_name": "",
+    "date_joined": "2024-01-01T12:00:00Z"
+  },
+  "token": "your_auth_token_here"
 }
 ```
 
 **Error Response (401 Unauthorized):**
+
 ```json
 {
-    "detail": "Authentication credentials were not provided."
+  "detail": "Authentication credentials were not provided."
 }
 ```
 
 **Example:**
+
 ```bash
 curl -X GET http://127.0.0.1:5500/api/auth/whoami/ \
   -H "Authorization: Token your_auth_token_here"
@@ -177,18 +193,20 @@ curl -X GET http://127.0.0.1:5500/api/auth/whoami/ \
 **Authentication:** Required
 
 **Response (200 OK):**
+
 ```json
 {
-    "scene_creator_url": "https://localhost:3003/?token=your_auth_token_here",
-    "instructions": [
-        "Open this URL on your XR device (Meta Quest, etc.)",
-        "The token is embedded in the URL for authentication",
-        "Bookmark this URL for easy access"
-    ]
+  "scene_creator_url": "https://localhost:3003/?token=your_auth_token_here",
+  "instructions": [
+    "Open this URL on your XR device (Meta Quest, etc.)",
+    "The token is embedded in the URL for authentication",
+    "Bookmark this URL for easy access"
+  ]
 }
 ```
 
 **Example:**
+
 ```bash
 curl -X GET http://127.0.0.1:5500/api/auth/scene-creator-url/ \
   -H "Authorization: Token your_auth_token_here"
@@ -199,6 +217,7 @@ curl -X GET http://127.0.0.1:5500/api/auth/scene-creator-url/ \
 ## Home Management
 
 ### Base URL
+
 ```
 http://127.0.0.1:5500/api/home/
 ```
@@ -212,40 +231,42 @@ http://127.0.0.1:5500/api/home/
 **Authentication:** Required
 
 **Response (200 OK):**
+
 ```json
 [
-    {
-        "id": "123e4567-e89b-12d3-a456-426614174000",
-        "name": "My Home",
-        "floors": [
-            {
-                "id": "223e4567-e89b-12d3-a456-426614174000",
-                "name": "First Floor",
-                "number": 1,
-                "rooms": [
-                    {
-                        "id": "323e4567-e89b-12d3-a456-426614174000",
-                        "name": "Living Room",
-                        "devices": [
-                            {
-                                "id": "423e4567-e89b-12d3-a456-426614174000",
-                                "name": "Ceiling Light",
-                                "type": "lightbulb",
-                                "is_on": true,
-                                "position": [0.0, 1.5, 0.0],
-                                "brightness": 80,
-                                "colour": "white"
-                            }
-                        ]
-                    }
-                ]
-            }
+  {
+    "id": "123e4567-e89b-12d3-a456-426614174000",
+    "name": "My Home",
+    "floors": [
+      {
+        "id": "223e4567-e89b-12d3-a456-426614174000",
+        "name": "First Floor",
+        "number": 1,
+        "rooms": [
+          {
+            "id": "323e4567-e89b-12d3-a456-426614174000",
+            "name": "Living Room",
+            "devices": [
+              {
+                "id": "423e4567-e89b-12d3-a456-426614174000",
+                "name": "Ceiling Light",
+                "type": "lightbulb",
+                "is_on": true,
+                "position": [0.0, 1.5, 0.0],
+                "brightness": 80,
+                "colour": "white"
+              }
+            ]
+          }
         ]
-    }
+      }
+    ]
+  }
 ]
 ```
 
 **Example:**
+
 ```bash
 curl -X GET http://127.0.0.1:5500/api/home/homes/all/ \
   -H "Authorization: Token your_auth_token_here"
@@ -260,20 +281,22 @@ curl -X GET http://127.0.0.1:5500/api/home/homes/all/ \
 **Authentication:** Required
 
 **Response (200 OK):**
+
 ```json
 [
-    {
-        "id": "123e4567-e89b-12d3-a456-426614174000",
-        "name": "My Home"
-    },
-    {
-        "id": "223e4567-e89b-12d3-a456-426614174000",
-        "name": "Office"
-    }
+  {
+    "id": "123e4567-e89b-12d3-a456-426614174000",
+    "name": "My Home"
+  },
+  {
+    "id": "223e4567-e89b-12d3-a456-426614174000",
+    "name": "Office"
+  }
 ]
 ```
 
 **Example:**
+
 ```bash
 curl -X GET http://127.0.0.1:5500/api/home/homes/ \
   -H "Authorization: Token your_auth_token_here"
@@ -288,21 +311,24 @@ curl -X GET http://127.0.0.1:5500/api/home/homes/ \
 **Authentication:** Required
 
 **Request Body:**
+
 ```json
 {
-    "name": "My New Home"
+  "name": "My New Home"
 }
 ```
 
 **Response (201 Created):**
+
 ```json
 {
-    "id": "123e4567-e89b-12d3-a456-426614174000",
-    "name": "My New Home"
+  "id": "123e4567-e89b-12d3-a456-426614174000",
+  "name": "My New Home"
 }
 ```
 
 **Example:**
+
 ```bash
 curl -X POST http://127.0.0.1:5500/api/home/homes/ \
   -H "Authorization: Token your_auth_token_here" \
@@ -319,17 +345,20 @@ curl -X POST http://127.0.0.1:5500/api/home/homes/ \
 **Authentication:** Required
 
 **Parameters:**
+
 - `home_id` (UUID): Home ID
 
 **Response (200 OK):**
+
 ```json
 {
-    "id": "123e4567-e89b-12d3-a456-426614174000",
-    "name": "My Home"
+  "id": "123e4567-e89b-12d3-a456-426614174000",
+  "name": "My Home"
 }
 ```
 
 **Example:**
+
 ```bash
 curl -X GET http://127.0.0.1:5500/api/home/homes/123e4567-e89b-12d3-a456-426614174000/ \
   -H "Authorization: Token your_auth_token_here"
@@ -344,14 +373,17 @@ curl -X GET http://127.0.0.1:5500/api/home/homes/123e4567-e89b-12d3-a456-4266141
 **Authentication:** Required
 
 **Parameters:**
+
 - `home_id` (UUID): Home ID
 
 **Response (204 No Content):**
+
 ```
 (No content)
 ```
 
 **Example:**
+
 ```bash
 curl -X DELETE http://127.0.0.1:5500/api/home/homes/123e4567-e89b-12d3-a456-426614174000/ \
   -H "Authorization: Token your_auth_token_here"
@@ -370,25 +402,28 @@ curl -X DELETE http://127.0.0.1:5500/api/home/homes/123e4567-e89b-12d3-a456-4266
 **Authentication:** Required
 
 **Parameters:**
+
 - `home_id` (UUID): Home ID
 
 **Response (200 OK):**
+
 ```json
 [
-    {
-        "id": "223e4567-e89b-12d3-a456-426614174000",
-        "name": "First Floor",
-        "number": 1
-    },
-    {
-        "id": "323e4567-e89b-12d3-a456-426614174000",
-        "name": "Second Floor",
-        "number": 2
-    }
+  {
+    "id": "223e4567-e89b-12d3-a456-426614174000",
+    "name": "First Floor",
+    "number": 1
+  },
+  {
+    "id": "323e4567-e89b-12d3-a456-426614174000",
+    "name": "Second Floor",
+    "number": 2
+  }
 ]
 ```
 
 **Example:**
+
 ```bash
 curl -X GET http://127.0.0.1:5500/api/home/homes/123e4567-e89b-12d3-a456-426614174000/floors/ \
   -H "Authorization: Token your_auth_token_here"
@@ -403,26 +438,30 @@ curl -X GET http://127.0.0.1:5500/api/home/homes/123e4567-e89b-12d3-a456-4266141
 **Authentication:** Required
 
 **Parameters:**
+
 - `home_id` (UUID): Home ID
 
 **Request Body:**
+
 ```json
 {
-    "name": "First Floor",
-    "number": 1
+  "name": "First Floor",
+  "number": 1
 }
 ```
 
 **Response (201 Created):**
+
 ```json
 {
-    "id": "223e4567-e89b-12d3-a456-426614174000",
-    "name": "First Floor",
-    "number": 1
+  "id": "223e4567-e89b-12d3-a456-426614174000",
+  "name": "First Floor",
+  "number": 1
 }
 ```
 
 **Example:**
+
 ```bash
 curl -X POST http://127.0.0.1:5500/api/home/homes/123e4567-e89b-12d3-a456-426614174000/floors/ \
   -H "Authorization: Token your_auth_token_here" \
@@ -439,19 +478,22 @@ curl -X POST http://127.0.0.1:5500/api/home/homes/123e4567-e89b-12d3-a456-426614
 **Authentication:** Required
 
 **Parameters:**
+
 - `home_id` (UUID): Home ID
 - `floor_id` (UUID): Floor ID
 
 **Response (200 OK):**
+
 ```json
 {
-    "id": "223e4567-e89b-12d3-a456-426614174000",
-    "name": "First Floor",
-    "number": 1
+  "id": "223e4567-e89b-12d3-a456-426614174000",
+  "name": "First Floor",
+  "number": 1
 }
 ```
 
 **Example:**
+
 ```bash
 curl -X GET http://127.0.0.1:5500/api/home/homes/123e4567-e89b-12d3-a456-426614174000/floors/223e4567-e89b-12d3-a456-426614174000/ \
   -H "Authorization: Token your_auth_token_here"
@@ -466,15 +508,18 @@ curl -X GET http://127.0.0.1:5500/api/home/homes/123e4567-e89b-12d3-a456-4266141
 **Authentication:** Required
 
 **Parameters:**
+
 - `home_id` (UUID): Home ID
 - `floor_id` (UUID): Floor ID
 
 **Response (204 No Content):**
+
 ```
 (No content)
 ```
 
 **Example:**
+
 ```bash
 curl -X DELETE http://127.0.0.1:5500/api/home/homes/123e4567-e89b-12d3-a456-426614174000/floors/223e4567-e89b-12d3-a456-426614174000/ \
   -H "Authorization: Token your_auth_token_here"
@@ -493,24 +538,27 @@ curl -X DELETE http://127.0.0.1:5500/api/home/homes/123e4567-e89b-12d3-a456-4266
 **Authentication:** Required
 
 **Parameters:**
+
 - `home_id` (UUID): Home ID
 - `floor_id` (UUID): Floor ID
 
 **Response (200 OK):**
+
 ```json
 [
-    {
-        "id": "323e4567-e89b-12d3-a456-426614174000",
-        "name": "Living Room"
-    },
-    {
-        "id": "423e4567-e89b-12d3-a456-426614174000",
-        "name": "Bedroom"
-    }
+  {
+    "id": "323e4567-e89b-12d3-a456-426614174000",
+    "name": "Living Room"
+  },
+  {
+    "id": "423e4567-e89b-12d3-a456-426614174000",
+    "name": "Bedroom"
+  }
 ]
 ```
 
 **Example:**
+
 ```bash
 curl -X GET http://127.0.0.1:5500/api/home/homes/123e4567-e89b-12d3-a456-426614174000/floors/223e4567-e89b-12d3-a456-426614174000/rooms/ \
   -H "Authorization: Token your_auth_token_here"
@@ -525,25 +573,29 @@ curl -X GET http://127.0.0.1:5500/api/home/homes/123e4567-e89b-12d3-a456-4266141
 **Authentication:** Required
 
 **Parameters:**
+
 - `home_id` (UUID): Home ID
 - `floor_id` (UUID): Floor ID
 
 **Request Body:**
+
 ```json
 {
-    "name": "Living Room"
+  "name": "Living Room"
 }
 ```
 
 **Response (201 Created):**
+
 ```json
 {
-    "id": "323e4567-e89b-12d3-a456-426614174000",
-    "name": "Living Room"
+  "id": "323e4567-e89b-12d3-a456-426614174000",
+  "name": "Living Room"
 }
 ```
 
 **Example:**
+
 ```bash
 curl -X POST http://127.0.0.1:5500/api/home/homes/123e4567-e89b-12d3-a456-426614174000/floors/223e4567-e89b-12d3-a456-426614174000/rooms/ \
   -H "Authorization: Token your_auth_token_here" \
@@ -560,19 +612,22 @@ curl -X POST http://127.0.0.1:5500/api/home/homes/123e4567-e89b-12d3-a456-426614
 **Authentication:** Required
 
 **Parameters:**
+
 - `home_id` (UUID): Home ID
 - `floor_id` (UUID): Floor ID
 - `room_id` (UUID): Room ID
 
 **Response (200 OK):**
+
 ```json
 {
-    "id": "323e4567-e89b-12d3-a456-426614174000",
-    "name": "Living Room"
+  "id": "323e4567-e89b-12d3-a456-426614174000",
+  "name": "Living Room"
 }
 ```
 
 **Example:**
+
 ```bash
 curl -X GET http://127.0.0.1:5500/api/home/homes/123e4567-e89b-12d3-a456-426614174000/floors/223e4567-e89b-12d3-a456-426614174000/rooms/323e4567-e89b-12d3-a456-426614174000/ \
   -H "Authorization: Token your_auth_token_here"
@@ -587,16 +642,19 @@ curl -X GET http://127.0.0.1:5500/api/home/homes/123e4567-e89b-12d3-a456-4266141
 **Authentication:** Required
 
 **Parameters:**
+
 - `home_id` (UUID): Home ID
 - `floor_id` (UUID): Floor ID
 - `room_id` (UUID): Room ID
 
 **Response (204 No Content):**
+
 ```
 (No content)
 ```
 
 **Example:**
+
 ```bash
 curl -X DELETE http://127.0.0.1:5500/api/home/homes/123e4567-e89b-12d3-a456-426614174000/floors/223e4567-e89b-12d3-a456-426614174000/rooms/323e4567-e89b-12d3-a456-426614174000/ \
   -H "Authorization: Token your_auth_token_here"
@@ -615,42 +673,44 @@ curl -X DELETE http://127.0.0.1:5500/api/home/homes/123e4567-e89b-12d3-a456-4266
 **Authentication:** Required
 
 **Response (200 OK):**
+
 ```json
 [
-    {
-        "id": "423e4567-e89b-12d3-a456-426614174000",
-        "name": "Ceiling Light",
-        "type": "lightbulb",
-        "is_on": true,
-        "position": [0.0, 1.5, 0.0],
-        "brightness": 80,
-        "colour": "white",
-        "home_id": "123e4567-e89b-12d3-a456-426614174000",
-        "home_name": "My Home",
-        "floor_id": "223e4567-e89b-12d3-a456-426614174000",
-        "floor_name": "First Floor",
-        "room_id": "323e4567-e89b-12d3-a456-426614174000",
-        "room_name": "Living Room"
-    },
-    {
-        "id": "523e4567-e89b-12d3-a456-426614174000",
-        "name": "Living Room TV",
-        "type": "television",
-        "is_on": false,
-        "position": [2.0, 1.0, -1.5],
-        "volume": 50,
-        "channel": 5,
-        "home_id": "123e4567-e89b-12d3-a456-426614174000",
-        "home_name": "My Home",
-        "floor_id": "223e4567-e89b-12d3-a456-426614174000",
-        "floor_name": "First Floor",
-        "room_id": "323e4567-e89b-12d3-a456-426614174000",
-        "room_name": "Living Room"
-    }
+  {
+    "id": "423e4567-e89b-12d3-a456-426614174000",
+    "name": "Ceiling Light",
+    "type": "lightbulb",
+    "is_on": true,
+    "position": [0.0, 1.5, 0.0],
+    "brightness": 80,
+    "colour": "white",
+    "home_id": "123e4567-e89b-12d3-a456-426614174000",
+    "home_name": "My Home",
+    "floor_id": "223e4567-e89b-12d3-a456-426614174000",
+    "floor_name": "First Floor",
+    "room_id": "323e4567-e89b-12d3-a456-426614174000",
+    "room_name": "Living Room"
+  },
+  {
+    "id": "523e4567-e89b-12d3-a456-426614174000",
+    "name": "Living Room TV",
+    "type": "television",
+    "is_on": false,
+    "position": [2.0, 1.0, -1.5],
+    "volume": 50,
+    "channel": 5,
+    "home_id": "123e4567-e89b-12d3-a456-426614174000",
+    "home_name": "My Home",
+    "floor_id": "223e4567-e89b-12d3-a456-426614174000",
+    "floor_name": "First Floor",
+    "room_id": "323e4567-e89b-12d3-a456-426614174000",
+    "room_name": "Living Room"
+  }
 ]
 ```
 
 **Example:**
+
 ```bash
 curl -X GET http://127.0.0.1:5500/api/home/devices/ \
   -H "Authorization: Token your_auth_token_here"
@@ -665,35 +725,38 @@ curl -X GET http://127.0.0.1:5500/api/home/devices/ \
 **Authentication:** Required
 
 **Parameters:**
+
 - `home_id` (UUID): Home ID
 - `floor_id` (UUID): Floor ID
 - `room_id` (UUID): Room ID
 
 **Response (200 OK):**
+
 ```json
 [
-    {
-        "id": "423e4567-e89b-12d3-a456-426614174000",
-        "name": "Ceiling Light",
-        "type": "lightbulb",
-        "is_on": true,
-        "position": [0.0, 1.5, 0.0],
-        "brightness": 80,
-        "colour": "white"
-    },
-    {
-        "id": "523e4567-e89b-12d3-a456-426614174000",
-        "name": "Living Room TV",
-        "type": "television",
-        "is_on": false,
-        "position": [2.0, 1.0, -1.5],
-        "volume": 50,
-        "channel": 5
-    }
+  {
+    "id": "423e4567-e89b-12d3-a456-426614174000",
+    "name": "Ceiling Light",
+    "type": "lightbulb",
+    "is_on": true,
+    "position": [0.0, 1.5, 0.0],
+    "brightness": 80,
+    "colour": "white"
+  },
+  {
+    "id": "523e4567-e89b-12d3-a456-426614174000",
+    "name": "Living Room TV",
+    "type": "television",
+    "is_on": false,
+    "position": [2.0, 1.0, -1.5],
+    "volume": 50,
+    "channel": 5
+  }
 ]
 ```
 
 **Example:**
+
 ```bash
 curl -X GET http://127.0.0.1:5500/api/home/homes/123e4567-e89b-12d3-a456-426614174000/floors/223e4567-e89b-12d3-a456-426614174000/rooms/323e4567-e89b-12d3-a456-426614174000/devices/ \
   -H "Authorization: Token your_auth_token_here"
@@ -708,41 +771,46 @@ curl -X GET http://127.0.0.1:5500/api/home/homes/123e4567-e89b-12d3-a456-4266141
 **Authentication:** Required
 
 **Parameters:**
+
 - `home_id` (UUID): Home ID
 - `floor_id` (UUID): Floor ID
 - `room_id` (UUID): Room ID
 
 **Request Body:**
+
 ```json
 {
-    "type": "lightbulb",
-    "name": "Ceiling Light"
+  "type": "lightbulb",
+  "name": "Ceiling Light"
 }
 ```
 
 **Device Types:**
+
 - `lightbulb` - Smart light bulb
 - `television` - Smart TV
 - `fan` - Tower fan
 - `air_conditioner` - Air conditioner
 
 **Response (201 Created):**
+
 ```json
 {
-    "id": "423e4567-e89b-12d3-a456-426614174000",
-    "name": "Ceiling Light",
-    "type": "lightbulb",
-    "is_on": false,
-    "position": null,
-    "brightness": 0,
-    "colour": "white"
+  "id": "423e4567-e89b-12d3-a456-426614174000",
+  "name": "Ceiling Light",
+  "type": "lightbulb",
+  "is_on": false,
+  "position": null,
+  "brightness": 0,
+  "colour": "white"
 }
 ```
 
 **Error Response (400 Bad Request):**
+
 ```json
 {
-    "detail": "'type' and 'name' are required"
+  "detail": "'type' and 'name' are required"
 }
 ```
 
@@ -750,11 +818,12 @@ or
 
 ```json
 {
-    "detail": "Unknown device type"
+  "detail": "Unknown device type"
 }
 ```
 
 **Example:**
+
 ```bash
 curl -X POST http://127.0.0.1:5500/api/home/homes/123e4567-e89b-12d3-a456-426614174000/floors/223e4567-e89b-12d3-a456-426614174000/rooms/323e4567-e89b-12d3-a456-426614174000/devices/ \
   -H "Authorization: Token your_auth_token_here" \
@@ -771,25 +840,28 @@ curl -X POST http://127.0.0.1:5500/api/home/homes/123e4567-e89b-12d3-a456-426614
 **Authentication:** Required
 
 **Parameters:**
+
 - `home_id` (UUID): Home ID
 - `floor_id` (UUID): Floor ID
 - `room_id` (UUID): Room ID
 - `device_id` (UUID): Device ID
 
 **Response (200 OK):**
+
 ```json
 {
-    "id": "423e4567-e89b-12d3-a456-426614174000",
-    "name": "Ceiling Light",
-    "type": "lightbulb",
-    "is_on": true,
-    "position": [0.0, 1.5, 0.0],
-    "brightness": 80,
-    "colour": "white"
+  "id": "423e4567-e89b-12d3-a456-426614174000",
+  "name": "Ceiling Light",
+  "type": "lightbulb",
+  "is_on": true,
+  "position": [0.0, 1.5, 0.0],
+  "brightness": 80,
+  "colour": "white"
 }
 ```
 
 **Example:**
+
 ```bash
 curl -X GET http://127.0.0.1:5500/api/home/homes/123e4567-e89b-12d3-a456-426614174000/floors/223e4567-e89b-12d3-a456-426614174000/rooms/323e4567-e89b-12d3-a456-426614174000/devices/423e4567-e89b-12d3-a456-426614174000/ \
   -H "Authorization: Token your_auth_token_here"
@@ -804,17 +876,20 @@ curl -X GET http://127.0.0.1:5500/api/home/homes/123e4567-e89b-12d3-a456-4266141
 **Authentication:** Required
 
 **Parameters:**
+
 - `home_id` (UUID): Home ID
 - `floor_id` (UUID): Floor ID
 - `room_id` (UUID): Room ID
 - `device_id` (UUID): Device ID
 
 **Response (204 No Content):**
+
 ```
 (No content)
 ```
 
 **Example:**
+
 ```bash
 curl -X DELETE http://127.0.0.1:5500/api/home/homes/123e4567-e89b-12d3-a456-426614174000/floors/223e4567-e89b-12d3-a456-426614174000/rooms/323e4567-e89b-12d3-a456-426614174000/devices/423e4567-e89b-12d3-a456-426614174000/ \
   -H "Authorization: Token your_auth_token_here"
@@ -833,31 +908,35 @@ curl -X DELETE http://127.0.0.1:5500/api/home/homes/123e4567-e89b-12d3-a456-4266
 **Authentication:** Required
 
 **Parameters:**
+
 - `device_id` (UUID): Device ID
 
 **Request Body (optional):**
+
 ```json
 {
-    "on": true
+  "on": true
 }
 ```
 
 If `on` is not provided, the power state will be toggled.
 
 **Response (200 OK):**
+
 ```json
 {
-    "id": "423e4567-e89b-12d3-a456-426614174000",
-    "name": "Ceiling Light",
-    "type": "lightbulb",
-    "is_on": true,
-    "position": [0.0, 1.5, 0.0],
-    "brightness": 80,
-    "colour": "white"
+  "id": "423e4567-e89b-12d3-a456-426614174000",
+  "name": "Ceiling Light",
+  "type": "lightbulb",
+  "is_on": true,
+  "position": [0.0, 1.5, 0.0],
+  "brightness": 80,
+  "colour": "white"
 }
 ```
 
 **Example:**
+
 ```bash
 # Toggle power
 curl -X POST http://127.0.0.1:5500/api/home/devices/423e4567-e89b-12d3-a456-426614174000/toggle/ \
@@ -881,16 +960,19 @@ curl -X POST http://127.0.0.1:5500/api/home/devices/423e4567-e89b-12d3-a456-4266
 **Authentication:** Required
 
 **Parameters:**
+
 - `device_id` (UUID): Device ID
 
 **Response (200 OK):**
+
 ```json
 {
-    "position": [0.0, 1.5, 0.0]
+  "position": [0.0, 1.5, 0.0]
 }
 ```
 
 **Example:**
+
 ```bash
 curl -X GET http://127.0.0.1:5500/api/home/devices/423e4567-e89b-12d3-a456-426614174000/position/ \
   -H "Authorization: Token your_auth_token_here"
@@ -905,36 +987,41 @@ curl -X GET http://127.0.0.1:5500/api/home/devices/423e4567-e89b-12d3-a456-42661
 **Authentication:** Required
 
 **Parameters:**
+
 - `device_id` (UUID): Device ID
 
 **Request Body:**
+
 ```json
 {
-    "lon": 0.0,
-    "lat": 1.5,
-    "alt": 0.0
+  "lon": 0.0,
+  "lat": 1.5,
+  "alt": 0.0
 }
 ```
 
 **Fields:**
+
 - `lon` (float): Longitude
 - `lat` (float): Latitude
 - `alt` (float, optional): Altitude
 
 **Response (200 OK):**
+
 ```json
 {
-    "id": "423e4567-e89b-12d3-a456-426614174000",
-    "name": "Ceiling Light",
-    "type": "lightbulb",
-    "is_on": true,
-    "position": [0.0, 1.5, 0.0],
-    "brightness": 80,
-    "colour": "white"
+  "id": "423e4567-e89b-12d3-a456-426614174000",
+  "name": "Ceiling Light",
+  "type": "lightbulb",
+  "is_on": true,
+  "position": [0.0, 1.5, 0.0],
+  "brightness": 80,
+  "colour": "white"
 }
 ```
 
 **Example:**
+
 ```bash
 curl -X POST http://127.0.0.1:5500/api/home/devices/423e4567-e89b-12d3-a456-426614174000/position/ \
   -H "Authorization: Token your_auth_token_here" \
@@ -957,22 +1044,25 @@ curl -X POST http://127.0.0.1:5500/api/home/devices/423e4567-e89b-12d3-a456-4266
 **Authentication:** Required
 
 **Parameters:**
+
 - `device_id` (UUID): Device ID
 
 **Response (200 OK):**
+
 ```json
 {
-    "id": "423e4567-e89b-12d3-a456-426614174000",
-    "name": "Ceiling Light",
-    "type": "lightbulb",
-    "is_on": true,
-    "position": [0.0, 1.5, 0.0],
-    "brightness": 80,
-    "colour": "white"
+  "id": "423e4567-e89b-12d3-a456-426614174000",
+  "name": "Ceiling Light",
+  "type": "lightbulb",
+  "is_on": true,
+  "position": [0.0, 1.5, 0.0],
+  "brightness": 80,
+  "colour": "white"
 }
 ```
 
 **Example:**
+
 ```bash
 curl -X GET http://127.0.0.1:5500/api/home/devices/423e4567-e89b-12d3-a456-426614174000/lightbulb/ \
   -H "Authorization: Token your_auth_token_here"
@@ -987,34 +1077,39 @@ curl -X GET http://127.0.0.1:5500/api/home/devices/423e4567-e89b-12d3-a456-42661
 **Authentication:** Required
 
 **Parameters:**
+
 - `device_id` (UUID): Device ID
 
 **Request Body:**
+
 ```json
 {
-    "brightness": 80,
-    "colour": "warm_white"
+  "brightness": 80,
+  "colour": "warm_white"
 }
 ```
 
 **Fields:**
+
 - `brightness` (integer, optional): 0-100
 - `colour` (string, optional): Colour name or hex code
 
 **Response (200 OK):**
+
 ```json
 {
-    "id": "423e4567-e89b-12d3-a456-426614174000",
-    "name": "Ceiling Light",
-    "type": "lightbulb",
-    "is_on": true,
-    "position": [0.0, 1.5, 0.0],
-    "brightness": 80,
-    "colour": "warm_white"
+  "id": "423e4567-e89b-12d3-a456-426614174000",
+  "name": "Ceiling Light",
+  "type": "lightbulb",
+  "is_on": true,
+  "position": [0.0, 1.5, 0.0],
+  "brightness": 80,
+  "colour": "warm_white"
 }
 ```
 
 **Example:**
+
 ```bash
 curl -X POST http://127.0.0.1:5500/api/home/devices/423e4567-e89b-12d3-a456-426614174000/lightbulb/ \
   -H "Authorization: Token your_auth_token_here" \
@@ -1035,22 +1130,25 @@ curl -X POST http://127.0.0.1:5500/api/home/devices/423e4567-e89b-12d3-a456-4266
 **Authentication:** Required
 
 **Parameters:**
+
 - `device_id` (UUID): Device ID
 
 **Response (200 OK):**
+
 ```json
 {
-    "id": "523e4567-e89b-12d3-a456-426614174000",
-    "name": "Living Room TV",
-    "type": "television",
-    "is_on": true,
-    "position": [2.0, 1.0, -1.5],
-    "volume": 50,
-    "channel": 5
+  "id": "523e4567-e89b-12d3-a456-426614174000",
+  "name": "Living Room TV",
+  "type": "television",
+  "is_on": true,
+  "position": [2.0, 1.0, -1.5],
+  "volume": 50,
+  "channel": 5
 }
 ```
 
 **Example:**
+
 ```bash
 curl -X GET http://127.0.0.1:5500/api/home/devices/523e4567-e89b-12d3-a456-426614174000/television/ \
   -H "Authorization: Token your_auth_token_here"
@@ -1065,34 +1163,39 @@ curl -X GET http://127.0.0.1:5500/api/home/devices/523e4567-e89b-12d3-a456-42661
 **Authentication:** Required
 
 **Parameters:**
+
 - `device_id` (UUID): Device ID
 
 **Request Body:**
+
 ```json
 {
-    "volume": 60,
-    "channel": 10
+  "volume": 60,
+  "channel": 10
 }
 ```
 
 **Fields:**
+
 - `volume` (integer, optional): 0-100
 - `channel` (integer, optional): Channel number (1+)
 
 **Response (200 OK):**
+
 ```json
 {
-    "id": "523e4567-e89b-12d3-a456-426614174000",
-    "name": "Living Room TV",
-    "type": "television",
-    "is_on": true,
-    "position": [2.0, 1.0, -1.5],
-    "volume": 60,
-    "channel": 10
+  "id": "523e4567-e89b-12d3-a456-426614174000",
+  "name": "Living Room TV",
+  "type": "television",
+  "is_on": true,
+  "position": [2.0, 1.0, -1.5],
+  "volume": 60,
+  "channel": 10
 }
 ```
 
 **Example:**
+
 ```bash
 curl -X POST http://127.0.0.1:5500/api/home/devices/523e4567-e89b-12d3-a456-426614174000/television/ \
   -H "Authorization: Token your_auth_token_here" \
@@ -1113,22 +1216,25 @@ curl -X POST http://127.0.0.1:5500/api/home/devices/523e4567-e89b-12d3-a456-4266
 **Authentication:** Required
 
 **Parameters:**
+
 - `device_id` (UUID): Device ID
 
 **Response (200 OK):**
+
 ```json
 {
-    "id": "623e4567-e89b-12d3-a456-426614174000",
-    "name": "Tower Fan",
-    "type": "fan",
-    "is_on": true,
-    "position": [-1.0, 0.0, 1.0],
-    "speed": 3,
-    "swing": true
+  "id": "623e4567-e89b-12d3-a456-426614174000",
+  "name": "Tower Fan",
+  "type": "fan",
+  "is_on": true,
+  "position": [-1.0, 0.0, 1.0],
+  "speed": 3,
+  "swing": true
 }
 ```
 
 **Example:**
+
 ```bash
 curl -X GET http://127.0.0.1:5500/api/home/devices/623e4567-e89b-12d3-a456-426614174000/fan/ \
   -H "Authorization: Token your_auth_token_here"
@@ -1143,34 +1249,39 @@ curl -X GET http://127.0.0.1:5500/api/home/devices/623e4567-e89b-12d3-a456-42661
 **Authentication:** Required
 
 **Parameters:**
+
 - `device_id` (UUID): Device ID
 
 **Request Body:**
+
 ```json
 {
-    "speed": 4,
-    "swing": true
+  "speed": 4,
+  "swing": true
 }
 ```
 
 **Fields:**
+
 - `speed` (integer, optional): 0-5
 - `swing` (boolean, optional): Enable/disable swing mode
 
 **Response (200 OK):**
+
 ```json
 {
-    "id": "623e4567-e89b-12d3-a456-426614174000",
-    "name": "Tower Fan",
-    "type": "fan",
-    "is_on": true,
-    "position": [-1.0, 0.0, 1.0],
-    "speed": 4,
-    "swing": true
+  "id": "623e4567-e89b-12d3-a456-426614174000",
+  "name": "Tower Fan",
+  "type": "fan",
+  "is_on": true,
+  "position": [-1.0, 0.0, 1.0],
+  "speed": 4,
+  "swing": true
 }
 ```
 
 **Example:**
+
 ```bash
 curl -X POST http://127.0.0.1:5500/api/home/devices/623e4567-e89b-12d3-a456-426614174000/fan/ \
   -H "Authorization: Token your_auth_token_here" \
@@ -1191,21 +1302,24 @@ curl -X POST http://127.0.0.1:5500/api/home/devices/623e4567-e89b-12d3-a456-4266
 **Authentication:** Required
 
 **Parameters:**
+
 - `device_id` (UUID): Device ID
 
 **Response (200 OK):**
+
 ```json
 {
-    "id": "723e4567-e89b-12d3-a456-426614174000",
-    "name": "Bedroom AC",
-    "type": "air_conditioner",
-    "is_on": true,
-    "position": [0.0, 2.0, 1.5],
-    "temperature": 24
+  "id": "723e4567-e89b-12d3-a456-426614174000",
+  "name": "Bedroom AC",
+  "type": "air_conditioner",
+  "is_on": true,
+  "position": [0.0, 2.0, 1.5],
+  "temperature": 24
 }
 ```
 
 **Example:**
+
 ```bash
 curl -X GET http://127.0.0.1:5500/api/home/devices/723e4567-e89b-12d3-a456-426614174000/air-conditioner/ \
   -H "Authorization: Token your_auth_token_here"
@@ -1220,31 +1334,36 @@ curl -X GET http://127.0.0.1:5500/api/home/devices/723e4567-e89b-12d3-a456-42661
 **Authentication:** Required
 
 **Parameters:**
+
 - `device_id` (UUID): Device ID
 
 **Request Body:**
+
 ```json
 {
-    "temperature": 22
+  "temperature": 22
 }
 ```
 
 **Fields:**
+
 - `temperature` (integer, optional): Temperature in Celsius
 
 **Response (200 OK):**
+
 ```json
 {
-    "id": "723e4567-e89b-12d3-a456-426614174000",
-    "name": "Bedroom AC",
-    "type": "air_conditioner",
-    "is_on": true,
-    "position": [0.0, 2.0, 1.5],
-    "temperature": 22
+  "id": "723e4567-e89b-12d3-a456-426614174000",
+  "name": "Bedroom AC",
+  "type": "air_conditioner",
+  "is_on": true,
+  "position": [0.0, 2.0, 1.5],
+  "temperature": 22
 }
 ```
 
 **Example:**
+
 ```bash
 curl -X POST http://127.0.0.1:5500/api/home/devices/723e4567-e89b-12d3-a456-426614174000/air-conditioner/ \
   -H "Authorization: Token your_auth_token_here" \
@@ -1259,53 +1378,57 @@ curl -X POST http://127.0.0.1:5500/api/home/devices/723e4567-e89b-12d3-a456-4266
 ### Device Types
 
 #### Lightbulb
+
 ```json
 {
-    "id": "uuid",
-    "name": "string",
-    "type": "lightbulb",
-    "is_on": "boolean",
-    "position": "[lon, lat, alt]",
-    "brightness": "integer (0-100)",
-    "colour": "string"
+  "id": "uuid",
+  "name": "string",
+  "type": "lightbulb",
+  "is_on": "boolean",
+  "position": "[lon, lat, alt]",
+  "brightness": "integer (0-100)",
+  "colour": "string"
 }
 ```
 
 #### Television
+
 ```json
 {
-    "id": "uuid",
-    "name": "string",
-    "type": "television",
-    "is_on": "boolean",
-    "position": "[lon, lat, alt]",
-    "volume": "integer (0-100)",
-    "channel": "integer (1+)"
+  "id": "uuid",
+  "name": "string",
+  "type": "television",
+  "is_on": "boolean",
+  "position": "[lon, lat, alt]",
+  "volume": "integer (0-100)",
+  "channel": "integer (1+)"
 }
 ```
 
 #### Fan
+
 ```json
 {
-    "id": "uuid",
-    "name": "string",
-    "type": "fan",
-    "is_on": "boolean",
-    "position": "[lon, lat, alt]",
-    "speed": "integer (0-5)",
-    "swing": "boolean"
+  "id": "uuid",
+  "name": "string",
+  "type": "fan",
+  "is_on": "boolean",
+  "position": "[lon, lat, alt]",
+  "speed": "integer (0-5)",
+  "swing": "boolean"
 }
 ```
 
 #### Air Conditioner
+
 ```json
 {
-    "id": "uuid",
-    "name": "string",
-    "type": "air_conditioner",
-    "is_on": "boolean",
-    "position": "[lon, lat, alt]",
-    "temperature": "integer (celsius)"
+  "id": "uuid",
+  "name": "string",
+  "type": "air_conditioner",
+  "is_on": "boolean",
+  "position": "[lon, lat, alt]",
+  "temperature": "integer (celsius)"
 }
 ```
 
@@ -1314,29 +1437,34 @@ curl -X POST http://127.0.0.1:5500/api/home/devices/723e4567-e89b-12d3-a456-4266
 ## Error Responses
 
 ### 400 Bad Request
+
 ```json
 {
-    "detail": "Error message"
+  "detail": "Error message"
 }
 ```
+
 or
+
 ```json
 {
-    "field_name": ["Error message"]
+  "field_name": ["Error message"]
 }
 ```
 
 ### 401 Unauthorized
+
 ```json
 {
-    "detail": "Authentication credentials were not provided."
+  "detail": "Authentication credentials were not provided."
 }
 ```
 
 ### 404 Not Found
+
 ```json
 {
-    "detail": "Not found."
+  "detail": "Not found."
 }
 ```
 
@@ -1353,7 +1481,7 @@ class SmartHomeClient:
     def __init__(self):
         self.token = None
         self.base_url = BASE_URL
-    
+
     def register(self, email, password):
         """Register a new user"""
         response = requests.post(
@@ -1367,7 +1495,7 @@ class SmartHomeClient:
         data = response.json()
         self.token = data["token"]
         return data
-    
+
     def login(self, email, password):
         """Login and get token"""
         response = requests.post(
@@ -1380,11 +1508,11 @@ class SmartHomeClient:
         data = response.json()
         self.token = data["token"]
         return data
-    
+
     def _headers(self):
         """Get authorization headers"""
         return {"Authorization": f"Token {self.token}"}
-    
+
     def get_all_devices(self):
         """Get all devices across all homes"""
         response = requests.get(
@@ -1392,7 +1520,7 @@ class SmartHomeClient:
             headers=self._headers()
         )
         return response.json()
-    
+
     def create_home(self, name):
         """Create a new home"""
         response = requests.post(
@@ -1401,7 +1529,7 @@ class SmartHomeClient:
             json={"name": name}
         )
         return response.json()
-    
+
     def create_floor(self, home_id, name, number):
         """Create a new floor"""
         response = requests.post(
@@ -1410,7 +1538,7 @@ class SmartHomeClient:
             json={"name": name, "number": number}
         )
         return response.json()
-    
+
     def create_room(self, home_id, floor_id, name):
         """Create a new room"""
         response = requests.post(
@@ -1419,7 +1547,7 @@ class SmartHomeClient:
             json={"name": name}
         )
         return response.json()
-    
+
     def create_device(self, home_id, floor_id, room_id, device_type, name):
         """Create a new device"""
         response = requests.post(
@@ -1428,7 +1556,7 @@ class SmartHomeClient:
             json={"type": device_type, "name": name}
         )
         return response.json()
-    
+
     def toggle_device(self, device_id, on=None):
         """Toggle device power"""
         data = {"on": on} if on is not None else {}
@@ -1438,7 +1566,7 @@ class SmartHomeClient:
             json=data
         )
         return response.json()
-    
+
     def set_device_position(self, device_id, lon, lat, alt=None):
         """Set device position"""
         data = {"lon": lon, "lat": lat}
@@ -1450,7 +1578,7 @@ class SmartHomeClient:
             json=data
         )
         return response.json()
-    
+
     def set_lightbulb(self, device_id, brightness=None, colour=None):
         """Set lightbulb properties"""
         data = {}
@@ -1464,7 +1592,7 @@ class SmartHomeClient:
             json=data
         )
         return response.json()
-    
+
     def set_television(self, device_id, volume=None, channel=None):
         """Set television properties"""
         data = {}
@@ -1478,7 +1606,7 @@ class SmartHomeClient:
             json=data
         )
         return response.json()
-    
+
     def set_fan(self, device_id, speed=None, swing=None):
         """Set fan properties"""
         data = {}
@@ -1492,7 +1620,7 @@ class SmartHomeClient:
             json=data
         )
         return response.json()
-    
+
     def set_air_conditioner(self, device_id, temperature):
         """Set air conditioner temperature"""
         response = requests.post(
@@ -1506,29 +1634,29 @@ class SmartHomeClient:
 # Usage example
 if __name__ == "__main__":
     client = SmartHomeClient()
-    
+
     # Register or login
     client.register("user@example.com", "password123")
     # or
     # client.login("user@example.com", "password123")
-    
+
     # Create home structure
     home = client.create_home("My Home")
     floor = client.create_floor(home["id"], "First Floor", 1)
     room = client.create_room(home["id"], floor["id"], "Living Room")
-    
+
     # Create devices
     light = client.create_device(home["id"], floor["id"], room["id"], "lightbulb", "Ceiling Light")
     tv = client.create_device(home["id"], floor["id"], room["id"], "television", "Living Room TV")
-    
+
     # Control devices
     client.toggle_device(light["id"], on=True)
     client.set_lightbulb(light["id"], brightness=80, colour="warm_white")
     client.set_television(tv["id"], volume=50, channel=5)
-    
+
     # Set positions
     client.set_device_position(light["id"], lon=0.0, lat=1.5, alt=0.0)
-    
+
     # Get all devices
     all_devices = client.get_all_devices()
     print(f"Total devices: {len(all_devices)}")

@@ -1,1 +1,1 @@
-# SmartHomeAR-backend
+# SmartHome Platform Backend
