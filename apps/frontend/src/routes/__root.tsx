@@ -1,12 +1,13 @@
-import { createRootRoute, Outlet } from "@tanstack/react-router";
-import {
-  QueryClient,
-  QueryClientProvider,
-  useQuery,
-} from "@tanstack/react-query";
-import { useEffect } from "react";
+import { createRootRoute, Outlet, useLocation } from "@tanstack/react-router";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { ModeToggle } from "@/components/theme/mode-toggle";
+import {
+  SidebarProvider,
+  SidebarInset,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/layout/app-sidebar";
 import { Toaster } from "@/components/ui/sonner";
 import { TanStackDevtools } from "@tanstack/react-devtools";
 import { ReactQueryDevtoolsPanel } from "@tanstack/react-query-devtools";
@@ -24,55 +25,47 @@ const queryClient = new QueryClient({
 });
 
 export const Route = createRootRoute({
+  beforeLoad: async () => {
+    const user = await AuthService.getInstance().whoami();
+
+    if (user) {
+      useAuthStore.getState().setUser(user);
+    } else {
+      useAuthStore.getState().logout();
+    }
+
+    return { user };
+  },
   component: RootLayout,
 });
 
-function AuthCheck() {
-  const { setUser, setLoading, logout } = useAuthStore();
-
-  const {
-    data: user,
-    isLoading,
-    isError,
-  } = useQuery({
-    queryKey: ["auth", "whoami"],
-    queryFn: () => AuthService.getInstance().whoami(),
-    retry: false,
-    staleTime: 1000 * 60 * 5,
-  });
-
-  useEffect(() => {
-    if (isLoading) return;
-
-    if (user) {
-      setUser(user);
-    } else {
-      logout();
-    }
-  }, [user, isLoading, isError, setUser, logout]);
-
-  useEffect(() => {
-    setLoading(isLoading);
-  }, [isLoading, setLoading]);
-
-  return null;
-}
+const authRoutes = ["/login", "/register"];
 
 function RootLayout() {
+  const location = useLocation();
+  const isAuthPage = authRoutes.includes(location.pathname);
+
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="dark" storageKey="smarthome-theme">
-        <AuthCheck />
-
-        {/* Header */}
-        <header className="fixed top-0 right-0 z-50 p-4">
-          <ModeToggle />
-        </header>
-
-        {/* Main content */}
-        <main className="min-h-svh">
+        {isAuthPage ? (
+          // Auth pages - no sidebar
           <Outlet />
-        </main>
+        ) : (
+          // Dashboard pages - with sidebar
+          <SidebarProvider>
+            <AppSidebar />
+            <SidebarInset className="h-svh flex flex-col">
+              <header className="flex shrink-0 items-center justify-between border-b px-2 py-2">
+                <SidebarTrigger className="size-12" />
+                <ModeToggle />
+              </header>
+              <main className="flex-1 p-4">
+                <Outlet />
+              </main>
+            </SidebarInset>
+          </SidebarProvider>
+        )}
 
         {/* Toast notifications */}
         <Toaster richColors position="top-right" />
