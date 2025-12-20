@@ -1,7 +1,19 @@
 import { createRootRoute, Outlet } from "@tanstack/react-router";
-import { TanStackRouterDevtools } from "@tanstack/router-devtools";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { ModeToggle } from "@/components/theme/mode-toggle";
+import { TanStackDevtools } from "@tanstack/react-devtools";
+import { ReactQueryDevtoolsPanel } from "@tanstack/react-query-devtools";
+import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      retry: 1,
+    },
+  },
+});
 
 export const Route = createRootRoute({
   component: RootLayout,
@@ -9,21 +21,34 @@ export const Route = createRootRoute({
 
 function RootLayout() {
   return (
-    <ThemeProvider defaultTheme="dark" storageKey="smarthome-theme">
-      {/* Header */}
-      <header className="fixed top-0 right-0 z-50 p-4">
-        <ModeToggle />
-      </header>
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider defaultTheme="dark" storageKey="smarthome-theme">
+        {/* Header */}
+        <header className="fixed top-0 right-0 z-50 p-4">
+          <ModeToggle />
+        </header>
 
-      {/* Main content - child routes render here */}
-      <main className="min-h-svh">
-        <Outlet />
-      </main>
+        {/* Main content */}
+        <main className="min-h-svh">
+          <Outlet />
+        </main>
 
-      {/* Footer */}
-
-      {/* Devtools - only in development */}
-      <TanStackRouterDevtools position="bottom-right" />
-    </ThemeProvider>
+        {/* Devtools */}
+        <TanStackDevtools
+          plugins={[
+            {
+              name: "TanStack Query",
+              render: <ReactQueryDevtoolsPanel />,
+              defaultOpen: true,
+            },
+            {
+              name: "TanStack Router",
+              render: <TanStackRouterDevtoolsPanel />,
+              defaultOpen: false,
+            },
+          ]}
+        />
+      </ThemeProvider>
+    </QueryClientProvider>
   );
 }
