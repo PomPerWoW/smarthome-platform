@@ -52,10 +52,10 @@ def login_view(request):
             key="auth_token",
             value=token.key,
             max_age=86400 * 7,
-            httponly=False,
+            httponly=True,
             secure=not settings.DEBUG,
-            samesite="None" if not settings.DEBUG else "Lax",
-            domain=None,
+            samesite="Lax",
+            path="/",
         )
 
         return response
@@ -75,25 +75,21 @@ def whoami(request):
     )
 
 
-@api_view(["GET"])
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
-def get_scene_creator_url(request):
-    token = request.auth.key if hasattr(request.auth, "key") else str(request.auth)
+def logout_view(request):
+    if request.auth:
+        request.auth.delete()
 
-    scene_creator_host = getattr(
-        settings, "SCENE_CREATOR_URL", "https://localhost:3003"
-    )
-
-    url_with_token = f"{scene_creator_host}/?token={token}"
-
-    return Response(
-        {
-            "scene_creator_url": url_with_token,
-            "instructions": [
-                "Open this URL on your XR device (Meta Quest, etc.)",
-                "The token is embedded in the URL for authentication",
-                "Bookmark this URL for easy access",
-            ],
-        },
+    response = Response(
+        {"message": "Logout successful"},
         status=status.HTTP_200_OK,
     )
+
+    response.delete_cookie(
+        key="auth_token",
+        path="/",
+        samesite="Lax",
+    )
+
+    return response

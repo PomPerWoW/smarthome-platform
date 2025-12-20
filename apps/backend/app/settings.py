@@ -94,9 +94,11 @@ INTERNAL_IPS = [
 CORS_ALLOW_ALL_ORIGINS = DEBUG
 
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
+    "http://localhost:5173",
+    "http://localhost:5174",
     "https://localhost:8081",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:5174",
     "https://127.0.0.1:8081",
 ]
 
@@ -214,11 +216,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Django REST Framework settings
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        # Single unified authentication that handles all sources:
-        # - Authorization header (API clients, Reflex frontend)
-        # - Cookie 'auth_token' (cross-origin browser requests)
-        # - URL parameter 'token' (XR device initial access)
-        "accounts.authentication.MultiSourceTokenAuthentication",
+        "accounts.authentication.CookieTokenAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
