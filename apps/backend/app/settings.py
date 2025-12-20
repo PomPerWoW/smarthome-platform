@@ -145,9 +145,15 @@ TEMPLATES = [
     },
 ]
 
-if sys.platform == "darwin":
+if sys.platform == "win32":
+    GEOS_LIBRARY_PATH = r"C:/Program Files/GDAL/bin/geos_c.dll"
+    GDAL_LIBRARY_PATH = r"C:/Program Files/GDAL/bin/gdal.dll"
+elif sys.platform == "darwin":
     GDAL_LIBRARY_PATH = "/opt/homebrew/opt/gdal/lib/libgdal.dylib"
     GEOS_LIBRARY_PATH = "/opt/homebrew/opt/geos/lib/libgeos_c.dylib"
+elif sys.platform == "linux":
+    GDAL_LIBRARY_PATH = "/usr/lib/x86_64-linux-gnu/libgdal.so"
+    GEOS_LIBRARY_PATH = "/usr/lib/x86_64-linux-gnu/libgeos_c.so"
 
 WSGI_APPLICATION = "app.wsgi.application"
 
