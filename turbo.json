@@ -11,6 +11,10 @@
     "migrate": {
       "cache": false
     },
+    "makemigrations": {
+      "dependsOn": ["install"],
+      "cache": false
+    },
     "dev": {
       "dependsOn": ["install"],
       "cache": false,
