@@ -19,7 +19,9 @@ dependencies = [
     "zodb (>=5)",
     "persistent (>=5)",
     "btrees (>=5)",
-    "transaction (>=5.0,<6.0)"
+    "transaction (>=5.0,<6.0)",
+    "uvicorn (>=0.38.0,<0.39.0)",
+    "gunicorn (>=23.0.0,<24.0.0)"
 ]
 
 [build-system]
