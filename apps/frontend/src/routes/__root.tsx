@@ -81,7 +81,7 @@ function RootLayout() {
             {
               name: "TanStack Router",
               render: <TanStackRouterDevtoolsPanel />,
-              defaultOpen: false,
+              defaultOpen: true,
             },
           ]}
         />

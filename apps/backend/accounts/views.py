@@ -19,7 +19,9 @@ def register(request):
         token, created = Token.objects.get_or_create(user=user)
         user_data = UserSerializer(user).data
 
-        return Response(
+        login(request, user)
+
+        response = Response(
             {
                 "message": "User registered successfully",
                 "user": user_data,
@@ -27,6 +29,18 @@ def register(request):
             },
             status=status.HTTP_201_CREATED,
         )
+
+        response.set_cookie(
+            key="auth_token",
+            value=token.key,
+            max_age=86400 * 7,
+            httponly=True,
+            secure=not settings.DEBUG,
+            samesite="Lax",
+            path="/",
+        )
+
+        return response
 
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
