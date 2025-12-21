@@ -45,4 +45,4 @@ EXPOSE 5500
 
 ENTRYPOINT ["/entrypoint.sh"]
 
-CMD ["python", "manage.py", "runserver", "0.0.0.0:5500"]
+CMD ["gunicorn", "app.asgi:application", "-k", "uvicorn.workers.UvicornWorker", "-b", "0.0.0.0:5500", "-w", "2"]
