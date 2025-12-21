@@ -2,15 +2,6 @@
 
 A polyglot monorepo for smart home management.
 
-## ⚠️ Important: Sync Your Branch
-
-If you pulled before Dec 21, 2025, run:
-
-```bash
-git fetch origin
-git reset --hard origin/main
-```
-
 ## 🚀 Quick Start
 
 ### Prerequisites
