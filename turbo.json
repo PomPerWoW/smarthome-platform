@@ -2,8 +2,14 @@
   "$schema": "https://turborepo.com/schema.json",
   "tasks": {
     "build": {
-      "dependsOn": ["^build"],
-      "outputs": ["dist/**", "build/**", "staticfiles/**"]
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        "dist/**",
+        "build/**",
+        "staticfiles/**"
+      ]
     },
     "install": {
       "cache": false
@@ -12,24 +18,39 @@
       "cache": false
     },
     "makemigrations": {
-      "dependsOn": ["install"],
+      "dependsOn": [
+        "install"
+      ],
       "cache": false
     },
     "dev": {
-      "dependsOn": ["install"],
-      "cache": false,
-      "persistent": true
-    },
-    "@smarthome/backend#migrate": {
-      "dependsOn": ["@smarthome/backend#install"],
-      "cache": false
-    },
-    "@smarthome/backend#dev": {
-      "dependsOn": ["@smarthome/backend#migrate"],
+      "dependsOn": [
+        "install"
+      ],
       "cache": false,
       "persistent": true
     },
     "lint": {},
-    "test": {}
+    "test": {},
+    "start": {
+      "dependsOn": [
+        "install"
+      ],
+      "cache": false,
+      "persistent": true
+    },
+    "@smarthome/backend#migrate": {
+      "dependsOn": [
+        "@smarthome/backend#install"
+      ],
+      "cache": false
+    },
+    "@smarthome/backend#dev": {
+      "dependsOn": [
+        "@smarthome/backend#migrate"
+      ],
+      "cache": false,
+      "persistent": true
+    }
   }
 }
