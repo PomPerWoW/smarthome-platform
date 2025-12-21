@@ -8,8 +8,21 @@ import {
   Settings,
   HelpCircle,
   Search,
-  MoreHorizontal,
+  ChevronsUpDown,
+  User,
+  CreditCard,
+  Bell,
+  LogOut,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Sidebar,
   SidebarContent,
@@ -105,21 +118,58 @@ export function AppSidebar() {
         </SidebarMenu>
 
         {isAuthenticated && user ? (
-          <div className="flex items-center justify-between gap-2 rounded-md border p-2 mx-2 mb-2">
-            <div className="flex items-center gap-2 truncate">
-              <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-sm font-medium">
-                {user.email.charAt(0).toUpperCase()}
-              </div>
-              <span className="text-sm truncate">{user.email}</span>
-            </div>
-            <button
-              onClick={() => logoutMutation.mutate()}
-              disabled={logoutMutation.isPending}
-              className="p-1 hover:bg-muted rounded"
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="flex items-center justify-between gap-2 rounded-md border p-2 mx-2 mb-2 w-[calc(100%-1rem)] hover:bg-accent transition-colors cursor-pointer">
+                <div className="flex items-center gap-2 truncate">
+                  <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-sm font-medium">
+                    {user.email.charAt(0).toUpperCase()}
+                  </div>
+                  <span className="text-sm truncate">{user.email}</span>
+                </div>
+                <ChevronsUpDown className="h-4 w-4 text-muted-foreground shrink-0" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              className="w-56"
+              side="right"
+              align="end"
+              sideOffset={8}
             >
-              <MoreHorizontal className="h-4 w-4" />
-            </button>
-          </div>
+              <DropdownMenuLabel className="font-normal">
+                <p className="text-sm leading-none">{user.email}</p>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <DropdownMenuItem asChild>
+                  <a href="/settings#account">
+                    <User className="h-4 w-4" />
+                    Account
+                  </a>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <a href="/settings#billing">
+                    <CreditCard className="h-4 w-4" />
+                    Billing
+                  </a>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <a href="/settings#notifications">
+                    <Bell className="h-4 w-4" />
+                    Notifications
+                  </a>
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => logoutMutation.mutate()}
+                disabled={logoutMutation.isPending}
+              >
+                <LogOut className="h-4 w-4" />
+                Log out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         ) : (
           <div className="px-2 pb-2">
             <SidebarMenuButton asChild className="w-full justify-center">
