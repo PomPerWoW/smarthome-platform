@@ -2,7 +2,10 @@
   "name": "smarthome-platform",
   "private": true,
   "packageManager": "bun@1.3.5",
-  "workspaces": ["apps/*", "packages/*"],
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "dev": "turbo dev",
     "dev:frontend": "turbo dev --filter=@smarthome/frontend",
