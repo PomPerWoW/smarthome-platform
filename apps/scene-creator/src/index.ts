@@ -29,7 +29,7 @@ import * as LucideIconsKit from "@pmndrs/uikit-lucide";
 // LOCAL TEST FLAG
 // Set to true to skip authentication and use mock data
 // ============================================
-const LOCAL_TEST = false;
+const LOCAL_TEST = true;
 
 // Mock lightbulb device for local testing
 const MOCK_LIGHTBULB: Lightbulb = {
