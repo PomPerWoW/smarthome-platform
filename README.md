@@ -6,7 +6,8 @@ A polyglot monorepo for smart home management.
 
 ### Prerequisites
 
-- [Bun](https://bun.sh/)
+- [Node.js](https://nodejs.org/) (v20.19.0+)
+- [npm](https://www.npmjs.com/)
 - [Python](https://www.python.org/)
 - [Poetry](https://python-poetry.org/)
 - [PostgreSQL/PostGIS](https://postgis.net/)
@@ -19,8 +20,8 @@ git clone https://github.com/PomPerWoW/smarthome-platform.git
 cd smarthome-platform
 
 # Install dependencies
-bun install
-bun install turbo --global (if bun run dev is not working)
+npm install
+npm install -g turbo (if npm run dev is not working)
 
 # Copy environment files
 cp apps/frontend/.env.example apps/frontend/.env
@@ -32,24 +33,24 @@ cp apps/backend/.env.example apps/backend/.env
 cd apps/backend && docker compose up --build -d && cd ../..
 
 # Run all apps
-bun run dev
+npm run dev
 ```
 
 ## 📋 Available Commands
 
 | Command                | Description                            |
 | ---------------------- | -------------------------------------- |
-| `bun run dev`          | Run all apps in parallel               |
-| `bun run dev:frontend` | Run frontend only                      |
-| `bun run dev:backend`  | Run backend (installs deps + migrates) |
-| `bun run build`        | Build all apps                         |
-| `bun run lint`         | Lint all apps                          |
+| `npm run dev`          | Run all apps in parallel               |
+| `npm run dev:frontend` | Run frontend only                      |
+| `npm run dev:backend`  | Run backend (installs deps + migrates) |
+| `npm run build`        | Build all apps                         |
+| `npm run lint`         | Lint all apps                          |
 
 ### Backend-Specific Commands
 
 ```bash
-bun run migrate --filter=@smarthome/backend
-bun run makemigrations --filter=@smarthome/backend
+npm run migrate --filter=@smarthome/backend
+npm run makemigrations --filter=@smarthome/backend
 ```
 
 ## 🌐 Default Ports
@@ -70,7 +71,7 @@ This monorepo uses [Turborepo](https://turborepo.com/) for task orchestration.
 
 ```bash
 # Make sure to install turbo first
-bun install turbo --global
+npm install -g turbo
 
 # Run all dev servers
 turbo dev
