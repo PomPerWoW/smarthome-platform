@@ -44,10 +44,11 @@ export function AuthLayout({
 
       {/* Right Panel - Form */}
       <div className="flex flex-col">
-        <div className="flex justify-end p-4 lg:p-6">
+        <div className="flex justify-end gap-1 p-4 lg:p-6">
+          <span className="text-sm text-muted-foreground">{footerText}</span>
           <Link
             to={footerLinkTo}
-            className="text-sm text-muted-foreground hover:text-foreground"
+            className="text-sm text-muted-foreground hover:text-foreground underline"
           >
             {footerLinkText}
           </Link>
