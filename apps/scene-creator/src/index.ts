@@ -60,22 +60,22 @@ const assets: AssetManifest = {
   //   priority: "critical",
   // },
   lightbulb: {
-    url: "/gltf/lightbulb/scene.gltf",
+    url: "/models/devices/lightbulb/scene.gltf",
     type: AssetType.GLTF,
     priority: "critical",
   },
   television: {
-    url: "/gltf/television/scene.gltf",
+    url: "/models/devices/television/scene.gltf",
     type: AssetType.GLTF,
     priority: "critical",
   },
   fan: {
-    url: "/gltf/fan/scene.gltf",
+    url: "/models/devices/fan/scene.gltf",
     type: AssetType.GLTF,
     priority: "critical",
   },
   air_conditioner: {
-    url: "/gltf/air_conditioner/scene.gltf",
+    url: "/models/devices/air_conditioner/scene.gltf",
     type: AssetType.GLTF,
     priority: "critical",
   },
