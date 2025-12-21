@@ -2,12 +2,22 @@
 
 A polyglot monorepo for smart home management.
 
+## ⚠️ Important: Sync Your Branch
+
+If you pulled before Dec 21, 2025, run:
+
+```bash
+git fetch origin
+git reset --hard origin/main
+```
+
 ## 🚀 Quick Start
 
 ### Prerequisites
 
 - [Node.js](https://nodejs.org/) (v20.19.0+)
 - [npm](https://www.npmjs.com/)
+- [Git LFS](https://git-lfs.com/) (for 3D models)
 - [Python](https://www.python.org/)
 - [Poetry](https://python-poetry.org/)
 - [PostgreSQL/PostGIS](https://postgis.net/)
@@ -15,6 +25,10 @@ A polyglot monorepo for smart home management.
 ### Installation
 
 ```bash
+# Install Git LFS (first time only)
+brew install git-lfs
+git lfs install
+
 # Clone the repository
 git clone https://github.com/PomPerWoW/smarthome-platform.git
 cd smarthome-platform
@@ -35,6 +49,20 @@ cd apps/backend && docker compose up --build -d && cd ../..
 # Run all apps
 npm run dev
 ```
+
+## 📁 Shared Assets
+
+3D models are stored in `packages/assets/models/` and shared across apps via symlinks:
+
+```
+packages/assets/models/
+├── devices/      # Smart device models (lightbulb, TV, fan, AC)
+├── decorations/  # Decoration models (plant, robot)
+├── rooms/        # Room models (living room, dining room)
+└── scenes/       # Scene layouts
+```
+
+Each app has a symlink: `apps/*/public/models → packages/assets/models`
 
 ## 📋 Available Commands
 
