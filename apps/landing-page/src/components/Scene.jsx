@@ -38,7 +38,7 @@ const devices = {
 
 export function Scene({ onDeviceHover, ...props }) {
   const { nodes, materials } = useGLTF(
-    "/models/cozy_modern_living_room/scene.gltf",
+    "/models/rooms/cozy_modern_living_room/scene.gltf",
   );
   const [hovered, setHovered] = useState(null);
 
@@ -276,4 +276,4 @@ export function Scene({ onDeviceHover, ...props }) {
   );
 }
 
-useGLTF.preload("/models/cozy_modern_living_room/scene.gltf");
+useGLTF.preload("/models/rooms/cozy_modern_living_room/scene.gltf");
