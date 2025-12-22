@@ -16,19 +16,19 @@ export interface Device {
   y: number;
   z: number;
   scale: number;
-  model_path: string;
+  modelPath: string;
   icon: string;
-  type_label: string;
+  typeLabel: string;
   colour: string;
   brightness: number;
   volume: number;
   channel: number;
   temperature: number;
   speed: number;
-  floor_id?: string | null;
-  floor_name?: string | null;
-  room_id?: string | null;
-  room_name?: string | null;
+  floorId?: string | null;
+  floorName?: string | null;
+  roomId?: string | null;
+  roomName?: string | null;
 }
 
 export interface Lightbulb extends Device {
@@ -36,7 +36,7 @@ export interface Lightbulb extends Device {
   brightness: number;
   colour: string;
   icon: "lightbulb";
-  type_label: "Light Bulb";
+  typeLabel: "Light Bulb";
 }
 
 export interface Television extends Device {
@@ -44,32 +44,32 @@ export interface Television extends Device {
   volume: number;
   channel: number;
   icon: "tv";
-  type_label: "Smart TV";
+  typeLabel: "Smart TV";
 }
 
 export interface AirConditioner extends Device {
   type: "air_conditioner";
   temperature: number;
   icon: "snowflake";
-  type_label: "Air Conditioner";
+  typeLabel: "Air Conditioner";
 }
 
 export interface Fan extends Device {
   type: "fan";
   speed: number;
   icon: "fan";
-  type_label: "Tower Fan";
+  typeLabel: "Tower Fan";
 }
 
-export const get_default_model_path = (type: DeviceType): string => {
+export const getDefaultModelPath = (type: DeviceType): string => {
   return `/models/${type}/scene.gltf`;
 };
 
-export const get_position = (device: Device): [number, number, number] => {
+export const getPosition = (device: Device): [number, number, number] => {
   return [device.x, device.y, device.z];
 };
 
-export const create_device = (
+export const createDevice = (
   partial: Partial<Device> & { id: string; name: string; type: DeviceType }
 ): Device => {
   const defaults: Device = {
@@ -81,35 +81,35 @@ export const create_device = (
     y: 0.0,
     z: 0.0,
     scale: 1.0,
-    model_path: "",
+    modelPath: "",
     icon: "circle",
-    type_label: "Device",
+    typeLabel: "Device",
     colour: "#ffffff",
     brightness: 0,
     volume: 0,
     channel: 0,
     temperature: 0.0,
     speed: 0,
-    floor_id: null,
-    floor_name: null,
-    room_id: null,
-    room_name: null,
+    floorId: null,
+    floorName: null,
+    roomId: null,
+    roomName: null,
   };
 
   const device = { ...defaults, ...partial };
 
-  if (!device.model_path) {
-    device.model_path = get_default_model_path(device.type);
+  if (!device.modelPath) {
+    device.modelPath = getDefaultModelPath(device.type);
   }
 
   return device;
 };
 
-export const create_lightbulb = (
+export const createLightbulb = (
   partial: Partial<Lightbulb> & { id: string; name: string }
 ): Lightbulb => {
   return {
-    ...create_device({
+    ...createDevice({
       ...partial,
       type: DeviceType.LIGHTBULB,
     }),
@@ -117,15 +117,15 @@ export const create_lightbulb = (
     brightness: partial.brightness ?? 0,
     colour: partial.colour ?? "#ffffff",
     icon: "lightbulb",
-    type_label: "Light Bulb",
+    typeLabel: "Light Bulb",
   } as Lightbulb;
 };
 
-export const create_television = (
+export const createTelevision = (
   partial: Partial<Television> & { id: string; name: string }
 ): Television => {
   return {
-    ...create_device({
+    ...createDevice({
       ...partial,
       type: DeviceType.TELEVISION,
     }),
@@ -133,52 +133,54 @@ export const create_television = (
     volume: partial.volume ?? 10,
     channel: partial.channel ?? 1,
     icon: "tv",
-    type_label: "Smart TV",
+    typeLabel: "Smart TV",
   } as Television;
 };
 
-export const create_air_conditioner = (
+export const createAirConditioner = (
   partial: Partial<AirConditioner> & { id: string; name: string }
 ): AirConditioner => {
   return {
-    ...create_device({
+    ...createDevice({
       ...partial,
       type: DeviceType.AIR_CONDITIONER,
     }),
     type: DeviceType.AIR_CONDITIONER,
     temperature: partial.temperature ?? 24.0,
     icon: "snowflake",
-    type_label: "Air Conditioner",
+    typeLabel: "Air Conditioner",
   } as AirConditioner;
 };
 
-export const create_fan = (
+export const createFan = (
   partial: Partial<Fan> & { id: string; name: string }
 ): Fan => {
   return {
-    ...create_device({
+    ...createDevice({
       ...partial,
       type: DeviceType.FAN,
     }),
     type: DeviceType.FAN,
     speed: partial.speed ?? 50,
     icon: "fan",
-    type_label: "Tower Fan",
+    typeLabel: "Tower Fan",
   } as Fan;
 };
 
-export const is_lightbulb = (device: Device): device is Lightbulb => {
+export const isLightbulb = (device: Device): device is Lightbulb => {
   return device.type === DeviceType.LIGHTBULB;
 };
 
-export const is_television = (device: Device): device is Television => {
+export const isTelevision = (device: Device): device is Television => {
   return device.type === DeviceType.TELEVISION;
 };
 
-export const is_air_conditioner = (device: Device): device is AirConditioner => {
+export const isAirConditioner = (
+  device: Device
+): device is AirConditioner => {
   return device.type === DeviceType.AIR_CONDITIONER;
 };
 
-export const is_fan = (device: Device): device is Fan => {
+export const isFan = (device: Device): device is Fan => {
   return device.type === DeviceType.FAN;
 };

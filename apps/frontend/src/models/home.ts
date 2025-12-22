@@ -3,14 +3,14 @@ import type { Device } from "./device";
 export interface Room {
   id: string;
   name: string;
-  model_path: string;
+  modelPath: string;
   devices: Device[];
 }
 
 export interface Floor {
   id: string;
   name: string;
-  floor_number: number;
+  floorNumber: number;
   rooms: Room[];
 }
 
@@ -21,31 +21,25 @@ export interface Home {
   floors: Floor[];
 }
 
-export const create_room = (
-  partial: Partial<Room> & { id: string; name: string; model_path: string }
-): Room => {
+export const createRoom = (partial: Partial<Room> & { id: string; name: string; modelPath: string }): Room => {
   return {
     id: partial.id,
     name: partial.name,
-    model_path: partial.model_path,
+    modelPath: partial.modelPath,
     devices: partial.devices ?? [],
   };
 };
 
-export const create_floor = (
-  partial: Partial<Floor> & { id: string; name: string; floor_number: number }
-): Floor => {
+export const createFloor = (partial: Partial<Floor> & { id: string; name: string; floorNumber: number }): Floor => {
   return {
     id: partial.id,
     name: partial.name,
-    floor_number: partial.floor_number,
+    floorNumber: partial.floorNumber,
     rooms: partial.rooms ?? [],
   };
 };
 
-export const create_home = (
-  partial: Partial<Home> & { id: string; name: string }
-): Home => {
+export const createHome = (partial: Partial<Home> & { id: string; name: string }): Home => {
   return {
     id: partial.id,
     name: partial.name,
