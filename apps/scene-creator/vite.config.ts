@@ -46,5 +46,8 @@ export default defineConfig({
     "process.env.VITE_FRONTEND_URL": JSON.stringify(
       process.env.VITE_FRONTEND_URL || "http://localhost:5173",
     ),
+    "process.env.VITE_LOCAL_TEST": JSON.stringify(
+      process.env.VITE_LOCAL_TEST || "false",
+    ),
   },
 });

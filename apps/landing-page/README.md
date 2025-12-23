@@ -2,6 +2,18 @@
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
+## 3D assets (Git LFS required)
+
+This app loads GLTF models and textures from `public/models`. These files are stored with **Git LFS**.
+
+If you see the UI briefly render and then disappear, you likely have LFS *pointer* files instead of the real assets.
+Fix by running:
+
+```bash
+git lfs install
+git lfs pull
+```
+
 Currently, two official plugins are available:
 
 - [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh

@@ -26,15 +26,15 @@ const queryClient = new QueryClient({
 
 export const Route = createRootRoute({
   beforeLoad: async () => {
-    const user = await AuthService.getInstance().whoami();
+    const who = await AuthService.getInstance().whoami();
 
-    if (user) {
-      useAuthStore.getState().setUser(user);
+    if (who) {
+      useAuthStore.getState().setUser(who.user);
     } else {
       useAuthStore.getState().logout();
     }
 
-    return { user };
+    return { user: who?.user ?? null, token: who?.token ?? null };
   },
   component: RootLayout,
 });

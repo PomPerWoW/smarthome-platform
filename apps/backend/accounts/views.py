@@ -36,7 +36,10 @@ def register(request):
             max_age=86400 * 7,
             httponly=True,
             secure=not settings.DEBUG,
-            samesite="Lax",
+            # For cross-site embedding (e.g. separate domain for scene creator),
+            # modern browsers require SameSite=None + Secure (HTTPS).
+            # In local dev (often HTTP), keep Lax so cookies still work on localhost.
+            samesite="None" if not settings.DEBUG else "Lax",
             path="/",
         )
 
@@ -68,7 +71,7 @@ def login_view(request):
             max_age=86400 * 7,
             httponly=True,
             secure=not settings.DEBUG,
-            samesite="Lax",
+            samesite="None" if not settings.DEBUG else "Lax",
             path="/",
         )
 
@@ -89,6 +92,29 @@ def whoami(request):
     )
 
 
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def scene_creator_url(request):
+    """
+    Generate a scene creator URL with embedded auth token for easy access from XR devices.
+    """
+    token = request.auth.key if hasattr(request.auth, "key") else str(request.auth)
+    base_url = getattr(settings, "SCENE_CREATOR_URL", "https://localhost:8081")
+    url = f"{base_url}/?token={token}"
+
+    return Response(
+        {
+            "scene_creator_url": url,
+            "instructions": [
+                "Open this URL on your XR device (Meta Quest, etc.)",
+                "The token is embedded in the URL for authentication",
+                "Bookmark this URL for easy access",
+            ],
+        },
+        status=status.HTTP_200_OK,
+    )
+
+
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def logout_view(request):
@@ -103,7 +129,7 @@ def logout_view(request):
     response.delete_cookie(
         key="auth_token",
         path="/",
-        samesite="Lax",
+        samesite="None" if not settings.DEBUG else "Lax",
     )
 
     return response

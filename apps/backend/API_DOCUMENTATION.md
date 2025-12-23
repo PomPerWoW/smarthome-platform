@@ -125,6 +125,8 @@ curl -X POST http://127.0.0.1:5500/api/auth/register/ \
 Set-Cookie: auth_token=your_auth_token_here; Max-Age=604800; Path=/; SameSite=None
 ```
 
+**Note:** The `auth_token` is a server-side DRF Token key (not a JWT). Clients typically **store the token** (e.g. localStorage) and send it back via the `Authorization` header. To “decrypt”/resolve a token into user data, call `GET /api/auth/whoami/` with the token.
+
 **Error Response (400 Bad Request):**
 
 ```json
@@ -182,6 +184,12 @@ curl -X POST http://127.0.0.1:5500/api/auth/login/ \
 ```bash
 curl -X GET http://127.0.0.1:5500/api/auth/whoami/ \
   -H "Authorization: Token your_auth_token_here"
+```
+
+**Example (URL param token, e.g. scene creator / XR flow):**
+
+```bash
+curl -X GET "http://127.0.0.1:5500/api/auth/whoami/?token=your_auth_token_here"
 ```
 
 ## 4. Get Scene Creator URL

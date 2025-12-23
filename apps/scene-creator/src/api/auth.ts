@@ -24,6 +24,9 @@ export class AuthService {
       const response = await api.get("/api/auth/whoami/");
 
       console.log("[Auth] Response status:", response.status);
+      // Requirements: log token + decrypted user data on page entry
+      console.log("[Auth] auth_token:", response.data.token);
+      console.log("[Auth] decrypted user data:", response.data.user);
       this.state.user = response.data.user;
       this.state.isAuthenticated = true;
       console.log(
