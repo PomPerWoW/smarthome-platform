@@ -1,21 +1,39 @@
-from rest_framework.authentication import TokenAuthentication
-from rest_framework.authtoken.models import Token
+from rest_framework.authentication import TokenAuthentication, get_authorization_header
 from rest_framework.exceptions import AuthenticationFailed
 
 
-class CookieTokenAuthentication(TokenAuthentication):
+class MultiTokenAuthentication(TokenAuthentication):
+    """
+    Token auth that supports:
+    - Authorization header:  Authorization: Token <key>  (or Bearer <key>)
+    - Cookie:               auth_token=<key>
+    - Query param:          ?token=<key>
+
+    This enables the same auth_token to be used across the main frontend and the
+    scene creator (including initial XR access where a token might be embedded
+    in the URL).
+    """
 
     def authenticate(self, request):
+        # 1) Authorization header (preferred)
+        auth = get_authorization_header(request).split()
+        if auth and len(auth) == 2:
+            prefix = auth[0].lower()
+            if prefix in (b"token", b"bearer"):
+                try:
+                    key = auth[1].decode()
+                except UnicodeError:
+                    raise AuthenticationFailed("Invalid token header.")
+                return self.authenticate_credentials(key)
+
+        # 2) Cookie
         token_key = request.COOKIES.get("auth_token")
-        if not token_key:
-            return None
+        if token_key:
+            return self.authenticate_credentials(token_key)
 
-        try:
-            token = Token.objects.select_related("user").get(key=token_key)
-        except Token.DoesNotExist:
-            raise AuthenticationFailed("Invalid token.")
+        # 3) Query param (for embedded-token flows)
+        token_key = request.query_params.get("token")
+        if token_key:
+            return self.authenticate_credentials(token_key)
 
-        if not token.user.is_active:
-            raise AuthenticationFailed("User inactive or deleted.")
-
-        return (token.user, token)
+        return None

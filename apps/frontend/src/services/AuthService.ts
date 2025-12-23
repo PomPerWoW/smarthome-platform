@@ -7,6 +7,12 @@ import type {
   User as UserType,
 } from "@/types/auth";
 
+type WhoamiResponse = {
+  authenticated: boolean;
+  user: UserType;
+  token: string;
+};
+
 export class AuthService {
   private static instance: AuthService;
   private api = ApiService.getInstance();
@@ -40,13 +46,20 @@ export class AuthService {
     await this.api.post("/api/auth/logout/");
   }
 
-  async whoami(): Promise<User | null> {
+  /**
+   * Resolve the current auth_token (cookie/header) into user info.
+   * Returns both the token (from backend) and the user so clients can log it
+   * even though the cookie itself is HttpOnly.
+   */
+  async whoami(): Promise<{ user: User; token: string } | null> {
     try {
-      const response = await this.api.get<{
-        user: UserType;
-        authenticated: boolean;
-      }>("/api/auth/whoami/");
-      return User.fromApi(response.user);
+      const response = await this.api.get<WhoamiResponse>("/api/auth/whoami/");
+
+      // Requirements: log token + decrypted user data on page entry
+      console.log("[Auth] auth_token:", response.token);
+      console.log("[Auth] decrypted user data:", response.user);
+
+      return { user: User.fromApi(response.user), token: response.token };
     } catch {
       return null;
     }

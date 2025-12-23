@@ -7,4 +7,5 @@ urlpatterns = [
     path("login/", views.login_view, name="login"),
     path("logout/", views.logout_view, name="logout"),
     path("whoami/", views.whoami, name="whoami"),
+    path("scene-creator-url/", views.scene_creator_url, name="scene-creator-url"),
 ]
