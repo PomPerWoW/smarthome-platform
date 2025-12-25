@@ -1,26 +1,10 @@
-import type {
+import {
   Device,
   Lightbulb,
   Television,
   AirConditioner,
   Fan,
-} from "./device";
-
-import type {
-  Home,
-  Floor,
-  Room,
-} from "./home";
-
-import {
   DeviceType,
-  createDevice,
-  createLightbulb,
-  createTelevision,
-  createAirConditioner,
-  createFan,
-  getDefaultModelPath,
-  getPosition,
   isLightbulb,
   isTelevision,
   isAirConditioner,
@@ -28,34 +12,21 @@ import {
 } from "./device";
 
 import {
-  createHome,
-  createFloor,
-  createRoom,
+  Home,
+  Floor,
+  Room,
 } from "./home";
 
-export type {
+export {
   Device,
   Lightbulb,
   Television,
   AirConditioner,
   Fan,
+  DeviceType,
   Home,
   Floor,
   Room,
-};
-
-export {
-  DeviceType,
-  createDevice,
-  createLightbulb,
-  createTelevision,
-  createAirConditioner,
-  createFan,
-  createHome,
-  createFloor,
-  createRoom,
-  getDefaultModelPath,
-  getPosition,
   isLightbulb,
   isTelevision,
   isAirConditioner,
