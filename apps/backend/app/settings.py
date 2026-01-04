@@ -71,7 +71,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "debug_toolbar",
     "accounts",
-    "home",
+    "homes",
 ]
 
 MIDDLEWARE = [
