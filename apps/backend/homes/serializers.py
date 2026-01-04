@@ -32,6 +32,8 @@ class DeviceBaseSerializer(serializers.ModelSerializer):
 # --- 2. Standard Container Serializers ---
 
 class HomeSerializer(serializers.ModelSerializer):
+    user = serializers.PrimaryKeyRelatedField(read_only=True)
+
     class Meta:
         model = Home
         fields = '__all__'

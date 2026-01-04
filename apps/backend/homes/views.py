@@ -1,4 +1,4 @@
-from rest_framework import viewsets, status
+from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.contrib.gis.geos import Point
@@ -9,6 +9,12 @@ from .serializers import *
 class HomeViewSet(viewsets.ModelViewSet):
     queryset = Home.objects.all()
     serializer_class = HomeSerializer
+    
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def perform_create(self, serializer):
+        # 'self.request.user' is automatically set by Django if the Token is valid
+        serializer.save(user=self.request.user)
 
     # Command: Get All Devices in Home 
     # GET /api/homes/{id}/get_devices/
