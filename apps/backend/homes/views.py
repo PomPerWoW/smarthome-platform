@@ -1,52 +1,55 @@
 from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.exceptions import PermissionDenied
 from django.contrib.gis.geos import Point
+from .permissions import IsHomeOwner
 from .models import *
 from .serializers import *
 
-# --- Container Views (Homes & Rooms) ---
+# --- 1. Home ViewSet ---
 class HomeViewSet(viewsets.ModelViewSet):
-    queryset = Home.objects.all()
     serializer_class = HomeSerializer
-    
-    permission_classes = [permissions.IsAuthenticated]
-    
+    # Apply Permissions
+    permission_classes = [permissions.IsAuthenticated, IsHomeOwner]
+
+    def get_queryset(self):
+        # LIST FILTER: Only show homes owned by the user
+        return Home.objects.filter(user=self.request.user)
+
     def perform_create(self, serializer):
-        # 'self.request.user' is automatically set by Django if the Token is valid
+        # AUTO-ASSIGN: Set the user automatically from the token
         serializer.save(user=self.request.user)
 
-    # Command: Get All Devices in Home 
-    # GET /api/homes/{id}/get_devices/
+    # Actions inherit the permission classes automatically
     @action(detail=True, methods=['get'])
     def get_devices(self, request, pk=None):
-        home = self.get_object()
-        # Find all devices linked to rooms that belong to this home
+        home = self.get_object() # Triggers IsHomeOwner check
         devices = Device.objects.filter(room__home=home)
-        serializer = DeviceSerializer(devices, many=True)
-        return Response(serializer.data)
+        return Response(DeviceSerializer(devices, many=True).data)
 
-    # Command: Get All Rooms in Home
-    # GET /api/homes/{id}/get_rooms/
-    @action(detail=True, methods=['get'])
-    def get_rooms(self, request, pk=None):
-        home = self.get_object()
-        rooms = Room.objects.filter(home=home)
-        serializer = RoomSerializer(rooms, many=True)
-        return Response(serializer.data)
 
+# --- 2. Room ViewSet ---
 class RoomViewSet(viewsets.ModelViewSet):
-    queryset = Room.objects.all()
     serializer_class = RoomSerializer
+    permission_classes = [permissions.IsAuthenticated, IsHomeOwner]
 
-    # Command: Get All Devices in Room
-    # GET /api/rooms/{id}/get_devices/
+    def get_queryset(self):
+        # LIST FILTER: Only show rooms in homes owned by the user
+        return Room.objects.filter(home__user=self.request.user)
+
+    def perform_create(self, serializer):
+        # SECURITY CHECK: Prevent creating a room in someone else's home
+        home = serializer.validated_data['home']
+        if home.user != self.request.user:
+            raise PermissionDenied("You do not own this home.")
+        serializer.save()
+
     @action(detail=True, methods=['get'])
     def get_devices(self, request, pk=None):
-        room = self.get_object()
+        room = self.get_object() 
         devices = Device.objects.filter(room=room)
-        serializer = DeviceSerializer(devices, many=True)
-        return Response(serializer.data)
+        return Response(DeviceSerializer(devices, many=True).data)
 
 
 # --- Base Device ViewSet (Position Logic) ---
@@ -54,6 +57,21 @@ class BaseDeviceViewSet(viewsets.ModelViewSet):
     """
     Parent ViewSet with logic shared by ALL devices.
     """
+    permission_classes = [permissions.IsAuthenticated, IsHomeOwner]
+
+    def get_queryset(self):
+        # LIST FILTER: Only show devices in user's rooms
+        # We access the model class dynamically using 'self.serializer_class.Meta.model'
+        model = self.serializer_class.Meta.model
+        return model.objects.filter(room__home__user=self.request.user)
+
+    def perform_create(self, serializer):
+        # SECURITY CHECK: Prevent creating device in someone else's room
+        room = serializer.validated_data.get('room')
+        if room and room.home.user != self.request.user:
+            raise PermissionDenied("You do not own this room.")
+        serializer.save()
+    
     @action(detail=True, methods=['post'])
     def set_position(self, request, pk=None):
         obj = self.get_object()

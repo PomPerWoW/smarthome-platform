@@ -7,13 +7,13 @@ from .views import (
 
 # The Router automatically creates the URL list for ViewSets
 router = DefaultRouter()
-router.register(r'homes', HomeViewSet)
-router.register(r'rooms', RoomViewSet)
-router.register(r'devices', DeviceViewSet)
-router.register(r'acs', AirConditionerViewSet)
-router.register(r'fans', FanViewSet)
-router.register(r'lightbulbs', LightbulbViewSet)
-router.register(r'tvs', TelevisionViewSet)
+router.register(r'homes', HomeViewSet, basename='home')
+router.register(r'rooms', RoomViewSet, basename='room')
+router.register(r'devices', DeviceViewSet, basename='device')
+router.register(r'acs', AirConditionerViewSet, basename='airconditioner')
+router.register(r'fans', FanViewSet, basename='fan')
+router.register(r'lightbulbs', LightbulbViewSet, basename='lightbulb')
+router.register(r'tvs', TelevisionViewSet, basename='television')
 
 urlpatterns = [
     # This includes all the router-generated URLs
