@@ -3,14 +3,8 @@ from .models import *
 
 # --- 1. Base Logic (Shared by all) ---
 class DeviceBaseSerializer(serializers.ModelSerializer):
-    """
-    Handles common logic:
-    1. device_pos -> {"x":..., "y":..., "z":...}
-    2. type -> "AirConditioner" (Class Name)
-    3. room -> "Living Room" (Name instead of UUID)
-    """
     device_pos = serializers.SerializerMethodField()
-    type = serializers.SerializerMethodField()  # <--- NEW FIELD
+    type = serializers.SerializerMethodField()
 
     def get_device_pos(self, obj):
         if obj.device_pos:
@@ -18,12 +12,10 @@ class DeviceBaseSerializer(serializers.ModelSerializer):
         return {"x": None, "y": None, "z": None}
 
     def get_type(self, obj):
-        # Returns the class name, e.g., "AirConditioner", "Fan", "Device"
         return obj.__class__.__name__
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        # Swap UUID for Room Name string when reading
         if instance.room:
             data['room'] = instance.room.room_name
         return data
@@ -44,11 +36,8 @@ class RoomSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class PositionHistorySerializer(DeviceBaseSerializer):
-    # Inherits 'type' and 'device_pos' logic automatically
     device_name = serializers.CharField(source='device.device_name', read_only=True)
     device_id = serializers.UUIDField(source='device.id', read_only=True)
-    
-    # Override 'point' to use the base 'get_device_pos' style logic if needed
     point = serializers.SerializerMethodField()
 
     class Meta:
@@ -92,9 +81,6 @@ class DeviceSerializer(DeviceBaseSerializer):
         fields = '__all__'
 
     def to_representation(self, instance):
-        """
-        Check if the generic 'Device' is actually a specific child type.
-        """
         if hasattr(instance, 'airconditioner'):
             return AirConditionerSerializer(instance.airconditioner).data
         

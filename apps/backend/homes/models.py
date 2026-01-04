@@ -26,7 +26,6 @@ class Device(models.Model):
     
     device_name = models.CharField(max_length=255)
     room = models.ForeignKey(Room, on_delete=models.SET_NULL, null=True, blank=True, related_name='devices')
-    # PostGIS 3D Point (x, y, z)
     device_pos = models.PointField(dim=3, srid=4326, null=True, blank=True)
 
     def __str__(self):

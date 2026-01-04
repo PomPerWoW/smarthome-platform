@@ -9,21 +9,35 @@ from .serializers import *
 
 # --- 1. Home ViewSet ---
 class HomeViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for viewing and editing Home instances.
+    
+    Ensures that users can only interact with Homes they own.
+    """
     serializer_class = HomeSerializer
     # Apply Permissions
     permission_classes = [permissions.IsAuthenticated, IsHomeOwner]
 
     def get_queryset(self):
-        # LIST FILTER: Only show homes owned by the user
+        """
+        Filters the queryset to return only homes owned by the authenticated user.
+        """
         return Home.objects.filter(user=self.request.user)
 
     def perform_create(self, serializer):
-        # AUTO-ASSIGN: Set the user automatically from the token
+        """
+        Intersects the creation process to automatically assign the 
+        authenticated user as the owner of the home.
+        """
         serializer.save(user=self.request.user)
 
-    # Actions inherit the permission classes automatically
     @action(detail=True, methods=['get'])
     def get_devices(self, request, pk=None):
+        """
+        Custom Action: Retrieve all devices linked to a specific Home.
+        
+        URL: GET /api/homes/{pk}/get_devices/
+        """
         home = self.get_object() # Triggers IsHomeOwner check
         devices = Device.objects.filter(room__home=home)
         return Response(DeviceSerializer(devices, many=True).data)
@@ -31,15 +45,25 @@ class HomeViewSet(viewsets.ModelViewSet):
 
 # --- 2. Room ViewSet ---
 class RoomViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for viewing and editing Room instances.
+    """
     serializer_class = RoomSerializer
     permission_classes = [permissions.IsAuthenticated, IsHomeOwner]
 
     def get_queryset(self):
-        # LIST FILTER: Only show rooms in homes owned by the user
+        """
+        Filters the queryset to return only rooms belonging to homes owned by the user.
+        """
         return Room.objects.filter(home__user=self.request.user)
 
     def perform_create(self, serializer):
-        # SECURITY CHECK: Prevent creating a room in someone else's home
+        """
+        Saves a new Room instance with a security check.
+        
+        Raises:
+            PermissionDenied: If the user tries to add a room to a home they do not own.
+        """
         home = serializer.validated_data['home']
         if home.user != self.request.user:
             raise PermissionDenied("You do not own this home.")
@@ -47,6 +71,11 @@ class RoomViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'])
     def get_devices(self, request, pk=None):
+        """
+        Custom Action: Retrieve all devices contained within a specific Room.
+        
+        URL: GET /api/rooms/{pk}/get_devices/
+        """
         room = self.get_object() 
         devices = Device.objects.filter(room=room)
         return Response(DeviceSerializer(devices, many=True).data)
@@ -55,18 +84,28 @@ class RoomViewSet(viewsets.ModelViewSet):
 # --- Base Device ViewSet (Position Logic) ---
 class BaseDeviceViewSet(viewsets.ModelViewSet):
     """
-    Parent ViewSet with logic shared by ALL devices.
+    Abstract/Parent ViewSet containing logic shared by ALL device types.
+    
+    Handles:
+    1. Dynamic queryset filtering based on the child model.
+    2. Common ownership security checks.
+    3. 3D Positioning logic (get/set position).
+    4. Position History tracking.
     """
     permission_classes = [permissions.IsAuthenticated, IsHomeOwner]
 
     def get_queryset(self):
-        # LIST FILTER: Only show devices in user's rooms
-        # We access the model class dynamically using 'self.serializer_class.Meta.model'
+        """
+        Dynamically retrieves the model class from the serializer and filters 
+        objects to ensure they belong to the authenticated user's homes.
+        """
         model = self.serializer_class.Meta.model
         return model.objects.filter(room__home__user=self.request.user)
 
     def perform_create(self, serializer):
-        # SECURITY CHECK: Prevent creating device in someone else's room
+        """
+        Saves a Device with a security check to ensure the target Room belongs to the user.
+        """
         room = serializer.validated_data.get('room')
         if room and room.home.user != self.request.user:
             raise PermissionDenied("You do not own this room.")
@@ -74,6 +113,17 @@ class BaseDeviceViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def set_position(self, request, pk=None):
+        """
+        Updates the 3D position (GeoDjango Point) of the device and logs the change to history.
+        
+        Body Parameters:
+            x (float): Required.
+            y (float): Required.
+            z (float): Optional (default 0).
+            
+        Returns:
+            JSON: The updated coordinates or an error message.
+        """
         obj = self.get_object()
         # Ensure we access the parent Device instance for history logging
         device_instance = obj if isinstance(obj, Device) else obj.device_ptr
@@ -95,6 +145,12 @@ class BaseDeviceViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'])
     def get_position(self, request, pk=None):
+        """
+        Retrieves the current x, y, z coordinates of the device.
+        
+        Returns:
+            JSON: {x, y, z} or nulls if position is not set.
+        """
         obj = self.get_object()
         
         # Consistent return format
@@ -112,10 +168,16 @@ class BaseDeviceViewSet(viewsets.ModelViewSet):
             "z": None
         })
     
-    # Command: Get Position History
-    # GET /api/{device_type}/{id}/history/
     @action(detail=True, methods=['get'])
     def history(self, request, pk=None):
+        """
+        Retrieves the movement history of the device.
+        
+        URL: GET /api/{device_type}/{id}/history/
+        
+        Returns:
+            List: serialized PositionHistory records ordered by timestamp (descending).
+        """
         obj = self.get_object()
         
         # We filter by device_id. 
@@ -129,18 +191,27 @@ class BaseDeviceViewSet(viewsets.ModelViewSet):
 # --- Specific Device ViewSets (Command Style) ---
 
 class DeviceViewSet(BaseDeviceViewSet):
+    """
+    Generic ViewSet for querying the base 'Device' model.
+    """
     queryset = Device.objects.all()
     serializer_class = DeviceSerializer
 
 
 class AirConditionerViewSet(BaseDeviceViewSet):
+    """
+    ViewSet for Air Conditioner devices. Includes specific controls for temperature.
+    """
     queryset = AirConditioner.objects.all()
     serializer_class = AirConditionerSerializer
 
-    # Command: Set Temperature
-    # POST /api/acs/{id}/set_temperature/ | Body: {"temp": 25.5}
     @action(detail=True, methods=['post'])
     def set_temperature(self, request, pk=None):
+        """
+        Command: Set the target temperature of the AC.
+        
+        Body: {"temp": float}
+        """
         ac = self.get_object()
         temp = request.data.get('temp')
         
@@ -152,13 +223,19 @@ class AirConditionerViewSet(BaseDeviceViewSet):
 
 
 class FanViewSet(BaseDeviceViewSet):
+    """
+    ViewSet for Fan devices. Includes controls for speed and swing mode.
+    """
     queryset = Fan.objects.all()
     serializer_class = FanSerializer
 
-    # Command: Set Speed
-    # POST /api/fans/{id}/set_speed/ | Body: {"speed": 3}
     @action(detail=True, methods=['post'])
     def set_speed(self, request, pk=None):
+        """
+        Command: Set the fan speed.
+        
+        Body: {"speed": int}
+        """
         fan = self.get_object()
         speed = request.data.get('speed')
 
@@ -168,10 +245,13 @@ class FanViewSet(BaseDeviceViewSet):
             return Response({"status": "speed set", "current_speed": fan.speed})
         return Response({"error": "speed parameter missing"}, status=400)
 
-    # Command: Set Swing
-    # POST /api/fans/{id}/set_swing/ | Body: {"swing": true}
     @action(detail=True, methods=['post'])
     def set_swing(self, request, pk=None):
+        """
+        Command: Toggle or set the fan swing mode.
+        
+        Body: {"swing": boolean}
+        """
         fan = self.get_object()
         swing = request.data.get('swing')
 
@@ -183,13 +263,19 @@ class FanViewSet(BaseDeviceViewSet):
 
 
 class LightbulbViewSet(BaseDeviceViewSet):
+    """
+    ViewSet for Smart Lightbulbs. Includes controls for brightness and HEX colour.
+    """
     queryset = Lightbulb.objects.all()
     serializer_class = LightbulbSerializer
 
-    # Command: Set Brightness
-    # POST /api/lightbulbs/{id}/set_brightness/ | Body: {"brightness": 80}
     @action(detail=True, methods=['post'])
     def set_brightness(self, request, pk=None):
+        """
+        Command: Set the light brightness level (usually 0-100).
+        
+        Body: {"brightness": int}
+        """
         bulb = self.get_object()
         brightness = request.data.get('brightness')
 
@@ -199,10 +285,13 @@ class LightbulbViewSet(BaseDeviceViewSet):
             return Response({"status": "brightness set", "current_brightness": bulb.brightness})
         return Response({"error": "brightness parameter missing"}, status=400)
 
-    # Command: Set Colour
-    # POST /api/lightbulbs/{id}/set_colour/ | Body: {"colour": "#FF0000"}
     @action(detail=True, methods=['post'])
     def set_colour(self, request, pk=None):
+        """
+        Command: Set the light colour.
+        
+        Body: {"colour": string} (Expected format: Hex Code, e.g., "#FF0000")
+        """
         bulb = self.get_object()
         colour = request.data.get('colour')
 
@@ -214,13 +303,19 @@ class LightbulbViewSet(BaseDeviceViewSet):
 
 
 class TelevisionViewSet(BaseDeviceViewSet):
+    """
+    ViewSet for Television devices. Includes controls for volume, channel, and mute.
+    """
     queryset = Television.objects.all()
     serializer_class = TelevisionSerializer
 
-    # Command: Set Volume
-    # POST /api/tvs/{id}/set_volume/ | Body: {"volume": 15}
     @action(detail=True, methods=['post'])
     def set_volume(self, request, pk=None):
+        """
+        Command: Set the TV volume.
+        
+        Body: {"volume": int}
+        """
         tv = self.get_object()
         volume = request.data.get('volume')
 
@@ -230,10 +325,13 @@ class TelevisionViewSet(BaseDeviceViewSet):
             return Response({"status": "volume set", "current_volume": tv.volume})
         return Response({"error": "volume parameter missing"}, status=400)
 
-    # Command: Set Channel
-    # POST /api/tvs/{id}/set_channel/ | Body: {"channel": 5}
     @action(detail=True, methods=['post'])
     def set_channel(self, request, pk=None):
+        """
+        Command: Change the TV channel.
+        
+        Body: {"channel": int}
+        """
         tv = self.get_object()
         channel = request.data.get('channel')
 
@@ -243,10 +341,13 @@ class TelevisionViewSet(BaseDeviceViewSet):
             return Response({"status": "channel set", "current_channel": tv.channel})
         return Response({"error": "channel parameter missing"}, status=400)
 
-    # Command: Set Mute
-    # POST /api/tvs/{id}/set_mute/ | Body: {"mute": true}
     @action(detail=True, methods=['post'])
     def set_mute(self, request, pk=None):
+        """
+        Command: Set the TV mute status.
+        
+        Body: {"mute": boolean}
+        """
         tv = self.get_object()
         mute = request.data.get('mute')
 
