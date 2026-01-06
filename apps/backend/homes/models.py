@@ -27,6 +27,7 @@ class Device(models.Model):
     device_name = models.CharField(max_length=255)
     room = models.ForeignKey(Room, on_delete=models.SET_NULL, null=True, blank=True, related_name='devices')
     device_pos = models.PointField(dim=3, srid=4326, null=True, blank=True)
+    tag = models.CharField(max_length=50, null=True, blank=True)
 
     def __str__(self):
         return self.device_name

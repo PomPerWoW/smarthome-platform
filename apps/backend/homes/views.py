@@ -36,7 +36,7 @@ class HomeViewSet(viewsets.ModelViewSet):
         """
         Custom Action: Retrieve all devices linked to a specific Home.
         
-        URL: GET /api/homes/{pk}/get_devices/
+        URL: GET /api/homes/homes/{pk}/get_devices/
         """
         home = self.get_object() # Triggers IsHomeOwner check
         devices = Device.objects.filter(room__home=home)
@@ -74,7 +74,7 @@ class RoomViewSet(viewsets.ModelViewSet):
         """
         Custom Action: Retrieve all devices contained within a specific Room.
         
-        URL: GET /api/rooms/{pk}/get_devices/
+        URL: GET /api/homes/rooms/{pk}/get_devices/
         """
         room = self.get_object() 
         devices = Device.objects.filter(room=room)
@@ -173,7 +173,7 @@ class BaseDeviceViewSet(viewsets.ModelViewSet):
         """
         Retrieves the movement history of the device.
         
-        URL: GET /api/{device_type}/{id}/history/
+        URL: GET /api/homes/{device_type}/{id}/history/
         
         Returns:
             List: serialized PositionHistory records ordered by timestamp (descending).
@@ -186,7 +186,46 @@ class BaseDeviceViewSet(viewsets.ModelViewSet):
         
         serializer = PositionHistorySerializer(history_records, many=True)
         return Response(serializer.data)
+    
+    @action(detail=True, methods=['get', 'post', 'put', 'delete'])
+    def tag(self, request, pk=None):
+        """
+        Manage the 'tag' for a device. Handles retrieval, creation, updating, and deletion.
 
+        Supported Methods:
+            GET: Retrieve the current tag.
+            POST/PUT: Set or update the tag.
+            DELETE: Clear the tag (set to null).
+
+        Body Parameters (POST/PUT only):
+            tag (string): Required. The new tag string.
+
+        Returns:
+            GET: JSON {"tag": "string" or null}
+            POST/PUT: JSON {"status": "tag updated", "tag": "new_tag"}
+            DELETE: JSON {"status": "tag cleared"}
+        """
+        obj = self.get_object()
+
+        # 1. READ (GET)
+        if request.method == 'GET':
+            return Response({"tag": obj.tag})
+
+        # 2. CREATE / UPDATE (POST, PUT)
+        elif request.method in ['POST', 'PUT']:
+            new_tag = request.data.get('tag')
+            if new_tag is None:
+                return Response({"error": "tag parameter is required"}, status=400)
+            
+            obj.tag = new_tag
+            obj.save()
+            return Response({"status": "tag updated", "tag": obj.tag})
+
+        # 3. DELETE (DELETE)
+        elif request.method == 'DELETE':
+            obj.tag = None  # Set to null instead of deleting the device
+            obj.save()
+            return Response({"status": "tag cleared"})
 
 # --- Specific Device ViewSets (Command Style) ---
 
