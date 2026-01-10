@@ -59,6 +59,7 @@ ALLOWED_HOSTS = get_required_env(
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -72,7 +73,18 @@ INSTALLED_APPS = [
     "debug_toolbar",
     "accounts",
     "homes",
+    'channels',
 ]
+
+# Set the ASGI application
+ASGI_APPLICATION = 'config.asgi.application'
+
+# Configure Channel Layer (uses in-memory for dev, Redis for production)
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer"
+    }
+}
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
