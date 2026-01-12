@@ -1,7 +1,4 @@
-import { useSettingsStore } from './settings';
-import { useUIStore } from './ui';
+import { useSettingsStore } from "./settings_store";
+import { useUIStore } from "./ui_store";
 
-export {
-  useSettingsStore,
-  useUIStore,
-};
+export { useSettingsStore, useUIStore };

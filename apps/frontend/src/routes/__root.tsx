@@ -37,7 +37,20 @@ export const Route = createRootRoute({
     return { user };
   },
   component: RootLayout,
+  notFoundComponent: NotFound,
 });
+
+function NotFound() {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
+      <h1 className="text-4xl font-bold mb-4">404</h1>
+      <p className="text-muted-foreground mb-4">Page not found</p>
+      <a href="/" className="text-primary hover:underline">
+        Go back to Dashboard
+      </a>
+    </div>
+  );
+}
 
 const authRoutes = ["/login", "/register"];
 
@@ -55,12 +68,16 @@ function RootLayout() {
           // Dashboard pages - with sidebar
           <SidebarProvider>
             <AppSidebar />
-            <SidebarInset className="h-svh flex flex-col">
-              <header className="flex shrink-0 items-center justify-between border-b px-2 py-2">
+            <SidebarInset className="relative flex h-svh flex-col overflow-hidden bg-background">
+              <div className="pointer-events-none absolute -top-24 -right-24 h-[500px] w-[500px] rounded-full bg-primary/10 blur-3xl filter" />
+              <div className="pointer-events-none absolute top-1/2 -left-24 h-[400px] w-[400px] rounded-full bg-primary/5 blur-3xl filter" />
+              <div className="pointer-events-none absolute bottom-1/4 right-1/4 h-[300px] w-[300px] rounded-full bg-primary/5 blur-3xl filter" />
+              <div className="pointer-events-none absolute -bottom-10 right-10 h-[250px] w-[250px] rounded-full bg-primary/5 blur-3xl filter" />
+              <header className="relative z-10 flex shrink-0 items-center justify-between border-b px-2 py-2">
                 <SidebarTrigger className="size-12" />
                 <ModeToggle />
               </header>
-              <main className="flex-1 p-4">
+              <main className="relative z-10 flex-1 p-4">
                 <Outlet />
               </main>
             </SidebarInset>

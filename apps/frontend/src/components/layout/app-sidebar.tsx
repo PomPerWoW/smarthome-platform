@@ -4,7 +4,6 @@ import { toast } from "sonner";
 import {
   Home,
   Lightbulb,
-  ThermometerSun,
   Settings,
   HelpCircle,
   Search,
@@ -41,7 +40,6 @@ import { AuthService } from "@/services/AuthService";
 const mainNavItems = [
   { title: "Dashboard", url: "/", icon: Home },
   { title: "Devices", url: "/devices", icon: Lightbulb },
-  { title: "Climate", url: "/climate", icon: ThermometerSun },
 ];
 
 const bottomNavItems = [
