@@ -14,11 +14,13 @@ import { ReactQueryDevtoolsPanel } from "@tanstack/react-query-devtools";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { AuthService } from "@/services/AuthService";
 import { useAuthStore } from "@/stores/auth";
+import { AvatarAssistant } from "@/components/avatar-assistant";
+import { useState } from "react";
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 5, // 5 minutes
+      staleTime: 1000 * 60 * 5,
       retry: 1,
     },
   },
@@ -40,19 +42,25 @@ export const Route = createRootRoute({
 });
 
 const authRoutes = ["/login", "/register"];
+const demoRoutes = ["/avatar-demo"];
 
 function RootLayout() {
   const location = useLocation();
   const isAuthPage = authRoutes.includes(location.pathname);
+  const isDemoPage = demoRoutes.includes(location.pathname);
+  const user = useAuthStore((state) => state.user);
+
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isListening, setIsListening] = useState(false);
 
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="dark" storageKey="smarthome-theme">
-        {isAuthPage ? (
-          // Auth pages - no sidebar
+        {isAuthPage || isDemoPage ? (
+          
           <Outlet />
         ) : (
-          // Dashboard pages - with sidebar
+
           <SidebarProvider>
             <AppSidebar />
             <SidebarInset className="h-svh flex flex-col">
@@ -64,20 +72,23 @@ function RootLayout() {
                 <Outlet />
               </main>
             </SidebarInset>
+            {user && (
+              <AvatarAssistant
+                isSpeaking={isSpeaking}
+                isListening={isListening}
+              />
+            )}
           </SidebarProvider>
         )}
 
-        {/* Toast notifications */}
         <Toaster richColors position="top-right" />
-
-        {/* Devtools */}
         <TanStackDevtools
           plugins={[
             {
               name: "TanStack Query",
               render: <ReactQueryDevtoolsPanel />,
               defaultOpen: true,
-            },
+              },
             {
               name: "TanStack Router",
               render: <TanStackRouterDevtoolsPanel />,
