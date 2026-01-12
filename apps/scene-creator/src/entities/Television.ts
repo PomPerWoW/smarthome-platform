@@ -6,17 +6,20 @@ export class Television extends BaseDevice {
   readonly type = DeviceType.Television;
   volume: number;
   channel: number;
+  isMute: boolean;
 
   constructor(data: TelevisionData) {
     super(data);
     this.volume = data.volume;
     this.channel = data.channel;
+    this.isMute = data.is_mute;
   }
 
   getProperties(): Record<string, unknown> {
     return {
       volume: this.volume,
       channel: this.channel,
+      is_mute: this.isMute,
     };
   }
 
@@ -24,6 +27,7 @@ export class Television extends BaseDevice {
     this.isOn = data.is_on;
     this.volume = data.volume;
     this.channel = data.channel;
+    this.isMute = data.is_mute;
     this.position = data.position;
   }
 
@@ -37,5 +41,9 @@ export class Television extends BaseDevice {
 
   setChannel(channel: number): void {
     this.channel = Math.max(1, channel);
+  }
+
+  toggleMute(): void {
+    this.isMute = !this.isMute;
   }
 }

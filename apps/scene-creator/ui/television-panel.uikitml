@@ -1,0 +1,305 @@
+<style>
+  .panel-container {
+    align-items: flex-start;
+    padding: 2;
+    width: 40;
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    background-color: #09090b;
+    border-color: #27272a;
+    border-width: 0.15;
+    border-radius: 2;
+  }
+
+  .header-section {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 1.5;
+    margin-bottom: 1.5;
+    width: 100%;
+  }
+
+  .device-icon {
+    width: 4;
+    height: 4;
+    color: #3b82f6;
+  }
+
+  .device-icon-off {
+    width: 4;
+    height: 4;
+    color: #71717a;
+  }
+
+  .header-text {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+  }
+
+  .device-name {
+    font-size: 2.5;
+    font-weight: bold;
+    color: #fafafa;
+  }
+
+  .device-location {
+    font-size: 1.6;
+    color: #71717a;
+  }
+
+  .device-position {
+    font-size: 1.4;
+    color: #52525b;
+  }
+
+  .divider {
+    height: 0.1;
+    width: 100%;
+    background-color: #27272a;
+    margin: 1.5 0;
+  }
+
+  .control-section {
+    display: flex;
+    flex-direction: column;
+    gap: 2;
+    width: 100%;
+  }
+
+  .control-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 1.5;
+    width: 100%;
+  }
+
+  .control-icon {
+    width: 2.5;
+    height: 2.5;
+    color: #a1a1aa;
+  }
+
+  .control-label {
+    font-size: 1.8;
+    color: #a1a1aa;
+    width: 12;
+  }
+
+  .power-btn {
+    width: 5;
+    height: 5;
+    border-radius: 2.5;
+    background-color: #27272a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  .power-btn-on {
+    width: 5;
+    height: 5;
+    border-radius: 2.5;
+    background-color: #22c55e;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  .power-icon {
+    width: 2.5;
+    height: 2.5;
+    color: #fafafa;
+  }
+
+  .value-container {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 1;
+    flex: 1;
+  }
+
+  .value-text {
+    font-size: 2;
+    color: #fafafa;
+    width: 6;
+    text-align: center;
+  }
+
+  .control-btn {
+    width: 4;
+    height: 4;
+    border-radius: 0.5;
+    background-color: #27272a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  .control-btn-icon {
+    width: 2;
+    height: 2;
+    color: #fafafa;
+  }
+
+  .channel-grid {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 1;
+    width: 100%;
+    margin-top: 1;
+  }
+
+  .channel-btn {
+    width: 5;
+    height: 4;
+    border-radius: 0.5;
+    background-color: #27272a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  .channel-btn-selected {
+    background-color: #3b82f6;
+  }
+
+  .channel-text {
+    font-size: 1.6;
+    color: #fafafa;
+  }
+
+  .status-section {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5;
+    width: 100%;
+    margin-top: 1.5;
+    padding-top: 1.5;
+    border-top-width: 0.1;
+    border-top-color: #27272a;
+  }
+
+  .status-dot {
+    width: 1;
+    height: 1;
+    border-radius: 0.5;
+    background-color: #22c55e;
+  }
+
+  .status-dot-off {
+    width: 1;
+    height: 1;
+    border-radius: 0.5;
+    background-color: #71717a;
+  }
+
+  .status-text {
+    font-size: 1.4;
+    color: #71717a;
+  }
+</style>
+
+<div class="panel-container">
+  <!-- Header -->
+  <div class="header-section">
+    <div>
+      <TvIcon class="device-icon" id="header-icon" />
+    </div>
+    <div class="header-text">
+      <span class="device-name" id="device-name">Television</span>
+      <span class="device-location" id="device-location">Loading...</span>
+      <span class="device-position" id="device-position"></span>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Controls -->
+  <div class="control-section">
+    <!-- Power Control -->
+    <div class="control-row">
+      <div>
+        <PowerIcon class="control-icon" />
+      </div>
+      <span class="control-label">Power</span>
+      <button class="power-btn-on" id="power-btn">
+        <div>
+          <PowerIcon class="power-icon" />
+        </div>
+      </button>
+    </div>
+
+    <!-- Volume Control -->
+    <div class="control-row">
+      <div>
+        <Volume2Icon class="control-icon" />
+      </div>
+      <span class="control-label">Volume</span>
+      <div class="value-container">
+        <button class="control-btn" id="volume-down">
+          <div>
+            <MinusIcon class="control-btn-icon" />
+          </div>
+        </button>
+        <span class="value-text" id="volume-value">50</span>
+        <button class="control-btn" id="volume-up">
+          <div>
+            <PlusIcon class="control-btn-icon" />
+          </div>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mute Control -->
+    <div class="control-row">
+      <div>
+        <VolumeXIcon class="control-icon" />
+      </div>
+      <span class="control-label">Mute</span>
+      <button class="power-btn" id="mute-btn">
+        <div>
+          <VolumeXIcon class="power-icon" />
+        </div>
+      </button>
+    </div>
+
+    <!-- Channel Control -->
+    <div class="control-row">
+      <div>
+        <ListIcon class="control-icon" />
+      </div>
+      <span class="control-label">Channel</span>
+      <div class="value-container">
+        <button class="control-btn" id="channel-down">
+          <div>
+            <ChevronLeftIcon class="control-btn-icon" />
+          </div>
+        </button>
+        <span class="value-text" id="channel-value">1</span>
+        <button class="control-btn" id="channel-up">
+          <div>
+            <ChevronRightIcon class="control-btn-icon" />
+          </div>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Status Footer -->
+  <div class="status-section">
+    <div class="status-dot" id="status-dot"></div>
+    <span class="status-text" id="status-text">On</span>
+  </div>
+</div>

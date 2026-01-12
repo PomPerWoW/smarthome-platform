@@ -1,0 +1,335 @@
+<style>
+  .panel-container {
+    align-items: flex-start;
+    padding: 2;
+    width: 40;
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    background-color: #09090b;
+    border-color: #27272a;
+    border-width: 0.15;
+    border-radius: 2;
+  }
+
+  .header-section {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 1.5;
+    margin-bottom: 1.5;
+    width: 100%;
+  }
+
+  .device-icon {
+    width: 4;
+    height: 4;
+    color: #facc15;
+  }
+
+  .device-icon-off {
+    width: 4;
+    height: 4;
+    color: #71717a;
+  }
+
+  .header-text {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+  }
+
+  .device-name {
+    font-size: 2.5;
+    font-weight: bold;
+    color: #fafafa;
+  }
+
+  .device-location {
+    font-size: 1.6;
+    color: #71717a;
+  }
+
+  .device-position {
+    font-size: 1.4;
+    color: #52525b;
+  }
+
+  .divider {
+    height: 0.1;
+    width: 100%;
+    background-color: #27272a;
+    margin: 1.5 0;
+  }
+
+  .control-section {
+    display: flex;
+    flex-direction: column;
+    gap: 2;
+    width: 100%;
+  }
+
+  .control-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 1.5;
+    width: 100%;
+  }
+
+  .control-icon {
+    width: 2.5;
+    height: 2.5;
+    color: #a1a1aa;
+  }
+
+  .control-label {
+    font-size: 1.8;
+    color: #a1a1aa;
+    width: 12;
+  }
+
+  .power-btn {
+    width: 5;
+    height: 5;
+    border-radius: 2.5;
+    background-color: #27272a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  .power-btn-on {
+    width: 5;
+    height: 5;
+    border-radius: 2.5;
+    background-color: #22c55e;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  .power-icon {
+    width: 2.5;
+    height: 2.5;
+    color: #fafafa;
+  }
+
+  .brightness-container {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 1;
+    flex: 1;
+  }
+
+  .brightness-track {
+    flex: 1;
+    height: 1;
+    background-color: #27272a;
+    border-radius: 0.5;
+    overflow: hidden;
+  }
+
+  .brightness-fill {
+    height: 100%;
+    background-color: #facc15;
+  }
+
+  .brightness-value {
+    font-size: 1.6;
+    color: #fafafa;
+    width: 5;
+    text-align: right;
+  }
+
+  .brightness-controls {
+    display: flex;
+    flex-direction: row;
+    gap: 0.5;
+  }
+
+  .brightness-btn {
+    width: 3.5;
+    height: 3.5;
+    border-radius: 0.5;
+    background-color: #27272a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  .brightness-btn-icon {
+    width: 2;
+    height: 2;
+    color: #fafafa;
+  }
+
+  .color-section {
+    display: flex;
+    flex-direction: column;
+    gap: 1;
+    width: 100%;
+    margin-top: 0.5;
+  }
+
+  .color-label-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 1;
+  }
+
+  .color-grid {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 1;
+    width: 100%;
+  }
+
+  .color-btn {
+    width: 4;
+    height: 4;
+    border-radius: 0.5;
+    cursor: pointer;
+    border-width: 0.15;
+    border-color: transparent;
+  }
+
+  .color-btn-selected {
+    border-color: #fafafa;
+    border-width: 0.25;
+  }
+
+  .color-white { background-color: #ffffff; }
+  .color-warm { background-color: #fef3c7; }
+  .color-cool { background-color: #e0f2fe; }
+  .color-red { background-color: #ef4444; }
+  .color-orange { background-color: #f97316; }
+  .color-yellow { background-color: #facc15; }
+  .color-green { background-color: #22c55e; }
+  .color-blue { background-color: #3b82f6; }
+  .color-purple { background-color: #a855f7; }
+  .color-pink { background-color: #ec4899; }
+
+  .status-section {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5;
+    width: 100%;
+    margin-top: 1.5;
+    padding-top: 1.5;
+    border-top-width: 0.1;
+    border-top-color: #27272a;
+  }
+
+  .status-dot {
+    width: 1;
+    height: 1;
+    border-radius: 0.5;
+    background-color: #22c55e;
+  }
+
+  .status-dot-off {
+    width: 1;
+    height: 1;
+    border-radius: 0.5;
+    background-color: #71717a;
+  }
+
+  .status-text {
+    font-size: 1.4;
+    color: #71717a;
+  }
+</style>
+
+<div class="panel-container">
+  <!-- Header -->
+  <div class="header-section">
+    <div>
+      <LightbulbIcon class="device-icon" id="header-icon" />
+    </div>
+    <div class="header-text">
+      <span class="device-name" id="device-name">Lightbulb</span>
+      <span class="device-location" id="device-location">Loading...</span>
+      <span class="device-position" id="device-position"></span>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Controls -->
+  <div class="control-section">
+    <!-- Power Control -->
+    <div class="control-row">
+      <div>
+        <PowerIcon class="control-icon" />
+      </div>
+      <span class="control-label">Power</span>
+      <button class="power-btn-on" id="power-btn">
+        <div>
+          <PowerIcon class="power-icon" />
+        </div>
+      </button>
+    </div>
+
+    <!-- Brightness Control -->
+    <div class="control-row">
+      <div>
+        <SunIcon class="control-icon" />
+      </div>
+      <span class="control-label">Brightness</span>
+      <div class="brightness-container">
+        <div class="brightness-controls">
+          <button class="brightness-btn" id="brightness-down">
+            <div>
+              <MinusIcon class="brightness-btn-icon" />
+            </div>
+          </button>
+        </div>
+        <span class="brightness-value" id="brightness-value">80%</span>
+        <div class="brightness-controls">
+          <button class="brightness-btn" id="brightness-up">
+            <div>
+              <PlusIcon class="brightness-btn-icon" />
+            </div>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Color Section -->
+    <div class="color-section">
+      <div class="color-label-row">
+        <div>
+          <PaletteIcon class="control-icon" />
+        </div>
+        <span class="control-label">Color</span>
+      </div>
+      <div class="color-grid">
+        <button class="color-btn color-white color-btn-selected" id="color-ffffff"></button>
+        <button class="color-btn color-warm" id="color-fef3c7"></button>
+        <button class="color-btn color-cool" id="color-e0f2fe"></button>
+        <button class="color-btn color-red" id="color-ef4444"></button>
+        <button class="color-btn color-orange" id="color-f97316"></button>
+        <button class="color-btn color-yellow" id="color-facc15"></button>
+        <button class="color-btn color-green" id="color-22c55e"></button>
+        <button class="color-btn color-blue" id="color-3b82f6"></button>
+        <button class="color-btn color-purple" id="color-a855f7"></button>
+        <button class="color-btn color-pink" id="color-ec4899"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Status Footer -->
+  <div class="status-section">
+    <div class="status-dot" id="status-dot"></div>
+    <span class="status-text" id="status-text">On</span>
+  </div>
+</div>

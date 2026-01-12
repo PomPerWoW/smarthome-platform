@@ -41,7 +41,7 @@ export default defineConfig({
   base: "./",
   define: {
     "process.env.VITE_BACKEND_URL": JSON.stringify(
-      process.env.VITE_BACKEND_URL || "http://127.0.0.1:5500",
+      process.env.VITE_BACKEND_URL || "http://localhost:5500",
     ),
     "process.env.VITE_FRONTEND_URL": JSON.stringify(
       process.env.VITE_FRONTEND_URL || "http://localhost:5173",

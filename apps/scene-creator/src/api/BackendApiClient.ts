@@ -1,4 +1,5 @@
 import api from "./axios";
+import { mapRawDevicesToDevices, mapRawDeviceToDevice } from "./deviceMapper";
 import {
   Device,
   Lightbulb,
@@ -20,119 +21,147 @@ export class BackendApiClient {
     return BackendApiClient.instance;
   }
 
+  // ===== Home Management =====
   async getFullHomeData(): Promise<Home[]> {
-    const response = await api.get<Home[]>("/api/home/homes/all/");
+    const response = await api.get<Home[]>("/api/homes/homes/");
     return response.data;
   }
 
   async getHomes(): Promise<{ id: string; name: string }[]> {
     const response =
-      await api.get<{ id: string; name: string }[]>("/api/home/homes/");
+      await api.get<{ id: string; name: string }[]>("/api/homes/homes/");
     return response.data;
   }
 
+  // ===== Device Management =====
   async getAllDevices(): Promise<Device[]> {
-    const response = await api.get<Device[]>("/api/home/devices/");
-    return response.data;
+    const response = await api.get<any[]>("/api/homes/devices/");
+    return mapRawDevicesToDevices(response.data);
   }
 
-  async toggleDevice(deviceId: string, on?: boolean): Promise<Device> {
-    const body = on !== undefined ? { on } : {};
-    const response = await api.post<Device>(
-      `/api/home/devices/${deviceId}/toggle/`,
-      body,
-    );
-    return response.data;
+  async setDeviceState(
+    deviceId: string,
+    updates: Partial<Device>,
+  ): Promise<Device> {
+    await api.patch<any>(`/api/homes/devices/${deviceId}/`, updates);
+    const response = await api.get<any>(`/api/homes/devices/${deviceId}/`);
+    return mapRawDeviceToDevice(response.data);
   }
 
+  // ===== Device Position =====
   async getDevicePosition(
     deviceId: string,
   ): Promise<{ position: [number, number, number] | null }> {
     const response = await api.get<{
       position: [number, number, number] | null;
-    }>(`/api/home/devices/${deviceId}/position/`);
+    }>(`/api/homes/devices/${deviceId}/get_position/`);
     return response.data;
   }
 
   async setDevicePosition(
     deviceId: string,
-    position: { lon: number; lat: number; alt?: number },
+    position: { x: number; y: number; z: number },
   ): Promise<Device> {
-    const response = await api.post<Device>(
-      `/api/home/devices/${deviceId}/position/`,
+    const response = await api.post<any>(
+      `/api/homes/devices/${deviceId}/set_position/`,
       position,
     );
-    return response.data;
+    return mapRawDeviceToDevice(response.data);
   }
 
+  // ===== Lightbulb Controls =====
   async getLightbulb(deviceId: string): Promise<Lightbulb> {
-    const response = await api.get<Lightbulb>(
-      `/api/home/devices/${deviceId}/lightbulb/`,
-    );
-    return response.data;
+    const response = await api.get<any>(`/api/homes/lightbulbs/${deviceId}/`);
+    return mapRawDeviceToDevice(response.data) as Lightbulb;
   }
 
   async setLightbulb(
     deviceId: string,
     options: { brightness?: number; colour?: string },
   ): Promise<Lightbulb> {
-    const response = await api.post<Lightbulb>(
-      `/api/home/devices/${deviceId}/lightbulb/`,
-      options,
-    );
-    return response.data;
+    if (options.brightness !== undefined) {
+      await api.post<any>(`/api/homes/lightbulbs/${deviceId}/set_brightness/`, {
+        brightness: options.brightness,
+      });
+    }
+
+    if (options.colour !== undefined) {
+      await api.post<any>(`/api/homes/lightbulbs/${deviceId}/set_colour/`, {
+        colour: options.colour,
+      });
+    }
+
+    return this.getLightbulb(deviceId);
   }
 
+  // ===== Television Controls =====
   async getTelevision(deviceId: string): Promise<Television> {
-    const response = await api.get<Television>(
-      `/api/home/devices/${deviceId}/television/`,
-    );
-    return response.data;
+    const response = await api.get<any>(`/api/homes/tvs/${deviceId}/`);
+    return mapRawDeviceToDevice(response.data) as Television;
   }
 
   async setTelevision(
     deviceId: string,
     options: { volume?: number; channel?: number },
   ): Promise<Television> {
-    const response = await api.post<Television>(
-      `/api/home/devices/${deviceId}/television/`,
-      options,
-    );
-    return response.data;
+    let response: any;
+
+    if (options.volume !== undefined) {
+      await api.post<any>(`/api/homes/tvs/${deviceId}/set_volume/`, {
+        volume: options.volume,
+      });
+    }
+
+    if (options.channel !== undefined) {
+      await api.post<any>(`/api/homes/tvs/${deviceId}/set_channel/`, {
+        channel: options.channel,
+      });
+    }
+
+    return this.getTelevision(deviceId);
   }
 
+  // ===== Fan Controls =====
   async getFan(deviceId: string): Promise<Fan> {
-    const response = await api.get<Fan>(`/api/home/devices/${deviceId}/fan/`);
-    return response.data;
+    const response = await api.get<any>(`/api/homes/fans/${deviceId}/`);
+    return mapRawDeviceToDevice(response.data) as Fan;
   }
 
   async setFan(
     deviceId: string,
     options: { speed?: number; swing?: boolean },
   ): Promise<Fan> {
-    const response = await api.post<Fan>(
-      `/api/home/devices/${deviceId}/fan/`,
-      options,
-    );
-    return response.data;
+    let response: any;
+
+    if (options.speed !== undefined) {
+      await api.post<any>(`/api/homes/fans/${deviceId}/set_speed/`, {
+        speed: options.speed,
+      });
+    }
+
+    if (options.swing !== undefined) {
+      await api.post<any>(`/api/homes/fans/${deviceId}/set_swing/`, {
+        swing: options.swing,
+      });
+    }
+
+    return this.getFan(deviceId);
   }
 
+  // ===== Air Conditioner Controls =====
   async getAirConditioner(deviceId: string): Promise<AirConditioner> {
-    const response = await api.get<AirConditioner>(
-      `/api/home/devices/${deviceId}/air-conditioner/`,
-    );
-    return response.data;
+    const response = await api.get<any>(`/api/homes/acs/${deviceId}/`);
+    return mapRawDeviceToDevice(response.data) as AirConditioner;
   }
 
   async setAirConditioner(
     deviceId: string,
     options: { temperature?: number },
   ): Promise<AirConditioner> {
-    const response = await api.post<AirConditioner>(
-      `/api/home/devices/${deviceId}/air-conditioner/`,
-      options,
-    );
-    return response.data;
+    await api.post<any>(`/api/homes/acs/${deviceId}/set_temperature/`, {
+      temp: options.temperature,
+    });
+    return this.getAirConditioner(deviceId);
   }
 }
 

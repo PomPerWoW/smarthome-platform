@@ -1,8 +1,8 @@
 export enum DeviceType {
-  Lightbulb = "lightbulb",
-  Television = "television",
-  Fan = "fan",
-  AirConditioner = "air_conditioner",
+  Lightbulb = "Lightbulb",
+  Television = "Television",
+  Fan = "Fan",
+  AirConditioner = "AirConditioner",
 }
 
 export interface DeviceBase {
@@ -29,6 +29,7 @@ export interface Television extends DeviceBase {
   type: DeviceType.Television;
   volume: number;
   channel: number;
+  is_mute: boolean;
 }
 
 export interface Fan extends DeviceBase {
@@ -40,6 +41,8 @@ export interface Fan extends DeviceBase {
 export interface AirConditioner extends DeviceBase {
   type: DeviceType.AirConditioner;
   temperature: number;
+  min_temp?: number;
+  max_temp?: number;
 }
 
 export type Device = Lightbulb | Television | Fan | AirConditioner;
@@ -52,6 +55,7 @@ export interface LightbulbProperties {
 export interface TelevisionProperties {
   volume: number;
   channel: number;
+  is_mute: boolean;
 }
 
 export interface FanProperties {

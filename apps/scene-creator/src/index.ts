@@ -3,50 +3,23 @@ import {
   AssetType,
   SessionMode,
   World,
-  Mesh,
-  PlaneGeometry,
-  MeshBasicMaterial,
   AssetManager,
-  SRGBColorSpace,
-  AmbientLight,
-  DirectionalLight,
   PanelUI,
   Interactable,
   ScreenSpace,
 } from "@iwsdk/core";
 
 import { getAuth } from "./api/auth";
-import { getStore, deviceStore } from "./store/DeviceStore";
+import { getStore } from "./store/DeviceStore";
 import { DeviceComponent } from "./components/DeviceComponent";
 import { DeviceRendererSystem } from "./systems/DeviceRendererSystem";
 import { DeviceInteractionSystem } from "./systems/DeviceInteractionSystem";
 import { PanelSystem } from "./ui/panel";
-import { DeviceType, Lightbulb } from "./types";
-
+import { LightbulbPanelSystem } from "./ui/LightbulbPanelSystem";
+import { TelevisionPanelSystem } from "./ui/TelevisionPanelSystem";
+import { FanPanelSystem } from "./ui/FanPanelSystem";
+import { AirConditionerPanelSystem } from "./ui/AirConditionerPanelSystem";
 import * as LucideIconsKit from "@pmndrs/uikit-lucide";
-
-// ============================================
-// LOCAL TEST FLAG
-// Set to true to skip authentication and use mock data
-// ============================================
-const LOCAL_TEST = true;
-
-// Mock lightbulb device for local testing
-const MOCK_LIGHTBULB: Lightbulb = {
-  id: "mock-lightbulb-001",
-  name: "Test Lightbulb",
-  type: DeviceType.Lightbulb,
-  is_on: true,
-  brightness: 80,
-  colour: "#ffffff",
-  position: [0, 1.2, -1],
-  home_id: "mock-home",
-  home_name: "Test Home",
-  floor_id: "mock-floor",
-  floor_name: "Ground Floor",
-  room_id: "mock-room",
-  room_name: "Living Room",
-};
 
 const assets: AssetManifest = {
   chimeSound: {
@@ -54,11 +27,11 @@ const assets: AssetManifest = {
     type: AssetType.Audio,
     priority: "background",
   },
-  // webxr: {
-  //   url: "./textures/webxr.png",
-  //   type: AssetType.Texture,
-  //   priority: "critical",
-  // },
+  room_scene: {
+    url: "/models/scenes/lab_plan/LabPlan.gltf",
+    type: AssetType.GLTF,
+    priority: "critical",
+  },
   lightbulb: {
     url: "/models/devices/lightbulb/scene.gltf",
     type: AssetType.GLTF,
@@ -88,26 +61,20 @@ async function main(): Promise<void> {
 
   let user: { email: string } | null = null;
 
-  if (LOCAL_TEST) {
-    console.log("\nLOCAL TEST MODE ENABLED");
-    console.log("   Skipping authentication, using mock lightbulb data");
-    user = { email: "local-test@example.com" };
-  } else {
-    console.log("\n📋 Step 1: Authentication");
+  console.log("\n📋 Step 1: Authentication");
 
-    const auth = getAuth();
-    const isAuthenticated = await auth.initialize();
+  const auth = getAuth();
+  const isAuthenticated = await auth.initialize();
 
-    console.log("[Main] Authentication result:", isAuthenticated);
+  console.log("[Main] Authentication result:", isAuthenticated);
 
-    if (!isAuthenticated) {
-      console.error("❌ Authentication failed");
-      return;
-    }
-
-    user = auth.getUser();
-    console.log(`✅ Authenticated as: ${user?.email}`);
+  if (!isAuthenticated) {
+    console.error("❌ Authentication failed");
+    return;
   }
+
+  user = auth.getUser();
+  console.log(`✅ Authenticated as: ${user?.email}`);
 
   const world = await World.create(
     document.getElementById("scene-container") as HTMLDivElement,
@@ -143,11 +110,26 @@ async function main(): Promise<void> {
 
   camera.position.set(0, 1.6, 0.5);
 
+  const roomGltf = AssetManager.getGLTF("room_scene");
+  if (roomGltf) {
+    const roomModel = roomGltf.scene;
+    roomModel.scale.setScalar(0.5);
+    roomModel.position.set(0, 0, -3);
+    world.scene.add(roomModel);
+    console.log("✅ Room scene loaded");
+  } else {
+    console.warn("⚠️ Room scene not available");
+  }
+
   world
     .registerComponent(DeviceComponent)
     .registerSystem(DeviceRendererSystem)
     .registerSystem(DeviceInteractionSystem)
-    .registerSystem(PanelSystem);
+    .registerSystem(PanelSystem)
+    .registerSystem(LightbulbPanelSystem)
+    .registerSystem(TelevisionPanelSystem)
+    .registerSystem(FanPanelSystem)
+    .registerSystem(AirConditionerPanelSystem);
 
   console.log("✅ Systems registered");
 
@@ -171,19 +153,13 @@ async function main(): Promise<void> {
 
   const store = getStore();
 
-  if (LOCAL_TEST) {
-    console.log("📦 Loading mock lightbulb device...");
-    deviceStore.setState({ devices: [MOCK_LIGHTBULB], loading: false });
-    console.log("✅ Loaded 1 mock device (lightbulb)");
-  } else {
-    console.log("📡 Fetching devices from backend...");
-    await store.loadAllData();
+  console.log(" Fetching devices from backend...");
+  await store.loadAllData();
 
-    if (store.error) {
-      console.error("❌ Failed to load devices:", store.error);
-    } else {
-      console.log(`✅ Loaded ${store.getDeviceCount()} devices`);
-    }
+  if (store.error) {
+    console.error("❌ Failed to load devices:", store.error);
+  } else {
+    console.log(`✅ Loaded ${store.getDeviceCount()} devices`);
   }
 
   const renderer = world.getSystem(DeviceRendererSystem);
@@ -201,14 +177,6 @@ async function main(): Promise<void> {
   console.log("💡 Click devices to control");
   console.log("✋ Grab devices to move");
   console.log('🥽 Press "Enter AR" to start');
-
-  // Auto-select the first device to show its control panel immediately
-  if (LOCAL_TEST && MOCK_LIGHTBULB) {
-    setTimeout(() => {
-      console.log("🔦 Auto-selecting mock lightbulb to show control panel...");
-      store.selectDevice(MOCK_LIGHTBULB.id);
-    }, 500);
-  }
 }
 
 main().catch((error) => {
