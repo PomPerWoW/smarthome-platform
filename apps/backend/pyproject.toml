@@ -20,8 +20,12 @@ dependencies = [
     "persistent (>=5)",
     "btrees (>=5)",
     "transaction (>=5.0,<6.0)",
-    "uvicorn (>=0.38.0,<0.39.0)",
-    "gunicorn (>=23.0.0,<24.0.0)"
+    "uvicorn[standard] (>=0.40.0,<0.41.0)",
+    "gunicorn (>=23.0.0,<24.0.0)",
+    "channels (>=4.3.2,<5.0.0)",
+    "daphne (>=4.2.1,<5.0.0)",
+    "requests (>=2.32.5,<3.0.0)",
+    "websocket (>=0.2.1,<0.3.0)"
 ]
 
 [build-system]
