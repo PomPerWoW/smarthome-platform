@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { Home } from "lucide-react";
+import { AuthRoomScene } from "@/components/auth/AuthRoomScene";
 
 interface AuthLayoutProps {
   children: React.ReactNode;
@@ -20,24 +21,30 @@ export function AuthLayout({
 }: AuthLayoutProps) {
   return (
     <div className="grid min-h-svh lg:grid-cols-2">
-      {/* Left Panel - Branding */}
-      <div className="relative hidden bg-zinc-900 lg:block">
-        <div className="absolute inset-0 bg-gradient-to-b from-zinc-900 to-zinc-950" />
-        <div className="relative flex h-full flex-col justify-between p-10">
+      {/* Left Panel - 3D Room Scene with Branding */}
+      <div className="relative hidden bg-zinc-900 lg:block overflow-hidden">
+        {/* Background gradient for depth */}
+        <div className="absolute inset-0 bg-gradient-to-b from-zinc-900/80 via-zinc-900/40 to-zinc-950/80 z-10 pointer-events-none" />
+
+        {/* 3D Room Scene */}
+        <AuthRoomScene />
+
+        {/* Branding overlay */}
+        <div className="relative z-20 flex h-full flex-col justify-between p-10 pointer-events-none">
           <Link
             to="/"
-            className="flex items-center gap-2 text-lg font-medium text-white"
+            className="flex items-center gap-2 text-lg font-medium text-white pointer-events-auto drop-shadow-lg"
           >
             <Home className="h-6 w-6" />
             SmartHome
           </Link>
 
-          <blockquote className="space-y-2">
-            <p className="text-lg text-zinc-300">
+          <blockquote className="space-y-2 drop-shadow-lg">
+            <p className="text-lg text-zinc-100">
               "Control your home from anywhere. SmartHome makes managing your
               devices simple, efficient, and secure."
             </p>
-            <footer className="text-sm text-zinc-400">SmartHome Team</footer>
+            <footer className="text-sm text-zinc-300">SmartHome Team</footer>
           </blockquote>
         </div>
       </div>
