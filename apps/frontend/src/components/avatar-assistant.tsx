@@ -1,7 +1,6 @@
 import { Canvas, useFrame } from "@react-three/fiber";
 import { useGLTF, Environment } from "@react-three/drei";
 import { useRef, useState, useEffect, Suspense } from "react";
-import { useLocation } from "@tanstack/react-router";
 import * as THREE from "three";
 
 const AVATAR_URL = "/models/avatar/assistant/robot.glb";
@@ -9,39 +8,36 @@ const AVATAR_URL = "/models/avatar/assistant/robot.glb";
 interface Avatar3DProps {
   isSpeaking?: boolean;
   isListening?: boolean;
-  isWaving?: boolean;
+  isShaking?: boolean;
   audioData?: number;
 }
 
 function Avatar3DComponent({
   isSpeaking = false,
   isListening = false,
-  isWaving = false,
+  isShaking = false,
   audioData = 0,
 }: Avatar3DProps) {
   const groupRef = useRef<THREE.Group>(null);
   const { scene } = useGLTF(AVATAR_URL);
   const clonedScene = scene.clone();
-  const waveTimeRef = useRef(0);
+  const shakeTimeRef = useRef(0);
 
   useFrame((state, delta) => {
     if (!groupRef.current) return;
 
     const t = state.clock.elapsedTime;
 
-    // Base idle breathing (always active) - INCREASED for more visible 3D effect
     const breathIntensity = 0.08;
     const baseY = Math.sin(t * 1.5) * breathIntensity;
 
-    if (isWaving) {
-      // Waving: rotate body side to side
-      waveTimeRef.current += delta * 4;
+    if (isShaking) {
+      shakeTimeRef.current += delta * 4;
       groupRef.current.position.y = baseY;
-      groupRef.current.rotation.z = Math.sin(waveTimeRef.current) * 0.3;
-      groupRef.current.rotation.y = Math.sin(waveTimeRef.current * 0.5) * 0.15;
+      groupRef.current.rotation.z = Math.sin(shakeTimeRef.current) * 0.3;
+      groupRef.current.rotation.y = Math.sin(shakeTimeRef.current * 0.5) * 0.15;
 
     } else if (isSpeaking) {
-      // Speaking: gentle bounce + subtle head movement (less dance-y)
       const speakBounce = Math.sin(t * 5) * 0.08 * (0.6 + audioData * 0.4);
       groupRef.current.position.y = baseY + speakBounce;
 
@@ -51,15 +47,13 @@ function Avatar3DComponent({
       groupRef.current.rotation.z = Math.sin(t * 2) * 0.03;
 
     } else if (isListening) {
-      // Listening: lean forward slightly + very subtle sway
       groupRef.current.position.y = baseY;
       groupRef.current.rotation.x = 0.08;
       groupRef.current.rotation.y = Math.sin(t * 1.5) * 0.04;
       groupRef.current.rotation.z = Math.sin(t * 1.2) * 0.02;
 
     } else {
-      // Idle: smooth return to neutral
-      waveTimeRef.current = 0;
+      shakeTimeRef.current = 0;
       groupRef.current.position.y = baseY;
       groupRef.current.rotation.y *= 0.92;
       groupRef.current.rotation.x *= 0.92;
@@ -76,7 +70,7 @@ function Avatar3DComponent({
       <pointLight
         position={[0, 2, 2]}
         intensity={0.8}
-        color={isSpeaking ? "#4ade80" : isWaving ? "#f59e0b" : "#60a5fa"}
+        color={isSpeaking ? "#4ade80" : isShaking ? "#f59e0b" : "#60a5fa"}
       />
 
       <group ref={groupRef}>
@@ -96,7 +90,7 @@ function Avatar3DComponent({
           distance={2}
         />
       )}
-      {isWaving && (
+      {isShaking && (
         <pointLight
           position={[0, 0.3, 0.5]}
           intensity={1.5}
@@ -111,43 +105,40 @@ function Avatar3DComponent({
 interface AvatarAssistantProps {
   isSpeaking?: boolean;
   isListening?: boolean;
-  isWaving?: boolean;
+  isShaking?: boolean;
   audioData?: number;
 }
 
 export function AvatarAssistant({
   isSpeaking = false,
   isListening = false,
-  isWaving = false,
+  isShaking = false,
   audioData = 0,
 }: AvatarAssistantProps) {
-  const location = useLocation();
-  const showStatusText = location.pathname === "/avatar-demo";
-
   const getBorderColor = () => {
     if (isSpeaking) return "#4ade80";
-    if (isWaving) return "#f59e0b";
+    if (isShaking) return "#f59e0b";
     if (isListening) return "#60a5fa";
     return "#93c5fd";
   };
 
   const getBoxShadow = () => {
     if (isSpeaking) return "0 0 30px rgba(74, 222, 128, 0.4)";
-    if (isWaving) return "0 0 30px rgba(245, 158, 11, 0.4)";
+    if (isShaking) return "0 0 30px rgba(245, 158, 11, 0.4)";
     if (isListening) return "0 0 30px rgba(96, 165, 250, 0.4)";
     return "0 0 20px rgba(147, 197, 253, 0.2)";
   };
 
   const getStatus = () => {
     if (isSpeaking) return "Speaking";
-    if (isWaving) return "Waving";
+    if (isShaking) return "Shaking";
     if (isListening) return "Listening";
     return "Idle";
   };
 
   const getStatusColor = () => {
     if (isSpeaking) return "#4ade80";
-    if (isWaving) return "#f59e0b";
+    if (isShaking) return "#f59e0b";
     if (isListening) return "#60a5fa";
     return "#94a3b8";
   };
@@ -180,7 +171,7 @@ export function AvatarAssistant({
               <Avatar3DComponent
                 isSpeaking={isSpeaking}
                 isListening={isListening}
-                isWaving={isWaving}
+                isShaking={isShaking}
                 audioData={audioData}
               />
             </Suspense>
@@ -212,7 +203,7 @@ export function AvatarAssistant({
             </>
           )}
 
-          {isWaving && (
+          {isShaking && (
             <div
               className="absolute inset-0 rounded-full border-4 border-orange-400 opacity-50"
               style={{
@@ -222,24 +213,22 @@ export function AvatarAssistant({
           )}
         </div>
 
-        {showStatusText && (
-          <div
-            className="absolute -top-2 -right-2 px-2 py-1 rounded-full text-xs font-semibold"
-            style={{
-              backgroundColor: getStatusColor(),
-              color: "white",
-            }}
-          >
-            {getStatus()}
-          </div>
-        )}
+        <div
+          className="absolute -top-2 -right-2 px-2 py-1 rounded-full text-xs font-semibold"
+          style={{
+            backgroundColor: getStatusColor(),
+            color: "white"
+          }}
+        >
+          {getStatus()}
+        </div>
       </div>
     </div>
   );
 }
 
 export default function AvatarDemo() {
-  const [state, setState] = useState<"idle" | "listening" | "speaking" | "waving">("idle");
+  const [state, setState] = useState<"idle" | "listening" | "speaking" | "shaking">("idle");
   const [audioData, setAudioData] = useState(0);
   const audioIntervalRef = useRef<number | null>(null);
 
@@ -273,8 +262,8 @@ export default function AvatarDemo() {
     setTimeout(() => setState("idle"), 3000);
   };
 
-  const handleWave = () => {
-    setState("waving");
+  const handleShake = () => {
+    setState("shaking");
     setTimeout(() => setState("idle"), 3000);
   };
 
@@ -288,13 +277,13 @@ export default function AvatarDemo() {
 
       <div className="relative z-10 bg-white/10 backdrop-blur-lg rounded-2xl p-8 shadow-2xl border border-white/20 max-w-2xl w-full">
         <h2 className="text-2xl font-semibold text-white mb-6 text-center">
-          Avatar Control Panel (For testing behaviors)
+          Avatar Control Panel (For testing actions)
         </h2>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-4 gap-4">
           <button
             onClick={() => setState("idle")}
-            className="px-6 py-4 rounded-xl font-semibold transition-all transform hover:scale-105"
+            className="px-4 py-4 rounded-xl font-semibold transition-all transform hover:scale-105"
             style={{
               backgroundColor: state === "idle" ? "#94a3b8" : "#475569",
               color: "white"
@@ -306,7 +295,7 @@ export default function AvatarDemo() {
           <button
             onClick={handleListen}
             disabled={state !== "idle"}
-            className="px-6 py-4 rounded-xl font-semibold transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-4 rounded-xl font-semibold transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
             style={{
               backgroundColor: state === "listening" ? "#60a5fa" : "#3b82f6",
               color: "white"
@@ -318,7 +307,7 @@ export default function AvatarDemo() {
           <button
             onClick={handleSpeak}
             disabled={state !== "idle"}
-            className="px-6 py-4 rounded-xl font-semibold transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-4 rounded-xl font-semibold transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
             style={{
               backgroundColor: state === "speaking" ? "#4ade80" : "#22c55e",
               color: "white"
@@ -328,29 +317,28 @@ export default function AvatarDemo() {
           </button>
 
           <button
-            onClick={handleWave}
+            onClick={handleShake}
             disabled={state !== "idle"}
-            className="px-6 py-4 rounded-xl font-semibold transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-4 rounded-xl font-semibold transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
             style={{
-              backgroundColor: state === "waving" ? "#f59e0b" : "#f97316",
+              backgroundColor: state === "shaking" ? "#f59e0b" : "#f97316",
               color: "white"
             }}
           >
-            Wave
+            Shake
           </button>
         </div>
 
-        <div className="mt-10 p-4 bg-white/5 rounded-xl border border-white/10 text-center">
+        <div className="p-4 bg-white/5 rounded-xl border border-white/10 text-center mt-8">
           <p className="text-sm text-blue-200">Current Status:</p>
           <p className="text-xl font-bold text-white mt-1 capitalize">{state}</p>
         </div>
       </div>
 
-      {/* Avatar Assistant */}
       <AvatarAssistant
         isSpeaking={state === "speaking"}
         isListening={state === "listening"}
-        isWaving={state === "waving"}
+        isShaking={state === "shaking"}
         audioData={audioData}
       />
 
