@@ -41,7 +41,6 @@ function Avatar3DComponent({
       const speakBounce = Math.sin(t * 5) * 0.08 * (0.6 + audioData * 0.4);
       groupRef.current.position.y = baseY + speakBounce;
 
-      // Subtle head movement - not rotating the whole body
       groupRef.current.rotation.y = Math.sin(t * 3) * 0.08;
       groupRef.current.rotation.x = Math.sin(t * 2.5) * 0.04;
       groupRef.current.rotation.z = Math.sin(t * 2) * 0.03;
