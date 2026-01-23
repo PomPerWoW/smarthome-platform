@@ -14,6 +14,7 @@ import { ReactQueryDevtoolsPanel } from "@tanstack/react-query-devtools";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { AuthService } from "@/services/AuthService";
 import { useAuthStore } from "@/stores/auth";
+import { RobotAssistant } from "@/components/robot-assistant";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -80,6 +81,7 @@ function RootLayout() {
               <main className="relative z-10 flex-1 p-4">
                 <Outlet />
               </main>
+              <RobotAssistant />
             </SidebarInset>
           </SidebarProvider>
         )}
