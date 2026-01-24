@@ -11,7 +11,10 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as HomesRouteImport } from './routes/homes'
+import { Route as DevicesRouteImport } from './routes/devices'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as HomesHomeIdRouteImport } from './routes/homes.$homeId'
 
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
@@ -23,38 +26,77 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const HomesRoute = HomesRouteImport.update({
+  id: '/homes',
+  path: '/homes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DevicesRoute = DevicesRouteImport.update({
+  id: '/devices',
+  path: '/devices',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const HomesHomeIdRoute = HomesHomeIdRouteImport.update({
+  id: '/$homeId',
+  path: '/$homeId',
+  getParentRoute: () => HomesRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/devices': typeof DevicesRoute
+  '/homes': typeof HomesRouteWithChildren
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/homes/$homeId': typeof HomesHomeIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/devices': typeof DevicesRoute
+  '/homes': typeof HomesRouteWithChildren
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/homes/$homeId': typeof HomesHomeIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/devices': typeof DevicesRoute
+  '/homes': typeof HomesRouteWithChildren
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/homes/$homeId': typeof HomesHomeIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/register'
+  fullPaths:
+    | '/'
+    | '/devices'
+    | '/homes'
+    | '/login'
+    | '/register'
+    | '/homes/$homeId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/register'
-  id: '__root__' | '/' | '/login' | '/register'
+  to: '/' | '/devices' | '/homes' | '/login' | '/register' | '/homes/$homeId'
+  id:
+    | '__root__'
+    | '/'
+    | '/devices'
+    | '/homes'
+    | '/login'
+    | '/register'
+    | '/homes/$homeId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  DevicesRoute: typeof DevicesRoute
+  HomesRoute: typeof HomesRouteWithChildren
   LoginRoute: typeof LoginRoute
   RegisterRoute: typeof RegisterRoute
 }
@@ -75,6 +117,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/homes': {
+      id: '/homes'
+      path: '/homes'
+      fullPath: '/homes'
+      preLoaderRoute: typeof HomesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/devices': {
+      id: '/devices'
+      path: '/devices'
+      fullPath: '/devices'
+      preLoaderRoute: typeof DevicesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -82,11 +138,30 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/homes/$homeId': {
+      id: '/homes/$homeId'
+      path: '/$homeId'
+      fullPath: '/homes/$homeId'
+      preLoaderRoute: typeof HomesHomeIdRouteImport
+      parentRoute: typeof HomesRoute
+    }
   }
 }
 
+interface HomesRouteChildren {
+  HomesHomeIdRoute: typeof HomesHomeIdRoute
+}
+
+const HomesRouteChildren: HomesRouteChildren = {
+  HomesHomeIdRoute: HomesHomeIdRoute,
+}
+
+const HomesRouteWithChildren = HomesRoute._addFileChildren(HomesRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DevicesRoute: DevicesRoute,
+  HomesRoute: HomesRouteWithChildren,
   LoginRoute: LoginRoute,
   RegisterRoute: RegisterRoute,
 }

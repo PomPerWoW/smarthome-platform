@@ -28,6 +28,9 @@ interface DeviceState {
     x: number,
     y: number,
     z: number,
+    rx?: number,
+    ry?: number,
+    rz?: number,
   ) => Promise<void>;
   updateLightbulb: (
     deviceId: string,
@@ -35,7 +38,7 @@ interface DeviceState {
   ) => Promise<void>;
   updateTelevision: (
     deviceId: string,
-    options: { volume?: number; channel?: number },
+    options: { volume?: number; channel?: number; is_mute?: boolean },
   ) => Promise<void>;
   updateFan: (
     deviceId: string,
@@ -85,6 +88,10 @@ export const deviceStore = createStore<DeviceState>()(
           api.getFullHomeData(),
           api.getAllDevices(),
         ]);
+        console.log(
+          "[Store] Raw devices data:",
+          JSON.stringify(devices, null, 2),
+        );
         set({ homes, devices, loading: false });
         console.log(
           `[Store] Loaded ${homes.length} homes, ${devices.length} devices`,
@@ -110,11 +117,18 @@ export const deviceStore = createStore<DeviceState>()(
 
     toggleDevice: async (deviceId, on) => {
       try {
-        console.log(
-          `[Store] Toggling device ${deviceId}`,
-          on !== undefined ? `to ${on}` : "",
-        );
-        const updated = await api.toggleDevice(deviceId, on);
+        const device = get().getDeviceById(deviceId);
+        if (!device) {
+          console.warn(`[Store] Cannot toggle non-existent device ${deviceId}`);
+          return;
+        }
+
+        const nextState = on ?? !device.is_on;
+        console.log(`[Store] Toggling device ${deviceId} to ${nextState}`);
+
+        const updated = await api.setDeviceState(deviceId, {
+          is_on: nextState,
+        });
         set((state) => ({
           devices: state.devices.map((d) => (d.id === deviceId ? updated : d)),
         }));
@@ -124,18 +138,23 @@ export const deviceStore = createStore<DeviceState>()(
       }
     },
 
-    updateDevicePosition: async (deviceId, x, y, z) => {
+    updateDevicePosition: async (deviceId, x, y, z, rx, ry, rz) => {
       try {
         console.log(`[Store] Updating position for device ${deviceId}:`, {
           x,
           y,
           z,
+          rx,
+          ry,
+          rz,
         });
-        const updated = await api.setDevicePosition(deviceId, {
-          lon: x,
-          lat: y,
-          alt: z,
-        });
+        const updated = await api.setDevicePosition(
+          deviceId,
+          { x, y, z },
+          rx !== undefined && ry !== undefined && rz !== undefined
+            ? { x: rx, y: ry, z: rz }
+            : undefined,
+        );
         set((state) => ({
           devices: state.devices.map((d) => (d.id === deviceId ? updated : d)),
         }));
@@ -270,9 +289,7 @@ export const deviceStore = createStore<DeviceState>()(
 
     getFan: (id) => {
       const device = get().getDeviceById(id);
-      return device?.type === DeviceType.Fan
-        ? (device as Fan)
-        : undefined;
+      return device?.type === DeviceType.Fan ? (device as Fan) : undefined;
     },
 
     getAirConditioner: (id) => {

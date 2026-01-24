@@ -4,6 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { loginRequestSchema } from "@/types/auth";
 import { AuthService } from "@/services/AuthService";
+import { ApiService } from "@/services/ApiService";
 import { getErrorMessage } from "@/services/errors";
 import { useAuthStore } from "@/stores/auth";
 import { AuthLayout } from "@/components/layout/auth-layout";
@@ -31,7 +32,9 @@ function LoginPage() {
     onSuccess: (user) => {
       setUser(user);
       toast.success(`Welcome back, ${user.displayName}!`);
-      navigate({ to: "/" });
+
+      const redirectUrl = ApiService.getAndClearRedirectUrl();
+      navigate({ to: redirectUrl || "/" });
     },
     onError: (error: unknown) => {
       console.error("Login error:", error);

@@ -8,6 +8,10 @@ import {
   AssetManager,
   DistanceGrabbable,
   MovementMode,
+  PanelUI,
+  AnimationMixer,
+  AnimationClip,
+  LoopRepeat,
 } from "@iwsdk/core";
 
 import { deviceStore, getStore } from "../store/DeviceStore";
@@ -23,6 +27,7 @@ export class DeviceRendererSystem extends createSystem({
 }) {
   private deviceRecords: Map<string, DeviceRecord> = new Map();
   private modelCache: Map<DeviceType, Object3D> = new Map();
+  private animationCache: Map<DeviceType, AnimationClip[]> = new Map();
   private initialized = false;
   private unsubscribe?: () => void;
 
@@ -60,12 +65,19 @@ export class DeviceRendererSystem extends createSystem({
     );
   }
 
-  private getModelFromAssetManager(type: DeviceType): Object3D | null {
+  private getModelFromAssetManager(
+    type: DeviceType,
+  ): { model: Object3D; animations: AnimationClip[] } | null {
+    const assetKey = DEVICE_ASSET_KEYS[type];
+
+    // Check if we have cached model
     if (this.modelCache.has(type)) {
-      return this.modelCache.get(type)!;
+      return {
+        model: this.modelCache.get(type)!,
+        animations: this.animationCache.get(type) || [],
+      };
     }
 
-    const assetKey = DEVICE_ASSET_KEYS[type];
     console.log(
       `[DeviceRenderer] Getting model from AssetManager: ${assetKey}`,
     );
@@ -83,9 +95,21 @@ export class DeviceRendererSystem extends createSystem({
       const center = box.getCenter(new Vector3());
       model.position.sub(center);
 
+      // Cache both model and animations
       this.modelCache.set(type, model);
+
+      // Clone animations if they exist
+      const animations = gltf.animations || [];
+      this.animationCache.set(type, animations);
+
+      if (animations.length > 0) {
+        console.log(
+          `[DeviceRenderer] Cached ${animations.length} animation(s) for ${type}`,
+        );
+      }
+
       console.log(`[DeviceRenderer] Cached model for ${type}`);
-      return model;
+      return { model, animations };
     } catch (error) {
       console.error(`[DeviceRenderer] Failed to get model for ${type}:`, error);
       return null;
@@ -95,15 +119,30 @@ export class DeviceRendererSystem extends createSystem({
   private createDeviceEntity(data: Device): DeviceRecord | null {
     const device = DeviceFactory.create(data);
 
-    const cachedModel = this.getModelFromAssetManager(data.type);
-    if (!cachedModel) {
+    const result = this.getModelFromAssetManager(data.type);
+    if (!result) {
       console.error(`[DeviceRenderer] No model available for ${data.type}`);
       return null;
     }
 
-    const model = cachedModel.clone();
+    const model = result.model.clone();
     model.scale.setScalar(device.getScale());
-    model.position.set(data.position[0], data.position[1], data.position[2]);
+
+    if (Array.isArray(data.position) && data.position.length >= 3) {
+      model.position.set(data.position[0], data.position[1], data.position[2]);
+    } else {
+      console.warn(
+        `[DeviceRenderer] Invalid or missing position for device ${data.id}, defaulting to 0,0,0`,
+        data.position,
+      );
+      model.position.set(0, 0, 0);
+    }
+
+    if (Array.isArray(data.rotation) && data.rotation.length >= 3) {
+      model.rotation.set(data.rotation[0], data.rotation[1], data.rotation[2]);
+    } else {
+      model.rotation.set(0, 0, 0);
+    }
 
     this.world.scene.add(model);
 
@@ -124,12 +163,93 @@ export class DeviceRendererSystem extends createSystem({
     device.updateVisuals(model);
 
     const record: DeviceRecord = { entity, device };
+
+    if (result.animations.length > 0) {
+      const mixer = new AnimationMixer(model);
+      record.mixer = mixer;
+      record.actions = [];
+
+      for (const clip of result.animations) {
+        const action = mixer.clipAction(clip);
+        action.setLoop(LoopRepeat, Infinity);
+        record.actions.push(action);
+      }
+
+      // Auto-play animations if device is on
+      if (data.is_on) {
+        this.playAnimations(record);
+      }
+
+      console.log(
+        `[DeviceRenderer] Setup ${result.animations.length} animation(s) for ${data.name}`,
+      );
+    }
+
+    record.panelEntity = this.createDevicePanel(data.id, data.type);
+
     this.deviceRecords.set(data.id, record);
 
     console.log(
       `[DeviceRenderer] Created entity for ${data.name} (${data.type})`,
     );
     return record;
+  }
+
+  private playAnimations(record: DeviceRecord): void {
+    if (record.actions) {
+      for (const action of record.actions) {
+        action.play();
+      }
+    }
+  }
+
+  private stopAnimations(record: DeviceRecord): void {
+    if (record.actions) {
+      for (const action of record.actions) {
+        action.stop();
+      }
+    }
+  }
+
+  private getPanelConfig(deviceType: DeviceType): string | null {
+    const panelConfigs: Record<DeviceType, string> = {
+      [DeviceType.Lightbulb]: "./ui/lightbulb-panel.json",
+      [DeviceType.Television]: "./ui/television-panel.json",
+      [DeviceType.Fan]: "./ui/fan-panel.json",
+      [DeviceType.AirConditioner]: "./ui/ac-panel.json",
+    };
+    return panelConfigs[deviceType] ?? null;
+  }
+
+  private createDevicePanel(
+    deviceId: string,
+    deviceType: DeviceType,
+  ): Entity | undefined {
+    const config = this.getPanelConfig(deviceType);
+    if (!config) {
+      console.warn(
+        `[DeviceRenderer] No panel config for device type: ${deviceType}`,
+      );
+      return undefined;
+    }
+
+    const panelEntity = this.world
+      .createTransformEntity()
+      .addComponent(PanelUI, {
+        config,
+        maxHeight: 0.5,
+        maxWidth: 0.4,
+      })
+      .addComponent(Interactable)
+      .addComponent(DeviceComponent, {
+        deviceId,
+        deviceType,
+      });
+
+    console.log(
+      `[DeviceRenderer] Created ${deviceType} panel for device ${deviceId}`,
+    );
+    return panelEntity;
   }
 
   private syncDevicesWithScene(devices: Device[]): void {
@@ -160,6 +280,7 @@ export class DeviceRendererSystem extends createSystem({
   }
 
   private updateDeviceEntity(record: DeviceRecord, data: Device): void {
+    const wasOn = record.device.isOn;
     DeviceFactory.update(record.device, data);
 
     record.entity.setValue(DeviceComponent, "isOn", data.is_on);
@@ -171,6 +292,20 @@ export class DeviceRendererSystem extends createSystem({
 
     if (record.entity.object3D) {
       record.device.updateVisuals(record.entity.object3D);
+    }
+
+    // Control animations based on power state change
+    if (wasOn !== data.is_on) {
+      console.log(
+        `[DeviceRenderer] Power state changed for ${data.name}: ${wasOn} -> ${data.is_on}`,
+      );
+      if (data.is_on) {
+        console.log(`[DeviceRenderer] Playing animations for ${data.name}`);
+        this.playAnimations(record);
+      } else {
+        console.log(`[DeviceRenderer] Stopping animations for ${data.name}`);
+        this.stopAnimations(record);
+      }
     }
   }
 
@@ -194,24 +329,76 @@ export class DeviceRendererSystem extends createSystem({
     }
   }
 
+  /**
+   * Manually control animation playback for a device
+   */
+  setDeviceAnimationState(deviceId: string, isPlaying: boolean): void {
+    const record = this.deviceRecords.get(deviceId);
+    if (record) {
+      if (isPlaying) {
+        this.playAnimations(record);
+      } else {
+        this.stopAnimations(record);
+      }
+    }
+  }
+
   async saveDevicePosition(deviceId: string): Promise<void> {
     const record = this.deviceRecords.get(deviceId);
     if (!record?.entity.object3D) return;
 
     const pos = record.entity.object3D.position;
+    const rot = record.entity.object3D.rotation;
     console.log(
       `[DeviceRenderer] Saving position for ${deviceId}:`,
       pos.toArray(),
+      `rotation:`,
+      [rot.x, rot.y, rot.z],
     );
 
-    await getStore().updateDevicePosition(deviceId, pos.x, pos.y, pos.z);
+    await getStore().updateDevicePosition(
+      deviceId,
+      pos.x,
+      pos.y,
+      pos.z,
+      rot.x,
+      rot.y,
+      rot.z,
+    );
   }
 
-  update(dt: number): void {}
+  update(dt: number): void {
+    // Update panel positions to follow their devices and update animation mixers
+    for (const [deviceId, record] of this.deviceRecords) {
+      if (record.mixer) {
+        record.mixer.update(dt);
+      }
+
+      if (record.panelEntity?.object3D && record.entity.object3D) {
+        const devicePos = record.entity.object3D.position;
+        // Position panel to the right of device
+        record.panelEntity.object3D.position.set(
+          devicePos.x + 0.5,
+          devicePos.y,
+          devicePos.z,
+        );
+
+        // Make panel face the camera
+        const camera = this.world.camera;
+        if (camera) {
+          record.panelEntity.object3D.lookAt(camera.position);
+        }
+      }
+    }
+  }
 
   destroy(): void {
     this.unsubscribe?.();
     for (const [id, record] of this.deviceRecords) {
+      // Stop animations before cleanup
+      if (record.mixer) {
+        record.mixer.stopAllAction();
+      }
       const obj = record.entity.object3D;
       if (obj?.parent) {
         obj.parent.remove(obj);
@@ -219,6 +406,7 @@ export class DeviceRendererSystem extends createSystem({
     }
     this.deviceRecords.clear();
     this.modelCache.clear();
+    this.animationCache.clear();
     console.log("[DeviceRenderer] System destroyed");
   }
 }

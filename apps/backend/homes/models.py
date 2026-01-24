@@ -29,9 +29,13 @@ class Device(models.Model):
     device_pos = models.PointField(dim=3, srid=4326, null=True, blank=True)
     tag = models.CharField(max_length=50, null=True, blank=True)
     is_on = models.BooleanField(default=False)
+    rotation_x = models.FloatField(default=0.0)
+    rotation_y = models.FloatField(default=0.0)
+    rotation_z = models.FloatField(default=0.0)
 
     def __str__(self):
         return self.device_name
+
 
 class PositionHistory(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -39,6 +43,9 @@ class PositionHistory(models.Model):
     timestamp = models.DateTimeField(auto_now_add=True)
     
     point = models.PointField(dim=3, srid=4326, null=True, blank=True)
+    rotation_x = models.FloatField(default=0.0)
+    rotation_y = models.FloatField(default=0.0)
+    rotation_z = models.FloatField(default=0.0)
 
     class Meta:
         ordering = ['-timestamp']

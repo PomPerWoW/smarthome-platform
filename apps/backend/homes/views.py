@@ -114,15 +114,18 @@ class BaseDeviceViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def set_position(self, request, pk=None):
         """
-        Updates the 3D position (GeoDjango Point) of the device and logs the change to history.
+        Updates the 3D position (GeoDjango Point) and rotation of the device and logs the change to history.
         
         Body Parameters:
             x (float): Required.
             y (float): Required.
             z (float): Optional (default 0).
+            rotation_x (float): Optional (default 0).
+            rotation_y (float): Optional (default 0).
+            rotation_z (float): Optional (default 0).
             
         Returns:
-            JSON: The updated coordinates or an error message.
+            JSON: The updated coordinates and rotation or an error message.
         """
         obj = self.get_object()
         # Ensure we access the parent Device instance for history logging
@@ -131,6 +134,9 @@ class BaseDeviceViewSet(viewsets.ModelViewSet):
         x = request.data.get('x')
         y = request.data.get('y')
         z = request.data.get('z', 0)
+        rotation_x = request.data.get('rotation_x', 0)
+        rotation_y = request.data.get('rotation_y', 0)
+        rotation_z = request.data.get('rotation_z', 0)
 
         if x is None or y is None:
             return Response({"error": "x and y required"}, status=400)
@@ -138,18 +144,32 @@ class BaseDeviceViewSet(viewsets.ModelViewSet):
         new_point = Point(float(x), float(y), float(z), srid=4326)
         
         obj.device_pos = new_point
+        obj.rotation_x = float(rotation_x)
+        obj.rotation_y = float(rotation_y)
+        obj.rotation_z = float(rotation_z)
         obj.save()
-        PositionHistory.objects.create(device=device_instance, point=new_point)
+        
+        PositionHistory.objects.create(
+            device=device_instance, 
+            point=new_point,
+            rotation_x=float(rotation_x),
+            rotation_y=float(rotation_y),
+            rotation_z=float(rotation_z)
+        )
 
-        return Response({"status": "updated", "location": {"x": x, "y": y, "z": z}})
+        return Response({
+            "status": "updated", 
+            "location": {"x": x, "y": y, "z": z},
+            "rotation": {"x": rotation_x, "y": rotation_y, "z": rotation_z}
+        })
 
     @action(detail=True, methods=['get'])
     def get_position(self, request, pk=None):
         """
-        Retrieves the current x, y, z coordinates of the device.
+        Retrieves the current x, y, z coordinates and rotation of the device.
         
         Returns:
-            JSON: {x, y, z} or nulls if position is not set.
+            JSON: {x, y, z, rotation: {x, y, z}} or nulls if position is not set.
         """
         obj = self.get_object()
         
@@ -158,14 +178,24 @@ class BaseDeviceViewSet(viewsets.ModelViewSet):
             return Response({
                 "x": obj.device_pos.x, 
                 "y": obj.device_pos.y, 
-                "z": obj.device_pos.z
+                "z": obj.device_pos.z,
+                "rotation": {
+                    "x": obj.rotation_x,
+                    "y": obj.rotation_y,
+                    "z": obj.rotation_z
+                }
             })
         
         # If null, return strict null structure
         return Response({
             "x": None, 
             "y": None, 
-            "z": None
+            "z": None,
+            "rotation": {
+                "x": obj.rotation_x,
+                "y": obj.rotation_y,
+                "z": obj.rotation_z
+            }
         })
     
     @action(detail=True, methods=['get'])

@@ -1,10 +1,9 @@
-import { Link, useLocation } from "@tanstack/react-router";
+import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   Home,
   Lightbulb,
-  ThermometerSun,
   Settings,
   HelpCircle,
   Search,
@@ -41,7 +40,6 @@ import { AuthService } from "@/services/AuthService";
 const mainNavItems = [
   { title: "Dashboard", url: "/", icon: Home },
   { title: "Devices", url: "/devices", icon: Lightbulb },
-  { title: "Climate", url: "/climate", icon: ThermometerSun },
 ];
 
 const bottomNavItems = [
@@ -52,6 +50,7 @@ const bottomNavItems = [
 
 export function AppSidebar() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { user, isAuthenticated } = useAuthStore();
   const queryClient = useQueryClient();
 
@@ -60,8 +59,23 @@ export function AppSidebar() {
     mutationFn: () => AuthService.getInstance().logout(),
     onSuccess: () => {
       useAuthStore.getState().logout();
-      queryClient.invalidateQueries({ queryKey: ["auth"] });
+
+      queryClient.clear();
+
+      // Navigate to login page
+      navigate({ to: "/login" });
+
       toast.success("Logged out successfully");
+    },
+    onError: () => {
+      // Even if API fails, clear local state for security
+      useAuthStore.getState().logout();
+      queryClient.clear();
+      navigate({ to: "/login" });
+
+      toast.error("Session ended", {
+        description: "You have been logged out.",
+      });
     },
   });
 
