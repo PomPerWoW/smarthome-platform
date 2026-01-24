@@ -21,17 +21,37 @@ class HomeConsumer(AsyncWebsocketConsumer):
     async def disconnect(self, close_code):
         await self.channel_layer.group_discard(self.group_name, self.channel_name)
 
+    DEVICE_ACTIONS = {
+        "lightbulb_onoff": (".onoff", "is_on"),
+        "tv_onoff": (".on", "is_on"),
+        "fan_onoff": (".on", "is_on"),
+        "ac_onoff": (".OnOff", "is_on"),
+        "lightbulb_color": (".Color", "colour"),
+        "lightbulb_brightness": (".Brightness", "brightness"),
+        "tv_channel": (".channel", "channel"),
+        "tv_volume": (".volume", "volume"),
+        "tv_mute": (".mute", "is_mute"),
+        "ac_temperature": (".set_temp", "temperature"),
+        "ac_fan": (".fanlevel", "fan_level"),
+        "fan_shake": (".shake", "swing"),
+    }
+
     # 1. Receive message from Frontend
     async def receive(self, text_data):
         data = json.loads(text_data)
         action = data.get("action")
-        
-        if action == "lightbulb_turn_on":
-            device_id = data.get("device_id") 
-            if device_id:
-                device_tag = await self.get_device_tag(device_id)
-                if device_tag:
-                    ScadaManager().send_command(f"{device_tag}.onoff", 1)
+        device_id = data.get("device_id")
+        value = data.get("value")
+
+        print("[HomeConsumer] received message from frontend:", data)
+
+        if action in self.DEVICE_ACTIONS and device_id:
+            scada_suffix, model_attr = self.DEVICE_ACTIONS[action]
+            
+            device_tag = await self.get_device_tag(device_id)
+            if device_tag:
+                ScadaManager().send_command(f"{device_tag}{scada_suffix}", value)
+                await self.update_device_state(device_id, model_attr, value)
 
     @database_sync_to_async
     def get_device_tag(self, device_id):
@@ -43,6 +63,39 @@ class HomeConsumer(AsyncWebsocketConsumer):
         except Device.DoesNotExist:
             print("[HomeConsumer] device_tag not found")
             return None
+
+    @database_sync_to_async
+    def update_device_state(self, device_id, attribute, value):
+        if not attribute:
+            return
+
+        print(f"[HomeConsumer] updating device {device_id} attribute {attribute} to {value}")
+        try:
+            device = Device.objects.get(id=device_id)
+            
+            if attribute == "is_on":
+                device.is_on = value
+                device.save()
+            else:
+                child = None
+                if hasattr(device, 'lightbulb'):
+                    child = device.lightbulb
+                elif hasattr(device, 'television'):
+                    child = device.television
+                elif hasattr(device, 'airconditioner'):
+                    child = device.airconditioner
+                elif hasattr(device, 'fan'):
+                    child = device.fan
+                
+                if child and hasattr(child, attribute):
+                    setattr(child, attribute, value)
+                    child.save()
+                    print(f"[HomeConsumer] updated {attribute} on {child._meta.model_name}")
+                else:
+                    print(f"[HomeConsumer] attribute {attribute} not found on device or its children")
+
+        except Device.DoesNotExist:
+             print("[HomeConsumer] device not found for update")
 
     # 2. Receive message from SCADA (via Channel Layer)
     async def scada_update(self, event):

@@ -22,8 +22,9 @@ class ScadaManager:
         print("🔌 Starting SCADA Connection...")
         self.client = WebSocket2Scada(
             target="intelligentbuilding.io:6443", # Replace with your config
-            login="YOUR_USERNAME",
-            password="YOUR_PASSWORD",
+            login="bingo",
+            password="BPS12345",
+            token="535a4d29f85c1c851eb81843ea89b951011ffd58",
             on_tag=self.handle_tag_update, # Hook the callback
             verify_tls=False
         )

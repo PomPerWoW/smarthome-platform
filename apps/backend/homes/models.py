@@ -54,6 +54,7 @@ class PositionHistory(models.Model):
 
 class AirConditioner(Device):
     temperature = models.FloatField(default=24.0)
+    fan_level = models.IntegerField(default=1)
 
 class Fan(Device):
     speed = models.IntegerField(default=1)
