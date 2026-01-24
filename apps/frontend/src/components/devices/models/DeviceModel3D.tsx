@@ -23,7 +23,7 @@ function DeviceScene({ device }: { device: BaseDevice }) {
       const lightbulb = device as Lightbulb;
       return (
         <LightbulbModel
-          brightness={lightbulb.brightness}
+          brightness={lightbulb.is_on ? lightbulb.brightness : 0}
           colour={lightbulb.colour}
         />
       );
@@ -39,11 +39,13 @@ function DeviceScene({ device }: { device: BaseDevice }) {
     }
     case DeviceType.Television: {
       const tv = device as Television;
-      return <TelevisionModel isOn={!tv.isMute} />;
+      return <TelevisionModel isOn={tv.is_on} />;
     }
     case DeviceType.AirConditioner: {
       const ac = device as AirConditioner;
-      return <AirConditionerModel temperature={ac.temperature} />;
+      return (
+        <AirConditionerModel isOn={ac.is_on} temperature={ac.temperature} />
+      );
     }
     default:
       return null;
@@ -63,7 +65,8 @@ function needsAnimation(device: BaseDevice): boolean {
   switch (device.type) {
     case DeviceType.Fan: {
       const fan = device as Fan;
-      return fan.is_on && fan.speed > 0;
+      // Animation depends on swing property from backend when fan is on
+      return fan.is_on && fan.swing;
     }
     default:
       return false;
@@ -99,9 +102,9 @@ export const DeviceModel3D = React.memo(
             });
           }}
         >
-          <ambientLight intensity={0.6} />
-          <directionalLight position={[5, 5, 5]} intensity={1} />
-          <directionalLight position={[-5, -5, -5]} intensity={0.3} />
+          <ambientLight intensity={0.3} />
+          <directionalLight position={[5, 5, 5]} intensity={0.6} />
+          <directionalLight position={[-5, -5, -5]} intensity={0.15} />
           <Suspense fallback={<LoadingFallback />}>
             <Center>
               <DeviceScene device={device} />

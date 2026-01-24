@@ -47,7 +47,7 @@ const deviceIcons = {
 function DevicesPage() {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
-  const [selectedDevice, setSelectedDevice] = useState<BaseDevice | null>(null);
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [deviceToDelete, setDeviceToDelete] = useState<BaseDevice | null>(null);
   const queryClient = useQueryClient();
@@ -63,6 +63,11 @@ function DevicesPage() {
     // Stable sort by ID to prevent card position swapping on refresh
     select: (data) => [...data].sort((a, b) => a.id.localeCompare(b.id)),
   });
+
+  // Derive selectedDevice from fresh query data instead of stale state
+  const selectedDevice = selectedDeviceId
+    ? (devices.find((d) => d.id === selectedDeviceId) ?? null)
+    : null;
 
   const deleteMutation = useMutation({
     mutationFn: (device: BaseDevice) =>
@@ -96,7 +101,7 @@ function DevicesPage() {
   );
 
   const handleControlDevice = (device: BaseDevice) => {
-    setSelectedDevice(device);
+    setSelectedDeviceId(device.id);
     setIsDrawerOpen(true);
   };
 

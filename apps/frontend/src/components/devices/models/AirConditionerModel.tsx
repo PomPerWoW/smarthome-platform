@@ -3,10 +3,14 @@ import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 
 interface AirConditionerModelProps {
+  isOn: boolean;
   temperature: number;
 }
 
-export function AirConditionerModel({ temperature }: AirConditionerModelProps) {
+export function AirConditionerModel({
+  isOn,
+  temperature,
+}: AirConditionerModelProps) {
   const groupRef = useRef<THREE.Group>(null);
   const { scene } = useGLTF("/models/devices/air_conditioner/scene.gltf");
 
@@ -26,15 +30,16 @@ export function AirConditionerModel({ temperature }: AirConditionerModelProps) {
         const material = child.material as THREE.MeshStandardMaterial;
         if (material.isMeshStandardMaterial) {
           const newMaterial = material.clone();
-          newMaterial.emissive = tintColor;
-          newMaterial.emissiveIntensity = 0.15;
+          // Only apply emissive glow when device is on
+          newMaterial.emissive = isOn ? tintColor : new THREE.Color(0x000000);
+          newMaterial.emissiveIntensity = isOn ? 0.15 : 0;
           child.material = newMaterial;
         }
       }
     });
 
     return cloned;
-  }, [scene, normalizedTemp]);
+  }, [scene, normalizedTemp, isOn]);
 
   return (
     <group ref={groupRef} scale={0.8} position={[0, 0, 0]}>

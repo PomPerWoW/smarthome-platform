@@ -4,6 +4,7 @@ interface RawDeviceResponse {
   id: string;
   device_name: string;
   device_pos: { x: number | null; y: number | null; z: number | null };
+  device_rotation?: { x: number; y: number; z: number };
   type: string;
   tag: string | null;
   room: string;
@@ -35,12 +36,19 @@ export function mapRawDeviceToDevice(raw: RawDeviceResponse): Device {
     raw.device_pos?.z ?? defaultPos[2],
   ];
 
+  const rotation: [number, number, number] = [
+    raw.device_rotation?.x ?? 0,
+    raw.device_rotation?.y ?? 0,
+    raw.device_rotation?.z ?? 0,
+  ];
+
   const base = {
     id: raw.id,
     name: raw.device_name || "Unnamed Device",
     type: deviceType,
     is_on: raw.is_on ?? true,
     position,
+    rotation,
     home_id: "",
     home_name: "",
     floor_id: "",

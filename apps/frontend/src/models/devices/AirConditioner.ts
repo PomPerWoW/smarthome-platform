@@ -12,6 +12,7 @@ export class AirConditioner extends BaseDevice {
 
   getProperties(): Record<string, unknown> {
     return {
+      is_on: this.is_on,
       temperature: this.temperature,
     };
   }

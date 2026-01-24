@@ -4,12 +4,16 @@ from .models import *
 # --- 1. Base Logic (Shared by all) ---
 class DeviceBaseSerializer(serializers.ModelSerializer):
     device_pos = serializers.SerializerMethodField()
+    device_rotation = serializers.SerializerMethodField()
     type = serializers.SerializerMethodField()
 
     def get_device_pos(self, obj):
         if obj.device_pos:
             return {"x": obj.device_pos.x, "y": obj.device_pos.y, "z": obj.device_pos.z}
         return {"x": None, "y": None, "z": None}
+
+    def get_device_rotation(self, obj):
+        return {"x": obj.rotation_x, "y": obj.rotation_y, "z": obj.rotation_z}
 
     def get_type(self, obj):
         return obj.__class__.__name__
@@ -35,19 +39,23 @@ class RoomSerializer(serializers.ModelSerializer):
         model = Room
         fields = '__all__'
 
-class PositionHistorySerializer(DeviceBaseSerializer):
+class PositionHistorySerializer(serializers.ModelSerializer):
     device_name = serializers.CharField(source='device.device_name', read_only=True)
     device_id = serializers.UUIDField(source='device.id', read_only=True)
     point = serializers.SerializerMethodField()
+    rotation = serializers.SerializerMethodField()
 
     class Meta:
         model = PositionHistory
-        fields = ['id', 'type', 'device_id', 'device_name', 'point', 'timestamp']
+        fields = ['id', 'device_id', 'device_name', 'point', 'rotation', 'timestamp']
 
     def get_point(self, obj):
         if obj.point:
             return {"x": obj.point.x, "y": obj.point.y, "z": obj.point.z}
         return {"x": None, "y": None, "z": None}
+
+    def get_rotation(self, obj):
+        return {"x": obj.rotation_x, "y": obj.rotation_y, "z": obj.rotation_z}
 
 
 # --- 3. Specific Device Serializers ---

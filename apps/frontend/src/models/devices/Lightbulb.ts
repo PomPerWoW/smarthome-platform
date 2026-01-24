@@ -14,6 +14,7 @@ export class Lightbulb extends BaseDevice {
 
   getProperties(): Record<string, unknown> {
     return {
+      is_on: this.is_on,
       brightness: this.brightness,
       colour: this.colour,
     };

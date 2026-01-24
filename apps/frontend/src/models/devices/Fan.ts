@@ -14,6 +14,7 @@ export class Fan extends BaseDevice {
 
   getProperties(): Record<string, unknown> {
     return {
+      is_on: this.is_on,
       speed: this.speed,
       swing: this.swing,
     };

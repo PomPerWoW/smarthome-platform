@@ -18,14 +18,15 @@ export function FanModel({ speed, swing }: FanModelProps) {
   useEffect(() => {
     const action = actions["Motor_Housing|Motor_HousingAction"];
     if (action) {
-      if (speed > 0) {
-        action.timeScale = speed / 2;
+      // Animation depends on swing property from backend
+      if (swing) {
+        action.timeScale = speed > 0 ? speed / 2 : 1;
         action.play();
       } else {
         action.stop();
       }
     }
-  }, [actions, speed]);
+  }, [actions, swing, speed]);
 
   useFrame((state) => {
     if (groupRef.current && swing && speed > 0) {

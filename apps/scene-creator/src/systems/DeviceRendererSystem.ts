@@ -138,6 +138,12 @@ export class DeviceRendererSystem extends createSystem({
       model.position.set(0, 0, 0);
     }
 
+    if (Array.isArray(data.rotation) && data.rotation.length >= 3) {
+      model.rotation.set(data.rotation[0], data.rotation[1], data.rotation[2]);
+    } else {
+      model.rotation.set(0, 0, 0);
+    }
+
     this.world.scene.add(model);
 
     const entity = this.world.createTransformEntity(model);
@@ -342,12 +348,23 @@ export class DeviceRendererSystem extends createSystem({
     if (!record?.entity.object3D) return;
 
     const pos = record.entity.object3D.position;
+    const rot = record.entity.object3D.rotation;
     console.log(
       `[DeviceRenderer] Saving position for ${deviceId}:`,
       pos.toArray(),
+      `rotation:`,
+      [rot.x, rot.y, rot.z],
     );
 
-    await getStore().updateDevicePosition(deviceId, pos.x, pos.y, pos.z);
+    await getStore().updateDevicePosition(
+      deviceId,
+      pos.x,
+      pos.y,
+      pos.z,
+      rot.x,
+      rot.y,
+      rot.z,
+    );
   }
 
   update(dt: number): void {

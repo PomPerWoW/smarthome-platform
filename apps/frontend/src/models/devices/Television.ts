@@ -16,6 +16,7 @@ export class Television extends BaseDevice {
 
   getProperties(): Record<string, unknown> {
     return {
+      is_on: this.is_on,
       volume: this.volume,
       channel: this.channel,
       is_mute: this.isMute,

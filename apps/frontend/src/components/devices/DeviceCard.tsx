@@ -36,7 +36,7 @@ export const DeviceCard = React.memo(
         onClick={onControl}
       >
         {/* 3D Model */}
-        <div className="w-full h-40 mb-3 rounded-lg overflow-hidden bg-background/20">
+        <div className="w-full h-48 mb-3 rounded-lg overflow-hidden bg-background/20">
           <DeviceModel3D device={device} />
         </div>
 

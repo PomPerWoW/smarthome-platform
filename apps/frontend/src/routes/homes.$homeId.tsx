@@ -39,7 +39,7 @@ import {
   AddDeviceDialog,
 } from "@/components/devices";
 import { HomeService } from "@/services/HomeService";
-import type { Room, BaseDevice } from "@/models";
+import type { Room } from "@/models";
 
 export const Route = createFileRoute("/homes/$homeId")({
   component: HomeDetailPage,
@@ -50,7 +50,7 @@ function HomeDetailPage() {
   const [isCreateRoomOpen, setIsCreateRoomOpen] = useState(false);
   const [newRoomName, setNewRoomName] = useState("");
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
-  const [selectedDevice, setSelectedDevice] = useState<BaseDevice | null>(null);
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const [isDeviceDrawerOpen, setIsDeviceDrawerOpen] = useState(false);
   const [isAddDeviceOpen, setIsAddDeviceOpen] = useState(false);
   const [addDeviceRoomId, setAddDeviceRoomId] = useState<string | null>(null);
@@ -72,6 +72,11 @@ function HomeDetailPage() {
     // Stable sort by ID to prevent card position swapping on refresh
     select: (data) => [...data].sort((a, b) => a.id.localeCompare(b.id)),
   });
+
+  // Derive selectedDevice from fresh query data instead of stale state
+  const selectedDevice = selectedDeviceId
+    ? (devices.find((d) => d.id === selectedDeviceId) ?? null)
+    : null;
 
   // Filter rooms for this home and populate their devices
   const rooms = allRooms
@@ -276,7 +281,7 @@ function HomeDetailPage() {
                   key={device.id}
                   device={device}
                   onControl={() => {
-                    setSelectedDevice(device);
+                    setSelectedDeviceId(device.id);
                     setIsDeviceDrawerOpen(true);
                   }}
                 />
