@@ -12,8 +12,10 @@ import {
 import { getAuth } from "./api/auth";
 import { getStore } from "./store/DeviceStore";
 import { DeviceComponent } from "./components/DeviceComponent";
+import { ResidentAvatarComponent } from "./components/ResidentAvatarComponent";
 import { DeviceRendererSystem } from "./systems/DeviceRendererSystem";
 import { DeviceInteractionSystem } from "./systems/DeviceInteractionSystem";
+import { ResidentAvatarSystem } from "./systems/ResidentAvatarSystem";
 import { PanelSystem } from "./ui/panel";
 import { LightbulbPanelSystem } from "./ui/LightbulbPanelSystem";
 import { TelevisionPanelSystem } from "./ui/TelevisionPanelSystem";
@@ -49,6 +51,49 @@ const assets: AssetManifest = {
   },
   air_conditioner: {
     url: "/models/devices/air_conditioner/scene.gltf",
+    type: AssetType.GLTF,
+    priority: "critical",
+  },
+  // resident avatars
+  resident1: {
+    url: "/animations/resident1/Idle.glb",
+    type: AssetType.GLTF,
+    priority: "critical",
+  },
+  resident2: {
+    url: "/animations/resident2/Idle.glb",
+    type: AssetType.GLTF,
+    priority: "critical",
+  },
+  // resident 1 animations
+  Idle1: {
+    url: "/animations/resident1/Idle.glb",
+    type: AssetType.GLTF,
+    priority: "critical",
+  },
+  Walking1: {
+    url: "/animations/resident1/Walking.glb",
+    type: AssetType.GLTF,
+    priority: "critical",
+  },
+  Waving1: {
+    url: "/animations/resident1/Waving.glb",
+    type: AssetType.GLTF,
+    priority: "critical",
+  },
+  // resident 2 animations
+  Idle2: {
+    url: "/animations/resident2/Idle.glb",
+    type: AssetType.GLTF,
+    priority: "critical",
+  },
+  Walking2: {
+    url: "/animations/resident2/Walking.glb",
+    type: AssetType.GLTF,
+    priority: "critical",
+  },
+  Waving2: {
+    url: "/animations/resident2/Waving.glb",
     type: AssetType.GLTF,
     priority: "critical",
   },
@@ -123,8 +168,11 @@ async function main(): Promise<void> {
 
   world
     .registerComponent(DeviceComponent)
+    .registerComponent(DeviceComponent)
+    .registerComponent(ResidentAvatarComponent)
     .registerSystem(DeviceRendererSystem)
     .registerSystem(DeviceInteractionSystem)
+    .registerSystem(ResidentAvatarSystem)
     .registerSystem(PanelSystem)
     .registerSystem(LightbulbPanelSystem)
     .registerSystem(TelevisionPanelSystem)
@@ -153,7 +201,7 @@ async function main(): Promise<void> {
 
   const store = getStore();
 
-  console.log(" Fetching devices from backend...");
+  console.log("📱 Fetching devices from backend...");
   await store.loadAllData();
 
   if (store.error) {
@@ -168,14 +216,44 @@ async function main(): Promise<void> {
     console.log("✅ Devices rendered in scene");
   }
 
-  console.log("🚀 SmartHome Platform Scene Creator ready!");
+  // ===== INITIALIZE RESIDENT AVATARS =====
+  console.log("\n👥 Initializing resident avatars...");
+
+  const residentSystem = world.getSystem(ResidentAvatarSystem);
+  if (residentSystem) {
+
+    await residentSystem.createResidentAvatar(
+      "1",
+      "Mother",
+      "resident1",
+      [3.7, 0, -7],
+      ["Idle1", "Walking1", "Waving1"]
+    );
+
+    await residentSystem.createResidentAvatar(
+      "2",
+      "Father",
+      "resident2",
+      [1, 0, -3.5],
+
+      ["Idle2", "Walking2", "Waving2"]
+    );
+
+    console.log("✅ Resident avatars initialized");
+  } else {
+    console.warn("⚠️ ResidentAvatarSystem not found");
+  }
+
+  console.log("\n🚀 SmartHome Platform Scene Creator ready!");
   console.log("───────────────────────────────────");
   console.log(`   👤 User: ${user?.email}`);
   console.log(`   📱 Devices: ${store.getDeviceCount()}`);
   console.log(`   🟢 Active: ${store.getActiveDevices().length}`);
+  console.log(`   👥 Residents: 2 avatars`);
   console.log("───────────────────────────────────");
   console.log("💡 Click devices to control");
   console.log("✋ Grab devices to move");
+  console.log("👋 Watch residents do random actions");
   console.log('🥽 Press "Enter AR" to start');
 }
 
