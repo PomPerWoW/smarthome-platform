@@ -13,9 +13,11 @@ import { getAuth } from "./api/auth";
 import { getStore } from "./store/DeviceStore";
 import { DeviceComponent } from "./components/DeviceComponent";
 import { ResidentAvatarComponent } from "./components/ResidentAvatarComponent";
+import { AssistantAvatarComponent } from "./components/AssistantAvatarComponent";
 import { DeviceRendererSystem } from "./systems/DeviceRendererSystem";
 import { DeviceInteractionSystem } from "./systems/DeviceInteractionSystem";
 import { ResidentAvatarSystem } from "./systems/ResidentAvatarSystem";
+import { AssistantAvatarSystem } from "./systems/AssistantAvatarSystem";
 import { PanelSystem } from "./ui/panel";
 import { LightbulbPanelSystem } from "./ui/LightbulbPanelSystem";
 import { TelevisionPanelSystem } from "./ui/TelevisionPanelSystem";
@@ -97,6 +99,12 @@ const assets: AssetManifest = {
     type: AssetType.GLTF,
     priority: "critical",
   },
+  // Robot Assistant
+  robot_avatar: {
+    url: "/models/avatar/assistant/robot.glb",
+    type: AssetType.GLTF,
+    priority: "critical",
+  },
 };
 
 async function main(): Promise<void> {
@@ -170,9 +178,11 @@ async function main(): Promise<void> {
     .registerComponent(DeviceComponent)
     .registerComponent(DeviceComponent)
     .registerComponent(ResidentAvatarComponent)
+    .registerComponent(AssistantAvatarComponent)
     .registerSystem(DeviceRendererSystem)
     .registerSystem(DeviceInteractionSystem)
     .registerSystem(ResidentAvatarSystem)
+    .registerSystem(AssistantAvatarSystem)
     .registerSystem(PanelSystem)
     .registerSystem(LightbulbPanelSystem)
     .registerSystem(TelevisionPanelSystem)
@@ -242,6 +252,20 @@ async function main(): Promise<void> {
     console.log("✅ Resident avatars initialized");
   } else {
     console.warn("⚠️ ResidentAvatarSystem not found");
+  }
+
+  // ===== INITIALIZE ASSISTANT AVATAR =====
+  const assistantSystem = world.getSystem(AssistantAvatarSystem);
+  if (assistantSystem) {
+    await assistantSystem.createAssistantAvatar(
+      "robot_1",
+      "Assistant",
+      "robot_avatar",
+      [2, 0.3, -4.5]
+    );
+    console.log("✅ Assistant avatar initialized");
+  } else {
+    console.warn("⚠️ AssistantAvatarSystem not found");
   }
 
   console.log("\n🚀 SmartHome Platform Scene Creator ready!");
