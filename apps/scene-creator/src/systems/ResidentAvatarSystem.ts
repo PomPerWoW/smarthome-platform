@@ -433,8 +433,13 @@ export class ResidentAvatarSystem extends createSystem({
 
   private resetAllVisemes(record: ResidentAvatarRecord): void {
     const allVisemes = Object.values(VISEMES);
-    for (const viseme of allVisemes) {
-      this.applyViseme(record, viseme, 0, 0.3);
+    for (const mesh of record.morphTargetMeshes) {
+      for (const viseme of allVisemes) {
+        const index = mesh.morphTargetDictionary![viseme];
+        if (index !== undefined && mesh.morphTargetInfluences) {
+          mesh.morphTargetInfluences[index] = 0;
+        }
+      }
     }
   }
 
