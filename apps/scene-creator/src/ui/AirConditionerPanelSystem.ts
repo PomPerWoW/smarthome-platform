@@ -6,11 +6,14 @@ import {
   UIKitDocument,
   UIKit,
   Entity,
+  Quaternion,
+  Euler,
 } from "@iwsdk/core";
 
 import { DeviceComponent } from "../components/DeviceComponent";
 import { deviceStore, getStore } from "../store/DeviceStore";
 import { DeviceType } from "../types";
+import { DeviceRendererSystem } from "../systems/DeviceRendererSystem";
 
 const PRESET_TEMPS = [18, 22, 25, 28];
 
@@ -21,6 +24,7 @@ export class AirConditionerPanelSystem extends createSystem({
   },
 }) {
   private unsubscribeDevices?: () => void;
+  private deviceRenderer?: DeviceRendererSystem;
 
   init() {
     console.log("[ACPanel] System initialized");
@@ -40,6 +44,11 @@ export class AirConditionerPanelSystem extends createSystem({
   private setupPanel(entity: Entity): void {
     const document = PanelDocument.data.document[entity.index] as UIKitDocument;
     if (!document) return;
+
+    // Lazy-load the device renderer system if not already loaded
+    if (!this.deviceRenderer) {
+      this.deviceRenderer = this.world.getSystem(DeviceRendererSystem);
+    }
 
     const deviceId = entity.getValue(DeviceComponent, "deviceId");
     if (!deviceId) return;
@@ -77,6 +86,21 @@ export class AirConditionerPanelSystem extends createSystem({
       }
     }
 
+    // Position buttons
+    const getPositionBtn = document.getElementById("get-position-btn");
+    if (getPositionBtn) {
+      getPositionBtn.addEventListener("click", () => {
+        this.handleGetPosition(entity, deviceId);
+      });
+    }
+
+    const savePositionBtn = document.getElementById("save-position-btn");
+    if (savePositionBtn) {
+      savePositionBtn.addEventListener("click", () => {
+        this.handleSavePosition(entity, deviceId);
+      });
+    }
+
     this.updatePanel(entity, deviceId, document);
   }
 
@@ -110,6 +134,142 @@ export class AirConditionerPanelSystem extends createSystem({
     });
   }
 
+  private handleGetPosition(entity: Entity, deviceId: string): void {
+    const record = this.deviceRenderer?.getRecord(deviceId);
+    if (!record?.entity.object3D) {
+      console.warn(`[ACPanel] No Object3D found for device ${deviceId}`);
+      return;
+    }
+
+    const object3D = record.entity.object3D;
+    const pos = object3D.position;
+    const rot = object3D.rotation;
+    const scale = object3D.scale;
+
+    // Get device data from store for additional metadata
+    const store = getStore();
+    const device = store.getAirConditioner(deviceId);
+
+    // Get world matrix rotation (accounts for parent transforms)
+    object3D.updateMatrixWorld(true);
+    const worldQuaternion = object3D.getWorldQuaternion(new Quaternion());
+    const worldEuler = new Euler().setFromQuaternion(worldQuaternion);
+
+    // Convert rotation from radians to degrees for readability
+    const radToDeg = (rad: number) => (rad * 180) / Math.PI;
+
+    console.log(
+      `\n╔══════════════════════════════════════════════════════════════╗`,
+    );
+    console.log(`║           DEVICE METADATA - ${device?.name || deviceId}`);
+    console.log(
+      `╠══════════════════════════════════════════════════════════════╣`,
+    );
+    console.log(`║ 📍 POSITION (World Coordinates)`);
+    console.log(`║    X: ${pos.x.toFixed(3)}`);
+    console.log(`║    Y: ${pos.y.toFixed(3)}`);
+    console.log(`║    Z: ${pos.z.toFixed(3)}`);
+    console.log(
+      `╠══════════════════════════════════════════════════════════════╣`,
+    );
+    console.log(`║ 🧭 LOCAL ROTATION (degrees)`);
+    console.log(`║    X (Pitch): ${radToDeg(rot.x).toFixed(2)}°`);
+    console.log(`║    Y (Yaw):   ${radToDeg(rot.y).toFixed(2)}°`);
+    console.log(`║    Z (Roll):  ${radToDeg(rot.z).toFixed(2)}°`);
+    console.log(
+      `╠══════════════════════════════════════════════════════════════╣`,
+    );
+    console.log(`║ 🌍 WORLD ROTATION (degrees)`);
+    console.log(`║    X (Pitch): ${radToDeg(worldEuler.x).toFixed(2)}°`);
+    console.log(`║    Y (Yaw):   ${radToDeg(worldEuler.y).toFixed(2)}°`);
+    console.log(`║    Z (Roll):  ${radToDeg(worldEuler.z).toFixed(2)}°`);
+    console.log(
+      `╠══════════════════════════════════════════════════════════════╣`,
+    );
+    console.log(`║ 📐 SCALE`);
+    console.log(`║    X: ${scale.x.toFixed(3)}`);
+    console.log(`║    Y: ${scale.y.toFixed(3)}`);
+    console.log(`║    Z: ${scale.z.toFixed(3)}`);
+    console.log(
+      `╠══════════════════════════════════════════════════════════════╣`,
+    );
+    console.log(`║ ❄️ DEVICE PROPERTIES`);
+    if (device) {
+      console.log(`║    Power:       ${device.is_on ? "ON" : "OFF"}`);
+      console.log(`║    Temperature: ${device.temperature}°C`);
+      console.log(`║    Room:        ${device.room_name}`);
+      console.log(`║    Floor:       ${device.floor_name}`);
+      console.log(`║    Home:        ${device.home_name}`);
+    } else {
+      console.log(`║    (Device data not found)`);
+    }
+    console.log(
+      `╚══════════════════════════════════════════════════════════════╝\n`,
+    );
+
+    // Also log as structured data for easy copying
+    console.log(`[ACPanel] Structured Data:`, {
+      deviceId,
+      position: { x: pos.x, y: pos.y, z: pos.z },
+      rotation: {
+        x: radToDeg(rot.x),
+        y: radToDeg(rot.y),
+        z: radToDeg(rot.z),
+        order: rot.order,
+      },
+      scale: { x: scale.x, y: scale.y, z: scale.z },
+      properties: device
+        ? {
+            is_on: device.is_on,
+            temperature: device.temperature,
+            room: device.room_name,
+            floor: device.floor_name,
+            home: device.home_name,
+          }
+        : null,
+    });
+  }
+
+  private async handleSavePosition(
+    entity: Entity,
+    deviceId: string,
+  ): Promise<void> {
+    const record = this.deviceRenderer?.getRecord(deviceId);
+    if (!record?.entity.object3D) {
+      console.warn(`[ACPanel] No Object3D found for device ${deviceId}`);
+      return;
+    }
+
+    const object3D = record.entity.object3D;
+    const pos = object3D.position;
+
+    // Get world rotation Y (accounts for parent transforms)
+    object3D.updateMatrixWorld(true);
+    const worldQuaternion = object3D.getWorldQuaternion(new Quaternion());
+    const worldEuler = new Euler().setFromQuaternion(worldQuaternion);
+    const rotationY = (worldEuler.y * 180) / Math.PI;
+
+    console.log(
+      `[ACPanel] Saving position for device ${deviceId}:`,
+      `x: ${pos.x.toFixed(3)}, y: ${pos.y.toFixed(3)}, z: ${pos.z.toFixed(3)}, rotation_y: ${rotationY.toFixed(2)}° (world)`,
+    );
+
+    try {
+      await getStore().updateDevicePosition(
+        deviceId,
+        pos.x,
+        pos.y,
+        pos.z,
+        rotationY,
+      );
+      console.log(
+        `[ACPanel] Position and rotation saved successfully for ${deviceId}`,
+      );
+    } catch (error) {
+      console.error(`[ACPanel] Failed to save position:`, error);
+    }
+  }
+
   private updateAllPanels(): void {
     const entities = this.queries.acPanel.entities;
     for (const entity of entities) {
@@ -141,7 +301,7 @@ export class AirConditionerPanelSystem extends createSystem({
     if (device) {
       deviceName?.setProperties({ text: device.name });
       deviceLocation?.setProperties({
-        text: `${device.room_name} • ${device.floor_name}`,
+        text: `${device.room_name} - ${device.floor_name}`,
       });
     } else {
       deviceName?.setProperties({ text: "Device not found" });

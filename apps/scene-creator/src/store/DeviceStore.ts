@@ -28,9 +28,7 @@ interface DeviceState {
     x: number,
     y: number,
     z: number,
-    rx?: number,
-    ry?: number,
-    rz?: number,
+    rotationY?: number,
   ) => Promise<void>;
   updateLightbulb: (
     deviceId: string,
@@ -138,23 +136,20 @@ export const deviceStore = createStore<DeviceState>()(
       }
     },
 
-    updateDevicePosition: async (deviceId, x, y, z, rx, ry, rz) => {
+    updateDevicePosition: async (deviceId, x, y, z, rotationY) => {
       try {
         console.log(`[Store] Updating position for device ${deviceId}:`, {
           x,
           y,
           z,
-          rx,
-          ry,
-          rz,
+          rotationY,
         });
-        const updated = await api.setDevicePosition(
-          deviceId,
-          { x, y, z },
-          rx !== undefined && ry !== undefined && rz !== undefined
-            ? { x: rx, y: ry, z: rz }
-            : undefined,
-        );
+        const updated = await api.setDevicePosition(deviceId, {
+          x: x,
+          y: y,
+          z: z,
+          rotation_y: rotationY,
+        });
         set((state) => ({
           devices: state.devices.map((d) => (d.id === deviceId ? updated : d)),
         }));

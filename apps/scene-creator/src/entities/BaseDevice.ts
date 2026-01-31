@@ -8,7 +8,7 @@ export abstract class BaseDevice {
   abstract readonly type: DeviceType;
   isOn: boolean;
   position: [number, number, number];
-  rotation: [number, number, number];
+  rotationY: number;
 
   readonly homeId: string;
   readonly homeName: string;
@@ -22,7 +22,7 @@ export abstract class BaseDevice {
     this.name = data.name;
     this.isOn = data.is_on;
     this.position = data.position;
-    this.rotation = data.rotation ?? [0, 0, 0];
+    this.rotationY = data.rotation_y ?? 0;
     this.homeId = data.home_id;
     this.homeName = data.home_name;
     this.floorId = data.floor_id;
@@ -68,7 +68,7 @@ export abstract class BaseDevice {
       type: this.type,
       is_on: this.isOn,
       position: this.position,
-      rotation: this.rotation,
+      rotation_y: this.rotationY,
       home_id: this.homeId,
       home_name: this.homeName,
       floor_id: this.floorId,

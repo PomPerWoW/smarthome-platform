@@ -11,7 +11,7 @@ export interface DeviceBase {
   type: DeviceType;
   is_on: boolean;
   position: [number, number, number];
-  rotation: [number, number, number];
+  rotation_y: number;
   home_id: string;
   home_name: string;
   floor_id: string;

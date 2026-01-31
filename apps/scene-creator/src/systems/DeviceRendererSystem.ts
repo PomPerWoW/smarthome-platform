@@ -15,7 +15,7 @@ import {
 } from "@iwsdk/core";
 
 import { deviceStore, getStore } from "../store/DeviceStore";
-import { Device, DeviceType, DeviceRecord } from "../types";
+import { Device, DeviceType, DeviceRecord, Fan } from "../types";
 import { DeviceComponent } from "../components/DeviceComponent";
 import { BaseDevice, DeviceFactory } from "../entities";
 import { DEVICE_ASSET_KEYS } from "../constants";
@@ -138,10 +138,12 @@ export class DeviceRendererSystem extends createSystem({
       model.position.set(0, 0, 0);
     }
 
-    if (Array.isArray(data.rotation) && data.rotation.length >= 3) {
-      model.rotation.set(data.rotation[0], data.rotation[1], data.rotation[2]);
-    } else {
-      model.rotation.set(0, 0, 0);
+    // Apply saved rotation (Y-axis only, in degrees)
+    if (data.rotation_y !== undefined && data.rotation_y !== 0) {
+      model.rotation.y = (data.rotation_y * Math.PI) / 180;
+      console.log(
+        `[DeviceRenderer] Applied rotation_y=${data.rotation_y}° to ${data.name}`,
+      );
     }
 
     this.world.scene.add(model);
@@ -175,9 +177,9 @@ export class DeviceRendererSystem extends createSystem({
         record.actions.push(action);
       }
 
-      // Auto-play animations if device is on
-      if (data.is_on) {
-        this.playAnimations(record);
+      // Auto-play animations based on device state
+      if (this.shouldPlayAnimation(data)) {
+        this.playAnimations(record, data);
       }
 
       console.log(
@@ -195,9 +197,11 @@ export class DeviceRendererSystem extends createSystem({
     return record;
   }
 
-  private playAnimations(record: DeviceRecord): void {
+  private playAnimations(record: DeviceRecord, data?: Device): void {
     if (record.actions) {
+      const timeScale = this.getAnimationTimeScale(data);
       for (const action of record.actions) {
+        action.setEffectiveTimeScale(timeScale);
         action.play();
       }
     }
@@ -209,6 +213,49 @@ export class DeviceRendererSystem extends createSystem({
         action.stop();
       }
     }
+  }
+
+  /**
+   * Calculates animation time scale based on device properties
+   * For fans: Speed 1 = 0.5x, Speed 2 = 1.0x, Speed 3 = 1.5x
+   */
+  private getAnimationTimeScale(data?: Device): number {
+    if (!data || data.type !== DeviceType.Fan) {
+      return 1.0;
+    }
+
+    const fan = data as Fan;
+    // Map fan speed (1-3) to time scale (0.5-1.5)
+    // Speed 1 = 0.5x, Speed 2 = 1.0x, Speed 3 = 1.5x
+    const speed = Math.max(1, Math.min(3, fan.speed || 1));
+    return 0.5 + (speed - 1) * 0.5;
+  }
+
+  /**
+   * Updates animation speed for a device record
+   */
+  private updateAnimationSpeed(record: DeviceRecord, data: Device): void {
+    if (record.actions) {
+      const timeScale = this.getAnimationTimeScale(data);
+      for (const action of record.actions) {
+        action.setEffectiveTimeScale(timeScale);
+      }
+    }
+  }
+
+  /**
+   * Determines if animation should play based on device type and state
+   * For fans: requires both is_on AND swing to be true
+   * For other devices: just requires is_on
+   */
+  private shouldPlayAnimation(data: Device): boolean {
+    if (!data.is_on) return false;
+
+    if (data.type === DeviceType.Fan) {
+      return (data as Fan).swing === true;
+    }
+
+    return true;
   }
 
   private getPanelConfig(deviceType: DeviceType): string | null {
@@ -294,18 +341,22 @@ export class DeviceRendererSystem extends createSystem({
       record.device.updateVisuals(record.entity.object3D);
     }
 
-    // Control animations based on power state change
-    if (wasOn !== data.is_on) {
-      console.log(
-        `[DeviceRenderer] Power state changed for ${data.name}: ${wasOn} -> ${data.is_on}`,
-      );
-      if (data.is_on) {
+    // Control animations based on device state
+    const shouldPlay = this.shouldPlayAnimation(data);
+    const wasPlaying =
+      record.actions?.some((action) => action.isRunning()) ?? false;
+
+    if (shouldPlay !== wasPlaying) {
+      if (shouldPlay) {
         console.log(`[DeviceRenderer] Playing animations for ${data.name}`);
-        this.playAnimations(record);
+        this.playAnimations(record, data);
       } else {
         console.log(`[DeviceRenderer] Stopping animations for ${data.name}`);
         this.stopAnimations(record);
       }
+    } else if (shouldPlay && data.type === DeviceType.Fan) {
+      // Update animation speed if fan speed changed while running
+      this.updateAnimationSpeed(record, data);
     }
   }
 
@@ -348,23 +399,12 @@ export class DeviceRendererSystem extends createSystem({
     if (!record?.entity.object3D) return;
 
     const pos = record.entity.object3D.position;
-    const rot = record.entity.object3D.rotation;
     console.log(
       `[DeviceRenderer] Saving position for ${deviceId}:`,
       pos.toArray(),
-      `rotation:`,
-      [rot.x, rot.y, rot.z],
     );
 
-    await getStore().updateDevicePosition(
-      deviceId,
-      pos.x,
-      pos.y,
-      pos.z,
-      rot.x,
-      rot.y,
-      rot.z,
-    );
+    await getStore().updateDevicePosition(deviceId, pos.x, pos.y, pos.z);
   }
 
   update(dt: number): void {
@@ -374,12 +414,23 @@ export class DeviceRendererSystem extends createSystem({
         record.mixer.update(dt);
       }
 
+      // Rotation constraint: keep devices upright (X and Z rotation = 0)
+      // This allows Y-axis rotation (facing direction) while preventing tilting
+      if (record.entity.object3D) {
+        const rot = record.entity.object3D.rotation;
+        if (rot.x !== 0 || rot.z !== 0) {
+          rot.x = 0;
+          rot.z = 0;
+        }
+      }
+
       if (record.panelEntity?.object3D && record.entity.object3D) {
         const devicePos = record.entity.object3D.position;
+        const yOffset = 0;
         // Position panel to the right of device
         record.panelEntity.object3D.position.set(
           devicePos.x + 0.5,
-          devicePos.y,
+          devicePos.y + yOffset,
           devicePos.z,
         );
 
