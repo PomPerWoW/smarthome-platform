@@ -500,7 +500,7 @@ function setupLipSyncTestControls(residentSystem: ResidentAvatarSystem | null): 
       min-width: 220px;
     ">
       <h3 style="margin: 0 0 12px 0; font-size: 16px; display: flex; align-items: center; gap: 8px;">
-        🎤 Lip Sync Test
+        Lip Sync Test
       </h3>
       <div style="display: flex; flex-direction: column; gap: 8px;">
         <button id="speak-mother" style="
@@ -513,7 +513,7 @@ function setupLipSyncTestControls(residentSystem: ResidentAvatarSystem | null): 
           font-size: 14px;
           transition: background 0.2s;
         ">
-          👩 Mother Speak (1)
+          Mother Speak (1)
         </button>
         <button id="speak-father" style="
           padding: 10px 16px;
@@ -525,7 +525,7 @@ function setupLipSyncTestControls(residentSystem: ResidentAvatarSystem | null): 
           font-size: 14px;
           transition: background 0.2s;
         ">
-          👨 Father Speak (2)
+          Father Speak (2)
         </button>
         <button id="stop-speech" style="
           padding: 10px 16px;
@@ -537,13 +537,9 @@ function setupLipSyncTestControls(residentSystem: ResidentAvatarSystem | null): 
           font-size: 14px;
           transition: background 0.2s;
         ">
-          🔇 Stop Speech (S)
+          Stop Speech (3)
         </button>
       </div>
-      <p style="margin: 12px 0 0 0; font-size: 12px; color: #aaa;">
-        Put audio files in:<br>
-        <code style="background: #333; padding: 2px 6px; border-radius: 4px;">public/audio/script/</code>
-      </p>
     </div>
   `;
   document.body.appendChild(testPanel);
@@ -580,8 +576,7 @@ function setupLipSyncTestControls(residentSystem: ResidentAvatarSystem | null): 
         console.log("[LipSync Test] 👨 Father speaking (key 2)...");
         residentSystem.speak("4", testAudioPathResident4);
         break;
-      case "s":
-      case "S":
+      case "3":
         console.log("[LipSync Test] 🔇 Stopping speech (key S)...");
         residentSystem.stopSpeaking();
         break;
