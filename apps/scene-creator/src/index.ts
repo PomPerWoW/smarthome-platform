@@ -422,7 +422,7 @@ async function main(): Promise<void> {
 
     await residentSystem.createResidentAvatar(
       "3",
-      "Mother",
+      "Father",
       "resident3",
       [3.7, 0, -7],
       ["Idle3", "Walking3", "Waving3"]
@@ -430,10 +430,9 @@ async function main(): Promise<void> {
 
     await residentSystem.createResidentAvatar(
       "4",
-      "Father",
+      "Mother",
       "resident4",
       [1, 0, -3.5],
-
       ["Idle4", "Walking4"]
     );
 
@@ -545,7 +544,7 @@ function setupLipSyncTestControls(residentSystem: ResidentAvatarSystem | null): 
   document.body.appendChild(testPanel);
 
   const testAudioPathResident3 = "/audio/script/hello_male.mp3";
-  const testAudioPathResident4 = "/audio/script/hello_female.mp3";
+  const testAudioPathResident4 = "/audio/script/hello_male.mp3";
 
   document.getElementById("speak-mother")?.addEventListener("click", () => {
     console.log("[LipSync Test] 👩 Mother speaking...");

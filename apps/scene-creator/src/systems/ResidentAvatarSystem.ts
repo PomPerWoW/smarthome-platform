@@ -6,11 +6,10 @@ import {
   AnimationMixer,
   AnimationAction,
   LoopRepeat,
-  LoopOnce,
 } from "@iwsdk/core";
 
 import { SkeletonUtils } from "three-stdlib";
-import { Quaternion, MathUtils, SkinnedMesh } from "three";
+import { MathUtils, SkinnedMesh } from "three";
 import {
   EntityManager as YukaEntityManager,
   Vehicle,
@@ -20,16 +19,6 @@ import { Lipsync, VISEMES } from "wawa-lipsync";
 
 import { ResidentAvatarComponent } from "../components/ResidentAvatarComponent";
 import { clampToWalkableArea, getRoomBounds } from "../config/navmesh";
-
-const ANIMATION_DURATIONS: Record<string, number> = {
-  Idle: 12,
-  Waving: 4,
-  Walking: 8,
-  LeftTurn: 1.5,
-  RightTurn: 1.5,
-  StandToSit: 2,
-  SitToStand: 2,
-};
 
 const DEFAULT_MOVEMENT_RANGE = 3;
 
@@ -42,20 +31,17 @@ interface ResidentAvatarRecord {
   availableAnimations: string[];
   agent: Vehicle;
   wanderBehavior: WanderBehavior;
-  wanderPauseTimer: number;      
-  wanderPauseDuration: number;  
-  isWanderPaused: boolean;    
-  isTurning: boolean;
-  turnStartRotation: number;
+  wanderPauseTimer: number;
+  wanderPauseDuration: number;
+  isWanderPaused: boolean;
   morphTargetMeshes: SkinnedMesh[];
   isSpeaking: boolean;
 }
 
-
 const LIPSYNC_LERP_SPEED = {
-  vowel: 0.15,      
-  consonant: 0.35,  
-  reset: 0.1,       
+  vowel: 0.15,
+  consonant: 0.35,
+  reset: 0.1,
 };
 
 export class ResidentAvatarSystem extends createSystem({
@@ -65,16 +51,14 @@ export class ResidentAvatarSystem extends createSystem({
 }) {
   private residentRecords: Map<string, ResidentAvatarRecord> = new Map();
   private yukaEntityManager: YukaEntityManager = new YukaEntityManager();
-  
   private lipsyncManager: Lipsync = new Lipsync();
   private audioElement: HTMLAudioElement = new Audio();
   private currentSpeakingAvatarId: string | null = null;
 
   init() {
-    console.log("[ResidentAvatar] Yuka-powered system initialized (wander + pause mode + lip sync)");
+    console.log("[ResidentAvatar] System initialized (Walk + Idle + Wave + Lip Sync)");
     
     this.audioElement.crossOrigin = "anonymous";
-    
     this.audioElement.addEventListener("ended", () => {
       this.onSpeechEnded();
     });
@@ -88,7 +72,7 @@ export class ResidentAvatarSystem extends createSystem({
     animationKeys: string[]
   ): Promise<Entity | null> {
     try {
-      console.log(`[ResidentAvatar] Creating Yuka-powered resident: ${avatarName}`);
+      console.log(`[ResidentAvatar] Creating resident: ${avatarName}`);
 
       const gltf = AssetManager.getGLTF(modelKey);
       if (!gltf) {
@@ -97,13 +81,11 @@ export class ResidentAvatarSystem extends createSystem({
       }
 
       const avatarModel = SkeletonUtils.clone(gltf.scene);
-
       avatarModel.scale.setScalar(0.5);
       avatarModel.position.set(position[0], position[1], position[2]);
       avatarModel.rotation.set(0, 0, 0);
 
       this.world.scene.add(avatarModel);
-
       const entity = this.world.createTransformEntity(avatarModel);
 
       entity.addComponent(ResidentAvatarComponent, {
@@ -123,6 +105,11 @@ export class ResidentAvatarSystem extends createSystem({
 
       for (const animKey of animationKeys) {
         const baseName = animKey.replace(/\d+$/, "");
+        
+        if (!["Idle", "Walking", "Waving"].includes(baseName)) {
+          console.log(`[ResidentAvatar] Skipping ${animKey} (not needed)`);
+          continue;
+        }
 
         const animGltf = AssetManager.getGLTF(animKey);
 
@@ -143,33 +130,23 @@ export class ResidentAvatarSystem extends createSystem({
 
           if (baseName === "Walking") {
             clip.tracks.forEach((track) => {
-              if (
-                /(Hips|mixamorig|Root|Pelvis|Armature|Bip).*\.position$/i.test(track.name)
-              ) {
+              if (/(Hips|mixamorig|Root|Pelvis|Armature|Bip).*\.position$/i.test(track.name)) {
                 const values = track.values;
                 for (let i = 0; i < values.length / 3; i++) {
                   const idx = i * 3;
-                  values[idx] = 0;     // x
-                  values[idx + 2] = 0; // z
+                  values[idx] = 0;
+                  values[idx + 2] = 0;
                 }
               }
             });
           }
 
           const action = mixer.clipAction(clip);
-          
-          if (baseName === "LeftTurn" || baseName === "RightTurn" || 
-              baseName === "StandToSit" || baseName === "SitToStand") {
-            action.setLoop(LoopOnce, 1);
-            action.clampWhenFinished = true;
-          } else {
-            action.setLoop(LoopRepeat, Infinity);
-          }
-          
+          action.setLoop(LoopRepeat, Infinity);
           animations.set(baseName, action);
           availableAnimations.push(baseName);
 
-          console.log(`[ResidentAvatar] ✅ Loaded animation: ${baseName} (${clip.duration.toFixed(2)}s)`);
+          console.log(`[ResidentAvatar] ✅ Loaded: ${baseName} (${clip.duration.toFixed(2)}s)`);
         }
       }
 
@@ -180,10 +157,7 @@ export class ResidentAvatarSystem extends createSystem({
 
       let rootBone: Object3D | undefined;
       avatarModel.traverse((child) => {
-        if (
-          !rootBone &&
-          /(Hips|mixamorigHips|Root|Pelvis|Armature|Bip)/i.test(child.name)
-        ) {
+        if (!rootBone && /(Hips|mixamorigHips|Root|Pelvis|Armature|Bip)/i.test(child.name)) {
           rootBone = child;
         }
       });
@@ -199,15 +173,12 @@ export class ResidentAvatarSystem extends createSystem({
           const mesh = maybeSkinnedMesh as SkinnedMesh;
           if (mesh.morphTargetDictionary!["viseme_aa"] !== undefined) {
             morphTargetMeshes.push(mesh);
-            console.log(`[ResidentAvatar] 🎤 Found lip sync mesh: ${mesh.name}`);
           }
         }
       });
 
-      if (morphTargetMeshes.length === 0) {
-        console.warn(`[ResidentAvatar] No lip sync blendshapes found for ${avatarName}. Lip sync will not work.`);
-      } else {
-        console.log(`[ResidentAvatar] Found ${morphTargetMeshes.length} mesh(es) with lip sync blendshapes`);
+      if (morphTargetMeshes.length > 0) {
+        console.log(`[ResidentAvatar] 🎤 Lip sync ready for ${avatarName}`);
       }
 
       const agent = new Vehicle();
@@ -222,26 +193,56 @@ export class ResidentAvatarSystem extends createSystem({
       agent.steering.add(wanderBehavior);
 
       agent.setRenderComponent(avatarModel, (yukaEntity: any, renderComponent: any) => {
-        const [px, pz] = clampToWalkableArea(yukaEntity.position.x, yukaEntity.position.z);
+        const bounds = getRoomBounds();
+        const currentX = yukaEntity.position.x;
+        const currentZ = yukaEntity.position.z;
 
-        if (px !== yukaEntity.position.x || pz !== yukaEntity.position.z) {
-          yukaEntity.position.x = px;
-          yukaEntity.position.z = pz;
+        if (wanderBehavior.active && bounds) {
+          const margin = 0.4;
+          let steerX = 0, steerZ = 0;
+          
+          if (currentX - bounds.minX < margin) steerX = (margin - (currentX - bounds.minX)) * 2;
+          else if (bounds.maxX - currentX < margin) steerX = -(margin - (bounds.maxX - currentX)) * 2;
+          
+          if (currentZ - bounds.minZ < margin) steerZ = (margin - (currentZ - bounds.minZ)) * 2;
+          else if (bounds.maxZ - currentZ < margin) steerZ = -(margin - (bounds.maxZ - currentZ)) * 2;
+          
+          if (steerX !== 0 || steerZ !== 0) {
+            yukaEntity.velocity.x += steerX * 0.15;
+            yukaEntity.velocity.z += steerZ * 0.15;
+            
+            const speed = Math.sqrt(yukaEntity.velocity.x ** 2 + yukaEntity.velocity.z ** 2);
+            if (speed > yukaEntity.maxSpeed) {
+              yukaEntity.velocity.x = (yukaEntity.velocity.x / speed) * yukaEntity.maxSpeed;
+              yukaEntity.velocity.z = (yukaEntity.velocity.z / speed) * yukaEntity.maxSpeed;
+            }
+          }
+        }
+        
+        if (!wanderBehavior.active) {
           yukaEntity.velocity.set(0, 0, 0);
         }
 
-        renderComponent.position.set(px, yukaEntity.position.y, pz);
-
-        if (yukaEntity.updateOrientation) {
-          const r = yukaEntity.rotation;
-          renderComponent.quaternion.set(r.x, r.y, r.z, r.w);
+        const [px, pz] = clampToWalkableArea(currentX, currentZ);
+        if (px !== currentX || pz !== currentZ) {
+          yukaEntity.position.x = px;
+          yukaEntity.position.z = pz;
+          if (wanderBehavior.active) {
+            yukaEntity.velocity.x *= 0.5;
+            yukaEntity.velocity.z *= 0.5;
+          }
         }
+
+        renderComponent.position.set(px, yukaEntity.position.y, pz);
+        
+        const r = yukaEntity.rotation;
+        renderComponent.quaternion.set(r.x, r.y, r.z, r.w);
       });
 
       this.yukaEntityManager.add(agent);
 
-      const wanderPauseTimer = 5 + Math.random() * 5;
-      const wanderPauseDuration = 8 + Math.random() * 7;
+      const wanderPauseTimer = 8 + Math.random() * 7;
+      const wanderPauseDuration = 5 + Math.random() * 5;
 
       const record: ResidentAvatarRecord = {
         entity,
@@ -255,42 +256,30 @@ export class ResidentAvatarSystem extends createSystem({
         wanderPauseTimer,
         wanderPauseDuration,
         isWanderPaused: false,
-        isTurning: false,
-        turnStartRotation: 0,
         morphTargetMeshes,
         isSpeaking: false,
       };
       this.residentRecords.set(avatarId, record);
 
-      this.playAnimation(avatarId, "Idle");
+      this.playAnimation(avatarId, "Walking");
       record.mixer.update(0.016);
 
-      console.log(`[ResidentAvatar] ✅ Created Yuka-powered resident: ${avatarName}`);
+      console.log(`[ResidentAvatar] ✅ Created: ${avatarName}`);
       console.log(`[ResidentAvatar]    Animations: ${availableAnimations.join(", ")}`);
-      
-      const bounds = getRoomBounds();
-      if (bounds) {
-        console.log(`[ResidentAvatar]    Wander area: X[${bounds.minX.toFixed(2)}, ${bounds.maxX.toFixed(2)}] Z[${bounds.minZ.toFixed(2)}, ${bounds.maxZ.toFixed(2)}]`);
-      } else {
-        console.log(`[ResidentAvatar]    Wander range: [-${DEFAULT_MOVEMENT_RANGE}, ${DEFAULT_MOVEMENT_RANGE}] (NavMesh not initialized)`);
-      }
 
       return entity;
     } catch (error) {
-      console.error(`[ResidentAvatar] Failed to create resident ${avatarName}:`, error);
+      console.error(`[ResidentAvatar] Failed to create ${avatarName}:`, error);
       return null;
     }
   }
 
-  playAnimation(avatarId: string, animationName: string): void {
+  private playAnimation(avatarId: string, animationName: string): void {
     const record = this.residentRecords.get(avatarId);
     if (!record) return;
 
     const newAction = record.animations.get(animationName);
-    if (!newAction) {
-      console.warn(`[ResidentAvatar] Animation not found: ${animationName}`);
-      return;
-    }
+    if (!newAction) return;
 
     let currentAction: AnimationAction | null = null;
     record.animations.forEach((action) => {
@@ -300,82 +289,49 @@ export class ResidentAvatarSystem extends createSystem({
     });
 
     if (currentAction) {
-      newAction.reset();
-      newAction.play();
+      newAction.reset().play();
       (currentAction as AnimationAction).crossFadeTo(newAction, 0.3, true);
     } else {
       newAction.reset().play();
     }
 
     record.entity.setValue(ResidentAvatarComponent, "currentAnimation", animationName);
-    console.log(`[ResidentAvatar] 🎭 ${avatarId} → ${animationName}`);
   }
 
   private getRandomIdleAnimation(record: ResidentAvatarRecord): string {
-    const idleOptions: string[] = ["Idle"];
-    
-    if (record.availableAnimations.includes("Waving")) {
-      idleOptions.push("Waving");
+    if (record.availableAnimations.includes("Waving") && Math.random() < 0.3) {
+      return "Waving";
     }
-    if (record.availableAnimations.includes("LeftTurn")) {
-      idleOptions.push("LeftTurn");
-    }
-    if (record.availableAnimations.includes("RightTurn")) {
-      idleOptions.push("RightTurn");
-    }
-
-    const weights = idleOptions.map(anim => anim === "Idle" ? 3 : 1);
-    const totalWeight = weights.reduce((a, b) => a + b, 0);
-    let random = Math.random() * totalWeight;
-    
-    for (let i = 0; i < idleOptions.length; i++) {
-      random -= weights[i];
-      if (random <= 0) {
-        return idleOptions[i];
-      }
-    }
-    
     return "Idle";
   }
 
   speak(avatarId: string, audioUrl: string): void {
     const record = this.residentRecords.get(avatarId);
-    if (!record) {
-      console.warn(`[ResidentAvatar] Cannot speak: Avatar ${avatarId} not found`);
-      return;
-    }
-
-    if (record.morphTargetMeshes.length === 0) {
-      console.warn(`[ResidentAvatar] Cannot speak: Avatar ${avatarId} has no lip sync blendshapes`);
-      return;
-    }
+    if (!record || record.morphTargetMeshes.length === 0) return;
 
     if (this.currentSpeakingAvatarId) {
       this.stopSpeaking();
     }
 
-    console.log(`[ResidentAvatar] ${avatarId} starting to speak: ${audioUrl}`);
+    console.log(`[ResidentAvatar] 🗣️ ${avatarId} speaking: ${audioUrl}`);
 
     this.audioElement.src = audioUrl;
     this.lipsyncManager.connectAudio(this.audioElement);
+    
     this.currentSpeakingAvatarId = avatarId;
-
     record.isSpeaking = true;
-    record.entity.setValue(ResidentAvatarComponent, "isSpeaking", true);
+
     record.wanderBehavior.active = false;
     record.agent.velocity.set(0, 0, 0);
     record.isWanderPaused = true;
 
-    const currentAnimation = record.entity.getValue(
-      ResidentAvatarComponent,
-      "currentAnimation"
-    ) as string;
-
-    if (currentAnimation === "Walking") {
+    const currentAnim = record.entity.getValue(ResidentAvatarComponent, "currentAnimation") as string;
+    if (currentAnim === "Walking") {
       this.playAnimation(avatarId, "Idle");
     }
+
     this.audioElement.play().catch((error) => {
-      console.error(`[ResidentAvatar] Failed to play audio: ${error}`);
+      console.error(`[ResidentAvatar] Audio error:`, error);
       this.onSpeechEnded();
     });
   }
@@ -386,36 +342,26 @@ export class ResidentAvatarSystem extends createSystem({
     const record = this.residentRecords.get(this.currentSpeakingAvatarId);
     if (record) {
       record.isSpeaking = false;
-      record.entity.setValue(ResidentAvatarComponent, "isSpeaking", false);
-      
       this.resetAllVisemes(record);
     }
 
     this.audioElement.pause();
     this.audioElement.currentTime = 0;
-    
     this.currentSpeakingAvatarId = null;
-    console.log(`[ResidentAvatar] Speech stopped`);
   }
 
   private onSpeechEnded(): void {
     if (!this.currentSpeakingAvatarId) return;
 
-    const avatarId = this.currentSpeakingAvatarId;
-    const record = this.residentRecords.get(avatarId);
-    
-    console.log(`[ResidentAvatar] 🔇 ${avatarId} finished speaking`);
-
+    const record = this.residentRecords.get(this.currentSpeakingAvatarId);
     if (record) {
       record.isSpeaking = false;
-      record.entity.setValue(ResidentAvatarComponent, "isSpeaking", false);
-      
       this.resetAllVisemes(record);
-
       record.wanderPauseTimer = 2;
     }
 
     this.currentSpeakingAvatarId = null;
+    console.log(`[ResidentAvatar] 🔇 Speech ended`);
   }
 
   private applyViseme(record: ResidentAvatarRecord, visemeName: string, weight: number, speed: number): void {
@@ -465,17 +411,8 @@ export class ResidentAvatarSystem extends createSystem({
     }
   }
 
-  getTestAudioFiles(): string[] {
-    return [
-      "/audio/script/test1.mp3",
-      "/audio/script/test2.mp3",
-      "/audio/script/hello.mp3",
-    ];
-  }
-
   update(dt: number): void {
     this.yukaEntityManager.update(dt);
-
     this.processLipSync();
 
     for (const [avatarId, record] of this.residentRecords) {
@@ -486,42 +423,9 @@ export class ResidentAvatarSystem extends createSystem({
         record.rootBone.position.z = 0;
       }
 
-      if (record.isSpeaking) {
-        continue;
-      }
+      if (record.isSpeaking) continue;
 
-      const currentAnimation = record.entity.getValue(
-        ResidentAvatarComponent,
-        "currentAnimation"
-      ) as string;
-
-      const isTurning = currentAnimation === "LeftTurn" || currentAnimation === "RightTurn";
-      
-      if (isTurning && !record.isTurning) {
-        record.isTurning = true;
-        record.turnStartRotation = record.model.rotation.y;
-        record.agent.updateOrientation = false;
-        record.agent.velocity.set(0, 0, 0);
-        record.wanderBehavior.active = false;
-        console.log(`[ResidentAvatar] 🔄 ${avatarId} turning - Yuka orientation disabled`);
-      }
-
-      if (record.isTurning) {
-        const turnAction = record.animations.get(currentAnimation);
-        if (turnAction && !turnAction.isRunning()) {
-          record.isTurning = false;
-          
-          const modelQuat = record.model.quaternion;
-          record.agent.rotation.set(modelQuat.x, modelQuat.y, modelQuat.z, modelQuat.w);
-          
-          record.agent.updateOrientation = true;
-          
-          console.log(`[ResidentAvatar] ${avatarId} turn complete - Yuka orientation re-enabled`);
-          
-          this.playAnimation(avatarId, "Idle");
-        }
-        continue;
-      }
+      const currentAnimation = record.entity.getValue(ResidentAvatarComponent, "currentAnimation") as string;
 
       record.wanderPauseTimer -= dt;
 
@@ -530,42 +434,30 @@ export class ResidentAvatarSystem extends createSystem({
         record.wanderBehavior.active = false;
         record.agent.velocity.set(0, 0, 0);
         record.wanderPauseTimer = record.wanderPauseDuration;
-
+        
         const idleAnim = this.getRandomIdleAnimation(record);
         this.playAnimation(avatarId, idleAnim);
         
-        console.log(`[ResidentAvatar] ${avatarId} paused wandering for ${record.wanderPauseDuration.toFixed(1)}s`);
       } else if (record.isWanderPaused && record.wanderPauseTimer <= 0) {
         record.isWanderPaused = false;
         record.wanderBehavior.active = true;
-        record.wanderPauseTimer = 5 + Math.random() * 5;
-        record.wanderPauseDuration = 8 + Math.random() * 7;
+        record.wanderPauseTimer = 8 + Math.random() * 7;
+        record.wanderPauseDuration = 5 + Math.random() * 5;
         
         this.playAnimation(avatarId, "Walking");
-        
-        console.log(`[ResidentAvatar] ▶️ ${avatarId} resumed wandering`);
       }
-
-      if (!record.isWanderPaused) {
-        const yukaSpeed = record.agent.getSpeed();
-        const isMoving = yukaSpeed > 0.05;
-
-        if (isMoving && currentAnimation !== "Walking") {
-          this.playAnimation(avatarId, "Walking");
-        } else if (!isMoving && currentAnimation === "Walking") {
-          this.playAnimation(avatarId, "Idle");
-        }
+      
+      if (!record.isWanderPaused && record.wanderBehavior.active && currentAnimation !== "Walking") {
+        this.playAnimation(avatarId, "Walking");
       }
     }
   }
 
   destroy(): void {
     this.stopSpeaking();
-    
-    this.audioElement.pause();
     this.audioElement.src = "";
     
-    for (const [avatarId, record] of this.residentRecords) {
+    for (const [, record] of this.residentRecords) {
       this.yukaEntityManager.remove(record.agent);
       record.mixer.stopAllAction();
       const obj = record.entity.object3D;
@@ -576,6 +468,6 @@ export class ResidentAvatarSystem extends createSystem({
     }
     this.residentRecords.clear();
     this.yukaEntityManager.clear();
-    console.log("[ResidentAvatar] Yuka-powered system destroyed");
+    console.log("[ResidentAvatar] System destroyed");
   }
 }
