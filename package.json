@@ -16,6 +16,11 @@
     "lint": "turbo lint"
   },
   "devDependencies": {
+    "@types/yuka": "^0.7.4",
     "turbo": "^2.7.0"
+  },
+  "dependencies": {
+    "wawa-lipsync": "^0.0.2",
+    "yuka": "^0.7.8"
   }
 }
