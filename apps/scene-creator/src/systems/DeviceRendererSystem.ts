@@ -19,6 +19,7 @@ import { Device, DeviceType, DeviceRecord } from "../types";
 import { DeviceComponent } from "../components/DeviceComponent";
 import { BaseDevice, DeviceFactory } from "../entities";
 import { DEVICE_ASSET_KEYS } from "../constants";
+import { chart3D, ChartType } from "../components/Chart3D";
 
 export class DeviceRendererSystem extends createSystem({
   devices: {
@@ -309,6 +310,80 @@ export class DeviceRendererSystem extends createSystem({
     record.graphPanelVisible = false;
     if (record.graphPanelEntity.object3D) {
       record.graphPanelEntity.object3D.visible = false;
+    }
+  }
+
+  /**
+   * Show a 3D chart for a device
+   */
+  showChart(deviceId: string, chartType: ChartType): void {
+    const record = this.deviceRecords.get(deviceId);
+    if (!record) return;
+
+    // If same chart type is already showing, hide it (toggle)
+    if (record.activeChartType === chartType && record.chartEntity) {
+      this.hideChart(deviceId);
+      return;
+    }
+
+    // Hide existing chart if different type
+    if (record.chartEntity) {
+      this.destroyChartEntity(record);
+    }
+
+    // Create new chart
+    const chartObject = chart3D.createChart(chartType);
+    this.world.scene.add(chartObject);
+
+    // Create entity for the chart
+    const chartEntity = this.world
+      .createTransformEntity(chartObject)
+      .addComponent(Interactable)
+      .addComponent(DistanceGrabbable, {
+        movementMode: MovementMode.RotateAtSource,
+      });
+
+    record.chartEntity = chartEntity;
+    record.activeChartType = chartType;
+
+    // Position the chart initially
+    if (record.entity.object3D && chartEntity.object3D) {
+      const devicePos = record.entity.object3D.position;
+      chartEntity.object3D.position.set(
+        devicePos.x + 1.5,
+        devicePos.y,
+        devicePos.z,
+      );
+    }
+
+    console.log(
+      `[DeviceRenderer] Showing ${chartType} chart for ${deviceId}`,
+    );
+  }
+
+  /**
+   * Hide the chart for a device
+   */
+  hideChart(deviceId: string): void {
+    const record = this.deviceRecords.get(deviceId);
+    if (!record?.chartEntity) return;
+
+    this.destroyChartEntity(record);
+    console.log(`[DeviceRenderer] Hidden chart for ${deviceId}`);
+  }
+
+  /**
+   * Destroy chart entity and clean up
+   */
+  private destroyChartEntity(record: DeviceRecord): void {
+    if (record.chartEntity) {
+      const obj = record.chartEntity.object3D;
+      if (obj?.parent) {
+        obj.parent.remove(obj);
+      }
+      record.chartEntity.destroy();
+      record.chartEntity = undefined;
+      record.activeChartType = undefined;
     }
   }
 

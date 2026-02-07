@@ -7,6 +7,8 @@ export interface DeviceRecord {
   panelEntity?: Entity;
   graphPanelEntity?: Entity;
   graphPanelVisible?: boolean;
+  chartEntity?: Entity;
+  activeChartType?: string;
   mixer?: AnimationMixer;
   actions?: AnimationAction[];
 }

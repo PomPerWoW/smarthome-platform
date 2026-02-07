@@ -23,6 +23,7 @@ import { LightbulbPanelSystem } from "./ui/LightbulbPanelSystem";
 import { TelevisionPanelSystem } from "./ui/TelevisionPanelSystem";
 import { FanPanelSystem } from "./ui/FanPanelSystem";
 import { AirConditionerPanelSystem } from "./ui/AirConditionerPanelSystem";
+import { GraphPanelSystem } from "./ui/GraphPanelSystem";
 import * as LucideIconsKit from "@pmndrs/uikit-lucide";
 
 const assets: AssetManifest = {
@@ -187,7 +188,8 @@ async function main(): Promise<void> {
     .registerSystem(LightbulbPanelSystem)
     .registerSystem(TelevisionPanelSystem)
     .registerSystem(FanPanelSystem)
-    .registerSystem(AirConditionerPanelSystem);
+    .registerSystem(AirConditionerPanelSystem)
+    .registerSystem(GraphPanelSystem);
 
   console.log("✅ Systems registered");
 
