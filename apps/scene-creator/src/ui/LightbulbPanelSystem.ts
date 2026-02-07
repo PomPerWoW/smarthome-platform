@@ -97,6 +97,14 @@ export class LightbulbPanelSystem extends createSystem({
       }
     }
 
+    // Graph button
+    const graphBtn = document.getElementById("show-graph-btn");
+    if (graphBtn) {
+      graphBtn.addEventListener("click", () => {
+        this.handleShowGraph(deviceId);
+      });
+    }
+
     // Initial update for this specific panel
     this.updatePanel(entity, deviceId, document);
   }
@@ -132,6 +140,11 @@ export class LightbulbPanelSystem extends createSystem({
 
     const store = getStore();
     store.updateLightbulb(deviceId, { colour: colorHex });
+  }
+
+  private handleShowGraph(deviceId: string): void {
+    console.log(`[LightbulbPanel] Show graph clicked for ${deviceId}`);
+    // TODO: Implement 3D graph visualization
   }
 
   private updateAllPanels(): void {

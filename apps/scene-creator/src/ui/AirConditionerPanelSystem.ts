@@ -77,6 +77,14 @@ export class AirConditionerPanelSystem extends createSystem({
       }
     }
 
+    // Graph button
+    const graphBtn = document.getElementById("show-graph-btn");
+    if (graphBtn) {
+      graphBtn.addEventListener("click", () =>
+        this.handleShowGraph(deviceId),
+      );
+    }
+
     this.updatePanel(entity, deviceId, document);
   }
 
@@ -100,6 +108,11 @@ export class AirConditionerPanelSystem extends createSystem({
     store.updateAirConditioner(deviceId, {
       temperature: newTemp,
     });
+  }
+
+  private handleShowGraph(deviceId: string): void {
+    console.log(`[ACPanel] Show graph clicked for ${deviceId}`);
+    // TODO: Implement 3D graph visualization
   }
 
   private handleSetTemp(deviceId: string, temp: number): void {

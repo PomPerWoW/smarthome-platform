@@ -88,6 +88,14 @@ export class TelevisionPanelSystem extends createSystem({
       muteBtn.addEventListener("click", () => this.handleMuteToggle(deviceId));
     }
 
+    // Graph button
+    const graphBtn = document.getElementById("show-graph-btn");
+    if (graphBtn) {
+      graphBtn.addEventListener("click", () =>
+        this.handleShowGraph(deviceId),
+      );
+    }
+
     this.updatePanel(entity, deviceId, document);
   }
 
@@ -120,6 +128,11 @@ export class TelevisionPanelSystem extends createSystem({
     console.log(`[TelevisionPanel] Setting channel to ${newChannel}`);
 
     store.updateTelevision(deviceId, { channel: newChannel });
+  }
+
+  private handleShowGraph(deviceId: string): void {
+    console.log(`[TVPanel] Show graph clicked for ${deviceId}`);
+    // TODO: Implement 3D graph visualization
   }
 
   private handleMuteToggle(deviceId: string): void {

@@ -66,6 +66,14 @@ export class FanPanelSystem extends createSystem({
       );
     }
 
+    // Graph button
+    const graphBtn = document.getElementById("show-graph-btn");
+    if (graphBtn) {
+      graphBtn.addEventListener("click", () =>
+        this.handleShowGraph(deviceId)
+      );
+    }
+
     this.updatePanel(entity, document, deviceId);
   }
 
@@ -90,6 +98,11 @@ export class FanPanelSystem extends createSystem({
 
     console.log(`[FanPanel] Toggling swing`);
     store.updateFan(deviceId, { swing: !device.swing });
+  }
+
+  private handleShowGraph(deviceId: string): void {
+    console.log(`[FanPanel] Show graph clicked for ${deviceId}`);
+    // TODO: Implement 3D graph visualization
   }
 
   private updateAllPanels(): void {
