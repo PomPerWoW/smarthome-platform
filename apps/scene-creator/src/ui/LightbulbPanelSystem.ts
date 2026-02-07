@@ -11,6 +11,7 @@ import {
 import { DeviceComponent } from "../components/DeviceComponent";
 import { deviceStore, getStore } from "../store/DeviceStore";
 import { DeviceType, Lightbulb } from "../types";
+import { DeviceRendererSystem } from "../systems/DeviceRendererSystem";
 
 // Color options matching the UIKitML file
 const COLOR_OPTIONS = [
@@ -144,7 +145,12 @@ export class LightbulbPanelSystem extends createSystem({
 
   private handleShowGraph(deviceId: string): void {
     console.log(`[LightbulbPanel] Show graph clicked for ${deviceId}`);
-    // TODO: Implement 3D graph visualization
+
+    // Toggle the separate graph panel
+    const deviceRenderer = this.world.getSystem(DeviceRendererSystem);
+    if (deviceRenderer) {
+      deviceRenderer.toggleGraphPanel(deviceId);
+    }
   }
 
   private updateAllPanels(): void {

@@ -5,6 +5,8 @@ export interface DeviceRecord {
   entity: Entity;
   device: BaseDevice;
   panelEntity?: Entity;
+  graphPanelEntity?: Entity;
+  graphPanelVisible?: boolean;
   mixer?: AnimationMixer;
   actions?: AnimationAction[];
 }

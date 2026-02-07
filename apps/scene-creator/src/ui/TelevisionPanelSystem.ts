@@ -11,6 +11,7 @@ import {
 import { DeviceComponent } from "../components/DeviceComponent";
 import { deviceStore, getStore } from "../store/DeviceStore";
 import { DeviceType } from "../types";
+import { DeviceRendererSystem } from "../systems/DeviceRendererSystem";
 
 export class TelevisionPanelSystem extends createSystem({
   tvPanel: {
@@ -132,7 +133,12 @@ export class TelevisionPanelSystem extends createSystem({
 
   private handleShowGraph(deviceId: string): void {
     console.log(`[TVPanel] Show graph clicked for ${deviceId}`);
-    // TODO: Implement 3D graph visualization
+
+    // Toggle the separate graph panel
+    const deviceRenderer = this.world.getSystem(DeviceRendererSystem);
+    if (deviceRenderer) {
+      deviceRenderer.toggleGraphPanel(deviceId);
+    }
   }
 
   private handleMuteToggle(deviceId: string): void {

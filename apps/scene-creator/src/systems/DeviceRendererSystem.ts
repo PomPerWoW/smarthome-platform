@@ -252,6 +252,66 @@ export class DeviceRendererSystem extends createSystem({
     return panelEntity;
   }
 
+  private createGraphPanel(deviceId: string): Entity {
+    const graphPanelEntity = this.world
+      .createTransformEntity()
+      .addComponent(PanelUI, {
+        config: "./ui/graph-panel.json",
+        maxHeight: 0.35,
+        maxWidth: 0.3,
+      })
+      .addComponent(Interactable)
+      .addComponent(DeviceComponent, {
+        deviceId,
+        deviceType: DeviceType.Lightbulb, // Generic, just for tracking
+      });
+
+    // Start hidden
+    if (graphPanelEntity.object3D) {
+      graphPanelEntity.object3D.visible = false;
+    }
+
+    console.log(`[DeviceRenderer] Created graph panel for device ${deviceId}`);
+    return graphPanelEntity;
+  }
+
+  /**
+   * Toggle the visibility of the graph panel for a device
+   */
+  toggleGraphPanel(deviceId: string): void {
+    const record = this.deviceRecords.get(deviceId);
+    if (!record) return;
+
+    // Create graph panel lazily if it doesn't exist
+    if (!record.graphPanelEntity) {
+      record.graphPanelEntity = this.createGraphPanel(deviceId);
+      record.graphPanelVisible = false;
+    }
+
+    // Toggle visibility
+    record.graphPanelVisible = !record.graphPanelVisible;
+    if (record.graphPanelEntity.object3D) {
+      record.graphPanelEntity.object3D.visible = record.graphPanelVisible;
+    }
+
+    console.log(
+      `[DeviceRenderer] Graph panel ${record.graphPanelVisible ? "shown" : "hidden"} for ${deviceId}`,
+    );
+  }
+
+  /**
+   * Hide the graph panel for a device
+   */
+  hideGraphPanel(deviceId: string): void {
+    const record = this.deviceRecords.get(deviceId);
+    if (!record?.graphPanelEntity) return;
+
+    record.graphPanelVisible = false;
+    if (record.graphPanelEntity.object3D) {
+      record.graphPanelEntity.object3D.visible = false;
+    }
+  }
+
   private syncDevicesWithScene(devices: Device[]): void {
     const currentIds = new Set(devices.map((d) => d.id));
 
@@ -387,6 +447,20 @@ export class DeviceRendererSystem extends createSystem({
         const camera = this.world.camera;
         if (camera) {
           record.panelEntity.object3D.lookAt(camera.position);
+        }
+
+        // Position graph panel to the right of the control panel
+        if (record.graphPanelEntity?.object3D && record.graphPanelVisible) {
+          record.graphPanelEntity.object3D.position.set(
+            devicePos.x + 1.0, // Further right than the control panel
+            devicePos.y,
+            devicePos.z,
+          );
+
+          // Make graph panel face the camera
+          if (camera) {
+            record.graphPanelEntity.object3D.lookAt(camera.position);
+          }
         }
       }
     }

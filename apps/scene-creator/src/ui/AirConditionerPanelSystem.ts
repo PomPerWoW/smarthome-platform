@@ -11,6 +11,7 @@ import {
 import { DeviceComponent } from "../components/DeviceComponent";
 import { deviceStore, getStore } from "../store/DeviceStore";
 import { DeviceType } from "../types";
+import { DeviceRendererSystem } from "../systems/DeviceRendererSystem";
 
 const PRESET_TEMPS = [18, 22, 25, 28];
 
@@ -112,7 +113,12 @@ export class AirConditionerPanelSystem extends createSystem({
 
   private handleShowGraph(deviceId: string): void {
     console.log(`[ACPanel] Show graph clicked for ${deviceId}`);
-    // TODO: Implement 3D graph visualization
+
+    // Toggle the separate graph panel
+    const deviceRenderer = this.world.getSystem(DeviceRendererSystem);
+    if (deviceRenderer) {
+      deviceRenderer.toggleGraphPanel(deviceId);
+    }
   }
 
   private handleSetTemp(deviceId: string, temp: number): void {

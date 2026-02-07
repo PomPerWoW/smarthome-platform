@@ -1,0 +1,123 @@
+<style>
+  .panel-container {
+    align-items: flex-start;
+    padding: 2;
+    width: 30;
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    background-color: #09090b;
+    border-color: #27272a;
+    border-width: 0.15;
+    border-radius: 2;
+  }
+
+  .header-section {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 1.5;
+    margin-bottom: 1.5;
+    width: 100%;
+  }
+
+  .header-icon {
+    width: 3;
+    height: 3;
+    color: #a855f7;
+  }
+
+  .header-text {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+  }
+
+  .panel-title {
+    font-size: 2.2;
+    font-weight: bold;
+    color: #fafafa;
+  }
+
+  .panel-subtitle {
+    font-size: 1.4;
+    color: #71717a;
+  }
+
+  .divider {
+    height: 0.1;
+    width: 100%;
+    background-color: #27272a;
+    margin: 1 0;
+  }
+
+  .button-section {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5;
+    width: 100%;
+  }
+
+  .graph-type-btn {
+    width: 100%;
+    height: 5;
+    border-radius: 0.5;
+    background-color: #27272a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  .graph-type-btn:hover {
+    background-color: #3f3f46;
+  }
+
+  .graph-type-text {
+    font-size: 1.6;
+    color: #fafafa;
+  }
+
+  .bar-btn {
+    border-left-width: 0.3;
+    border-left-color: #3b82f6;
+  }
+
+  .line-btn {
+    border-left-width: 0.3;
+    border-left-color: #22c55e;
+  }
+
+  .pie-btn {
+    border-left-width: 0.3;
+    border-left-color: #f97316;
+  }
+</style>
+
+<div class="panel-container">
+  <!-- Header -->
+  <div class="header-section">
+    <div>
+      <BarChart3Icon class="header-icon" />
+    </div>
+    <div class="header-text">
+      <span class="panel-title">Graph Type</span>
+      <span class="panel-subtitle">Select visualization</span>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Graph Type Buttons -->
+  <div class="button-section">
+    <button class="graph-type-btn bar-btn" id="graph-bar-btn">
+      <span class="graph-type-text">Bar Chart</span>
+    </button>
+    <button class="graph-type-btn line-btn" id="graph-line-btn">
+      <span class="graph-type-text">Line Graph</span>
+    </button>
+    <button class="graph-type-btn pie-btn" id="graph-pie-btn">
+      <span class="graph-type-text">Pie Chart</span>
+    </button>
+  </div>
+</div>
