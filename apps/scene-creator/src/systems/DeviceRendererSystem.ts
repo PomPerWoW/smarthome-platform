@@ -253,7 +253,7 @@ export class DeviceRendererSystem extends createSystem({
     return panelEntity;
   }
 
-  private createGraphPanel(deviceId: string): Entity {
+  private createGraphPanel(deviceId: string, deviceType: DeviceType): Entity {
     const graphPanelEntity = this.world
       .createTransformEntity()
       .addComponent(PanelUI, {
@@ -264,7 +264,7 @@ export class DeviceRendererSystem extends createSystem({
       .addComponent(Interactable)
       .addComponent(DeviceComponent, {
         deviceId,
-        deviceType: DeviceType.Lightbulb, // Generic, just for tracking
+        deviceType,
       });
 
     // Start hidden
@@ -285,7 +285,7 @@ export class DeviceRendererSystem extends createSystem({
 
     // Create graph panel lazily if it doesn't exist
     if (!record.graphPanelEntity) {
-      record.graphPanelEntity = this.createGraphPanel(deviceId);
+      record.graphPanelEntity = this.createGraphPanel(deviceId, record.device.type);
       record.graphPanelVisible = false;
     }
 
@@ -332,7 +332,7 @@ export class DeviceRendererSystem extends createSystem({
     }
 
     // Create new chart
-    const chartObject = chart3D.createChart(chartType);
+    const chartObject = chart3D.createChart(chartType, record.device.type);
     this.world.scene.add(chartObject);
 
     // Create entity for the chart

@@ -86,7 +86,8 @@
                   "Bar Chart"
                 ],
                 "properties": {
-                  "class": "graph-type-text"
+                  "class": "graph-type-text",
+                  "id": "graph-bar-text"
                 },
                 "dataUid": "uid-11"
               }
@@ -108,7 +109,8 @@
                   "Line Graph"
                 ],
                 "properties": {
-                  "class": "graph-type-text"
+                  "class": "graph-type-text",
+                  "id": "graph-line-text"
                 },
                 "dataUid": "uid-13"
               }
@@ -130,7 +132,8 @@
                   "Pie Chart"
                 ],
                 "properties": {
-                  "class": "graph-type-text"
+                  "class": "graph-type-text",
+                  "id": "graph-pie-text"
                 },
                 "dataUid": "uid-15"
               }
@@ -499,7 +502,7 @@
       },
       "end": {
         "line": 113,
-        "column": 52
+        "column": 72
       }
     },
     "uid-12": {
@@ -519,7 +522,7 @@
       },
       "end": {
         "line": 116,
-        "column": 53
+        "column": 74
       }
     },
     "uid-14": {
@@ -539,7 +542,7 @@
       },
       "end": {
         "line": 119,
-        "column": 52
+        "column": 72
       }
     }
   }

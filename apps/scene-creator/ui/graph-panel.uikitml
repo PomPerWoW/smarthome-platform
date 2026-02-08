@@ -111,13 +111,13 @@
   <!-- Graph Type Buttons -->
   <div class="button-section">
     <button class="graph-type-btn bar-btn" id="graph-bar-btn">
-      <span class="graph-type-text">Bar Chart</span>
+      <span class="graph-type-text" id="graph-bar-text">Bar Chart</span>
     </button>
     <button class="graph-type-btn line-btn" id="graph-line-btn">
-      <span class="graph-type-text">Line Graph</span>
+      <span class="graph-type-text" id="graph-line-text">Line Graph</span>
     </button>
     <button class="graph-type-btn pie-btn" id="graph-pie-btn">
-      <span class="graph-type-text">Pie Chart</span>
+      <span class="graph-type-text" id="graph-pie-text">Pie Chart</span>
     </button>
   </div>
 </div>
