@@ -149,7 +149,7 @@ export function LightbulbControl({ device, onUpdate }: LightbulbControlProps) {
                   key={preset.value}
                   onClick={() => handleColourChange(preset.value)}
                   disabled={isUpdating}
-                  className="w-8 h-8 rounded-full border-2 transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2"
+                  className="w-8 h-8 rounded-full border-2 transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 cursor-pointer"
                   style={{
                     backgroundColor: preset.value,
                     borderColor:

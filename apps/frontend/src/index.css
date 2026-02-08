@@ -121,3 +121,49 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Circular swirl gradient for voice assistant button */
+@keyframes gradient-swirl {
+  0% {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  100% {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+.voice-btn {
+  position: relative;
+  background: transparent;
+  border: none;
+}
+
+.voice-btn::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 300%;
+  height: 600%;
+  background: conic-gradient(
+    from 0deg,
+    #8b5cf6,
+    #d946ef,
+    #ec4899,
+    #d946ef,
+    #8b5cf6
+  );
+  animation: gradient-swirl 3s linear infinite;
+  z-index: 0;
+}
+
+.voice-btn-listening::before {
+  background: conic-gradient(
+    from 0deg,
+    #ef4444,
+    #f97316,
+    #ef4444,
+    #f97316,
+    #ef4444
+  );
+}

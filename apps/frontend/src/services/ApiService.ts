@@ -9,7 +9,7 @@ export class ApiService {
 
   private constructor() {
     this.client = axios.create({
-      baseURL: import.meta.env.VITE_BACKEND_URL || "http://localhost:5500",
+      baseURL: import.meta.env.VITE_BACKEND_URL || "https://localhost:5500",
       withCredentials: true,
       headers: {
         "Content-Type": "application/json",

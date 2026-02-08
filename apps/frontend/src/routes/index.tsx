@@ -24,6 +24,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { RenameDialog } from "@/components/ui/rename-dialog";
 import { HomeBlock } from "@/components/devices";
 import { useHomeStore } from "@/stores/home_store";
 import { HomeService } from "@/services/HomeService";
@@ -36,6 +37,7 @@ export const Route = createFileRoute("/")({
 function DashboardPage() {
   const { homes, isLoadingHomes, error, fetchHomes } = useHomeStore();
   const [homeToDelete, setHomeToDelete] = useState<Home | null>(null);
+  const [homeToRename, setHomeToRename] = useState<Home | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [newHomeName, setNewHomeName] = useState("");
 
@@ -65,6 +67,19 @@ function DashboardPage() {
     },
     onError: (error) => {
       toast.error(`Failed to delete home: ${error.message}`);
+    },
+  });
+
+  const renameMutation = useMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) =>
+      HomeService.getInstance().renameHome(id, name),
+    onSuccess: () => {
+      fetchHomes();
+      setHomeToRename(null);
+      toast.success("Home renamed successfully");
+    },
+    onError: (error) => {
+      toast.error(`Failed to rename home: ${error.message}`);
     },
   });
 
@@ -166,6 +181,7 @@ function DashboardPage() {
                 key={home.id}
                 home={home}
                 onDelete={() => setHomeToDelete(home)}
+                onRename={() => setHomeToRename(home)}
               />
             ))}
 
@@ -229,6 +245,20 @@ function DashboardPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Rename Home Dialog */}
+      <RenameDialog
+        open={!!homeToRename}
+        onOpenChange={(open) => !open && setHomeToRename(null)}
+        currentName={homeToRename?.name || ""}
+        title="Rename Home"
+        description="Enter a new name for this home."
+        onSave={(newName) =>
+          homeToRename &&
+          renameMutation.mutate({ id: homeToRename.id, name: newName })
+        }
+        isPending={renameMutation.isPending}
+      />
     </div>
   );
 }

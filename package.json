@@ -8,16 +8,19 @@
   ],
   "scripts": {
     "dev": "turbo dev",
+    "dev:network": "turbo dev:network",
     "dev:frontend": "turbo dev --filter=@smarthome/frontend",
     "dev:backend": "turbo dev --filter=@smarthome/backend",
     "dev:scene-creator": "turbo dev --filter=@smarthome/scene-creator",
+    "dev:network:frontend": "turbo dev:network --filter=@smarthome/frontend",
+    "dev:network:scene-creator": "turbo dev:network --filter=@smarthome/scene-creator",
     "dev:landing-page": "turbo dev --filter=@smarthome/landing-page",
     "build": "turbo build",
     "lint": "turbo lint"
   },
   "devDependencies": {
-    "@types/yuka": "^0.7.4",
-    "turbo": "^2.7.0"
+    "turbo": "^2.7.0",
+    "@types/yuka": "^0.7.4"
   },
   "dependencies": {
     "wawa-lipsync": "^0.0.2",

@@ -51,9 +51,14 @@ SECRET_KEY = get_required_env(
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = get_required_env("DEBUG", "True").lower() in ("true", "1", "yes")
 
-ALLOWED_HOSTS = get_required_env(
-    "ALLOWED_HOSTS", "localhost,127.0.0.1,turing.se.kmitl.ac.th"
-).split(",")
+
+HOST_IP = get_required_env("HOST_IP", None)
+
+
+ALLOWED_HOSTS = get_required_env("ALLOWED_HOSTS", "*").split(",")
+
+if HOST_IP:
+    ALLOWED_HOSTS.append(HOST_IP)
 
 
 # Application definition
@@ -107,12 +112,22 @@ CORS_ALLOW_ALL_ORIGINS = DEBUG
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
+    "https://localhost:5173",
     "http://localhost:5174",
+    "https://localhost:5174",
     "https://localhost:8081",
     "http://127.0.0.1:5173",
+    "https://127.0.0.1:5173",
     "http://127.0.0.1:5174",
+    "https://127.0.0.1:5174",
     "https://127.0.0.1:8081",
 ]
+
+if HOST_IP:
+    CORS_ALLOWED_ORIGINS.extend([
+        f"https://{HOST_IP}:5173",
+        f"https://{HOST_IP}:8081",
+    ])
 
 CORS_ALLOW_CREDENTIALS = True
 
@@ -234,6 +249,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Django REST Framework settings
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.TokenAuthentication",
         "accounts.authentication.CookieTokenAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [

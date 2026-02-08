@@ -10,19 +10,20 @@ import {
 } from "@iwsdk/core";
 
 import { getAuth } from "./api/auth";
+import { getWebSocketClient } from "./api/WebSocketClient";
 import { getStore } from "./store/DeviceStore";
 import { DeviceComponent } from "./components/DeviceComponent";
-import { ResidentAvatarComponent } from "./components/ResidentAvatarComponent";
-import { AssistantAvatarComponent } from "./components/AssistantAvatarComponent";
 import { DeviceRendererSystem } from "./systems/DeviceRendererSystem";
 import { DeviceInteractionSystem } from "./systems/DeviceInteractionSystem";
-import { ResidentAvatarSystem } from "./systems/ResidentAvatarSystem";
-import { AssistantAvatarSystem } from "./systems/AssistantAvatarSystem";
 import { PanelSystem } from "./ui/panel";
 import { LightbulbPanelSystem } from "./ui/LightbulbPanelSystem";
 import { TelevisionPanelSystem } from "./ui/TelevisionPanelSystem";
 import { FanPanelSystem } from "./ui/FanPanelSystem";
 import { AirConditionerPanelSystem } from "./ui/AirConditionerPanelSystem";
+import { VoiceControlSystem } from "./systems/VoiceControlSystem";
+import { VoicePanel } from "./ui/VoicePanel";
+import { RoomScanningSystem } from "./systems/RoomScanningSystem";
+import { ResidentAvatarSystem } from "./systems/ResidentAvatarSystem";
 import { initializeNavMesh } from "./config/navmesh";
 import * as LucideIconsKit from "@pmndrs/uikit-lucide";
 
@@ -38,7 +39,7 @@ const assets: AssetManifest = {
     priority: "critical",
   },
   lightbulb: {
-    url: "/models/devices/lightbulb/scene.gltf",
+    url: "/models/devices/ceiling_lamp/scene.gltf",
     type: AssetType.GLTF,
     priority: "critical",
   },
@@ -353,7 +354,7 @@ async function main(): Promise<void> {
   if (roomGltf) {
     const roomModel = roomGltf.scene;
     roomModel.scale.setScalar(0.5);
-    roomModel.position.set(0, 0, -3);
+    roomModel.position.set(-4.2, 0.8, 0.8);
     world.scene.add(roomModel);
     console.log("✅ Room scene loaded");
 
@@ -365,18 +366,15 @@ async function main(): Promise<void> {
 
   world
     .registerComponent(DeviceComponent)
-    .registerComponent(DeviceComponent)
-    .registerComponent(ResidentAvatarComponent)
-    .registerComponent(AssistantAvatarComponent)
     .registerSystem(DeviceRendererSystem)
     .registerSystem(DeviceInteractionSystem)
-    .registerSystem(ResidentAvatarSystem)
-    .registerSystem(AssistantAvatarSystem)
     .registerSystem(PanelSystem)
     .registerSystem(LightbulbPanelSystem)
     .registerSystem(TelevisionPanelSystem)
     .registerSystem(FanPanelSystem)
-    .registerSystem(AirConditionerPanelSystem);
+    .registerSystem(AirConditionerPanelSystem)
+    .registerSystem(RoomScanningSystem)
+    .registerSystem(ResidentAvatarSystem);
 
   console.log("✅ Systems registered");
 
@@ -400,7 +398,7 @@ async function main(): Promise<void> {
 
   const store = getStore();
 
-  console.log("📱 Fetching devices from backend...");
+  console.log(" Fetching devices from backend...");
   await store.loadAllData();
 
   if (store.error) {
@@ -415,17 +413,34 @@ async function main(): Promise<void> {
     console.log("✅ Devices rendered in scene");
   }
 
+  const wsClient = getWebSocketClient();
+  wsClient.connect();
+
   console.log("\n👥 Initializing resident avatars...");
+
+  wsClient.subscribe(async (data) => {
+    if (data.type === "device_update" && data.device_id) {
+      console.log("[WebSocket] Device update notification:", data);
+      // Backend sends device_id and action, so we need to refresh the device
+      await store.refreshSingleDevice(data.device_id);
+    }
+  });
+  console.log("✅ WebSocket connected for real-time updates");
+
+  const voiceSystem = new VoiceControlSystem();
+  new VoicePanel(voiceSystem);
+  console.log("✅ Voice Control System initialized");
+
+  console.log("🚀 SmartHome Platform Scene Creator ready!");
 
   const residentSystem = world.getSystem(ResidentAvatarSystem);
   if (residentSystem) {
-
     await residentSystem.createResidentAvatar(
       "3",
       "Father",
       "resident3",
       [3.7, 0, -7],
-      ["Idle3", "Walking3", "Waving3"]
+      ["Idle3", "Walking3", "Waving3"],
     );
 
     await residentSystem.createResidentAvatar(
@@ -433,7 +448,7 @@ async function main(): Promise<void> {
       "Mother",
       "resident4",
       [1, 0, -3.5],
-      ["Idle4", "Walking4"]
+      ["Idle4", "Walking4"],
     );
 
     console.log("✅ Resident avatars initialized");
@@ -441,29 +456,28 @@ async function main(): Promise<void> {
     console.warn("⚠️ ResidentAvatarSystem not found");
   }
 
-  const assistantSystem = world.getSystem(AssistantAvatarSystem);
-  if (assistantSystem) {
-    await assistantSystem.createAssistantAvatar(
-      "robot_1",
-      "Assistant",
-      "robot_avatar",
-      [2, 0.3, -4.5]
-    );
-    console.log("✅ Assistant avatar initialized");
-  } else {
-    console.warn("⚠️ AssistantAvatarSystem not found");
-  }
+  // TODO: AssistantAvatarSystem is missing from the codebase.
+  // const assistantSystem = world.getSystem(AssistantAvatarSystem);
+  // if (assistantSystem) {
+  //   await assistantSystem.createAssistantAvatar(
+  //     "robot_1",
+  //     "Assistant",
+  //     "robot_avatar",
+  //     [2, 0.3, -4.5]
+  //   );
+  //   console.log("✅ Assistant avatar initialized");
+  // } else {
+  //   console.warn("⚠️ AssistantAvatarSystem not found");
+  // }
 
   console.log("\n🚀 SmartHome Platform Scene Creator ready!");
   console.log("───────────────────────────────────");
   console.log(`   👤 User: ${user?.email}`);
   console.log(`   📱 Devices: ${store.getDeviceCount()}`);
   console.log(`   🟢 Active: ${store.getActiveDevices().length}`);
-  console.log(`   👥 Residents: 2 avatars`);
   console.log("───────────────────────────────────");
   console.log("💡 Click devices to control");
   console.log("✋ Grab devices to move");
-  console.log("👋 Watch residents do random actions");
   console.log('🥽 Press "Enter AR" to start');
   console.log("───────────────────────────────────");
   console.log("🎤 LIP SYNC TEST CONTROLS:");
@@ -475,9 +489,13 @@ async function main(): Promise<void> {
   setupLipSyncTestControls(residentSystem ?? null);
 }
 
-function setupLipSyncTestControls(residentSystem: ResidentAvatarSystem | null): void {
+function setupLipSyncTestControls(
+  residentSystem: ResidentAvatarSystem | null,
+): void {
   if (!residentSystem) {
-    console.warn("⚠️ ResidentAvatarSystem not available for lip sync test controls");
+    console.warn(
+      "⚠️ ResidentAvatarSystem not available for lip sync test controls",
+    );
     return;
   }
 
@@ -562,7 +580,10 @@ function setupLipSyncTestControls(residentSystem: ResidentAvatarSystem | null): 
   });
 
   window.addEventListener("keydown", (event) => {
-    if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
+    if (
+      event.target instanceof HTMLInputElement ||
+      event.target instanceof HTMLTextAreaElement
+    ) {
       return;
     }
 

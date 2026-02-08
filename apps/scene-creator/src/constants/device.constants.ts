@@ -1,7 +1,7 @@
 import { DeviceType } from "../types";
 
 export const DEVICE_SCALES: Record<DeviceType, number> = {
-  [DeviceType.Lightbulb]: 0.15,
+  [DeviceType.Lightbulb]: 0.8,
   [DeviceType.Television]: 0.4,
   [DeviceType.Fan]: 0.25,
   [DeviceType.AirConditioner]: 0.2,

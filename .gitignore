@@ -12,6 +12,7 @@ build/
 # ===== Environment Files =====
 .env
 .env.local
+.env.network
 .env.*.local
 .env.development
 .env.test
@@ -175,3 +176,4 @@ data/
 .tern-port
 .vscode-test/
 .cert/
+apps/backend/certs/
