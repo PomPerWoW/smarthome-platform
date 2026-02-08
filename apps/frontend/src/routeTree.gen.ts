@@ -9,13 +9,22 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as HomesRouteImport } from './routes/homes'
+import { Route as EnergyRouteImport } from './routes/energy'
 import { Route as DevicesRouteImport } from './routes/devices'
+import { Route as AutomationRouteImport } from './routes/automation'
+import { Route as ActivityRouteImport } from './routes/activity'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as HomesHomeIdRouteImport } from './routes/homes.$homeId'
 
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
   path: '/register',
@@ -31,9 +40,24 @@ const HomesRoute = HomesRouteImport.update({
   path: '/homes',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EnergyRoute = EnergyRouteImport.update({
+  id: '/energy',
+  path: '/energy',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DevicesRoute = DevicesRouteImport.update({
   id: '/devices',
   path: '/devices',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AutomationRoute = AutomationRouteImport.update({
+  id: '/automation',
+  path: '/automation',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ActivityRoute = ActivityRouteImport.update({
+  id: '/activity',
+  path: '/activity',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -49,60 +73,101 @@ const HomesHomeIdRoute = HomesHomeIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/activity': typeof ActivityRoute
+  '/automation': typeof AutomationRoute
   '/devices': typeof DevicesRoute
+  '/energy': typeof EnergyRoute
   '/homes': typeof HomesRouteWithChildren
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/settings': typeof SettingsRoute
   '/homes/$homeId': typeof HomesHomeIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/activity': typeof ActivityRoute
+  '/automation': typeof AutomationRoute
   '/devices': typeof DevicesRoute
+  '/energy': typeof EnergyRoute
   '/homes': typeof HomesRouteWithChildren
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/settings': typeof SettingsRoute
   '/homes/$homeId': typeof HomesHomeIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/activity': typeof ActivityRoute
+  '/automation': typeof AutomationRoute
   '/devices': typeof DevicesRoute
+  '/energy': typeof EnergyRoute
   '/homes': typeof HomesRouteWithChildren
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/settings': typeof SettingsRoute
   '/homes/$homeId': typeof HomesHomeIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/activity'
+    | '/automation'
     | '/devices'
+    | '/energy'
     | '/homes'
     | '/login'
     | '/register'
+    | '/settings'
     | '/homes/$homeId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/devices' | '/homes' | '/login' | '/register' | '/homes/$homeId'
+  to:
+    | '/'
+    | '/activity'
+    | '/automation'
+    | '/devices'
+    | '/energy'
+    | '/homes'
+    | '/login'
+    | '/register'
+    | '/settings'
+    | '/homes/$homeId'
   id:
     | '__root__'
     | '/'
+    | '/activity'
+    | '/automation'
     | '/devices'
+    | '/energy'
     | '/homes'
     | '/login'
     | '/register'
+    | '/settings'
     | '/homes/$homeId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ActivityRoute: typeof ActivityRoute
+  AutomationRoute: typeof AutomationRoute
   DevicesRoute: typeof DevicesRoute
+  EnergyRoute: typeof EnergyRoute
   HomesRoute: typeof HomesRouteWithChildren
   LoginRoute: typeof LoginRoute
   RegisterRoute: typeof RegisterRoute
+  SettingsRoute: typeof SettingsRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/register': {
       id: '/register'
       path: '/register'
@@ -124,11 +189,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HomesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/energy': {
+      id: '/energy'
+      path: '/energy'
+      fullPath: '/energy'
+      preLoaderRoute: typeof EnergyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/devices': {
       id: '/devices'
       path: '/devices'
       fullPath: '/devices'
       preLoaderRoute: typeof DevicesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/automation': {
+      id: '/automation'
+      path: '/automation'
+      fullPath: '/automation'
+      preLoaderRoute: typeof AutomationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/activity': {
+      id: '/activity'
+      path: '/activity'
+      fullPath: '/activity'
+      preLoaderRoute: typeof ActivityRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -160,10 +246,14 @@ const HomesRouteWithChildren = HomesRoute._addFileChildren(HomesRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ActivityRoute: ActivityRoute,
+  AutomationRoute: AutomationRoute,
   DevicesRoute: DevicesRoute,
+  EnergyRoute: EnergyRoute,
   HomesRoute: HomesRouteWithChildren,
   LoginRoute: LoginRoute,
   RegisterRoute: RegisterRoute,
+  SettingsRoute: SettingsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

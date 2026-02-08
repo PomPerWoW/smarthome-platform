@@ -39,6 +39,11 @@ export class BackendApiClient {
     return mapRawDevicesToDevices(response.data);
   }
 
+  async getDevice(deviceId: string): Promise<Device> {
+    const response = await api.get<any>(`/api/homes/devices/${deviceId}/`);
+    return mapRawDeviceToDevice(response.data);
+  }
+
   async setDeviceState(
     deviceId: string,
     updates: Partial<Device>,
@@ -163,6 +168,14 @@ export class BackendApiClient {
       temp: options.temperature,
     });
     return this.getAirConditioner(deviceId);
+  }
+
+  // ===== Voice Control =====
+  async sendVoiceCommand(command: string): Promise<any> {
+    const response = await api.post<any>("/api/homes/voice/command/", {
+      command,
+    });
+    return response.data;
   }
 }
 

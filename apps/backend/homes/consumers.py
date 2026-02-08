@@ -9,8 +9,10 @@ class HomeConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.group_name = "homes_group"
         user = self.scope["user"]
+        print(f"[HomeConsumer] Connecting... User: {user}, Is Authenticated: {user.is_authenticated}")
 
         if user.is_anonymous:
+            print("[HomeConsumer] User is anonymous, rejecting connection")
             await self.close()
             return
 
@@ -48,10 +50,20 @@ class HomeConsumer(AsyncWebsocketConsumer):
         if action in self.DEVICE_ACTIONS and device_id:
             scada_suffix, model_attr = self.DEVICE_ACTIONS[action]
             
-            device_tag = await self.get_device_tag(device_id)
             if device_tag:
                 ScadaManager().send_command(f"{device_tag}{scada_suffix}", value)
                 await self.update_device_state(device_id, model_attr, value)
+
+                # Broadcast the update to all connected clients (Frontend & Scene Creator)
+                await self.channel_layer.group_send(
+                    self.group_name,
+                    {
+                        "type": "device_update",
+                        "device_id": device_id,
+                        "action": action,
+                        "value": value
+                    }
+                )
 
     @database_sync_to_async
     def get_device_tag(self, device_id):
@@ -105,4 +117,12 @@ class HomeConsumer(AsyncWebsocketConsumer):
             "tag": event["tag"],
             "value": event["value"],
             "timestamp": event["timestamp"]
+        }))
+
+    # 3. Receive device update from Voice Assistant (via Channel Layer)
+    async def device_update(self, event):
+        await self.send(text_data=json.dumps({
+            "type": "device_update",
+            "device_id": event["device_id"],
+            "action": event["action"]
         }))

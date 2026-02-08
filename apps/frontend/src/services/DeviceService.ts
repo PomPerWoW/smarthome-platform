@@ -65,6 +65,17 @@ export class DeviceService {
     await this.api.patch(`/api/homes/devices/${id}/`, { is_on: isOn });
   }
 
+  async renameDevice(
+    type: DeviceType,
+    id: string,
+    name: string,
+  ): Promise<void> {
+    const endpoint = this.getTypeEndpoint(type);
+    await this.api.patch(`/api/homes/${endpoint}/${id}/`, {
+      device_name: name,
+    });
+  }
+
   // === Lightbulb ===
 
   async createLightbulb(data: CreateLightbulbDTO): Promise<Lightbulb> {

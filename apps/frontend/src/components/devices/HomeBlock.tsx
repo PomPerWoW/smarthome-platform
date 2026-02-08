@@ -1,4 +1,4 @@
-import { Home as HomeIcon, DoorOpen, Trash2 } from "lucide-react";
+import { Home as HomeIcon, DoorOpen, Trash2, Pencil } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -7,10 +7,16 @@ import type { Home } from "@/models";
 interface HomeBlockProps {
   home: Home;
   onDelete?: () => void;
+  onRename?: (newName: string) => void;
   isSelected?: boolean;
 }
 
-export function HomeBlock({ home, onDelete, isSelected }: HomeBlockProps) {
+export function HomeBlock({
+  home,
+  onDelete,
+  onRename,
+  isSelected,
+}: HomeBlockProps) {
   return (
     <div
       className={cn(
@@ -75,22 +81,39 @@ export function HomeBlock({ home, onDelete, isSelected }: HomeBlockProps) {
         </div>
       </Link>
 
-      {/* Delete button - appears in top-right corner on hover */}
-      {onDelete && (
-        <Button
-          variant="destructive"
-          size="icon"
-          className="absolute -top-2 -right-2 h-7 w-7 shadow-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10"
-          onClick={(e) => {
-            e.stopPropagation();
-            e.preventDefault();
-            onDelete();
-          }}
-          title="Delete"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </Button>
-      )}
+      {/* Action buttons - appear on hover */}
+      <div className="absolute -top-2 -right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
+        {onRename && (
+          <Button
+            variant="secondary"
+            size="icon"
+            className="h-7 w-7 shadow-md hover:scale-110 transition-transform"
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onRename(home.name);
+            }}
+            title="Rename"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
+        )}
+        {onDelete && (
+          <Button
+            variant="destructive"
+            size="icon"
+            className="h-7 w-7 shadow-md hover:scale-110 transition-transform"
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onDelete();
+            }}
+            title="Delete"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

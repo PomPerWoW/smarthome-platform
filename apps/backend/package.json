@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "install": "poetry install",
-    "dev": "poetry run gunicorn app.asgi:application -k uvicorn.workers.UvicornWorker -b 0.0.0.0:5500 --reload",
+    "dev": "poetry run gunicorn app.asgi:application -k uvicorn.workers.UvicornWorker -b 0.0.0.0:5500 --reload --keyfile certs/key.pem --certfile certs/cert.pem",
     "migrate": "poetry run python manage.py migrate",
     "makemigrations": "poetry run python manage.py makemigrations",
     "shell": "poetry run python manage.py shell",

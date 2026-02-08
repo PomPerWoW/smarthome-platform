@@ -10,6 +10,7 @@ import {
 } from "@iwsdk/core";
 
 import { getAuth } from "./api/auth";
+import { getWebSocketClient } from "./api/WebSocketClient";
 import { getStore } from "./store/DeviceStore";
 import { DeviceComponent } from "./components/DeviceComponent";
 import { DeviceRendererSystem } from "./systems/DeviceRendererSystem";
@@ -19,6 +20,9 @@ import { LightbulbPanelSystem } from "./ui/LightbulbPanelSystem";
 import { TelevisionPanelSystem } from "./ui/TelevisionPanelSystem";
 import { FanPanelSystem } from "./ui/FanPanelSystem";
 import { AirConditionerPanelSystem } from "./ui/AirConditionerPanelSystem";
+import { VoiceControlSystem } from "./systems/VoiceControlSystem";
+import { VoicePanel } from "./ui/VoicePanel";
+import { RoomScanningSystem } from "./systems/RoomScanningSystem";
 import * as LucideIconsKit from "@pmndrs/uikit-lucide";
 
 const assets: AssetManifest = {
@@ -129,7 +133,8 @@ async function main(): Promise<void> {
     .registerSystem(LightbulbPanelSystem)
     .registerSystem(TelevisionPanelSystem)
     .registerSystem(FanPanelSystem)
-    .registerSystem(AirConditionerPanelSystem);
+    .registerSystem(AirConditionerPanelSystem)
+    .registerSystem(RoomScanningSystem);
 
   console.log("✅ Systems registered");
 
@@ -167,6 +172,22 @@ async function main(): Promise<void> {
     await renderer.initializeDevices();
     console.log("✅ Devices rendered in scene");
   }
+
+  const wsClient = getWebSocketClient();
+  wsClient.connect();
+
+  wsClient.subscribe(async (data) => {
+    if (data.type === "device_update" && data.device_id) {
+      console.log("[WebSocket] Device update notification:", data);
+      // Backend sends device_id and action, so we need to refresh the device
+      await store.refreshSingleDevice(data.device_id);
+    }
+  });
+  console.log("✅ WebSocket connected for real-time updates");
+
+  const voiceSystem = new VoiceControlSystem();
+  new VoicePanel(voiceSystem);
+  console.log("✅ Voice Control System initialized");
 
   console.log("🚀 SmartHome Platform Scene Creator ready!");
   console.log("───────────────────────────────────");

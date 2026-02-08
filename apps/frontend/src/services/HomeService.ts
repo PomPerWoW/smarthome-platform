@@ -43,6 +43,13 @@ export class HomeService {
     await this.api.delete(`/api/homes/homes/${id}/`);
   }
 
+  async renameHome(id: string, name: string): Promise<Home> {
+    const data = await this.api.patch<HomeDTO>(`/api/homes/homes/${id}/`, {
+      home_name: name,
+    });
+    return Home.fromApi(data);
+  }
+
   async getHomeDevices(homeId: string): Promise<BaseDevice[]> {
     const data = await this.api.get<DeviceDTO[]>(
       `/api/homes/homes/${homeId}/get_devices/`,
@@ -76,6 +83,13 @@ export class HomeService {
 
   async deleteRoom(id: string): Promise<void> {
     await this.api.delete(`/api/homes/rooms/${id}/`);
+  }
+
+  async renameRoom(id: string, name: string): Promise<Room> {
+    const data = await this.api.patch<RoomDTO>(`/api/homes/rooms/${id}/`, {
+      room_name: name,
+    });
+    return Room.fromApi(data);
   }
 
   async getRoomDevices(roomId: string): Promise<BaseDevice[]> {

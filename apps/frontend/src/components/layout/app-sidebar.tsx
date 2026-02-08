@@ -12,6 +12,9 @@ import {
   CreditCard,
   Bell,
   LogOut,
+  Activity,
+  Leaf,
+  Zap,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -36,10 +39,14 @@ import {
 } from "@/components/ui/sidebar";
 import { useAuthStore } from "@/stores/auth";
 import { AuthService } from "@/services/AuthService";
+import { VoiceAssistant } from "@/components/VoiceAssistant";
 
 const mainNavItems = [
   { title: "Dashboard", url: "/", icon: Home },
   { title: "Devices", url: "/devices", icon: Lightbulb },
+  { title: "Automation", url: "/automation", icon: Zap },
+  { title: "Activity", url: "/activity", icon: Activity },
+  { title: "Energy", url: "/energy", icon: Leaf },
 ];
 
 const bottomNavItems = [
@@ -130,6 +137,9 @@ export function AppSidebar() {
             </SidebarMenuItem>
           ))}
         </SidebarMenu>
+
+        {/* Voice Assistant with gradient animation */}
+        <VoiceAssistant />
 
         {isAuthenticated && user ? (
           <DropdownMenu>
