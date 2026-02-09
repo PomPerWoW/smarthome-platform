@@ -82,10 +82,10 @@ function updatePanelHighlight(): void {
 export function setupAvatarSwitcherPanel(): void {
   if (entries.length < 2) return;
 
-  // Last registered = first to control
-  currentIndex = entries.length - 1;
+  // First registered = first to control
+  currentIndex = 0;
 
-  // Set initial active: only the "first to control" (last registered) is active
+  // Set initial active: only the "first to control" (first registered) is active
   entries.forEach((e, i) => {
     e.system.setActive(i === currentIndex);
   });
