@@ -121,6 +121,13 @@ export class LightbulbPanelSystem extends createSystem({
       });
     }
 
+    const showGraphBtn = document.getElementById("show-graph-btn");
+    if (showGraphBtn) {
+      showGraphBtn.addEventListener("click", () => {
+        this.handleShowGraph(deviceId);
+      });
+    }
+
     // Initial update for this specific panel
     this.updatePanel(entity, deviceId, document);
   }
@@ -156,6 +163,16 @@ export class LightbulbPanelSystem extends createSystem({
 
     const store = getStore();
     store.updateLightbulb(deviceId, { colour: colorHex });
+  }
+
+  private handleShowGraph(deviceId: string): void {
+    console.log(`[LightbulbPanel] Show graph clicked for ${deviceId}`);
+
+    // Toggle the separate graph panel
+    const deviceRenderer = this.world.getSystem(DeviceRendererSystem);
+    if (deviceRenderer) {
+      deviceRenderer.toggleGraphPanel(deviceId);
+    }
   }
 
   private handleGetPosition(entity: Entity, deviceId: string): void {

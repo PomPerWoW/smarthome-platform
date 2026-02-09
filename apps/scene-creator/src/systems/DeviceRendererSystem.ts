@@ -364,8 +364,12 @@ export class DeviceRendererSystem extends createSystem({
    * Show a 3D chart for a device
    */
   showChart(deviceId: string, chartType: ChartType): void {
+    console.log(`[DeviceRenderer] showChart called for deviceId=${deviceId}, chartType=${chartType}`);
     const record = this.deviceRecords.get(deviceId);
-    if (!record) return;
+    if (!record) {
+      console.warn(`[DeviceRenderer] No record found for deviceId=${deviceId}. Available IDs: ${Array.from(this.deviceRecords.keys()).join(', ')}`);
+      return;
+    }
 
     // If same chart type is already showing, hide it (toggle)
     if (record.activeChartType === chartType && record.chartEntity) {

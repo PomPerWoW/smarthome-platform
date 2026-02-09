@@ -101,6 +101,13 @@ export class AirConditionerPanelSystem extends createSystem({
       });
     }
 
+    const showGraphBtn = document.getElementById("show-graph-btn");
+    if (showGraphBtn) {
+      showGraphBtn.addEventListener("click", () => {
+        this.handleShowGraph(deviceId);
+      });
+    }
+
     this.updatePanel(entity, deviceId, document);
   }
 
