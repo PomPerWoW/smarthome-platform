@@ -14,7 +14,10 @@ import { ReactQueryDevtoolsPanel } from "@tanstack/react-query-devtools";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { AuthService } from "@/services/AuthService";
 import { useAuthStore } from "@/stores/auth";
+import { ThreeDWorldButton } from "@/components/three-d-world-button";
 import { RobotAssistant } from "@/components/robot-assistant";
+import { WebSocketService } from "@/services/WebSocketService";
+import { useEffect } from "react";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -58,6 +61,27 @@ const authRoutes = ["/login", "/register"];
 function RootLayout() {
   const location = useLocation();
   const isAuthPage = authRoutes.includes(location.pathname);
+  const { isAuthenticated } = useAuthStore();
+
+  // WebSocket Connection for Real-time Updates
+  useEffect(() => {
+    if (isAuthenticated) {
+      const ws = WebSocketService.getInstance();
+      ws.connect();
+
+      const unsubscribe = ws.subscribe((data) => {
+        if (data.type === "device_update") {
+          console.log("Device update received, refreshing data...");
+          queryClient.invalidateQueries({ queryKey: ["home-devices"] });
+        }
+      });
+
+      return () => {
+        unsubscribe();
+        ws.disconnect();
+      };
+    }
+  }, [isAuthenticated]);
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -76,6 +100,7 @@ function RootLayout() {
               <div className="pointer-events-none absolute -bottom-10 right-10 h-[250px] w-[250px] rounded-full bg-primary/5 blur-3xl filter" />
               <header className="relative z-10 flex shrink-0 items-center justify-between border-b px-2 py-2">
                 <SidebarTrigger className="size-12" />
+                <ThreeDWorldButton />
                 <ModeToggle />
               </header>
               <main className="relative z-10 flex-1 p-4">

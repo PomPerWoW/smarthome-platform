@@ -6,6 +6,7 @@ from django.contrib.gis.geos import Point
 from .permissions import IsHomeOwner
 from .models import *
 from .serializers import *
+from .services import VoiceAssistantService
 
 from datetime import datetime, timedelta
 import requests
@@ -831,3 +832,18 @@ class TelevisionViewSet(BaseDeviceViewSet):
             "device_name": device_name,
             "data": sorted_data
         })
+
+class VoiceCommandViewSet(viewsets.ViewSet):
+    permission_classes = [permissions.IsAuthenticated]
+
+    @action(detail=False, methods=['post'])
+    def command(self, request):
+        command_text = request.data.get('command')
+        if not command_text:
+            return Response({"error": "Command text is required."}, status=400)
+
+        # Instantiate service (it will allow DI if needed, or use default factory)
+        service = VoiceAssistantService() 
+        result = service.process_voice_command(request.user, command_text)
+        
+        return Response(result)

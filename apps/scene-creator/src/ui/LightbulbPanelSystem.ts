@@ -6,6 +6,8 @@ import {
   UIKitDocument,
   UIKit,
   Entity,
+  Quaternion,
+  Euler,
 } from "@iwsdk/core";
 
 import { DeviceComponent } from "../components/DeviceComponent";
@@ -34,6 +36,7 @@ export class LightbulbPanelSystem extends createSystem({
   },
 }) {
   private unsubscribeDevices?: () => void;
+  private deviceRenderer?: DeviceRendererSystem;
 
   init() {
     console.log("[LightbulbPanel] System initialized");
@@ -47,13 +50,18 @@ export class LightbulbPanelSystem extends createSystem({
       (state) => state.devices,
       () => {
         this.updateAllPanels();
-      }
+      },
     );
   }
 
   private setupPanel(entity: Entity): void {
     const document = PanelDocument.data.document[entity.index] as UIKitDocument;
     if (!document) return;
+
+    // Lazy-load the device renderer system if not already loaded
+    if (!this.deviceRenderer) {
+      this.deviceRenderer = this.world.getSystem(DeviceRendererSystem);
+    }
 
     // Get the device ID associated with this panel
     const deviceId = entity.getValue(DeviceComponent, "deviceId");
@@ -98,11 +106,18 @@ export class LightbulbPanelSystem extends createSystem({
       }
     }
 
-    // Graph button
-    const graphBtn = document.getElementById("show-graph-btn");
-    if (graphBtn) {
-      graphBtn.addEventListener("click", () => {
-        this.handleShowGraph(deviceId);
+    // Position buttons
+    const getPositionBtn = document.getElementById("get-position-btn");
+    if (getPositionBtn) {
+      getPositionBtn.addEventListener("click", () => {
+        this.handleGetPosition(entity, deviceId);
+      });
+    }
+
+    const savePositionBtn = document.getElementById("save-position-btn");
+    if (savePositionBtn) {
+      savePositionBtn.addEventListener("click", () => {
+        this.handleSavePosition(entity, deviceId);
       });
     }
 
@@ -126,7 +141,7 @@ export class LightbulbPanelSystem extends createSystem({
 
     const newBrightness = Math.max(0, Math.min(100, device.brightness + delta));
     console.log(
-      `[LightbulbPanel] Setting brightness to ${newBrightness} for ${deviceId}`
+      `[LightbulbPanel] Setting brightness to ${newBrightness} for ${deviceId}`,
     );
 
     store.updateLightbulb(deviceId, {
@@ -136,20 +151,171 @@ export class LightbulbPanelSystem extends createSystem({
 
   private handleColorChange(deviceId: string, colorHex: string): void {
     console.log(
-      `[LightbulbPanel] Setting color to ${colorHex} for ${deviceId}`
+      `[LightbulbPanel] Setting color to ${colorHex} for ${deviceId}`,
     );
 
     const store = getStore();
     store.updateLightbulb(deviceId, { colour: colorHex });
   }
 
-  private handleShowGraph(deviceId: string): void {
-    console.log(`[LightbulbPanel] Show graph clicked for ${deviceId}`);
+  private handleGetPosition(entity: Entity, deviceId: string): void {
+    const record = this.deviceRenderer?.getRecord(deviceId);
+    if (!record?.entity.object3D) {
+      console.warn(`[LightbulbPanel] No Object3D found for device ${deviceId}`);
+      return;
+    }
 
-    // Toggle the separate graph panel
-    const deviceRenderer = this.world.getSystem(DeviceRendererSystem);
-    if (deviceRenderer) {
-      deviceRenderer.toggleGraphPanel(deviceId);
+    const object3D = record.entity.object3D;
+    const pos = object3D.position;
+    const rot = object3D.rotation;
+    const scale = object3D.scale;
+
+    // Get world matrix rotation (accounts for parent transforms)
+    object3D.updateMatrixWorld(true);
+    const worldQuaternion = object3D.getWorldQuaternion(new Quaternion());
+
+    // Get device data from store for additional metadata
+    const store = getStore();
+    const device = store.getLightbulb(deviceId);
+
+    // Convert rotation from radians to degrees for readability
+    const radToDeg = (rad: number) => (rad * 180) / Math.PI;
+
+    // Extract Euler from world quaternion
+    const worldEuler = new Euler().setFromQuaternion(worldQuaternion);
+
+    console.log(
+      `\n╔══════════════════════════════════════════════════════════════╗`,
+    );
+    console.log(`║           DEVICE METADATA - ${device?.name || deviceId}`);
+    console.log(
+      `╠══════════════════════════════════════════════════════════════╣`,
+    );
+    console.log(`║ 📍 POSITION (World Coordinates)`);
+    console.log(`║    X: ${pos.x.toFixed(3)}`);
+    console.log(`║    Y: ${pos.y.toFixed(3)}`);
+    console.log(`║    Z: ${pos.z.toFixed(3)}`);
+    console.log(
+      `╠══════════════════════════════════════════════════════════════╣`,
+    );
+    console.log(`║ 🧭 ROTATION - Local (Euler Angles - Degrees)`);
+    console.log(`║    X (Pitch): ${radToDeg(rot.x).toFixed(2)}°`);
+    console.log(`║    Y (Yaw):   ${radToDeg(rot.y).toFixed(2)}°`);
+    console.log(`║    Z (Roll):  ${radToDeg(rot.z).toFixed(2)}°`);
+    console.log(`║    Order:     ${rot.order}`);
+    console.log(
+      `╠══════════════════════════════════════════════════════════════╣`,
+    );
+    console.log(`║ 🌍 ROTATION - World (From Matrix)`);
+    console.log(`║    X (Pitch): ${radToDeg(worldEuler.x).toFixed(2)}°`);
+    console.log(`║    Y (Yaw):   ${radToDeg(worldEuler.y).toFixed(2)}°`);
+    console.log(`║    Z (Roll):  ${radToDeg(worldEuler.z).toFixed(2)}°`);
+    console.log(
+      `╠══════════════════════════════════════════════════════════════╣`,
+    );
+    console.log(`║ 📐 SCALE`);
+    console.log(`║    X: ${scale.x.toFixed(3)}`);
+    console.log(`║    Y: ${scale.y.toFixed(3)}`);
+    console.log(`║    Z: ${scale.z.toFixed(3)}`);
+    console.log(
+      `╠══════════════════════════════════════════════════════════════╣`,
+    );
+    console.log(`║ 💡 DEVICE PROPERTIES`);
+    if (device) {
+      console.log(`║    Power:      ${device.is_on ? "ON" : "OFF"}`);
+      console.log(`║    Brightness: ${device.brightness}%`);
+      console.log(`║    Colour:     ${device.colour}`);
+      console.log(`║    Room:       ${device.room_name}`);
+      console.log(`║    Floor:      ${device.floor_name}`);
+      console.log(`║    Home:       ${device.home_name}`);
+    } else {
+      console.log(`║    (Device data not found)`);
+    }
+    console.log(
+      `╚══════════════════════════════════════════════════════════════╝\n`,
+    );
+
+    // Log child rotations for debugging
+    console.log(`[LightbulbPanel] Checking child objects for rotation...`);
+    object3D.traverse((child) => {
+      if (
+        child !== object3D &&
+        (child.rotation.x !== 0 ||
+          child.rotation.y !== 0 ||
+          child.rotation.z !== 0)
+      ) {
+        console.log(
+          `  Child "${child.name}": rotation (${radToDeg(child.rotation.x).toFixed(2)}°, ${radToDeg(child.rotation.y).toFixed(2)}°, ${radToDeg(child.rotation.z).toFixed(2)}°)`,
+        );
+      }
+    });
+
+    // Also log as structured data for easy copying
+    console.log(`[LightbulbPanel] Structured Data:`, {
+      deviceId,
+      position: { x: pos.x, y: pos.y, z: pos.z },
+      localRotation: {
+        x: radToDeg(rot.x),
+        y: radToDeg(rot.y),
+        z: radToDeg(rot.z),
+        order: rot.order,
+      },
+      worldRotation: {
+        x: radToDeg(worldEuler.x),
+        y: radToDeg(worldEuler.y),
+        z: radToDeg(worldEuler.z),
+      },
+      scale: { x: scale.x, y: scale.y, z: scale.z },
+      properties: device
+        ? {
+          is_on: device.is_on,
+          brightness: device.brightness,
+          colour: device.colour,
+          room: device.room_name,
+          floor: device.floor_name,
+          home: device.home_name,
+        }
+        : null,
+    });
+  }
+
+  private async handleSavePosition(
+    entity: Entity,
+    deviceId: string,
+  ): Promise<void> {
+    const record = this.deviceRenderer?.getRecord(deviceId);
+    if (!record?.entity.object3D) {
+      console.warn(`[LightbulbPanel] No Object3D found for device ${deviceId}`);
+      return;
+    }
+
+    const object3D = record.entity.object3D;
+    const pos = object3D.position;
+
+    // Get world rotation Y (accounts for parent transforms)
+    object3D.updateMatrixWorld(true);
+    const worldQuaternion = object3D.getWorldQuaternion(new Quaternion());
+    const worldEuler = new Euler().setFromQuaternion(worldQuaternion);
+    const rotationY = (worldEuler.y * 180) / Math.PI;
+
+    console.log(
+      `[LightbulbPanel] Saving position for device ${deviceId}:`,
+      `x: ${pos.x.toFixed(3)}, y: ${pos.y.toFixed(3)}, z: ${pos.z.toFixed(3)}, rotation_y: ${rotationY.toFixed(2)}° (world)`,
+    );
+
+    try {
+      await getStore().updateDevicePosition(
+        deviceId,
+        pos.x,
+        pos.y,
+        pos.z,
+        rotationY,
+      );
+      console.log(
+        `[LightbulbPanel] Position and rotation saved successfully for ${deviceId}`,
+      );
+    } catch (error) {
+      console.error(`[LightbulbPanel] Failed to save position:`, error);
     }
   }
 
@@ -171,7 +337,7 @@ export class LightbulbPanelSystem extends createSystem({
   private updatePanel(
     entity: Entity,
     deviceId: string,
-    document: UIKitDocument
+    document: UIKitDocument,
   ): void {
     const store = getStore();
     const device = store.getLightbulb(deviceId);
@@ -179,13 +345,13 @@ export class LightbulbPanelSystem extends createSystem({
     // Update device info
     const deviceName = document.getElementById("device-name") as UIKit.Text;
     const deviceLocation = document.getElementById(
-      "device-location"
+      "device-location",
     ) as UIKit.Text;
 
     if (device) {
       deviceName?.setProperties({ text: device.name });
       deviceLocation?.setProperties({
-        text: `${device.room_name} • ${device.floor_name}`,
+        text: `${device.room_name} - ${device.floor_name}`,
       });
     } else {
       deviceName?.setProperties({ text: "Device not found" });
@@ -194,13 +360,13 @@ export class LightbulbPanelSystem extends createSystem({
 
     // Update device position display
     const devicePosition = document.getElementById(
-      "device-position"
+      "device-position",
     ) as UIKit.Text;
     if (devicePosition && device) {
       const pos = device.position;
       devicePosition.setProperties({
         text: `Position: (${pos[0].toFixed(1)}, ${pos[1].toFixed(
-          1
+          1,
         )}, ${pos[2].toFixed(1)})`,
       });
     } else if (devicePosition) {
@@ -217,7 +383,7 @@ export class LightbulbPanelSystem extends createSystem({
 
     // Update brightness value
     const brightnessValue = document.getElementById(
-      "brightness-value"
+      "brightness-value",
     ) as UIKit.Text;
     if (brightnessValue && device) {
       brightnessValue.setProperties({ text: `${device.brightness}%` });

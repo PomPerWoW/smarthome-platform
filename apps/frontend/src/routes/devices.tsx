@@ -32,6 +32,7 @@ import {
 import { DeviceService } from "@/services/DeviceService";
 import { DeviceType } from "@/types/device.types";
 import type { BaseDevice } from "@/models";
+import { RenameDialog } from "@/components/ui/rename-dialog";
 
 export const Route = createFileRoute("/devices")({
   component: DevicesPage,
@@ -50,6 +51,7 @@ function DevicesPage() {
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [deviceToDelete, setDeviceToDelete] = useState<BaseDevice | null>(null);
+  const [deviceToRename, setDeviceToRename] = useState<BaseDevice | null>(null);
   const queryClient = useQueryClient();
 
   const {
@@ -79,6 +81,26 @@ function DevicesPage() {
     },
     onError: (error) => {
       toast.error(`Failed to delete device: ${error.message}`);
+    },
+  });
+
+  const renameDeviceMutation = useMutation({
+    mutationFn: ({
+      type,
+      id,
+      name,
+    }: {
+      type: DeviceType;
+      id: string;
+      name: string;
+    }) => DeviceService.getInstance().renameDevice(type, id, name),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["devices"] });
+      setDeviceToRename(null);
+      toast.success("Device renamed successfully");
+    },
+    onError: (error) => {
+      toast.error(`Failed to rename device: ${error.message}`);
     },
   });
 
@@ -230,6 +252,7 @@ function DevicesPage() {
               device={device}
               onControl={() => handleControlDevice(device)}
               onDelete={() => setDeviceToDelete(device)}
+              onRename={() => setDeviceToRename(device)}
             />
           ))}
         </div>
@@ -270,6 +293,24 @@ function DevicesPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Rename Device Dialog */}
+      <RenameDialog
+        open={!!deviceToRename}
+        onOpenChange={(open) => !open && setDeviceToRename(null)}
+        currentName={deviceToRename?.name || ""}
+        title="Rename Device"
+        description="Enter a new name for this device."
+        onSave={(newName) =>
+          deviceToRename &&
+          renameDeviceMutation.mutate({
+            type: deviceToRename.type as DeviceType,
+            id: deviceToRename.id,
+            name: newName,
+          })
+        }
+        isPending={renameDeviceMutation.isPending}
+      />
     </div>
   );
 }

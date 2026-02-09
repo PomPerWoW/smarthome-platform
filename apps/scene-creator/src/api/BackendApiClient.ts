@@ -39,6 +39,11 @@ export class BackendApiClient {
     return mapRawDevicesToDevices(response.data);
   }
 
+  async getDevice(deviceId: string): Promise<Device> {
+    const response = await api.get<any>(`/api/homes/devices/${deviceId}/`);
+    return mapRawDeviceToDevice(response.data);
+  }
+
   async setDeviceState(
     deviceId: string,
     updates: Partial<Device>,
@@ -60,18 +65,13 @@ export class BackendApiClient {
 
   async setDevicePosition(
     deviceId: string,
-    position: { x: number; y: number; z: number },
-    rotation?: { x: number; y: number; z: number },
+    position: { x: number; y: number; z: number; rotation_y?: number },
   ): Promise<Device> {
-    const response = await api.post<any>(
+    await api.post<any>(
       `/api/homes/devices/${deviceId}/set_position/`,
-      {
-        ...position,
-        rotation_x: rotation?.x ?? 0,
-        rotation_y: rotation?.y ?? 0,
-        rotation_z: rotation?.z ?? 0,
-      },
+      position,
     );
+    const response = await api.get<any>(`/api/homes/devices/${deviceId}/`);
     return mapRawDeviceToDevice(response.data);
   }
 
@@ -168,6 +168,14 @@ export class BackendApiClient {
       temp: options.temperature,
     });
     return this.getAirConditioner(deviceId);
+  }
+
+  // ===== Voice Control =====
+  async sendVoiceCommand(command: string): Promise<any> {
+    const response = await api.post<any>("/api/homes/voice/command/", {
+      command,
+    });
+    return response.data;
   }
 }
 

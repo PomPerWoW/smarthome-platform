@@ -57,7 +57,7 @@ export class PanelSystem extends createSystem({
               text: `${count} devices | ${active} active`,
             });
           }
-        },
+        }
       );
 
       // XR Button
@@ -84,7 +84,7 @@ export class PanelSystem extends createSystem({
 
       // Refresh Button
       const refreshButton = document.getElementById(
-        "refresh-button",
+        "refresh-button"
       ) as UIKit.Text;
       if (refreshButton) {
         refreshButton.addEventListener("click", async () => {

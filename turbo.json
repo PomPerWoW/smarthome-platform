@@ -30,6 +30,13 @@
       "cache": false,
       "persistent": true
     },
+    "dev:network": {
+      "dependsOn": [
+        "install"
+      ],
+      "cache": false,
+      "persistent": true
+    },
     "lint": {},
     "test": {},
     "start": {

@@ -1,11 +1,22 @@
-import { DoorOpen, Lightbulb, Tv, Fan, Snowflake } from "lucide-react";
+import {
+  DoorOpen,
+  Lightbulb,
+  Tv,
+  Fan,
+  Snowflake,
+  Pencil,
+  Trash2,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import type { Room } from "@/models";
 import { DeviceType } from "@/types/device.types";
 
 interface RoomBlockProps {
   room: Room;
   onClick?: () => void;
+  onRename?: () => void;
+  onDelete?: () => void;
   isSelected?: boolean;
 }
 
@@ -16,7 +27,13 @@ const deviceIcons = {
   [DeviceType.AirConditioner]: Snowflake,
 };
 
-export function RoomBlock({ room, onClick, isSelected }: RoomBlockProps) {
+export function RoomBlock({
+  room,
+  onClick,
+  onRename,
+  onDelete,
+  isSelected,
+}: RoomBlockProps) {
   return (
     <div
       onClick={onClick}
@@ -72,6 +89,38 @@ export function RoomBlock({ room, onClick, isSelected }: RoomBlockProps) {
             </span>
           )}
         </div>
+      </div>
+
+      {/* Action buttons - appear on hover */}
+      <div className="absolute -top-2 -right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
+        {onRename && (
+          <Button
+            variant="secondary"
+            size="icon"
+            className="h-6 w-6 shadow-md hover:scale-110 transition-transform"
+            onClick={(e) => {
+              e.stopPropagation();
+              onRename();
+            }}
+            title="Rename"
+          >
+            <Pencil className="h-3 w-3" />
+          </Button>
+        )}
+        {onDelete && (
+          <Button
+            variant="destructive"
+            size="icon"
+            className="h-6 w-6 shadow-md hover:scale-110 transition-transform"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            title="Delete"
+          >
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        )}
       </div>
     </div>
   );
