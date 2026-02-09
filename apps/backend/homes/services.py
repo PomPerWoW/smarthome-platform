@@ -184,3 +184,49 @@ class VoiceAssistantService:
         if hasattr(device, 'fan'): return device.fan
         if hasattr(device, 'airconditioner'): return device.airconditioner
         return device
+
+def update_automation_solar_time(automation):
+    """
+    Updates the 'time' field of an automation based on solar events.
+    """
+    if not automation.sunrise_sunset or not automation.solar_event:
+        return
+    
+    from .utils import get_coords, get_solar_times
+    
+    lat, lon = get_coords()
+    if lat is None:
+        return
+
+    solar_times = get_solar_times(lat, lon)
+    if solar_times is None:
+        return
+
+    if automation.solar_event == 'sunrise':
+        automation.time = solar_times['sunrise'].time()
+    elif automation.solar_event == 'sunset':
+        automation.time = solar_times['sunset'].time()
+    
+    automation.save()
+
+def update_all_solar_automations():
+    """
+    Updates all automations that rely on sunrise/sunset.
+    """
+    from .models import Automation
+    from .utils import get_coords, get_solar_times
+    
+    lat, lon = get_coords()
+    if lat is None:
+        return
+
+    solar_times = get_solar_times(lat, lon)
+    if solar_times is None:
+        return
+    
+    sunrise = solar_times['sunrise'].time()
+    sunset = solar_times['sunset'].time()
+
+    Automation.objects.filter(sunrise_sunset=True, solar_event='sunrise').update(time=sunrise)
+    Automation.objects.filter(sunrise_sunset=True, solar_event='sunset').update(time=sunset)
+

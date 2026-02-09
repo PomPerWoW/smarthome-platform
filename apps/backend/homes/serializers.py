@@ -102,3 +102,23 @@ class DeviceSerializer(DeviceBaseSerializer):
             return TelevisionSerializer(instance.television).data
             
         return super().to_representation(instance)
+
+class AutomationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Automation
+        fields = '__all__'
+
+    def validate_time(self, value):
+        """
+        Adjust input time from GMT+7 to UTC (System Time).
+        Subtracts 7 hours from the provided time.
+        """
+        if value is None:
+            return None
+        
+        from datetime import datetime, timedelta, date
+        
+        dummy_dt = datetime.combine(date.today(), value)
+        adjusted_dt = dummy_dt - timedelta(hours=7)
+        
+        return adjusted_dt.time()
