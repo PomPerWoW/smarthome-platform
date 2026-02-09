@@ -72,71 +72,6 @@ class BaseLLMProvider(LLMProvider):
             logger.error(f"Failed to parse LLM response: {response_text}")
             return []
 
-class OpenAIProvider(BaseLLMProvider):
-    def __init__(self):
-        try:
-            from openai import OpenAI
-            api_key = os.getenv("OPENAI_API_KEY")
-            if not api_key:
-                logger.warning("OPENAI_API_KEY not found.")
-            self.client = OpenAI(api_key=api_key)
-        except ImportError:
-            logger.error("openai package not installed.")
-            self.client = None
-
-    def parse_command(self, command_text: str, devices_context: List[Dict[str, Any]]) -> List[CommandIntent]:
-        if not self.client:
-            return []
-
-        system_prompt = self._construct_system_prompt(devices_context)
-        
-        try:
-            response = self.client.chat.completions.create(
-                model="gpt-4o-mini",  # or gpt-3.5-turbo
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": command_text}
-                ],
-                temperature=0.0
-            )
-            content = response.choices[0].message.content
-            return self._parse_response(content)
-        except Exception as e:
-            logger.error(f"OpenAI API error: {e}")
-            return []
-
-class GeminiProvider(BaseLLMProvider):
-    def __init__(self):
-        try:
-            from google import genai
-            api_key = os.getenv("GEMINI_API_KEY")
-            if not api_key:
-                logger.warning("GEMINI_API_KEY not found.")
-                self.client = None
-            else:
-                self.client = genai.Client(api_key=api_key)
-        except ImportError:
-            logger.error("google-genai package not installed.")
-            self.client = None
-
-    def parse_command(self, command_text: str, devices_context: List[Dict[str, Any]]) -> List[CommandIntent]:
-        if not self.client:
-            logger.error("Gemini client not initialized.")
-            return []
-
-        system_prompt = self._construct_system_prompt(devices_context)
-        full_prompt = f"{system_prompt}\n\nUser Command: {command_text}"
-        
-        try:
-            response = self.client.models.generate_content(
-                model='gemini-2.0-flash-lite', 
-                contents=full_prompt
-            )
-            return self._parse_response(response.text)
-        except Exception as e:
-            logger.error(f"Gemini API error: {e}")
-            return []
-
 class GroqProvider(BaseLLMProvider):
     def __init__(self):
         try:
@@ -177,8 +112,4 @@ class LLMFactory:
     @staticmethod
     def get_provider() -> LLMProvider:
         provider_name = os.getenv("LLM_PROVIDER", "openai").lower()
-        if provider_name == "gemini":
-            return GeminiProvider()
-        elif provider_name == "groq":
-            return GroqProvider()
-        return OpenAIProvider()
+        return GroqProvider()
