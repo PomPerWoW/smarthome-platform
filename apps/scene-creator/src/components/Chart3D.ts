@@ -3,6 +3,7 @@ import {
     Object3D,
     Mesh,
     MeshStandardMaterial,
+    MeshPhysicalMaterial,
     BoxGeometry,
     CylinderGeometry,
     SphereGeometry,
@@ -232,14 +233,34 @@ export class Chart3D {
         }
 
         const tubeGeo = new TubeGeometry(curvePath, points.length * 10, 0.02, 8, false);
-        const tubeMat = new MeshStandardMaterial({ color, roughness: 0.3, metalness: 0.2 });
+        const tubeMat = new MeshPhysicalMaterial({
+            color,
+            roughness: 0.1,
+            metalness: 0.0,
+            transmission: 0.4,
+            thickness: 0.5,
+            clearcoat: 1.0,
+            clearcoatRoughness: 0.1,
+            transparent: true,
+            opacity: 0.9,
+        });
         container.add(new Mesh(tubeGeo, tubeMat));
 
         // Points
         if (showPoints) {
             values.forEach((v, i) => {
                 const p = points[i];
-                const sphere = new Mesh(new SphereGeometry(0.04, 8, 8), new MeshStandardMaterial({ color, roughness: 0.3, metalness: 0.2 }));
+                const sphere = new Mesh(new SphereGeometry(0.04, 8, 8), new MeshPhysicalMaterial({
+                    color,
+                    roughness: 0.1,
+                    metalness: 0.0,
+                    transmission: 0.4,
+                    thickness: 0.5,
+                    clearcoat: 1.0,
+                    clearcoatRoughness: 0.1,
+                    transparent: true,
+                    opacity: 0.9,
+                }));
                 sphere.position.copy(p);
                 container.add(sphere);
 
@@ -295,9 +316,19 @@ export class Chart3D {
             const h = yScale(v);
             const c = colors.length > 1 ? colors[i % colors.length] : colors[0];
 
-            // Use slightly glossy material
+            // iOS Liquid Glass style material
             const geo = new BoxGeometry(barWidth, h, barWidth);
-            const mat = new MeshStandardMaterial({ color: c, roughness: 0.3, metalness: 0.2 });
+            const mat = new MeshPhysicalMaterial({
+                color: c,
+                roughness: 0.1,
+                metalness: 0.0,
+                transmission: 0.4,
+                thickness: 0.5,
+                clearcoat: 1.0,
+                clearcoatRoughness: 0.1,
+                transparent: true,
+                opacity: 0.9,
+            });
             const mesh = new Mesh(geo, mat);
 
             // Calculate x position centered
@@ -354,7 +385,17 @@ export class Chart3D {
 
             // Note: CylinderGeometry 0 starts at +X.
             const geo = new CylinderGeometry(radius, radius, height, 32, 1, false, d.startAngle, angle);
-            const mat = new MeshStandardMaterial({ color, roughness: 0.3, metalness: 0.2 });
+            const mat = new MeshPhysicalMaterial({
+                color,
+                roughness: 0.1,
+                metalness: 0.0,
+                transmission: 0.4,
+                thickness: 0.5,
+                clearcoat: 1.0,
+                clearcoatRoughness: 0.1,
+                transparent: true,
+                opacity: 0.9,
+            });
             const mesh = new Mesh(geo, mat);
             mesh.position.y = height / 2;
             container.add(mesh);
