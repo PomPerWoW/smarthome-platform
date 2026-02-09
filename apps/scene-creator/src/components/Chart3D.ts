@@ -232,14 +232,14 @@ export class Chart3D {
         }
 
         const tubeGeo = new TubeGeometry(curvePath, points.length * 10, 0.02, 8, false);
-        const tubeMat = new MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.2 });
+        const tubeMat = new MeshStandardMaterial({ color, roughness: 0.3, metalness: 0.2 });
         container.add(new Mesh(tubeGeo, tubeMat));
 
         // Points
         if (showPoints) {
             values.forEach((v, i) => {
                 const p = points[i];
-                const sphere = new Mesh(new SphereGeometry(0.04, 8, 8), new MeshStandardMaterial({ color }));
+                const sphere = new Mesh(new SphereGeometry(0.04, 8, 8), new MeshStandardMaterial({ color, roughness: 0.3, metalness: 0.2 }));
                 sphere.position.copy(p);
                 container.add(sphere);
 
@@ -354,7 +354,7 @@ export class Chart3D {
 
             // Note: CylinderGeometry 0 starts at +X.
             const geo = new CylinderGeometry(radius, radius, height, 32, 1, false, d.startAngle, angle);
-            const mat = new MeshStandardMaterial({ color });
+            const mat = new MeshStandardMaterial({ color, roughness: 0.3, metalness: 0.2 });
             const mesh = new Mesh(geo, mat);
             mesh.position.y = height / 2;
             container.add(mesh);
@@ -371,8 +371,6 @@ export class Chart3D {
             const labelText = isHex(key) ? this.formatDuration(val) : `${key}\n${this.formatDuration(val)}`;
             this.addLabel(container, labelText, lx, height + 0.1, 0.15, lz);
         });
-
-        this.addTitle(container, title, 1.5);
     }
 
     private createEmptyChart(container: Group, text: string) {
@@ -405,8 +403,6 @@ export class Chart3D {
                 this.addLabel(container, label, -width / 2 - 0.4, y, 0.12);
             }
         }
-
-        this.addTitle(container, title, height + 0.2);
     }
 
     private addTitle(container: Group, text: string, y: number) {
