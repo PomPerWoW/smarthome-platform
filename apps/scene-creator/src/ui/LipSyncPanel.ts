@@ -14,13 +14,13 @@ export function setupLipSyncControlPanel(
       <h3 style="margin:0 0 12px 0; font-size:16px;">🎤 Lip Sync</h3>
       <div style="display:flex; flex-direction:column; gap:8px;">
         <button id="lipsync-speak" style="padding:10px 16px; background:#4CAF50; color:white; border:none; border-radius:8px; cursor:pointer; font-size:14px; text-align:left;">
-          (1) Speak (hello_male.mp3)
+          (1) Speak Test Audio
         </button>
         <button id="lipsync-stop" style="padding:10px 16px; background:#f44336; color:white; border:none; border-radius:8px; cursor:pointer; font-size:14px; text-align:left;">
           (2) Stop Speaking
         </button>
         <button id="lipsync-mic" style="padding:10px 16px; background:#555; color:white; border:none; border-radius:8px; cursor:pointer; font-size:14px; text-align:left;">
-          (3) Mic Mode (lip sync to voice)
+          (3) Toggle Microphone Mode
         </button>
       </div>
     </div>
