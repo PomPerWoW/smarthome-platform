@@ -138,7 +138,7 @@ export class UserControlledAvatarSystem extends createSystem({
       const avatarModel = SkeletonUtils.clone(gltf.scene) as Object3D;
       avatarModel.scale.setScalar(0.5);
       avatarModel.position.set(position[0], position[1], position[2]);
-      avatarModel.rotation.set(0, 0, 0);
+      avatarModel.rotation.set(0, Math.PI, 0);
 
       this.world.scene.add(avatarModel);
 
