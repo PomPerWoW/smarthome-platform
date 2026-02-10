@@ -6,6 +6,7 @@ from django.contrib.gis.geos import Point
 from .permissions import IsHomeOwner
 from .models import *
 from .serializers import *
+from .services import VoiceAssistantService
 
 # --- 1. Home ViewSet ---
 class HomeViewSet(viewsets.ModelViewSet):
@@ -424,4 +425,21 @@ class TelevisionViewSet(BaseDeviceViewSet):
             tv.is_mute = bool(mute)
             tv.save()
             return Response({"status": "mute updated", "is_muted": tv.is_mute})
+            tv.save()
+            return Response({"status": "mute updated", "is_muted": tv.is_mute})
         return Response({"error": "mute parameter missing"}, status=400)
+
+class VoiceCommandViewSet(viewsets.ViewSet):
+    permission_classes = [permissions.IsAuthenticated]
+
+    @action(detail=False, methods=['post'])
+    def command(self, request):
+        command_text = request.data.get('command')
+        if not command_text:
+            return Response({"error": "Command text is required."}, status=400)
+
+        # Instantiate service (it will allow DI if needed, or use default factory)
+        service = VoiceAssistantService() 
+        result = service.process_voice_command(request.user, command_text)
+        
+        return Response(result)

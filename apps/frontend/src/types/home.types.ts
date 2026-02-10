@@ -18,3 +18,11 @@ export interface CreateRoomDTO {
   room_name: string;
   home: string;
 }
+
+export interface UpdateHomeDTO {
+  home_name?: string;
+}
+
+export interface UpdateRoomDTO {
+  room_name?: string;
+}

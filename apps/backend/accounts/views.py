@@ -35,8 +35,8 @@ def register(request):
             value=token.key,
             max_age=86400 * 7,
             httponly=True,
-            secure=not settings.DEBUG,
-            samesite="Lax",
+            secure=True,
+            samesite="None",
             path="/",
         )
 
@@ -67,8 +67,8 @@ def login_view(request):
             value=token.key,
             max_age=86400 * 7,
             httponly=True,
-            secure=not settings.DEBUG,
-            samesite="Lax",
+            secure=True,
+            samesite="None",
             path="/",
         )
 
@@ -103,7 +103,7 @@ def logout_view(request):
     response.delete_cookie(
         key="auth_token",
         path="/",
-        samesite="Lax",
+        samesite="None",
     )
 
     return response

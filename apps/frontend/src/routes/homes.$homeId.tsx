@@ -1,14 +1,7 @@
 import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  Plus,
-  ArrowLeft,
-  Loader2,
-  Trash2,
-  DoorOpen,
-  Lightbulb,
-} from "lucide-react";
+import { Plus, ArrowLeft, Loader2, DoorOpen, Lightbulb } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,8 +23,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { RenameDialog } from "@/components/ui/rename-dialog";
 import {
   RoomBlock,
   DeviceCard,
@@ -39,7 +32,9 @@ import {
   AddDeviceDialog,
 } from "@/components/devices";
 import { HomeService } from "@/services/HomeService";
-import type { Room } from "@/models";
+import { DeviceService } from "@/services/DeviceService";
+import type { Room, BaseDevice } from "@/models";
+import { DeviceType } from "@/types/device.types";
 
 export const Route = createFileRoute("/homes/$homeId")({
   component: HomeDetailPage,
@@ -50,6 +45,10 @@ function HomeDetailPage() {
   const [isCreateRoomOpen, setIsCreateRoomOpen] = useState(false);
   const [newRoomName, setNewRoomName] = useState("");
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
+  const [roomToRename, setRoomToRename] = useState<Room | null>(null);
+  const [roomToDelete, setRoomToDelete] = useState<Room | null>(null);
+  const [deviceToRename, setDeviceToRename] = useState<BaseDevice | null>(null);
+  const [deviceToDelete, setDeviceToDelete] = useState<BaseDevice | null>(null);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const [isDeviceDrawerOpen, setIsDeviceDrawerOpen] = useState(false);
   const [isAddDeviceOpen, setIsAddDeviceOpen] = useState(false);
@@ -106,6 +105,7 @@ function HomeDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["rooms"] });
       setSelectedRoom(null);
+      setRoomToDelete(null);
       toast.success("Room deleted successfully");
     },
     onError: (error) => {
@@ -123,6 +123,54 @@ function HomeDetailPage() {
     setAddDeviceRoomId(roomId);
     setIsAddDeviceOpen(true);
   };
+
+  const renameRoomMutation = useMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) =>
+      HomeService.getInstance().renameRoom(id, name),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["rooms"] });
+      queryClient.invalidateQueries({ queryKey: ["home-devices", homeId] });
+      setRoomToRename(null);
+      toast.success("Room renamed successfully");
+    },
+    onError: (error) => {
+      toast.error(`Failed to rename room: ${error.message}`);
+    },
+  });
+
+  const renameDeviceMutation = useMutation({
+    mutationFn: ({
+      type,
+      id,
+      name,
+    }: {
+      type: DeviceType;
+      id: string;
+      name: string;
+    }) => DeviceService.getInstance().renameDevice(type, id, name),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["home-devices", homeId] });
+      setDeviceToRename(null);
+      toast.success("Device renamed successfully");
+    },
+    onError: (error) => {
+      toast.error(`Failed to rename device: ${error.message}`);
+    },
+  });
+
+  const deleteDeviceMutation = useMutation({
+    mutationFn: (device: BaseDevice) =>
+      DeviceService.getInstance().deleteDevice(device.type, device.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["devices"] });
+      queryClient.invalidateQueries({ queryKey: ["home-devices", homeId] });
+      setDeviceToDelete(null);
+      toast.success("Device deleted successfully");
+    },
+    onError: (error) => {
+      toast.error(`Failed to delete device: ${error.message}`);
+    },
+  });
 
   const isLoading = isLoadingHome || isLoadingRooms;
 
@@ -217,44 +265,14 @@ function HomeDetailPage() {
           ) : (
             <div className="flex flex-wrap gap-4">
               {rooms.map((room) => (
-                <div key={room.id} className="relative group">
-                  <RoomBlock
-                    room={room}
-                    onClick={() => handleAddDevice(room.id)}
-                    isSelected={selectedRoom?.id === room.id}
-                  />
-
-                  {/* Delete button */}
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        variant="destructive"
-                        size="icon"
-                        className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Room?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This will delete "{room.name}" and all devices in it.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={() => deleteRoomMutation.mutate(room.id)}
-                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                        >
-                          Delete
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
+                <RoomBlock
+                  key={room.id}
+                  room={room}
+                  onClick={() => handleAddDevice(room.id)}
+                  isSelected={selectedRoom?.id === room.id}
+                  onRename={() => setRoomToRename(room)}
+                  onDelete={() => setRoomToDelete(room)}
+                />
               ))}
             </div>
           )}
@@ -284,6 +302,8 @@ function HomeDetailPage() {
                     setSelectedDeviceId(device.id);
                     setIsDeviceDrawerOpen(true);
                   }}
+                  onRename={() => setDeviceToRename(device)}
+                  onDelete={() => setDeviceToDelete(device)}
                 />
               ))}
             </div>
@@ -324,6 +344,93 @@ function HomeDetailPage() {
           }}
         />
       )}
+
+      {/* Rename Room Dialog */}
+      <RenameDialog
+        open={!!roomToRename}
+        onOpenChange={(open) => !open && setRoomToRename(null)}
+        currentName={roomToRename?.name || ""}
+        title="Rename Room"
+        description="Enter a new name for this room."
+        onSave={(newName) =>
+          roomToRename &&
+          renameRoomMutation.mutate({ id: roomToRename.id, name: newName })
+        }
+        isPending={renameRoomMutation.isPending}
+      />
+
+      {/* Rename Device Dialog */}
+      <RenameDialog
+        open={!!deviceToRename}
+        onOpenChange={(open) => !open && setDeviceToRename(null)}
+        currentName={deviceToRename?.name || ""}
+        title="Rename Device"
+        description="Enter a new name for this device."
+        onSave={(newName) =>
+          deviceToRename &&
+          renameDeviceMutation.mutate({
+            type: deviceToRename.type as DeviceType,
+            id: deviceToRename.id,
+            name: newName,
+          })
+        }
+        isPending={renameDeviceMutation.isPending}
+      />
+
+      {/* Delete Room Confirmation */}
+      <AlertDialog
+        open={!!roomToDelete}
+        onOpenChange={(open) => !open && setRoomToDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Room?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will delete "{roomToDelete?.name}" and all devices in it.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() =>
+                roomToDelete && deleteRoomMutation.mutate(roomToDelete.id)
+              }
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteRoomMutation.isPending}
+            >
+              {deleteRoomMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Device Confirmation */}
+      <AlertDialog
+        open={!!deviceToDelete}
+        onOpenChange={(open) => !open && setDeviceToDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Device?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete "{deviceToDelete?.name}". This action
+              cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() =>
+                deviceToDelete && deleteDeviceMutation.mutate(deviceToDelete)
+              }
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteDeviceMutation.isPending}
+            >
+              {deleteDeviceMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

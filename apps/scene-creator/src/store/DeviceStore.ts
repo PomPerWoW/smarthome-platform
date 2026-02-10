@@ -1,6 +1,7 @@
 import { createStore } from "zustand/vanilla";
 import { subscribeWithSelector } from "zustand/middleware";
 import { BackendApiClient, getApiClient } from "../api/BackendApiClient";
+import { mapRawDeviceToDevice } from "../api/deviceMapper";
 import {
   Device,
   DeviceType,
@@ -22,15 +23,15 @@ interface DeviceState {
   // Actions
   loadAllData: () => Promise<void>;
   refreshDevices: () => Promise<void>;
+  refreshSingleDevice: (deviceId: string) => Promise<void>;
+  handleDeviceUpdate: (rawDevice: any) => void;
   toggleDevice: (deviceId: string, on?: boolean) => Promise<void>;
   updateDevicePosition: (
     deviceId: string,
     x: number,
     y: number,
     z: number,
-    rx?: number,
-    ry?: number,
-    rz?: number,
+    rotationY?: number,
   ) => Promise<void>;
   updateLightbulb: (
     deviceId: string,
@@ -115,6 +116,87 @@ export const deviceStore = createStore<DeviceState>()(
       }
     },
 
+    refreshSingleDevice: async (deviceId) => {
+      try {
+        console.log(`[Store] Refreshing single device: ${deviceId}`);
+        const updatedDevice = await api.getDevice(deviceId);
+
+        set((state) => {
+          const existingIndex = state.devices.findIndex(
+            (d) => d.id === deviceId,
+          );
+
+          if (existingIndex >= 0) {
+            const existingDevice = state.devices[existingIndex];
+            // Preserve position from existing device if updated device has default position
+            const mergedDevice = {
+              ...updatedDevice,
+              position:
+                updatedDevice.position[0] !== 0 ||
+                updatedDevice.position[1] !== 0 ||
+                updatedDevice.position[2] !== 0
+                  ? updatedDevice.position
+                  : existingDevice.position,
+            };
+
+            const newDevices = [...state.devices];
+            newDevices[existingIndex] = mergedDevice;
+            console.log(`[Store] Updated device ${deviceId}:`, mergedDevice);
+            return { devices: newDevices };
+          } else {
+            // New device, add it
+            console.log(`[Store] Added new device ${deviceId}`);
+            return { devices: [...state.devices, updatedDevice] };
+          }
+        });
+      } catch (err) {
+        console.error(`[Store] Failed to refresh device ${deviceId}:`, err);
+      }
+    },
+
+    handleDeviceUpdate: (rawDevice) => {
+      try {
+        console.log("[Store] Handling real-time device update:", rawDevice);
+        const updatedDevice = mapRawDeviceToDevice(rawDevice);
+
+        set((state) => {
+          const existingIndex = state.devices.findIndex(
+            (d) => d.id === updatedDevice.id,
+          );
+
+          if (existingIndex >= 0) {
+            // Update existing device, preserving position if not provided
+            const existingDevice = state.devices[existingIndex];
+            const mergedDevice = {
+              ...existingDevice,
+              ...updatedDevice,
+              // Preserve position if the update doesn't include it
+              position:
+                updatedDevice.position[0] !== 0 ||
+                updatedDevice.position[1] !== 0 ||
+                updatedDevice.position[2] !== 0
+                  ? updatedDevice.position
+                  : existingDevice.position,
+            };
+
+            const newDevices = [...state.devices];
+            newDevices[existingIndex] = mergedDevice;
+            console.log(
+              `[Store] Updated device ${updatedDevice.id}:`,
+              mergedDevice,
+            );
+            return { devices: newDevices };
+          } else {
+            // Add new device
+            console.log(`[Store] Added new device ${updatedDevice.id}`);
+            return { devices: [...state.devices, updatedDevice] };
+          }
+        });
+      } catch (err) {
+        console.error("[Store] Failed to handle device update:", err);
+      }
+    },
+
     toggleDevice: async (deviceId, on) => {
       try {
         const device = get().getDeviceById(deviceId);
@@ -138,23 +220,20 @@ export const deviceStore = createStore<DeviceState>()(
       }
     },
 
-    updateDevicePosition: async (deviceId, x, y, z, rx, ry, rz) => {
+    updateDevicePosition: async (deviceId, x, y, z, rotationY) => {
       try {
         console.log(`[Store] Updating position for device ${deviceId}:`, {
           x,
           y,
           z,
-          rx,
-          ry,
-          rz,
+          rotationY,
         });
-        const updated = await api.setDevicePosition(
-          deviceId,
-          { x, y, z },
-          rx !== undefined && ry !== undefined && rz !== undefined
-            ? { x: rx, y: ry, z: rz }
-            : undefined,
-        );
+        const updated = await api.setDevicePosition(deviceId, {
+          x: x,
+          y: y,
+          z: z,
+          rotation_y: rotationY,
+        });
         set((state) => ({
           devices: state.devices.map((d) => (d.id === deviceId ? updated : d)),
         }));
