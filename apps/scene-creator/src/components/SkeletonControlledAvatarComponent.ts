@@ -21,5 +21,7 @@ export const SkeletonControlledAvatarComponent = createComponent("SkeletonContro
 
     // Position tracking
     baseY: { type: Types.Float32, default: 0 },
+
+    // Camera follow (optional for later)
     isSelected: { type: Types.Boolean, default: false },
 });
