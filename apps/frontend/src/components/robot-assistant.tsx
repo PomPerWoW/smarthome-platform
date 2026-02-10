@@ -3,7 +3,7 @@ import { useGLTF, Environment } from "@react-three/drei";
 import { useRef, Suspense } from "react";
 import * as THREE from "three";
 
-const AVATAR_URL = "/models/avatar/assistant/robot.glb";
+const AVATAR_URL = "/models/avatar/assistant/robot_2D.glb";
 
 function RobotAssistantComponent() {
   const groupRef = useRef<THREE.Group>(null);
