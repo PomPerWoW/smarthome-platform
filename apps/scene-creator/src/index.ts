@@ -15,11 +15,13 @@ import { getStore } from "./store/DeviceStore";
 import { DeviceComponent } from "./components/DeviceComponent";
 import { UserControlledAvatarComponent } from "./components/UserControlledAvatarComponent";
 import { SkeletonControlledAvatarComponent } from "./components/SkeletonControlledAvatarComponent";
+import { RobotAssistantComponent } from "./components/RobotAssistantComponent";
 import { DeviceRendererSystem } from "./systems/DeviceRendererSystem";
 import { DeviceInteractionSystem } from "./systems/DeviceInteractionSystem";
 import { UserControlledAvatarSystem } from "./systems/UserControlledAvatarSystem";
 import { RPMUserControlledAvatarSystem } from "./systems/RPMUserControlledAvatarSystem";
 import { SkeletonControlledAvatarSystem } from "./systems/SkeletonControlledAvatarSystem";
+import { RobotAssistantSystem } from "./systems/RobotAssistantSystem";
 import { PanelSystem } from "./ui/panel";
 import { LightbulbPanelSystem } from "./ui/LightbulbPanelSystem";
 import { TelevisionPanelSystem } from "./ui/TelevisionPanelSystem";
@@ -83,6 +85,11 @@ const assets: AssetManifest = {
   },
   rpmClip_model: {
     url: "/models/avatar/resident/RPM_clip.glb",
+    type: AssetType.GLTF,
+    priority: "critical",
+  },
+  robot_assistant: {
+    url: "/models/avatar/assistant/robot_3D_scene.glb",
     type: AssetType.GLTF,
     priority: "critical",
   },
@@ -162,11 +169,13 @@ async function main(): Promise<void> {
     .registerComponent(DeviceComponent)
     .registerComponent(UserControlledAvatarComponent)
     .registerComponent(SkeletonControlledAvatarComponent)
+    .registerComponent(RobotAssistantComponent)
     .registerSystem(DeviceRendererSystem)
     .registerSystem(DeviceInteractionSystem)
     .registerSystem(UserControlledAvatarSystem)
     .registerSystem(RPMUserControlledAvatarSystem)
     .registerSystem(SkeletonControlledAvatarSystem)
+    .registerSystem(RobotAssistantSystem)
     .registerSystem(PanelSystem)
     .registerSystem(LightbulbPanelSystem)
     .registerSystem(TelevisionPanelSystem)
@@ -233,7 +242,7 @@ async function main(): Promise<void> {
 
   // 1) RPM (Ready Player Me with clip-based) – lip sync available
   const rpmAvatarSystem = world.getSystem(RPMUserControlledAvatarSystem);
-  let setLipSyncEnabled: (enabled: boolean) => void = () => {};
+  let setLipSyncEnabled: (enabled: boolean) => void = () => { };
   if (rpmAvatarSystem) {
     await rpmAvatarSystem.createRPMUserControlledAvatar("player1", "RPM Avatar", "rpmClip_model", [-0.6, 0, -1.5]);
     registerAvatar(rpmAvatarSystem as ControllableAvatarSystem, "player1", "RPM Avatar");
@@ -257,6 +266,13 @@ async function main(): Promise<void> {
     console.log("✅ Soldier avatar (soldier_model)");
   }
 
+  // 4) Robot Assistant
+  const robotAssistantSystem = world.getSystem(RobotAssistantSystem);
+  if (robotAssistantSystem) {
+    await robotAssistantSystem.createRobotAssistant("robot1", "Robot Assistant", "robot_assistant", [0.6, 0, -1.5]);
+    console.log("✅ Robot Assistant (robot_3D_scene.glb) - autonomous behavior");
+  }
+
   setupAvatarSwitcherPanel();
   setOnAvatarSwitch((entry) => {
     if (entry?.avatarId !== "player1" && rpmAvatarSystem) {
@@ -269,7 +285,7 @@ async function main(): Promise<void> {
   console.log("🎮 Controls: I/K/J/L = Move, Shift = Run, SPACE = Jump. O = switch avatar (when 2+ avatars).");
 
   console.log("\n🚀 SmartHome Platform Scene Creator ready!");
-  
+
   console.log("───────────────────────────────────");
   console.log(`   👤 User: ${user?.email}`);
   console.log(`   📱 Devices: ${store.getDeviceCount()}`);
