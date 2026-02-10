@@ -8,19 +8,23 @@ import {
     LoopOnce,
 } from "@iwsdk/core";
 
-import { Box3, SkinnedMesh } from "three";
+import { Quaternion, SkinnedMesh, Vector3 } from "three";
 import { SkeletonUtils } from "three-stdlib";
 import { RobotAssistantComponent } from "../components/RobotAssistantComponent";
-import { getRoomBounds } from "../config/navmesh";
+import { clampToWalkableArea, getRoomBounds } from "../config/navmesh";
 
 // ============================================================================
 // CONFIG
 // ============================================================================
 
 const FADE_DURATION = 0.2;
+const WALK_VELOCITY = 0.5; // Slower than user-controlled avatars
+const ROTATE_SPEED = 0.15; // Rotation speed for turning
+const WAYPOINT_REACH_DISTANCE = 0.5; // How close to get to waypoint before picking new one
+const WAYPOINT_INTERVAL = 8.0; // Pick new waypoint every 8-12 seconds
 
 // Animation categories from the Three.js example
-const STATES = ["Idle", "Walking", "Running", "Dance", "Death", "Sitting", "Standing"];
+const STATES = ["Idle", "Walking", "Dance", "Death", "Sitting", "Standing"];
 const EMOTES = ["Jump", "Yes", "No", "Wave", "Punch", "ThumbsUp"];
 
 // ============================================================================
@@ -34,7 +38,12 @@ interface RobotAssistantRecord {
     animationsMap: Map<string, AnimationAction>;
     currentAction: string;
     headMesh: SkinnedMesh | null;
+    // Movement state
+    walkDirection: Vector3;
+    rotateAngle: Vector3;
+    rotateQuaternion: Quaternion;
 }
+
 
 // ============================================================================
 // ROBOT ASSISTANT SYSTEM
@@ -180,12 +189,22 @@ export class RobotAssistantSystem extends createSystem({
 
             // Create entity
             const entity = this.world.createTransformEntity(robotModel);
+
+            // Pick initial random waypoint within room
+            const bounds = getRoomBounds();
+            const targetX = bounds ? (bounds.minX + Math.random() * (bounds.maxX - bounds.minX)) : (finalX + (Math.random() - 0.5) * 4);
+            const targetZ = bounds ? (bounds.minZ + Math.random() * (bounds.maxZ - bounds.minZ)) : (finalZ + (Math.random() - 0.5) * 4);
+
             entity.addComponent(RobotAssistantComponent, {
                 robotId,
                 robotName,
                 baseY: finalY,
                 currentState: "Walking",
                 nextTransitionTime: 5.0 + Math.random() * 5.0,
+                targetX,
+                targetZ,
+                hasReachedTarget: false,
+                nextWaypointTime: this.timeElapsed + WAYPOINT_INTERVAL + Math.random() * 4.0,
             });
 
             // Start with Walking animation
@@ -201,6 +220,9 @@ export class RobotAssistantSystem extends createSystem({
                 animationsMap,
                 currentAction: "Walking",
                 headMesh,
+                walkDirection: new Vector3(),
+                rotateAngle: new Vector3(0, 1, 0),
+                rotateQuaternion: new Quaternion(),
             };
             this.robotRecords.set(robotId, record);
 
@@ -242,6 +264,101 @@ export class RobotAssistantSystem extends createSystem({
             const entity = record.entity;
             const nextTransitionTime = entity.getValue(RobotAssistantComponent, "nextTransitionTime") as number;
             const currentState = entity.getValue(RobotAssistantComponent, "currentState") as string;
+            const targetX = entity.getValue(RobotAssistantComponent, "targetX") as number;
+            const targetZ = entity.getValue(RobotAssistantComponent, "targetZ") as number;
+            const hasReachedTarget = entity.getValue(RobotAssistantComponent, "hasReachedTarget") as boolean;
+            const nextWaypointTime = entity.getValue(RobotAssistantComponent, "nextWaypointTime") as number;
+            const moveSpeed = entity.getValue(RobotAssistantComponent, "moveSpeed") as number;
+
+            // Calculate movement intention
+            let shouldMove = false;
+            let distanceToTarget = 0;
+
+            if (currentState === "Walking" || currentState === "Idle") {
+                const dx = targetX - record.model.position.x;
+                const dz = targetZ - record.model.position.z;
+                distanceToTarget = Math.sqrt(dx * dx + dz * dz);
+                shouldMove = distanceToTarget > WAYPOINT_REACH_DISTANCE;
+            }
+
+            // Auto-switch animation BEFORE movement to prevent sliding
+            // Only switch if not playing emotes or special animations
+            const isEmote = EMOTES.includes(currentState);
+            const isSpecialState = ["Dance", "Death", "Sitting", "Standing"].includes(currentState);
+
+            if (!isEmote && !isSpecialState) {
+                if (shouldMove && currentState === "Idle") {
+                    // About to start moving - switch to Walking FIRST
+                    this.fadeToAction(record, "Walking", FADE_DURATION);
+                    entity.setValue(RobotAssistantComponent, "currentState", "Walking");
+                    console.log(`[RobotAssistant] 🚶 Auto-switched to Walking (about to move)`);
+                } else if (!shouldMove && currentState === "Walking") {
+                    // Not moving - switch to Idle
+                    this.fadeToAction(record, "Idle", FADE_DURATION);
+                    entity.setValue(RobotAssistantComponent, "currentState", "Idle");
+                    console.log(`[RobotAssistant] 🧍 Auto-switched to Idle (stopped)`);
+                }
+            }
+
+            // Now perform actual movement (animation is already correct)
+            // The robot should rotate and move if its current state is Walking,
+            // or just rotate if its current state is Idle but it's about to move.
+            if (shouldMove) {
+                const dx = targetX - record.model.position.x;
+                const dz = targetZ - record.model.position.z;
+                // Recalculate distanceToTarget as currentState might have changed
+                const currentDistanceToTarget = Math.sqrt(dx * dx + dz * dz);
+
+                if (currentDistanceToTarget > WAYPOINT_REACH_DISTANCE) {
+                    // Normalize direction
+                    record.walkDirection.set(dx / currentDistanceToTarget, 0, dz / currentDistanceToTarget);
+
+                    // Calculate target rotation
+                    const targetAngle = Math.atan2(dx, dz);
+                    record.rotateQuaternion.setFromAxisAngle(record.rotateAngle, targetAngle);
+
+                    // Smoothly rotate toward target
+                    (record.model as any).quaternion.rotateTowards(record.rotateQuaternion, ROTATE_SPEED);
+
+                    // Move forward (only if in Walking state)
+                    if (entity.getValue(RobotAssistantComponent, "currentState") === "Walking") {
+                        const moveX = record.walkDirection.x * WALK_VELOCITY * dt;
+                        const moveZ = record.walkDirection.z * WALK_VELOCITY * dt;
+
+                        record.model.position.x += moveX;
+                        record.model.position.z += moveZ;
+
+                        // Clamp to walkable area
+                        const [clampedX, clampedZ] = clampToWalkableArea(
+                            record.model.position.x,
+                            record.model.position.z
+                        );
+                        record.model.position.x = clampedX;
+                        record.model.position.z = clampedZ;
+                    }
+
+                    entity.setValue(RobotAssistantComponent, "hasReachedTarget", false);
+                }
+            } else if (!hasReachedTarget) {
+                // Reached waypoint - stop moving
+                entity.setValue(RobotAssistantComponent, "hasReachedTarget", true);
+                console.log(`[RobotAssistant] 📍 Reached waypoint (${targetX.toFixed(2)}, ${targetZ.toFixed(2)})`);
+            }
+
+            // Pick new waypoint periodically
+            if (this.timeElapsed >= nextWaypointTime) {
+                const bounds = getRoomBounds();
+                const newTargetX = bounds ? (bounds.minX + Math.random() * (bounds.maxX - bounds.minX)) : (record.model.position.x + (Math.random() - 0.5) * 4);
+                const newTargetZ = bounds ? (bounds.minZ + Math.random() * (bounds.maxZ - bounds.minZ)) : (record.model.position.z + (Math.random() - 0.5) * 4);
+
+                entity.setValue(RobotAssistantComponent, "targetX", newTargetX);
+                entity.setValue(RobotAssistantComponent, "targetZ", newTargetZ);
+                entity.setValue(RobotAssistantComponent, "hasReachedTarget", false);
+                entity.setValue(RobotAssistantComponent, "nextWaypointTime", this.timeElapsed + WAYPOINT_INTERVAL + Math.random() * 4.0);
+
+                console.log(`[RobotAssistant] 🎯 New waypoint: (${newTargetX.toFixed(2)}, ${newTargetZ.toFixed(2)})`);
+            }
+
 
             // Check if it's time for a random transition
             if (this.timeElapsed >= nextTransitionTime) {
