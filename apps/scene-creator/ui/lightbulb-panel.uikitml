@@ -325,6 +325,22 @@
         <button class="color-btn color-pink" id="color-ec4899"></button>
       </div>
     </div>
+
+    <!-- Position Control -->
+    <div class="control-row">
+      <div>
+        <MoveIcon class="control-icon" />
+      </div>
+      <span class="control-label">Position</span>
+      <div class="brightness-container">
+        <button class="brightness-btn" id="get-position-btn" style="width: 8; background-color: #3f3f46;">
+          <span style="font-size: 1.4; color: #fafafa;">Get</span>
+        </button>
+        <button class="brightness-btn" id="save-position-btn" style="width: 8; background-color: #3f3f46;">
+          <span style="font-size: 1.4; color: #fafafa;">Save</span>
+        </button>
+      </div>
+    </div>
   </div>
 
   <!-- Status Footer -->

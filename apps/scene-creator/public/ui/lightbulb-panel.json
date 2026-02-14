@@ -447,6 +447,112 @@
               "class": "color-section"
             },
             "dataUid": "uid-32"
+          },
+          {
+            "type": "container",
+            "sourceTag": "div",
+            "children": [
+              {
+                "type": "container",
+                "sourceTag": "div",
+                "children": [
+                  {
+                    "sourceTag": "moveicon",
+                    "type": "custom",
+                    "children": [],
+                    "properties": {
+                      "class": "control-icon"
+                    },
+                    "dataUid": "uid-50"
+                  }
+                ],
+                "properties": {},
+                "dataUid": "uid-49"
+              },
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "Position"
+                ],
+                "properties": {
+                  "class": "control-label"
+                },
+                "dataUid": "uid-51"
+              },
+              {
+                "type": "container",
+                "sourceTag": "div",
+                "children": [
+                  {
+                    "sourceTag": "button",
+                    "type": "custom",
+                    "children": [
+                      {
+                        "sourceTag": "span",
+                        "type": "custom",
+                        "children": [
+                          "Get"
+                        ],
+                        "properties": {
+                          "style": {
+                            "fontSize": "1.4",
+                            "color": "#fafafa"
+                          }
+                        },
+                        "dataUid": "uid-54"
+                      }
+                    ],
+                    "properties": {
+                      "class": "brightness-btn",
+                      "id": "get-position-btn",
+                      "style": {
+                        "width": "8",
+                        "backgroundColor": "#3f3f46"
+                      }
+                    },
+                    "dataUid": "uid-53"
+                  },
+                  {
+                    "sourceTag": "button",
+                    "type": "custom",
+                    "children": [
+                      {
+                        "sourceTag": "span",
+                        "type": "custom",
+                        "children": [
+                          "Save"
+                        ],
+                        "properties": {
+                          "style": {
+                            "fontSize": "1.4",
+                            "color": "#fafafa"
+                          }
+                        },
+                        "dataUid": "uid-56"
+                      }
+                    ],
+                    "properties": {
+                      "class": "brightness-btn",
+                      "id": "save-position-btn",
+                      "style": {
+                        "width": "8",
+                        "backgroundColor": "#3f3f46"
+                      }
+                    },
+                    "dataUid": "uid-55"
+                  }
+                ],
+                "properties": {
+                  "class": "brightness-container"
+                },
+                "dataUid": "uid-52"
+              }
+            ],
+            "properties": {
+              "class": "control-row"
+            },
+            "dataUid": "uid-48"
           }
         ],
         "properties": {
@@ -466,7 +572,7 @@
               "class": "status-dot",
               "id": "status-dot"
             },
-            "dataUid": "uid-49"
+            "dataUid": "uid-58"
           },
           {
             "sourceTag": "span",
@@ -478,13 +584,13 @@
               "class": "status-text",
               "id": "status-text"
             },
-            "dataUid": "uid-50"
+            "dataUid": "uid-59"
           }
         ],
         "properties": {
           "class": "status-section"
         },
-        "dataUid": "uid-48"
+        "dataUid": "uid-57"
       }
     ],
     "properties": {
@@ -1241,7 +1347,7 @@
         "column": 0
       },
       "end": {
-        "line": 334,
+        "line": 350,
         "column": 6
       }
     },
@@ -1331,7 +1437,7 @@
         "column": 2
       },
       "end": {
-        "line": 327,
+        "line": 343,
         "column": 8
       }
     },
@@ -1707,31 +1813,121 @@
     },
     "uid-48": {
       "start": {
-        "line": 330,
-        "column": 2
+        "line": 329,
+        "column": 4
       },
       "end": {
-        "line": 333,
-        "column": 8
+        "line": 342,
+        "column": 10
       }
     },
     "uid-49": {
       "start": {
-        "line": 331,
-        "column": 4
+        "line": 330,
+        "column": 6
       },
       "end": {
-        "line": 331,
-        "column": 50
+        "line": 332,
+        "column": 12
       }
     },
     "uid-50": {
       "start": {
-        "line": 332,
-        "column": 4
+        "line": 331,
+        "column": 8
       },
       "end": {
         "line": 332,
+        "column": 6
+      }
+    },
+    "uid-51": {
+      "start": {
+        "line": 333,
+        "column": 6
+      },
+      "end": {
+        "line": 333,
+        "column": 49
+      }
+    },
+    "uid-52": {
+      "start": {
+        "line": 334,
+        "column": 6
+      },
+      "end": {
+        "line": 341,
+        "column": 12
+      }
+    },
+    "uid-53": {
+      "start": {
+        "line": 335,
+        "column": 8
+      },
+      "end": {
+        "line": 337,
+        "column": 17
+      }
+    },
+    "uid-54": {
+      "start": {
+        "line": 336,
+        "column": 10
+      },
+      "end": {
+        "line": 336,
+        "column": 66
+      }
+    },
+    "uid-55": {
+      "start": {
+        "line": 338,
+        "column": 8
+      },
+      "end": {
+        "line": 340,
+        "column": 17
+      }
+    },
+    "uid-56": {
+      "start": {
+        "line": 339,
+        "column": 10
+      },
+      "end": {
+        "line": 339,
+        "column": 67
+      }
+    },
+    "uid-57": {
+      "start": {
+        "line": 346,
+        "column": 2
+      },
+      "end": {
+        "line": 349,
+        "column": 8
+      }
+    },
+    "uid-58": {
+      "start": {
+        "line": 347,
+        "column": 4
+      },
+      "end": {
+        "line": 347,
+        "column": 50
+      }
+    },
+    "uid-59": {
+      "start": {
+        "line": 348,
+        "column": 4
+      },
+      "end": {
+        "line": 348,
         "column": 56
       }
     }
