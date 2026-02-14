@@ -1,3 +1,5 @@
+import fs from "fs";
+import path from "path";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
@@ -5,8 +7,12 @@ import react from "@vitejs/plugin-react";
 export default defineConfig({
   plugins: [react()],
   server: {
-    allowedHosts: ["turing.se.kmitl.ac.th"],
+    allowedHosts: ["turing.se.kmitl.ac.th", "172.27.37.50", "localhost"],
     port: 5174,
     host: true,
+    https: {
+      key: fs.readFileSync(path.resolve(__dirname, "./certs/key.pem")),
+      cert: fs.readFileSync(path.resolve(__dirname, "./certs/cert.pem")),
+    },
   },
 });

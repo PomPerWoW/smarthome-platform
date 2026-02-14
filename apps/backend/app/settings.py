@@ -20,7 +20,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 def load_env_file():
     """Load environment variables from .env file"""
-    env_file = BASE_DIR / ".env"
+    env_file_name = os.environ.get("ENV_FILE", ".env")
+    env_file = BASE_DIR / env_file_name
     if env_file.exists():
         with open(env_file, "r") as f:
             for line in f:

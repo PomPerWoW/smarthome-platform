@@ -176,4 +176,4 @@ data/
 .tern-port
 .vscode-test/
 .cert/
-apps/backend/certs/
+apps/*/certs/
