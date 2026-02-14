@@ -12,6 +12,9 @@ export class VoiceControlSystem {
     | ((status: "listening" | "processing" | "idle") => void)
     | null = null;
 
+  // New: Transcript callback
+  private onTranscript: ((text: string) => void) | null = null;
+
   // Silence detection
   private audioContext: any = null;
   private analyser: any = null;
@@ -59,12 +62,19 @@ export class VoiceControlSystem {
     this.onStatusChange = callback;
   }
 
+  public setTranscriptListener(callback: (text: string) => void) {
+    this.onTranscript = callback;
+  }
+
   private setupListeners() {
     if (!this.recognition) return;
 
     this.recognition.onresult = async (event: any) => {
       const transcript = event.results[0][0].transcript;
       console.log("Voice Command:", transcript);
+
+      // Notify transcript
+      if (this.onTranscript) this.onTranscript(transcript);
 
       if (this.onStatusChange) this.onStatusChange("processing");
 
@@ -139,6 +149,11 @@ export class VoiceControlSystem {
             await BackendApiClient.getInstance().sendVoiceAudio(audioBlob, true);
 
           console.log("[VoiceControl] Transcribed:", transcript);
+
+          // Notify transcript
+          if (this.onTranscript && transcript) {
+            this.onTranscript(transcript);
+          }
 
           if (command_result) {
             console.log("[VoiceControl] Command Executed:", command_result);

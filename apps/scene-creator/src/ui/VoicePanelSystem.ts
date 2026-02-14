@@ -5,10 +5,10 @@ import {
   eq,
   UIKitDocument,
   UIKit,
+  Object3D,
 } from "@iwsdk/core";
 
 import { VoiceControlSystem } from "../systems/VoiceControlSystem";
-import { Object3D, Vector3, Quaternion } from "three";
 
 export class VoicePanelSystem extends createSystem({
   voicePanel: {
@@ -16,26 +16,25 @@ export class VoicePanelSystem extends createSystem({
     where: [eq(PanelUI, "config", "./ui/voice_panel.json")],
   },
 }) {
-  private voiceSystem: VoiceControlSystem;
+  private voiceSystem!: VoiceControlSystem;
   private currentStatus: "listening" | "processing" | "idle" = "idle";
 
-  // Follow logic
-  private targetPosition = new Vector3();
-  private currentPosition = new Vector3();
-  private tempVec = new Vector3();
-  private tempQuat = new Quaternion();
+  // Follow logic - store reference to the panel's Object3D
+  private panelObject3D: any = null;
 
-  constructor(world: any) {
-    super(world);
-    this.voiceSystem = VoiceControlSystem.getInstance();
-  }
+  // Status reset timer
+  private resetStatusTimeout: any = null;
 
   init() {
+    this.voiceSystem = VoiceControlSystem.getInstance();
     this.queries.voicePanel.subscribe("qualify", (entity) => {
       const document = PanelDocument.data.document[
         entity.index
       ] as UIKitDocument;
       if (!document) return;
+
+      // Store the Object3D reference for follow behavior
+      this.panelObject3D = entity.object3D;
 
       const micButton = document.getElementById("mic-button") as UIKit.Container;
       const statusText = document.getElementById("voice-status") as UIKit.Text;
@@ -48,6 +47,20 @@ export class VoicePanelSystem extends createSystem({
         });
       }
 
+      this.voiceSystem.setTranscriptListener((text) => {
+        if (statusText) {
+          statusText.setProperties({ text: `"${text}"` });
+
+          // Reset to default after 3 seconds
+          if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
+          this.resetStatusTimeout = setTimeout(() => {
+            if (this.currentStatus === "idle") {
+              statusText.setProperties({ text: "Say 'Turn on...'" });
+            }
+          }, 3000);
+        }
+      });
+
       this.voiceSystem.setStatusListener((status) => {
         this.currentStatus = status;
 
@@ -55,12 +68,18 @@ export class VoicePanelSystem extends createSystem({
           if (status === "listening") {
             micButton.setProperties({ backgroundColor: "#ef4444" }); // Red
             statusText.setProperties({ text: "Listening..." });
+            // Clear any old timeout
+            if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
           } else if (status === "processing") {
             micButton.setProperties({ backgroundColor: "#eab308" }); // Yellow/Orange
             statusText.setProperties({ text: "Processing..." });
           } else {
             micButton.setProperties({ backgroundColor: "#2563eb" }); // Blue
-            statusText.setProperties({ text: "Say 'Turn on...'" });
+            // If we just finished (idle), don't immediately overwrite the transcript
+            // The transcript listener will handle showing the result, then resetting
+            if (!this.resetStatusTimeout) {
+              statusText.setProperties({ text: "Say 'Turn on...'" });
+            }
           }
         }
       });
@@ -70,35 +89,39 @@ export class VoicePanelSystem extends createSystem({
     });
   }
 
-  execute(delta: number) {
-    this.queries.voicePanel.forEach((entity) => {
-      const object3D = entity.getComponent(Object3D);
-      const camera = this.world.camera;
+  update(dt: number) {
+    if (!this.panelObject3D) return;
 
-      if (object3D && camera) {
-        // Calculate target position: 0.4m in front of camera, 0.2m down
-        this.targetPosition.copy(camera.position);
+    const camera = this.world.camera;
+    if (!camera) return;
 
-        // forward vector
-        camera.getWorldDirection(this.tempVec);
-        this.tempVec.y = 0; // Flatten the forward vector
-        this.tempVec.normalize();
+    // Calculate target position: 0.4m in front of camera, slightly lower
+    const camDir = camera.getWorldDirection(new Object3D().position.clone().set(0, 0, 0));
+    camDir.y = 0; // Flatten the forward vector
+    camDir.normalize();
 
-        // Offset
-        this.targetPosition.addScaledVector(this.tempVec, 0.4);
-        this.targetPosition.y -= 0.15; // Slightly lower
+    const targetX = camera.position.x + camDir.x * 0.4;
+    const targetY = camera.position.y - 0.15;
+    const targetZ = camera.position.z + camDir.z * 0.4;
 
-        // Lerp for smooth movement
-        // If distance is large (teleport), snap instantly
-        if (object3D.position.distanceTo(this.targetPosition) > 1.0) {
-          object3D.position.copy(this.targetPosition);
-        } else {
-          object3D.position.lerp(this.targetPosition, 5 * delta);
-        }
+    // Lerp for smooth movement
+    const dx = targetX - this.panelObject3D.position.x;
+    const dy = targetY - this.panelObject3D.position.y;
+    const dz = targetZ - this.panelObject3D.position.z;
+    const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
-        // Always face the camera
-        object3D.lookAt(camera.position);
-      }
-    });
+    if (dist > 1.0) {
+      // Snap if too far (e.g. teleport)
+      this.panelObject3D.position.set(targetX, targetY, targetZ);
+    } else {
+      const t = Math.min(1, 5 * dt);
+      this.panelObject3D.position.x += dx * t;
+      this.panelObject3D.position.y += dy * t;
+      this.panelObject3D.position.z += dz * t;
+    }
+
+    // Always face the camera
+    this.panelObject3D.lookAt(camera.position);
   }
 }
+
