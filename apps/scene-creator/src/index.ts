@@ -28,7 +28,8 @@ import { TelevisionPanelSystem } from "./ui/TelevisionPanelSystem";
 import { FanPanelSystem } from "./ui/FanPanelSystem";
 import { AirConditionerPanelSystem } from "./ui/AirConditionerPanelSystem";
 import { VoiceControlSystem } from "./systems/VoiceControlSystem";
-import { VoicePanel } from "./ui/VoicePanel";
+import { VoicePanelSystem } from "./ui/VoicePanelSystem";
+// import { VoicePanel } from "./ui/VoicePanel"; // Legacy DOM panel
 import { RoomScanningSystem } from "./systems/RoomScanningSystem";
 import { initializeNavMesh } from "./config/navmesh";
 import {
@@ -182,6 +183,7 @@ async function main(): Promise<void> {
     .registerSystem(FanPanelSystem)
     .registerSystem(AirConditionerPanelSystem)
     .registerSystem(RoomScanningSystem)
+    .registerSystem(VoicePanelSystem)
 
   console.log("✅ Systems registered");
 
@@ -202,6 +204,19 @@ async function main(): Promise<void> {
   welcomePanel.object3D!.position.set(0, 1.5, -0.8);
 
   console.log("✅ Welcome panel created");
+
+  // Voice Panel (3D)
+  const voice3DPanel = world
+    .createTransformEntity()
+    .addComponent(PanelUI, {
+      config: "./ui/voice_panel.json",
+      maxHeight: 0.2, // Small panel
+      maxWidth: 0.3,
+    })
+    .addComponent(Interactable); // No ScreenSpace, so it renders in 3D
+
+  voice3DPanel.object3D!.position.set(0, 1.4, -0.4); // Initial position
+  console.log("✅ Voice 3D Panel created");
 
   const store = getStore();
 
@@ -234,9 +249,8 @@ async function main(): Promise<void> {
   });
   console.log("✅ WebSocket connected for real-time updates");
 
-  const voiceSystem = new VoiceControlSystem();
-  new VoicePanel(voiceSystem);
-  console.log("✅ Voice Control System initialized");
+  // VoiceControlSystem is now a singleton managed by VoicePanelSystem
+  console.log("✅ Voice Control System initialized (Singleton)");
 
   setAvatarSwitcherCamera(camera);
 

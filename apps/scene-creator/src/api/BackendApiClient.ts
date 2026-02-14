@@ -12,7 +12,7 @@ import {
 export class BackendApiClient {
   private static instance: BackendApiClient;
 
-  private constructor() {}
+  private constructor() { }
 
   static getInstance(): BackendApiClient {
     if (!BackendApiClient.instance) {
@@ -174,6 +174,22 @@ export class BackendApiClient {
   async sendVoiceCommand(command: string): Promise<any> {
     const response = await api.post<any>("/api/homes/voice/command/", {
       command,
+    });
+    return response.data;
+  }
+
+  async sendVoiceAudio(
+    blob: Blob,
+    execute: boolean = false,
+  ): Promise<{ transcript: string; command_result?: any }> {
+    const formData = new FormData();
+    formData.append("audio", blob, "recording.webm");
+    formData.append("execute", execute.toString());
+    const response = await api.post<{
+      transcript: string;
+      command_result?: any;
+    }>("/api/homes/voice/transcribe/", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
     });
     return response.data;
   }

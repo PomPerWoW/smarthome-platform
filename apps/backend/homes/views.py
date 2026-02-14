@@ -443,3 +443,61 @@ class VoiceCommandViewSet(viewsets.ViewSet):
         result = service.process_voice_command(request.user, command_text)
         
         return Response(result)
+
+    @action(detail=False, methods=['post'])
+    def transcribe(self, request):
+        """
+        Accepts an audio file upload and transcribes it using Groq Whisper API.
+        Used as a fallback for browsers that don't support Web Speech API (e.g. Meta Quest 3).
+        """
+        import os
+        import tempfile
+
+        audio_file = request.FILES.get('audio')
+        if not audio_file:
+            return Response({"error": "Audio file is required."}, status=400)
+
+        should_execute = request.data.get('execute', 'false').lower() == 'true'
+
+        try:
+            from groq import Groq
+            api_key = os.getenv("GROQ_API_KEY")
+            if not api_key:
+                return Response({"error": "Groq API key not configured."}, status=500)
+
+            client = Groq(api_key=api_key)
+
+            # Write uploaded audio to a temp file (Groq SDK needs a file path)
+            ext = os.path.splitext(audio_file.name)[1] if audio_file.name else '.webm'
+            with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
+                for chunk in audio_file.chunks():
+                    tmp.write(chunk)
+                tmp_path = tmp.name
+
+            try:
+                with open(tmp_path, "rb") as f:
+                    transcription = client.audio.transcriptions.create(
+                        model="whisper-large-v3-turbo",
+                        file=("audio" + ext, f),
+                        language="en",
+                    )
+                transcript = transcription.text.strip()
+            finally:
+                os.unlink(tmp_path)
+
+            if not transcript:
+                return Response({"error": "Could not transcribe audio."}, status=400)
+
+            response_data = {"transcript": transcript}
+
+            if should_execute:
+                service = VoiceAssistantService()
+                command_result = service.process_voice_command(request.user, transcript)
+                response_data["command_result"] = command_result
+
+            return Response(response_data)
+
+        except ImportError:
+            return Response({"error": "groq package not installed."}, status=500)
+        except Exception as e:
+            return Response({"error": f"Transcription failed: {str(e)}"}, status=500)

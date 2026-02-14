@@ -1,0 +1,103 @@
+{
+  "element": {
+    "type": "container",
+    "sourceTag": "div",
+    "children": [
+      {
+        "sourceTag": "span",
+        "type": "custom",
+        "children": [
+          "Idle"
+        ],
+        "properties": {
+          "class": "status-text",
+          "id": "voice-status"
+        },
+        "dataUid": "uid-2"
+      },
+      {
+        "sourceTag": "button",
+        "type": "custom",
+        "children": [
+          {
+            "type": "container",
+            "sourceTag": "div",
+            "children": [
+              {
+                "sourceTag": "micicon",
+                "type": "custom",
+                "children": [],
+                "properties": {
+                  "class": "btn-icon"
+                },
+                "dataUid": "uid-4"
+              }
+            ],
+            "properties": {
+              "class": "button-content"
+            },
+            "dataUid": "uid-3"
+          }
+        ],
+        "properties": {
+          "class": "mic-btn",
+          "id": "mic-button"
+        },
+        "dataUid": "uid-1"
+      }
+    ],
+    "properties": {
+      "class": "panel-container"
+    }
+  },
+  "classes": {
+    "panel-container": {
+      "content": {
+        "alignItems": "center",
+        "justifyContent": "center",
+        "padding": "1",
+        "width": "12",
+        "height": "auto",
+        "display": "flex",
+        "flexDirection": "column",
+        "gap": "1",
+        "backgroundColor": "rgba(0, 0, 0, 0.6)",
+        "borderRadius": 2
+      }
+    },
+    "status-text": {
+      "content": {
+        "fontSize": "1.5",
+        "color": "#e4e4e7",
+        "textAlign": "center",
+        "fontWeight": "bold"
+      }
+    },
+    "mic-btn": {
+      "content": {
+        "width": "6",
+        "height": "6",
+        "borderRadius": "3",
+        "backgroundColor": "#2563eb",
+        "display": "flex",
+        "alignItems": "center",
+        "justifyContent": "center",
+        "padding": "0"
+      }
+    },
+    "button-content": {
+      "content": {
+        "display": "flex",
+        "alignItems": "center",
+        "justifyContent": "center"
+      }
+    },
+    "btn-icon": {
+      "content": {
+        "width": "3",
+        "height": "3",
+        "color": "#fafafa"
+      }
+    }
+  }
+}
