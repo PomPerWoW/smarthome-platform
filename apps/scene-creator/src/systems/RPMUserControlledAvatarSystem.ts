@@ -296,6 +296,7 @@ export class RPMUserControlledAvatarSystem extends createSystem({
     const record = this.avatarRecords.get(this.currentControlledAvatarId);
     if (!record) return;
     if (!record.animationsMap.has("Jump") || record.isPlayingJump) return;
+    if (record.isSitting || record.isSleeping) return; // no jump while sitting/sleeping
     record.previousActionBeforeJump = record.currentAction;
     const jumpAction = record.animationsMap.get("Jump")!;
     const current = record.animationsMap.get(record.currentAction);
@@ -321,6 +322,7 @@ export class RPMUserControlledAvatarSystem extends createSystem({
     const record = this.avatarRecords.get(this.currentControlledAvatarId);
     if (!record) return;
     if (!record.animationsMap.has("Wave") || record.isPlayingWave) return;
+    if (record.isSitting || record.isSleeping) return; // no wave while sitting/sleeping
     record.previousActionBeforeWave = record.currentAction;
     const waveAction = record.animationsMap.get("Wave")!;
     waveAction.setLoop(LoopOnce, 1);
