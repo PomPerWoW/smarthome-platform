@@ -66,6 +66,8 @@ interface RPMUserControlledAvatarRecord {
   previousActionBeforeJump: string;
   isPlayingWave: boolean;
   previousActionBeforeWave: string;
+  isSitting: boolean;
+  previousActionBeforeSit: string;
   morphTargetMeshes: SkinnedMesh[];
 }
 
@@ -132,6 +134,10 @@ export class RPMUserControlledAvatarSystem extends createSystem({
       if (key === "u") {
         event.preventDefault();
         this.handleWave();
+      }
+      if (key === "m") {
+        event.preventDefault();
+        this.handleSit();
       }
     });
     window.addEventListener("keyup", (event) => {
@@ -259,6 +265,8 @@ export class RPMUserControlledAvatarSystem extends createSystem({
         previousActionBeforeJump: "Idle",
         isPlayingWave: false,
         previousActionBeforeWave: "Idle",
+        isSitting: false,
+        previousActionBeforeSit: "Idle",
         morphTargetMeshes,
       };
       this.avatarRecords.set(avatarId, record);
@@ -324,6 +332,35 @@ export class RPMUserControlledAvatarSystem extends createSystem({
       }
     };
     record.mixer.addEventListener("finished", onWaveFinished);
+  }
+
+  private handleSit(): void {
+    if (!this.currentControlledAvatarId) return;
+    const record = this.avatarRecords.get(this.currentControlledAvatarId);
+    if (!record) return;
+    if (!record.animationsMap.has("Sit")) return;
+    if (record.isPlayingJump || record.isPlayingWave) return;
+
+    const sitAction = record.animationsMap.get("Sit")!;
+
+    if (record.isSitting) {
+      // Stand up: fade back to previous action
+      sitAction.fadeOut(FADE_DURATION);
+      const restore = record.animationsMap.get(record.previousActionBeforeSit);
+      if (restore) {
+        restore.reset().fadeIn(FADE_DURATION).play();
+        record.currentAction = record.previousActionBeforeSit;
+      }
+      record.isSitting = false;
+    } else {
+      // Sit down: play Sit (looping) and save previous action
+      record.previousActionBeforeSit = record.currentAction;
+      const current = record.animationsMap.get(record.currentAction);
+      if (current) current.fadeOut(FADE_DURATION);
+      sitAction.reset().fadeIn(FADE_DURATION).play();
+      record.currentAction = "Sit";
+      record.isSitting = true;
+    }
   }
 
   // ============================================================================
@@ -630,7 +667,7 @@ export class RPMUserControlledAvatarSystem extends createSystem({
     this.processLipSync();
 
     const directionPressed = DIRECTIONS.some((k) => this.isKeyPressed(k));
-    if (!record.isPlayingJump && !record.isPlayingWave) {
+    if (!record.isPlayingJump && !record.isPlayingWave && !record.isSitting) {
       let play = "Idle";
       if (directionPressed && record.toggleRun && record.animationsMap.has("Run")) {
         play = "Run";
@@ -653,8 +690,8 @@ export class RPMUserControlledAvatarSystem extends createSystem({
       }
     }
 
-    // Lock movement during Jump: IJKL pressed but no position/rotation update until jump finishes
-    if (directionPressed && this.followCamera && !record.isPlayingWave) {
+    // Lock movement during Jump/Wave/Sit: IJKL pressed but no position/rotation update
+    if (directionPressed && this.followCamera && !record.isPlayingWave && !record.isSitting) {
       const angleYCameraDirection = Math.atan2(
         this.followCamera.position.x - record.model.position.x,
         this.followCamera.position.z - record.model.position.z
