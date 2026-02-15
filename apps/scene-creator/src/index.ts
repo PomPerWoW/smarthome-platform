@@ -243,8 +243,6 @@ async function main(): Promise<void> {
   console.log("✅ WebSocket connected for real-time updates");
 
   const voiceSystem = new VoiceControlSystem();
-  new VoicePanel(voiceSystem);
-  console.log("✅ Voice Control System initialized");
 
   setAvatarSwitcherCamera(camera);
 
@@ -261,17 +259,36 @@ async function main(): Promise<void> {
   // 2) User-controlled (clip-based)
   const userAvatarSystem = world.getSystem(UserControlledAvatarSystem);
   if (userAvatarSystem) {
-    await userAvatarSystem.createUserControlledAvatar("player3", "Soldier", "soldier_model", [-1.2, 0, -1.5]);
-    registerAvatar(userAvatarSystem as ControllableAvatarSystem, "player3", "Soldier");
+    await userAvatarSystem.createUserControlledAvatar("player2", "Soldier", "soldier_model", [-1.2, 0, -1.5]);
+    registerAvatar(userAvatarSystem as ControllableAvatarSystem, "player2", "Soldier");
     console.log("✅ Soldier avatar (soldier_model)");
   }
 
-  // 4) Robot Assistant
+  // 3) Robot Assistant
   const robotAssistantSystem = world.getSystem(RobotAssistantSystem);
   if (robotAssistantSystem) {
     await robotAssistantSystem.createRobotAssistant("robot1", "Robot Assistant", "robot_assistant", [0.6, 0, -1.5]);
     console.log("✅ Robot Assistant (robot_3D_scene.glb) - autonomous behavior");
   }
+
+  // Voice panel: wire status to robot (listening → Standing; idle → success: Yes+ThumbsUp, failure: No, cancelled: Jump)
+  new VoicePanel(voiceSystem, (status, payload) => {
+    if (!robotAssistantSystem) return;
+    if (status === "listening" || status === "processing") {
+      robotAssistantSystem.setVoiceListening(true);
+    } else if (status === "idle" && payload !== undefined) {
+      if (payload.cancelled) {
+        robotAssistantSystem.playEmoteSequence(["Jump"], () => robotAssistantSystem.setVoiceListening(false));
+      } else if (payload.success === false) {
+        robotAssistantSystem.playEmoteSequence(["No"], () => robotAssistantSystem.setVoiceListening(false));
+      } else if (payload.success === true) {
+        robotAssistantSystem.playEmoteSequence(["Yes", "ThumbsUp"], () => robotAssistantSystem.setVoiceListening(false));
+      }
+      // If payload exists but has no known flag, do nothing (robot stays Standing; user can cancel with mic).
+    }
+    // If payload is undefined (e.g. recognition onerror): do nothing — robot stays Standing.
+  });
+  console.log("✅ Voice Control System initialized");
 
   setupAvatarSwitcherPanel();
   setOnAvatarSwitch((entry) => {

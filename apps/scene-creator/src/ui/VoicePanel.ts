@@ -1,13 +1,20 @@
-import { VoiceControlSystem } from "../systems/VoiceControlSystem";
+import { VoiceControlSystem, type VoiceIdlePayload } from "../systems/VoiceControlSystem";
+
+export type VoiceStatus = "listening" | "processing" | "idle";
 
 export class VoicePanel {
   private container: HTMLDivElement;
   private button: HTMLButtonElement;
   private icon: HTMLElement;
   private system: VoiceControlSystem;
+  private onVoiceStatus?: (status: VoiceStatus, payload?: VoiceIdlePayload) => void;
 
-  constructor(system: VoiceControlSystem) {
+  constructor(
+    system: VoiceControlSystem,
+    onVoiceStatus?: (status: VoiceStatus, payload?: VoiceIdlePayload) => void,
+  ) {
     this.system = system;
+    this.onVoiceStatus = onVoiceStatus ?? undefined;
     this.container = document.createElement("div");
     this.button = document.createElement("button");
     this.icon = document.createElement("i");
@@ -54,7 +61,7 @@ export class VoicePanel {
       this.system.toggleListening();
     });
 
-    this.system.setStatusListener((status) => {
+    this.system.setStatusListener((status, payload) => {
       if (status === "listening") {
         this.button.style.backgroundColor = "#ef4444";
         this.button.style.transform = "scale(1.1)";
@@ -65,6 +72,7 @@ export class VoicePanel {
         this.button.style.backgroundColor = "#2563eb";
         this.button.style.transform = "scale(1.0)";
       }
+      this.onVoiceStatus?.(status, payload);
     });
   }
 }
