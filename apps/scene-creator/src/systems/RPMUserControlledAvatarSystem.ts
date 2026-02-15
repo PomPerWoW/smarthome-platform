@@ -66,6 +66,10 @@ interface RPMUserControlledAvatarRecord {
   previousActionBeforeJump: string;
   isPlayingWave: boolean;
   previousActionBeforeWave: string;
+  isSitting: boolean;
+  previousActionBeforeSit: string;
+  isSleeping: boolean;
+  previousActionBeforeSleep: string;
   morphTargetMeshes: SkinnedMesh[];
 }
 
@@ -132,6 +136,14 @@ export class RPMUserControlledAvatarSystem extends createSystem({
       if (key === "u") {
         event.preventDefault();
         this.handleWave();
+      }
+      if (key === "m") {
+        event.preventDefault();
+        this.handleSit();
+      }
+      if (key === "n") {
+        event.preventDefault();
+        this.handleSleep();
       }
     });
     window.addEventListener("keyup", (event) => {
@@ -259,6 +271,10 @@ export class RPMUserControlledAvatarSystem extends createSystem({
         previousActionBeforeJump: "Idle",
         isPlayingWave: false,
         previousActionBeforeWave: "Idle",
+        isSitting: false,
+        previousActionBeforeSit: "Idle",
+        isSleeping: false,
+        previousActionBeforeSleep: "Idle",
         morphTargetMeshes,
       };
       this.avatarRecords.set(avatarId, record);
@@ -280,6 +296,7 @@ export class RPMUserControlledAvatarSystem extends createSystem({
     const record = this.avatarRecords.get(this.currentControlledAvatarId);
     if (!record) return;
     if (!record.animationsMap.has("Jump") || record.isPlayingJump) return;
+    if (record.isSitting || record.isSleeping) return; // no jump while sitting/sleeping
     record.previousActionBeforeJump = record.currentAction;
     const jumpAction = record.animationsMap.get("Jump")!;
     const current = record.animationsMap.get(record.currentAction);
@@ -305,6 +322,7 @@ export class RPMUserControlledAvatarSystem extends createSystem({
     const record = this.avatarRecords.get(this.currentControlledAvatarId);
     if (!record) return;
     if (!record.animationsMap.has("Wave") || record.isPlayingWave) return;
+    if (record.isSitting || record.isSleeping) return; // no wave while sitting/sleeping
     record.previousActionBeforeWave = record.currentAction;
     const waveAction = record.animationsMap.get("Wave")!;
     waveAction.setLoop(LoopOnce, 1);
@@ -324,6 +342,66 @@ export class RPMUserControlledAvatarSystem extends createSystem({
       }
     };
     record.mixer.addEventListener("finished", onWaveFinished);
+  }
+
+  private handleSit(): void {
+    if (!this.currentControlledAvatarId) return;
+    const record = this.avatarRecords.get(this.currentControlledAvatarId);
+    if (!record) return;
+    if (!record.animationsMap.has("Sit")) return;
+    if (record.isPlayingJump || record.isPlayingWave) return;
+
+    const sitAction = record.animationsMap.get("Sit")!;
+
+    if (record.isSitting) {
+      // Stand up: fade back to previous action
+      sitAction.fadeOut(FADE_DURATION);
+      const restore = record.animationsMap.get(record.previousActionBeforeSit);
+      if (restore) {
+        restore.reset().fadeIn(FADE_DURATION).play();
+        record.currentAction = record.previousActionBeforeSit;
+      }
+      record.isSitting = false;
+    } else {
+      // Sit down: play Sit (looping) and save previous action
+      record.previousActionBeforeSit = record.currentAction;
+      record.isSleeping = false; // can't sit and sleep at once
+      const current = record.animationsMap.get(record.currentAction);
+      if (current) current.fadeOut(FADE_DURATION);
+      sitAction.reset().fadeIn(FADE_DURATION).play();
+      record.currentAction = "Sit";
+      record.isSitting = true;
+    }
+  }
+
+  private handleSleep(): void {
+    if (!this.currentControlledAvatarId) return;
+    const record = this.avatarRecords.get(this.currentControlledAvatarId);
+    if (!record) return;
+    if (!record.animationsMap.has("Sleep")) return;
+    if (record.isPlayingJump || record.isPlayingWave) return;
+
+    const sleepAction = record.animationsMap.get("Sleep")!;
+
+    if (record.isSleeping) {
+      // Wake up: fade back to previous action
+      sleepAction.fadeOut(FADE_DURATION);
+      const restore = record.animationsMap.get(record.previousActionBeforeSleep);
+      if (restore) {
+        restore.reset().fadeIn(FADE_DURATION).play();
+        record.currentAction = record.previousActionBeforeSleep;
+      }
+      record.isSleeping = false;
+    } else {
+      // Sleep: play Sleep (looping) and save previous action
+      record.previousActionBeforeSleep = record.currentAction;
+      record.isSitting = false; // can't sit and sleep at once
+      const current = record.animationsMap.get(record.currentAction);
+      if (current) current.fadeOut(FADE_DURATION);
+      sleepAction.reset().fadeIn(FADE_DURATION).play();
+      record.currentAction = "Sleep";
+      record.isSleeping = true;
+    }
   }
 
   // ============================================================================
@@ -630,7 +708,7 @@ export class RPMUserControlledAvatarSystem extends createSystem({
     this.processLipSync();
 
     const directionPressed = DIRECTIONS.some((k) => this.isKeyPressed(k));
-    if (!record.isPlayingJump && !record.isPlayingWave) {
+    if (!record.isPlayingJump && !record.isPlayingWave && !record.isSitting && !record.isSleeping) {
       let play = "Idle";
       if (directionPressed && record.toggleRun && record.animationsMap.has("Run")) {
         play = "Run";
@@ -653,8 +731,8 @@ export class RPMUserControlledAvatarSystem extends createSystem({
       }
     }
 
-    // Lock movement during Jump: IJKL pressed but no position/rotation update until jump finishes
-    if (directionPressed && this.followCamera && !record.isPlayingWave) {
+    // Lock movement during Jump/Wave/Sit: IJKL pressed but no position/rotation update
+    if (directionPressed && this.followCamera && !record.isPlayingWave && !record.isSitting && !record.isSleeping) {
       const angleYCameraDirection = Math.atan2(
         this.followCamera.position.x - record.model.position.x,
         this.followCamera.position.z - record.model.position.z
