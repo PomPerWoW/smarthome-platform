@@ -14,13 +14,11 @@ import { getWebSocketClient } from "./api/WebSocketClient";
 import { getStore } from "./store/DeviceStore";
 import { DeviceComponent } from "./components/DeviceComponent";
 import { UserControlledAvatarComponent } from "./components/UserControlledAvatarComponent";
-import { SkeletonControlledAvatarComponent } from "./components/SkeletonControlledAvatarComponent";
 import { RobotAssistantComponent } from "./components/RobotAssistantComponent";
 import { DeviceRendererSystem } from "./systems/DeviceRendererSystem";
 import { DeviceInteractionSystem } from "./systems/DeviceInteractionSystem";
 import { UserControlledAvatarSystem } from "./systems/UserControlledAvatarSystem";
 import { RPMUserControlledAvatarSystem } from "./systems/RPMUserControlledAvatarSystem";
-import { SkeletonControlledAvatarSystem } from "./systems/SkeletonControlledAvatarSystem";
 import { RobotAssistantSystem } from "./systems/RobotAssistantSystem";
 import { PanelSystem } from "./ui/panel";
 import { LightbulbPanelSystem } from "./ui/LightbulbPanelSystem";
@@ -30,6 +28,7 @@ import { AirConditionerPanelSystem } from "./ui/AirConditionerPanelSystem";
 import { VoiceControlSystem } from "./systems/VoiceControlSystem";
 import { VoicePanel } from "./ui/VoicePanel";
 import { RoomScanningSystem } from "./systems/RoomScanningSystem";
+import { AvatarHandTrackingSystem } from "./systems/avatar-hand-tracking/AvatarHandTrackingSystem";
 import { initializeNavMesh } from "./config/navmesh";
 import {
   type ControllableAvatarSystem,
@@ -88,8 +87,18 @@ const assets: AssetManifest = {
     type: AssetType.GLTF,
     priority: "critical",
   },
+  rpmClip_model1: {
+    url: "/models/avatar/resident/MediumRes12.glb",
+    type: AssetType.GLTF,
+    priority: "critical",
+  },
   robot_assistant: {
     url: "/models/avatar/assistant/robot_3D_scene.glb",
+    type: AssetType.GLTF,
+    priority: "critical",
+  },
+  hand_armature: {
+    url: "/models/avatar/organs/hand.glb",
     type: AssetType.GLTF,
     priority: "critical",
   },
@@ -168,13 +177,11 @@ async function main(): Promise<void> {
   world
     .registerComponent(DeviceComponent)
     .registerComponent(UserControlledAvatarComponent)
-    .registerComponent(SkeletonControlledAvatarComponent)
     .registerComponent(RobotAssistantComponent)
     .registerSystem(DeviceRendererSystem)
     .registerSystem(DeviceInteractionSystem)
     .registerSystem(UserControlledAvatarSystem)
     .registerSystem(RPMUserControlledAvatarSystem)
-    .registerSystem(SkeletonControlledAvatarSystem)
     .registerSystem(RobotAssistantSystem)
     .registerSystem(PanelSystem)
     .registerSystem(LightbulbPanelSystem)
@@ -182,6 +189,7 @@ async function main(): Promise<void> {
     .registerSystem(FanPanelSystem)
     .registerSystem(AirConditionerPanelSystem)
     .registerSystem(RoomScanningSystem)
+    .registerSystem(AvatarHandTrackingSystem)
 
   console.log("✅ Systems registered");
 
@@ -244,21 +252,13 @@ async function main(): Promise<void> {
   const rpmAvatarSystem = world.getSystem(RPMUserControlledAvatarSystem);
   let setLipSyncEnabled: (enabled: boolean) => void = () => { };
   if (rpmAvatarSystem) {
-    await rpmAvatarSystem.createRPMUserControlledAvatar("player1", "RPM Avatar", "rpmClip_model", [-0.6, 0, -1.5]);
+    await rpmAvatarSystem.createRPMUserControlledAvatar("player1", "RPM Avatar", "rpmClip_model1", [-0.6, 0, -1.5]);
     registerAvatar(rpmAvatarSystem as ControllableAvatarSystem, "player1", "RPM Avatar");
     setLipSyncEnabled = setupLipSyncControlPanel(rpmAvatarSystem);
     console.log("✅ RPM avatar (RPM_clip.glb)");
   }
 
-  // 2) Skeleton-controlled (bone-only)
-  const skeletonAvatarSystem = world.getSystem(SkeletonControlledAvatarSystem);
-  if (skeletonAvatarSystem) {
-    await skeletonAvatarSystem.createSkeletonControlledAvatar("player2", "Skeleton Avatar", "rpmBone_model", [0, 0, -1.5]);
-    registerAvatar(skeletonAvatarSystem as ControllableAvatarSystem, "player2", "Skeleton Avatar");
-    console.log("✅ Skeleton avatar (RPM_bone.glb)");
-  }
-
-  // 3) User-controlled (clip-based)
+  // 2) User-controlled (clip-based)
   const userAvatarSystem = world.getSystem(UserControlledAvatarSystem);
   if (userAvatarSystem) {
     await userAvatarSystem.createUserControlledAvatar("player3", "Soldier", "soldier_model", [-1.2, 0, -1.5]);
