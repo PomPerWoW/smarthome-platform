@@ -19,12 +19,24 @@ class ScadaManager:
         if self.client and self.client.is_connected():
             return
 
-        print("🔌 Starting SCADA Connection...")
+        print("[SCADA_MANAGER] 🔌 Starting SCADA Connection...")
         self.client = WebSocket2Scada(
-            target="intelligentbuilding.io:6443", # Replace with your config
+            target="171.102.128.142:6443", # Replace with your config
             login="bingo",
             password="BPS12345",
             token="535a4d29f85c1c851eb81843ea89b951011ffd58",
+            tags=[
+                "passion.HueLight01.onoff",
+                "passion.HueLight01.Color",
+                "passion.HueLight01.Brightness",
+                "passion.HueLight02.onoff",
+                "passion.HueLight02.Color",
+                "passion.HueLight02.Brightness",
+                "passion.HueLight03.onoff",
+                "passion.HueLight03.Color",
+                "passion.HueLight03.Brightness",
+                
+            ],  # Subscribe to updates
             on_tag=self.handle_tag_update, # Hook the callback
             verify_tls=False
         )
@@ -53,4 +65,4 @@ class ScadaManager:
         if self.client and self.client.is_connected():
             self.client.send_value(tag, value)
         else:
-            print("⚠️ SCADA not connected, cannot send command")
+            print("[SCADA_MANAGER] ⚠️ SCADA not connected, cannot send command")

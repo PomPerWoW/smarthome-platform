@@ -7,6 +7,7 @@ from .permissions import IsHomeOwner
 from .models import *
 from .serializers import *
 from .services import VoiceAssistantService
+from .scada import ScadaManager
 
 # --- 1. Home ViewSet ---
 class HomeViewSet(viewsets.ModelViewSet):
@@ -352,6 +353,10 @@ class LightbulbViewSet(BaseDeviceViewSet):
         if brightness is not None:
             bulb.brightness = int(brightness)
             bulb.save()
+            
+            if bulb.tag:
+                ScadaManager().send_command(f"{bulb.tag}.Brightness", bulb.brightness)
+                
             return Response({"status": "brightness set", "current_brightness": bulb.brightness})
         return Response({"error": "brightness parameter missing"}, status=400)
 
@@ -368,8 +373,27 @@ class LightbulbViewSet(BaseDeviceViewSet):
         if colour:
             bulb.colour = colour
             bulb.save()
+            
+            if bulb.tag:
+                 ScadaManager().send_command(f"{bulb.tag}.Color", bulb.colour)
+                 
             return Response({"status": "colour set", "current_colour": bulb.colour})
-        return Response({"error": "colour parameter missing"}, status=400)
+
+    def perform_update(self, serializer):
+        """
+        Intercepts the update to check for 'is_on' changes and trigger SCADA.
+        """
+        old_instance = self.get_object()
+        old_is_on = old_instance.is_on
+        
+        # Save the new state
+        instance = serializer.save()
+        
+        # Check if is_on changed (or just if we want to enforce state on every patch containing is_on)
+        if instance.is_on != old_is_on:
+             if instance.tag:
+                 value = 1 if instance.is_on else 0
+                 ScadaManager().send_command(f"{instance.tag}.onoff", value)
 
 
 class TelevisionViewSet(BaseDeviceViewSet):
