@@ -1,0 +1,934 @@
+{
+  "element": {
+    "type": "container",
+    "sourceTag": "div",
+    "children": [
+      {
+        "type": "container",
+        "sourceTag": "div",
+        "children": [
+          {
+            "type": "container",
+            "sourceTag": "div",
+            "children": [
+              {
+                "sourceTag": "pluscircleicon",
+                "type": "custom",
+                "children": [],
+                "properties": {
+                  "class": "header-icon"
+                },
+                "dataUid": "uid-4"
+              }
+            ],
+            "properties": {
+              "class": "header-icon-wrap"
+            },
+            "dataUid": "uid-3"
+          },
+          {
+            "type": "container",
+            "sourceTag": "div",
+            "children": [
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "Add Device"
+                ],
+                "properties": {
+                  "class": "header-title"
+                },
+                "dataUid": "uid-6"
+              },
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "Tap to place in room"
+                ],
+                "properties": {
+                  "class": "header-subtitle"
+                },
+                "dataUid": "uid-7"
+              }
+            ],
+            "properties": {
+              "class": "header-text"
+            },
+            "dataUid": "uid-5"
+          }
+        ],
+        "properties": {
+          "class": "header-section"
+        },
+        "dataUid": "uid-2"
+      },
+      {
+        "type": "container",
+        "sourceTag": "div",
+        "children": [],
+        "properties": {
+          "class": "divider"
+        },
+        "dataUid": "uid-8"
+      },
+      {
+        "type": "container",
+        "sourceTag": "div",
+        "children": [
+          {
+            "sourceTag": "button",
+            "type": "custom",
+            "children": [
+              {
+                "type": "container",
+                "sourceTag": "div",
+                "children": [
+                  {
+                    "sourceTag": "lightbulbicon",
+                    "type": "custom",
+                    "children": [],
+                    "properties": {
+                      "class": "icon-light"
+                    },
+                    "dataUid": "uid-12"
+                  }
+                ],
+                "properties": {
+                  "class": "device-icon-wrap"
+                },
+                "dataUid": "uid-11"
+              },
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "Light"
+                ],
+                "properties": {
+                  "class": "device-label"
+                },
+                "dataUid": "uid-13"
+              }
+            ],
+            "properties": {
+              "class": "device-btn",
+              "id": "btn-lightbulb"
+            },
+            "dataUid": "uid-10"
+          },
+          {
+            "sourceTag": "button",
+            "type": "custom",
+            "children": [
+              {
+                "type": "container",
+                "sourceTag": "div",
+                "children": [
+                  {
+                    "sourceTag": "fanicon",
+                    "type": "custom",
+                    "children": [],
+                    "properties": {
+                      "class": "icon-fan"
+                    },
+                    "dataUid": "uid-16"
+                  }
+                ],
+                "properties": {
+                  "class": "device-icon-wrap"
+                },
+                "dataUid": "uid-15"
+              },
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "Fan"
+                ],
+                "properties": {
+                  "class": "device-label"
+                },
+                "dataUid": "uid-17"
+              }
+            ],
+            "properties": {
+              "class": "device-btn",
+              "id": "btn-fan"
+            },
+            "dataUid": "uid-14"
+          },
+          {
+            "sourceTag": "button",
+            "type": "custom",
+            "children": [
+              {
+                "type": "container",
+                "sourceTag": "div",
+                "children": [
+                  {
+                    "sourceTag": "tvicon",
+                    "type": "custom",
+                    "children": [],
+                    "properties": {
+                      "class": "icon-tv"
+                    },
+                    "dataUid": "uid-20"
+                  }
+                ],
+                "properties": {
+                  "class": "device-icon-wrap"
+                },
+                "dataUid": "uid-19"
+              },
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "TV"
+                ],
+                "properties": {
+                  "class": "device-label"
+                },
+                "dataUid": "uid-21"
+              }
+            ],
+            "properties": {
+              "class": "device-btn",
+              "id": "btn-television"
+            },
+            "dataUid": "uid-18"
+          },
+          {
+            "sourceTag": "button",
+            "type": "custom",
+            "children": [
+              {
+                "type": "container",
+                "sourceTag": "div",
+                "children": [
+                  {
+                    "sourceTag": "airventicon",
+                    "type": "custom",
+                    "children": [],
+                    "properties": {
+                      "class": "icon-ac"
+                    },
+                    "dataUid": "uid-24"
+                  }
+                ],
+                "properties": {
+                  "class": "device-icon-wrap"
+                },
+                "dataUid": "uid-23"
+              },
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "AC"
+                ],
+                "properties": {
+                  "class": "device-label"
+                },
+                "dataUid": "uid-25"
+              }
+            ],
+            "properties": {
+              "class": "device-btn",
+              "id": "btn-ac"
+            },
+            "dataUid": "uid-22"
+          }
+        ],
+        "properties": {
+          "class": "grid-container"
+        },
+        "dataUid": "uid-9"
+      },
+      {
+        "type": "container",
+        "sourceTag": "div",
+        "children": [
+          {
+            "type": "container",
+            "sourceTag": "div",
+            "children": [],
+            "properties": {
+              "class": "status-dot"
+            },
+            "dataUid": "uid-27"
+          },
+          {
+            "sourceTag": "span",
+            "type": "custom",
+            "children": [
+              "Ready to place"
+            ],
+            "properties": {
+              "class": "status-text",
+              "id": "menu-status"
+            },
+            "dataUid": "uid-28"
+          }
+        ],
+        "properties": {
+          "class": "status-section"
+        },
+        "dataUid": "uid-26"
+      }
+    ],
+    "properties": {
+      "class": "menu-container"
+    },
+    "dataUid": "uid-1"
+  },
+  "classes": {
+    "menu-container": {
+      "content": {
+        "alignItems": "flex-start",
+        "padding": "2",
+        "width": "42",
+        "height": "auto",
+        "display": "flex",
+        "flexDirection": "column",
+        "backgroundColor": "#0c0c10",
+        "borderColor": "#2d2d3a",
+        "borderWidth": "0.12",
+        "borderRadius": 2.5
+      }
+    },
+    "header-section": {
+      "content": {
+        "display": "flex",
+        "flexDirection": "row",
+        "alignItems": "center",
+        "gap": "1.5",
+        "marginBottom": "1",
+        "width": "100%"
+      }
+    },
+    "header-icon-wrap": {
+      "content": {
+        "width": "5",
+        "height": "5",
+        "borderRadius": 1.5,
+        "backgroundColor": "#1a2744",
+        "display": "flex",
+        "alignItems": "center",
+        "justifyContent": "center"
+      }
+    },
+    "header-icon": {
+      "content": {
+        "width": "3",
+        "height": "3",
+        "color": "#60a5fa"
+      }
+    },
+    "header-text": {
+      "content": {
+        "display": "flex",
+        "flexDirection": "column",
+        "flex": "1"
+      }
+    },
+    "header-title": {
+      "content": {
+        "fontSize": "2.8",
+        "fontWeight": "bold",
+        "color": "#f0f0f5"
+      }
+    },
+    "header-subtitle": {
+      "content": {
+        "fontSize": "1.5",
+        "color": "#6b6b80",
+        "marginTop": "0.2"
+      }
+    },
+    "divider": {
+      "content": {
+        "height": "0.08",
+        "width": "100%",
+        "backgroundColor": "#2d2d3a",
+        "margin": "1.5 0"
+      }
+    },
+    "grid-container": {
+      "content": {
+        "display": "flex",
+        "flexDirection": "row",
+        "flexWrap": "wrap",
+        "alignItems": "center",
+        "justifyContent": "center",
+        "gap": "0.8",
+        "width": "100%"
+      }
+    },
+    "device-btn": {
+      "content": {
+        "width": "15",
+        "height": "12",
+        "borderRadius": 1.5,
+        "backgroundColor": "#16161e",
+        "display": "flex",
+        "flexDirection": "column",
+        "alignItems": "center",
+        "justifyContent": "center",
+        "gap": "0.8",
+        "cursor": "pointer",
+        "borderWidth": "0.1",
+        "borderColor": "#2d2d3a"
+      }
+    },
+    "device-icon-wrap": {
+      "content": {
+        "width": "5",
+        "height": "5",
+        "borderRadius": 1.2,
+        "backgroundColor": "#1e1e2a",
+        "display": "flex",
+        "alignItems": "center",
+        "justifyContent": "center"
+      }
+    },
+    "icon-light": {
+      "content": {
+        "width": "3",
+        "height": "3",
+        "color": "#facc15"
+      }
+    },
+    "icon-fan": {
+      "content": {
+        "width": "3",
+        "height": "3",
+        "color": "#22d3ee"
+      }
+    },
+    "icon-tv": {
+      "content": {
+        "width": "3",
+        "height": "3",
+        "color": "#a78bfa"
+      }
+    },
+    "icon-ac": {
+      "content": {
+        "width": "3",
+        "height": "3",
+        "color": "#34d399"
+      }
+    },
+    "device-label": {
+      "content": {
+        "fontSize": "1.5",
+        "color": "#9ca3af",
+        "fontWeight": "bold"
+      }
+    },
+    "status-section": {
+      "content": {
+        "display": "flex",
+        "flexDirection": "row",
+        "alignItems": "center",
+        "justifyContent": "center",
+        "gap": "0.8",
+        "width": "100%",
+        "marginTop": "1.5",
+        "paddingTop": "1.2",
+        "borderTopWidth": "0.08",
+        "borderTopColor": "#2d2d3a"
+      }
+    },
+    "status-dot": {
+      "content": {
+        "width": "0.8",
+        "height": "0.8",
+        "borderRadius": 0.4,
+        "backgroundColor": "#22c55e"
+      }
+    },
+    "status-text": {
+      "content": {
+        "fontSize": "1.4",
+        "color": "#6b6b80",
+        "textAlign": "center"
+      }
+    }
+  },
+  "ranges": {
+    "menu-container": {
+      "start": {
+        "line": 1,
+        "column": 2
+      },
+      "end": {
+        "line": 1,
+        "column": 17
+      }
+    },
+    "header-section": {
+      "start": {
+        "line": 14,
+        "column": 2
+      },
+      "end": {
+        "line": 14,
+        "column": 17
+      }
+    },
+    "header-icon-wrap": {
+      "start": {
+        "line": 23,
+        "column": 2
+      },
+      "end": {
+        "line": 23,
+        "column": 19
+      }
+    },
+    "header-icon": {
+      "start": {
+        "line": 33,
+        "column": 2
+      },
+      "end": {
+        "line": 33,
+        "column": 14
+      }
+    },
+    "header-text": {
+      "start": {
+        "line": 39,
+        "column": 2
+      },
+      "end": {
+        "line": 39,
+        "column": 14
+      }
+    },
+    "header-title": {
+      "start": {
+        "line": 45,
+        "column": 2
+      },
+      "end": {
+        "line": 45,
+        "column": 15
+      }
+    },
+    "header-subtitle": {
+      "start": {
+        "line": 51,
+        "column": 2
+      },
+      "end": {
+        "line": 51,
+        "column": 18
+      }
+    },
+    "divider": {
+      "start": {
+        "line": 57,
+        "column": 2
+      },
+      "end": {
+        "line": 57,
+        "column": 10
+      }
+    },
+    "grid-container": {
+      "start": {
+        "line": 64,
+        "column": 2
+      },
+      "end": {
+        "line": 64,
+        "column": 17
+      }
+    },
+    "device-btn": {
+      "start": {
+        "line": 74,
+        "column": 2
+      },
+      "end": {
+        "line": 74,
+        "column": 13
+      }
+    },
+    "device-icon-wrap": {
+      "start": {
+        "line": 89,
+        "column": 2
+      },
+      "end": {
+        "line": 89,
+        "column": 19
+      }
+    },
+    "icon-light": {
+      "start": {
+        "line": 99,
+        "column": 2
+      },
+      "end": {
+        "line": 99,
+        "column": 13
+      }
+    },
+    "icon-fan": {
+      "start": {
+        "line": 105,
+        "column": 2
+      },
+      "end": {
+        "line": 105,
+        "column": 11
+      }
+    },
+    "icon-tv": {
+      "start": {
+        "line": 111,
+        "column": 2
+      },
+      "end": {
+        "line": 111,
+        "column": 10
+      }
+    },
+    "icon-ac": {
+      "start": {
+        "line": 117,
+        "column": 2
+      },
+      "end": {
+        "line": 117,
+        "column": 10
+      }
+    },
+    "device-label": {
+      "start": {
+        "line": 123,
+        "column": 2
+      },
+      "end": {
+        "line": 123,
+        "column": 15
+      }
+    },
+    "status-section": {
+      "start": {
+        "line": 129,
+        "column": 2
+      },
+      "end": {
+        "line": 129,
+        "column": 17
+      }
+    },
+    "status-dot": {
+      "start": {
+        "line": 142,
+        "column": 2
+      },
+      "end": {
+        "line": 142,
+        "column": 13
+      }
+    },
+    "status-text": {
+      "start": {
+        "line": 149,
+        "column": 2
+      },
+      "end": {
+        "line": 149,
+        "column": 14
+      }
+    },
+    "uid-1": {
+      "start": {
+        "line": 156,
+        "column": 0
+      },
+      "end": {
+        "line": 203,
+        "column": 6
+      }
+    },
+    "uid-2": {
+      "start": {
+        "line": 158,
+        "column": 2
+      },
+      "end": {
+        "line": 166,
+        "column": 8
+      }
+    },
+    "uid-3": {
+      "start": {
+        "line": 159,
+        "column": 4
+      },
+      "end": {
+        "line": 161,
+        "column": 10
+      }
+    },
+    "uid-4": {
+      "start": {
+        "line": 160,
+        "column": 6
+      },
+      "end": {
+        "line": 161,
+        "column": 4
+      }
+    },
+    "uid-5": {
+      "start": {
+        "line": 162,
+        "column": 4
+      },
+      "end": {
+        "line": 165,
+        "column": 10
+      }
+    },
+    "uid-6": {
+      "start": {
+        "line": 163,
+        "column": 6
+      },
+      "end": {
+        "line": 163,
+        "column": 50
+      }
+    },
+    "uid-7": {
+      "start": {
+        "line": 164,
+        "column": 6
+      },
+      "end": {
+        "line": 164,
+        "column": 63
+      }
+    },
+    "uid-8": {
+      "start": {
+        "line": 168,
+        "column": 2
+      },
+      "end": {
+        "line": 168,
+        "column": 29
+      }
+    },
+    "uid-9": {
+      "start": {
+        "line": 171,
+        "column": 2
+      },
+      "end": {
+        "line": 196,
+        "column": 8
+      }
+    },
+    "uid-10": {
+      "start": {
+        "line": 172,
+        "column": 4
+      },
+      "end": {
+        "line": 177,
+        "column": 13
+      }
+    },
+    "uid-11": {
+      "start": {
+        "line": 173,
+        "column": 6
+      },
+      "end": {
+        "line": 175,
+        "column": 12
+      }
+    },
+    "uid-12": {
+      "start": {
+        "line": 174,
+        "column": 8
+      },
+      "end": {
+        "line": 175,
+        "column": 6
+      }
+    },
+    "uid-13": {
+      "start": {
+        "line": 176,
+        "column": 6
+      },
+      "end": {
+        "line": 176,
+        "column": 45
+      }
+    },
+    "uid-14": {
+      "start": {
+        "line": 178,
+        "column": 4
+      },
+      "end": {
+        "line": 183,
+        "column": 13
+      }
+    },
+    "uid-15": {
+      "start": {
+        "line": 179,
+        "column": 6
+      },
+      "end": {
+        "line": 181,
+        "column": 12
+      }
+    },
+    "uid-16": {
+      "start": {
+        "line": 180,
+        "column": 8
+      },
+      "end": {
+        "line": 181,
+        "column": 6
+      }
+    },
+    "uid-17": {
+      "start": {
+        "line": 182,
+        "column": 6
+      },
+      "end": {
+        "line": 182,
+        "column": 43
+      }
+    },
+    "uid-18": {
+      "start": {
+        "line": 184,
+        "column": 4
+      },
+      "end": {
+        "line": 189,
+        "column": 13
+      }
+    },
+    "uid-19": {
+      "start": {
+        "line": 185,
+        "column": 6
+      },
+      "end": {
+        "line": 187,
+        "column": 12
+      }
+    },
+    "uid-20": {
+      "start": {
+        "line": 186,
+        "column": 8
+      },
+      "end": {
+        "line": 187,
+        "column": 6
+      }
+    },
+    "uid-21": {
+      "start": {
+        "line": 188,
+        "column": 6
+      },
+      "end": {
+        "line": 188,
+        "column": 42
+      }
+    },
+    "uid-22": {
+      "start": {
+        "line": 190,
+        "column": 4
+      },
+      "end": {
+        "line": 195,
+        "column": 13
+      }
+    },
+    "uid-23": {
+      "start": {
+        "line": 191,
+        "column": 6
+      },
+      "end": {
+        "line": 193,
+        "column": 12
+      }
+    },
+    "uid-24": {
+      "start": {
+        "line": 192,
+        "column": 8
+      },
+      "end": {
+        "line": 193,
+        "column": 6
+      }
+    },
+    "uid-25": {
+      "start": {
+        "line": 194,
+        "column": 6
+      },
+      "end": {
+        "line": 194,
+        "column": 42
+      }
+    },
+    "uid-26": {
+      "start": {
+        "line": 199,
+        "column": 2
+      },
+      "end": {
+        "line": 202,
+        "column": 8
+      }
+    },
+    "uid-27": {
+      "start": {
+        "line": 200,
+        "column": 4
+      },
+      "end": {
+        "line": 200,
+        "column": 34
+      }
+    },
+    "uid-28": {
+      "start": {
+        "line": 201,
+        "column": 4
+      },
+      "end": {
+        "line": 201,
+        "column": 68
+      }
+    }
+  }
+}

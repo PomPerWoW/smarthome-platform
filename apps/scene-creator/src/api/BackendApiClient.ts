@@ -39,6 +39,11 @@ export class BackendApiClient {
     return mapRawDevicesToDevices(response.data);
   }
 
+  async createDevice(deviceData: Partial<Device>): Promise<Device> {
+    const response = await api.post<any>("/api/homes/devices/", deviceData);
+    return mapRawDeviceToDevice(response.data);
+  }
+
   async getDevice(deviceId: string): Promise<Device> {
     const response = await api.get<any>(`/api/homes/devices/${deviceId}/`);
     return mapRawDeviceToDevice(response.data);
@@ -46,7 +51,7 @@ export class BackendApiClient {
 
   async setDeviceState(
     deviceId: string,
-    updates: Partial<Device>,
+    updates: Partial<Device>
   ): Promise<Device> {
     await api.patch<any>(`/api/homes/devices/${deviceId}/`, updates);
     const response = await api.get<any>(`/api/homes/devices/${deviceId}/`);
@@ -55,7 +60,7 @@ export class BackendApiClient {
 
   // ===== Device Position =====
   async getDevicePosition(
-    deviceId: string,
+    deviceId: string
   ): Promise<{ position: [number, number, number] | null }> {
     const response = await api.get<{
       position: [number, number, number] | null;
@@ -65,11 +70,11 @@ export class BackendApiClient {
 
   async setDevicePosition(
     deviceId: string,
-    position: { x: number; y: number; z: number; rotation_y?: number },
+    position: { x: number; y: number; z: number; rotation_y?: number }
   ): Promise<Device> {
     await api.post<any>(
       `/api/homes/devices/${deviceId}/set_position/`,
-      position,
+      position
     );
     const response = await api.get<any>(`/api/homes/devices/${deviceId}/`);
     return mapRawDeviceToDevice(response.data);
@@ -83,7 +88,7 @@ export class BackendApiClient {
 
   async setLightbulb(
     deviceId: string,
-    options: { brightness?: number; colour?: string },
+    options: { brightness?: number; colour?: string }
   ): Promise<Lightbulb> {
     if (options.brightness !== undefined) {
       await api.post<any>(`/api/homes/lightbulbs/${deviceId}/set_brightness/`, {

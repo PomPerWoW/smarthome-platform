@@ -12,6 +12,7 @@ import { Quaternion, SkinnedMesh, Vector3 } from "three";
 import { SkeletonUtils } from "three-stdlib";
 import { RobotAssistantComponent } from "../components/RobotAssistantComponent";
 import { clampToWalkableArea, getRoomBounds } from "../config/navmesh";
+import { constrainMovement, AVATAR_COLLISION_RADIUS } from "../config/collision";
 
 // ============================================================================
 // CONFIG
@@ -269,6 +270,12 @@ export class RobotAssistantSystem extends createSystem({
             const hasReachedTarget = entity.getValue(RobotAssistantComponent, "hasReachedTarget") as boolean;
             const nextWaypointTime = entity.getValue(RobotAssistantComponent, "nextWaypointTime") as number;
             const moveSpeed = entity.getValue(RobotAssistantComponent, "moveSpeed") as number;
+            let collisionCooldown = entity.getValue(RobotAssistantComponent, "collisionCooldown") as number;
+
+            if (collisionCooldown > 0) {
+                collisionCooldown = Math.max(0, collisionCooldown - dt);
+                entity.setValue(RobotAssistantComponent, "collisionCooldown", collisionCooldown);
+            }
 
             // Calculate movement intention
             let shouldMove = false;
@@ -325,8 +332,35 @@ export class RobotAssistantSystem extends createSystem({
                         const moveX = record.walkDirection.x * WALK_VELOCITY * dt;
                         const moveZ = record.walkDirection.z * WALK_VELOCITY * dt;
 
-                        record.model.position.x += moveX;
-                        record.model.position.z += moveZ;
+                        const oldX = record.model.position.x;
+                        const oldZ = record.model.position.z;
+                        const nextX = oldX + moveX;
+                        const nextZ = oldZ + moveZ;
+
+                        // Collision check against lab model meshes
+                        const constrained = constrainMovement(
+                            oldX, oldZ, nextX, nextZ,
+                            record.model.position.y,
+                            AVATAR_COLLISION_RADIUS
+                        );
+
+                        // 💥 IMMEDIATE COLLISION RESPONSE
+                        if (collisionCooldown <= 0 && (Math.abs(constrained.x - nextX) > 0.001 || Math.abs(constrained.z - nextZ) > 0.001)) {
+                            console.log(`[RobotAssistant] 💥 Hit wall at (${constrained.x.toFixed(2)}, ${constrained.z.toFixed(2)}) - turning immediately`);
+
+                            const bounds = getRoomBounds();
+                            const newTargetX = bounds ? (bounds.minX + Math.random() * (bounds.maxX - bounds.minX)) : (record.model.position.x + (Math.random() - 0.5) * 4);
+                            const newTargetZ = bounds ? (bounds.minZ + Math.random() * (bounds.maxZ - bounds.minZ)) : (record.model.position.z + (Math.random() - 0.5) * 4);
+
+                            entity.setValue(RobotAssistantComponent, "targetX", newTargetX);
+                            entity.setValue(RobotAssistantComponent, "targetZ", newTargetZ);
+                            entity.setValue(RobotAssistantComponent, "hasReachedTarget", false);
+                            entity.setValue(RobotAssistantComponent, "collisionCooldown", 1.5); // Add cooldown
+                            entity.setValue(RobotAssistantComponent, "stuckTime", 0);
+                        }
+
+                        record.model.position.x = constrained.x;
+                        record.model.position.z = constrained.z;
 
                         // Clamp to walkable area
                         const [clampedX, clampedZ] = clampToWalkableArea(
@@ -355,10 +389,64 @@ export class RobotAssistantSystem extends createSystem({
                 entity.setValue(RobotAssistantComponent, "targetZ", newTargetZ);
                 entity.setValue(RobotAssistantComponent, "hasReachedTarget", false);
                 entity.setValue(RobotAssistantComponent, "nextWaypointTime", this.timeElapsed + WAYPOINT_INTERVAL + Math.random() * 4.0);
-
                 console.log(`[RobotAssistant] 🎯 New waypoint: (${newTargetX.toFixed(2)}, ${newTargetZ.toFixed(2)})`);
             }
 
+
+            // ── Stuck Detection & Collision Response ────────────────────────
+            // If we are in "Walking" state:
+            // 1. Check if we hit a wall (constrained movement differs from intended)
+            // 2. Check if we are physically stuck (position not changing)
+            if (currentState === "Walking") {
+                const currentX = record.model.position.x;
+                const currentZ = record.model.position.z;
+                const lastX = entity.getValue(RobotAssistantComponent, "lastX") as number;
+                const lastZ = entity.getValue(RobotAssistantComponent, "lastZ") as number;
+                let stuckTime = entity.getValue(RobotAssistantComponent, "stuckTime") as number;
+
+                // collisionCooldown is updated at top of loop
+
+                // 1. Immediate Collision Check (Wall Hit)
+                // If constrained position differs significantly from intended next position, we hit something.
+                // We check this *after* movement calculation in the loop below, but we need the flag here.
+                // Actually, let's do this check *inside* the movement block where we have `constrained` result.
+
+                // 2. Stuck Check (No Progress)
+                const distMoved = Math.sqrt((currentX - lastX) ** 2 + (currentZ - lastZ) ** 2);
+                if (distMoved < 0.005) {
+                    stuckTime += dt;
+                } else {
+                    stuckTime = Math.max(0, stuckTime - dt * 2);
+                }
+
+                // Trigger repathing if stuck OR if collision detected (set via local flag below)
+                let triggerRepath = false;
+
+                if (stuckTime > 1.0) { // Reduced from 2.0s for faster response
+                    console.log(`[RobotAssistant] ⚠️ Stuck detected (${stuckTime.toFixed(1)}s) - picking new path`);
+                    triggerRepath = true;
+                }
+
+                entity.setValue(RobotAssistantComponent, "stuckTime", stuckTime);
+                entity.setValue(RobotAssistantComponent, "lastX", currentX);
+                entity.setValue(RobotAssistantComponent, "lastZ", currentZ);
+                entity.setValue(RobotAssistantComponent, "collisionCooldown", collisionCooldown);
+
+                if (triggerRepath) {
+                    const bounds = getRoomBounds();
+                    const newTargetX = bounds ? (bounds.minX + Math.random() * (bounds.maxX - bounds.minX)) : (record.model.position.x + (Math.random() - 0.5) * 4);
+                    const newTargetZ = bounds ? (bounds.minZ + Math.random() * (bounds.maxZ - bounds.minZ)) : (record.model.position.z + (Math.random() - 0.5) * 4);
+
+                    entity.setValue(RobotAssistantComponent, "targetX", newTargetX);
+                    entity.setValue(RobotAssistantComponent, "targetZ", newTargetZ);
+                    entity.setValue(RobotAssistantComponent, "hasReachedTarget", false);
+                    entity.setValue(RobotAssistantComponent, "stuckTime", 0);
+                    entity.setValue(RobotAssistantComponent, "collisionCooldown", 1.5); // Add cooldown
+                }
+            } else {
+                entity.setValue(RobotAssistantComponent, "stuckTime", 0);
+            }
+            // ────────────────────────────────────────────────────────────────
 
             // Check if it's time for a random transition
             if (this.timeElapsed >= nextTransitionTime) {

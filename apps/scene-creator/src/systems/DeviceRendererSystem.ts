@@ -19,6 +19,7 @@ import { Device, DeviceType, DeviceRecord, Fan } from "../types";
 import { DeviceComponent } from "../components/DeviceComponent";
 import { BaseDevice, DeviceFactory } from "../entities";
 import { DEVICE_ASSET_KEYS } from "../constants";
+import { constrainMovement, DEVICE_COLLISION_RADIUS, clampDeviceY } from "../config/collision";
 
 export class DeviceRendererSystem extends createSystem({
   devices: {
@@ -28,6 +29,8 @@ export class DeviceRendererSystem extends createSystem({
   private deviceRecords: Map<string, DeviceRecord> = new Map();
   private modelCache: Map<DeviceType, Object3D> = new Map();
   private animationCache: Map<DeviceType, AnimationClip[]> = new Map();
+  // Track last valid position per device for collision detection during grab
+  private lastValidPositions: Map<string, { x: number; y: number; z: number }> = new Map();
   private initialized = false;
   private unsubscribe?: () => void;
 
@@ -422,6 +425,26 @@ export class DeviceRendererSystem extends createSystem({
           rot.x = 0;
           rot.z = 0;
         }
+
+        // Collision check for grabbed/moved devices
+        const pos = record.entity.object3D.position;
+        const lastValid = this.lastValidPositions.get(deviceId);
+        if (lastValid) {
+          // XZ collision constraint (walls, desk edges, furniture)
+          const constrained = constrainMovement(
+            lastValid.x, lastValid.z, pos.x, pos.z,
+            pos.y,
+            DEVICE_COLLISION_RADIUS
+          );
+          if (pos.x !== lastValid.x || pos.z !== lastValid.z) {
+            pos.x = constrained.x;
+            pos.z = constrained.z;
+          }
+          // Y collision constraint (floor and ceiling)
+          pos.y = clampDeviceY(pos.y);
+        }
+        // Store current position as last valid
+        this.lastValidPositions.set(deviceId, { x: pos.x, y: pos.y, z: pos.z });
       }
 
       if (record.panelEntity?.object3D && record.entity.object3D) {

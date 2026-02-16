@@ -10,6 +10,7 @@ import { SkeletonUtils } from "three-stdlib";
 import type { Bone } from "three";
 import { SkeletonControlledAvatarComponent } from "../components/SkeletonControlledAvatarComponent";
 import { clampToWalkableArea, getRoomBounds } from "../config/navmesh";
+import { constrainMovement, AVATAR_COLLISION_RADIUS } from "../config/collision";
 
 // ============================================================================
 // CONFIG
@@ -410,8 +411,19 @@ export class SkeletonControlledAvatarSystem extends createSystem({
       const moveX = record.walkDirection.x * velocity * dt;
       const moveZ = record.walkDirection.z * velocity * dt;
 
-      record.model.position.x += moveX;
-      record.model.position.z += moveZ;
+      const oldX = record.model.position.x;
+      const oldZ = record.model.position.z;
+      const nextX = oldX + moveX;
+      const nextZ = oldZ + moveZ;
+
+      // Collision check against lab model meshes
+      const constrained = constrainMovement(
+        oldX, oldZ, nextX, nextZ,
+        record.model.position.y,
+        AVATAR_COLLISION_RADIUS
+      );
+      record.model.position.x = constrained.x;
+      record.model.position.z = constrained.z;
 
       const [clampedX, clampedZ] = clampToWalkableArea(
         record.model.position.x,

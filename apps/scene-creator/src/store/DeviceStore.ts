@@ -19,11 +19,19 @@ interface DeviceState {
   loading: boolean;
   error: string | null;
   selectedDeviceId: string | null;
+  placementMode: DeviceType | null;
 
   // Actions
   loadAllData: () => Promise<void>;
   refreshDevices: () => Promise<void>;
   refreshSingleDevice: (deviceId: string) => Promise<void>;
+
+
+  createDevice: (
+    type: DeviceType,
+    position: [number, number, number],
+    rotation: [number, number, number, number]
+  ) => Promise<void>;
   handleDeviceUpdate: (rawDevice: any) => void;
   toggleDevice: (deviceId: string, on?: boolean) => Promise<void>;
   updateDevicePosition: (
@@ -50,6 +58,7 @@ interface DeviceState {
     options: { temperature?: number },
   ) => Promise<void>;
   selectDevice: (deviceId: string | null) => void;
+  setPlacementMode: (type: DeviceType | null) => void;
   clearSelection: () => void;
 
   // Getters
@@ -79,6 +88,7 @@ export const deviceStore = createStore<DeviceState>()(
     loading: false,
     error: null,
     selectedDeviceId: null,
+    placementMode: null,
 
     // Actions
     loadAllData: async () => {
@@ -116,7 +126,7 @@ export const deviceStore = createStore<DeviceState>()(
       }
     },
 
-    refreshSingleDevice: async (deviceId) => {
+    refreshSingleDevice: async (deviceId: string) => {
       try {
         console.log(`[Store] Refreshing single device: ${deviceId}`);
         const updatedDevice = await api.getDevice(deviceId);
@@ -133,8 +143,8 @@ export const deviceStore = createStore<DeviceState>()(
               ...updatedDevice,
               position:
                 updatedDevice.position[0] !== 0 ||
-                updatedDevice.position[1] !== 0 ||
-                updatedDevice.position[2] !== 0
+                  updatedDevice.position[1] !== 0 ||
+                  updatedDevice.position[2] !== 0
                   ? updatedDevice.position
                   : existingDevice.position,
             };
@@ -151,6 +161,40 @@ export const deviceStore = createStore<DeviceState>()(
         });
       } catch (err) {
         console.error(`[Store] Failed to refresh device ${deviceId}:`, err);
+      }
+    },
+
+
+
+    createDevice: async (type, position, rotation) => {
+      try {
+        console.log(`[Store] Creating device of type ${type}`);
+        // simplistic: pick first home, first room
+        // In real app, we need context.
+        const homes = get().homes;
+        let roomId = "";
+        if (homes.length > 0 && homes[0].floors.length > 0 && homes[0].floors[0].rooms.length > 0) {
+          roomId = homes[0].floors[0].rooms[0].id;
+        }
+
+        // Convert rotation quaternion to Euler Y if needed, or just store defaults.
+        // Backend currently supports rotation_y.
+        // We might need to convert quat to euler Y.
+        // For now, simplify.
+
+        const payload: any = {
+          type: type,
+          name: `New ${type}`,
+          room_id: roomId,
+          position: position,
+          // rotation...
+        };
+
+        const newDevice = await api.createDevice(payload);
+        set((state) => ({ devices: [...state.devices, newDevice] }));
+        console.log(`[Store] Created device ${newDevice.id}`);
+      } catch (err) {
+        console.error("[Store] Failed to create device:", err);
       }
     },
 
@@ -173,8 +217,8 @@ export const deviceStore = createStore<DeviceState>()(
               // Preserve position if the update doesn't include it
               position:
                 updatedDevice.position[0] !== 0 ||
-                updatedDevice.position[1] !== 0 ||
-                updatedDevice.position[2] !== 0
+                  updatedDevice.position[1] !== 0 ||
+                  updatedDevice.position[2] !== 0
                   ? updatedDevice.position
                   : existingDevice.position,
             };
@@ -298,6 +342,11 @@ export const deviceStore = createStore<DeviceState>()(
     selectDevice: (deviceId) => {
       console.log(`[Store] Selected device:`, deviceId);
       set({ selectedDeviceId: deviceId });
+    },
+
+    setPlacementMode: (type) => {
+      console.log(`[Store] Set placement mode:`, type);
+      set({ placementMode: type });
     },
 
     clearSelection: () => {

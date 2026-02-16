@@ -95,14 +95,19 @@ export class VoicePanelSystem extends createSystem({
     const camera = this.world.camera;
     if (!camera) return;
 
-    // Calculate target position: 0.4m in front of camera, slightly lower
+    // Calculate target position: 0.6m in front of camera, 0.3m lower, 0.2m to the right
     const camDir = camera.getWorldDirection(new Object3D().position.clone().set(0, 0, 0));
     camDir.y = 0; // Flatten the forward vector
     camDir.normalize();
 
-    const targetX = camera.position.x + camDir.x * 0.4;
-    const targetY = camera.position.y - 0.15;
-    const targetZ = camera.position.z + camDir.z * 0.4;
+    // Right vector (cross product of forward and up)
+    // forward = (x, 0, z), up = (0, 1, 0) -> right = (z, 0, -x)
+    const rightX = camDir.z;
+    const rightZ = -camDir.x;
+
+    const targetX = camera.position.x + camDir.x * 0.6 + rightX * 0.2;
+    const targetY = camera.position.y - 0.3;
+    const targetZ = camera.position.z + camDir.z * 0.6 + rightZ * 0.2;
 
     // Lerp for smooth movement
     const dx = targetX - this.panelObject3D.position.x;

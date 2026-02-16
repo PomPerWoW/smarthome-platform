@@ -31,7 +31,13 @@ import { VoiceControlSystem } from "./systems/VoiceControlSystem";
 import { VoicePanelSystem } from "./ui/VoicePanelSystem";
 // import { VoicePanel } from "./ui/VoicePanel"; // Legacy DOM panel
 import { RoomScanningSystem } from "./systems/RoomScanningSystem";
+import { PhysicsSystem } from "./systems/PhysicsSystem";
+import { RoomColliderSystem } from "./systems/RoomColliderSystem";
+import { HandMenuSystem } from "./systems/HandMenuSystem";
+import { DevicePlacementSystem } from "./systems/DevicePlacementSystem";
+import { RoomAlignmentSystem } from "./systems/RoomAlignmentSystem";
 import { initializeNavMesh } from "./config/navmesh";
+import { initializeCollision } from "./config/collision";
 import {
   type ControllableAvatarSystem,
   getAvatarCount,
@@ -156,12 +162,18 @@ async function main(): Promise<void> {
   if (roomGltf) {
     const roomModel = roomGltf.scene;
     roomModel.scale.setScalar(0.5);
-    roomModel.position.set(-4.2, 0.8, 0.8);
-    world.scene.add(roomModel);
+    roomModel.position.set(-4.2, 0.8, 0.8); // Default position (overridden by RoomAlignmentSystem in AR)
+    world.scene.add(roomModel as any);
     console.log("✅ Room scene loaded");
 
-    initializeNavMesh(roomModel, 0.5);
+    initializeNavMesh(roomModel as any, 0.5);
     console.log("✅ NavMesh initialized for lab room");
+
+    initializeCollision(roomModel as any);
+    console.log("✅ Collision meshes initialized for lab room");
+
+    // Store reference for RoomAlignmentSystem (set after systems are registered)
+    (globalThis as any).__labRoomModel = roomModel;
   } else {
     console.warn("⚠️ Room scene not available");
   }
@@ -183,6 +195,11 @@ async function main(): Promise<void> {
     .registerSystem(FanPanelSystem)
     .registerSystem(AirConditionerPanelSystem)
     .registerSystem(RoomScanningSystem)
+    .registerSystem(PhysicsSystem)
+    .registerSystem(RoomColliderSystem)
+    .registerSystem(HandMenuSystem)
+    .registerSystem(DevicePlacementSystem)
+    .registerSystem(RoomAlignmentSystem)
     .registerSystem(VoicePanelSystem)
 
   console.log("✅ Systems registered");
@@ -217,6 +234,19 @@ async function main(): Promise<void> {
 
   voice3DPanel.object3D!.position.set(0, 1.4, -0.4); // Initial position
   console.log("✅ Voice 3D Panel created");
+
+  // Hand Menu Panel (floating, like voice panel)
+  const handMenuPanel = world
+    .createTransformEntity()
+    .addComponent(PanelUI, {
+      config: "./ui/hand_menu.json",
+      maxHeight: 0.2,
+      maxWidth: 0.25,
+    })
+    .addComponent(Interactable);
+
+  handMenuPanel.object3D!.position.set(-0.3, 1.4, -0.4);
+  console.log("✅ Hand Menu floating panel created");
 
   const store = getStore();
 
