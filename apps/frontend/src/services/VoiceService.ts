@@ -1,5 +1,5 @@
 import { ApiService } from "./ApiService";
-import { speakGreeting } from "./VoiceTextToSpeech";
+import { speakGreeting, speakSeeYouAgain } from "./VoiceTextToSpeech";
 import { toast } from "sonner"; // Assuming sonner is used for notifications based on pkg.json
 
 // Type definition for Web Speech API
@@ -84,6 +84,7 @@ export class VoiceService {
     if (this.recognition && this.isListening) {
       this.recognition.stop();
       this.isListening = false;
+      speakSeeYouAgain();
     }
   }
 

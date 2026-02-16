@@ -39,7 +39,7 @@ import {
   setupAvatarSwitcherPanel,
 } from "./ui/AvatarSwitcherPanel";
 import { setupLipSyncControlPanel } from "./ui/LipSyncPanel";
-import { speakGreeting } from "./utils/VoiceTextToSpeech";
+import { speakGreeting, speakSeeYouAgain } from "./utils/VoiceTextToSpeech";
 import * as LucideIconsKit from "@pmndrs/uikit-lucide";
 
 const assets: AssetManifest = {
@@ -280,6 +280,7 @@ async function main(): Promise<void> {
       speakGreeting();
     } else if (status === "idle" && payload !== undefined) {
       if (payload.cancelled) {
+        speakSeeYouAgain();
         robotAssistantSystem.playEmoteSequence(["Jump"], () => robotAssistantSystem.setVoiceListening(false));
       } else if (payload.success === false) {
         robotAssistantSystem.playEmoteSequence(["No"], () => robotAssistantSystem.setVoiceListening(false));
