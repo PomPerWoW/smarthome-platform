@@ -28,7 +28,6 @@ import { AirConditionerPanelSystem } from "./ui/AirConditionerPanelSystem";
 import { VoiceControlSystem } from "./systems/VoiceControlSystem";
 import { VoicePanel } from "./ui/VoicePanel";
 import { RoomScanningSystem } from "./systems/RoomScanningSystem";
-import { AvatarHandTrackingSystem } from "./systems/avatar-hand-tracking/AvatarHandTrackingSystem";
 import { initializeNavMesh } from "./config/navmesh";
 import {
   type ControllableAvatarSystem,
@@ -95,11 +94,6 @@ const assets: AssetManifest = {
   },
   robot_assistant: {
     url: "/models/avatar/assistant/robot_3D_scene.glb",
-    type: AssetType.GLTF,
-    priority: "critical",
-  },
-  hand_armature: {
-    url: "/models/avatar/organs/hand.glb",
     type: AssetType.GLTF,
     priority: "critical",
   },
@@ -190,7 +184,6 @@ async function main(): Promise<void> {
     .registerSystem(FanPanelSystem)
     .registerSystem(AirConditionerPanelSystem)
     .registerSystem(RoomScanningSystem)
-    .registerSystem(AvatarHandTrackingSystem)
 
   console.log("✅ Systems registered");
 
