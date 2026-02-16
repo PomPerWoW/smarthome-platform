@@ -17,8 +17,8 @@ import { clampToWalkableArea, getRoomBounds } from "../config/navmesh";
 // ============================================================================
 
 const FADE_DURATION = 0.2;
-const RUN_VELOCITY = 5;
-const WALK_VELOCITY = 2;
+const RUN_VELOCITY = 2.5;
+const WALK_VELOCITY = 1.0;
 const ROTATE_SPEED = 0.2;
 
 // Keys: I=W, J=A, K=S, L=D
@@ -84,7 +84,7 @@ export class UserControlledAvatarSystem extends createSystem({
       ) return;
       const key = event.key.toLowerCase();
       this.keyStates.set(key, true);
-      if (key === "shift" && this.currentControlledAvatarId) {
+      if (key === "h" && this.currentControlledAvatarId) {
         const record = this.avatarRecords.get(this.currentControlledAvatarId);
         if (record) record.toggleRun = !record.toggleRun;
         event.preventDefault();
@@ -190,7 +190,7 @@ export class UserControlledAvatarSystem extends createSystem({
         mixer,
         animationsMap,
         currentAction,
-        toggleRun: true,
+        toggleRun: false,
         walkDirection: new Vector3(),
         rotateAngle: new Vector3(0, 1, 0),
         rotateQuaternion: new Quaternion(),
