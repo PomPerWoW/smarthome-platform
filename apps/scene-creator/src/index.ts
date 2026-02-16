@@ -274,7 +274,7 @@ async function main(): Promise<void> {
   // Voice panel: wire status to robot (listening → Standing; idle → success: Yes+ThumbsUp, failure: No, cancelled: Jump)
   new VoicePanel(voiceSystem, (status, payload) => {
     if (!robotAssistantSystem) return;
-    if (status === "listening" || status === "processing") {
+    if (status === "listening") {
       robotAssistantSystem.setVoiceListening(true);
     } else if (status === "idle" && payload !== undefined) {
       if (payload.cancelled) {
