@@ -1,4 +1,5 @@
 import { ApiService } from "./ApiService";
+import { speakGreeting } from "./VoiceTextToSpeech";
 import { toast } from "sonner"; // Assuming sonner is used for notifications based on pkg.json
 
 // Type definition for Web Speech API
@@ -49,6 +50,7 @@ export class VoiceService {
     if (this.isListening) return;
 
     this.isListening = true;
+    speakGreeting();
 
     this.recognition.onresult = async (event: any) => {
       const transcript = event.results[0][0].transcript;
