@@ -23,9 +23,8 @@ const ROTATE_SPEED = 0.15; // Rotation speed for turning
 const WAYPOINT_REACH_DISTANCE = 0.5; // How close to get to waypoint before picking new one
 const WAYPOINT_INTERVAL = 8.0; // Pick new waypoint every 8-12 seconds
 
-// Animation categories from the Three.js example
-const STATES = ["Idle", "Walking", "Dance", "Death", "Sitting", "Standing"];
-const EMOTES = ["Jump", "Yes", "No", "Wave", "Punch", "ThumbsUp"];
+const STATES = ["Idle", "Walking", "Standing"];
+const EMOTES = ["Jump", "Yes", "No", "Wave", "ThumbsUp"];
 
 // ============================================================================
 // ROBOT RECORD
@@ -49,6 +48,13 @@ interface RobotAssistantRecord {
 // ROBOT ASSISTANT SYSTEM
 // ============================================================================
 
+interface VoiceEmoteSequence {
+    emotes: string[];
+    onDone?: () => void;
+    index: number;
+    record: RobotAssistantRecord;
+}
+
 export class RobotAssistantSystem extends createSystem({
     robots: {
         required: [RobotAssistantComponent],
@@ -56,6 +62,8 @@ export class RobotAssistantSystem extends createSystem({
 }) {
     private robotRecords: Map<string, RobotAssistantRecord> = new Map();
     private timeElapsed = 0;
+    private voiceActive = false;
+    private voiceEmoteSequence: VoiceEmoteSequence | null = null;
 
     init() {
         console.log("[RobotAssistant] System initialized (autonomous behavior with pre-baked animations)");
@@ -177,8 +185,8 @@ export class RobotAssistantSystem extends createSystem({
                 if (action) {
                     animationsMap.set(c.name, action);
 
-                    // Set emotes and certain states to play once then stop
-                    if (EMOTES.indexOf(c.name) >= 0 || STATES.indexOf(c.name) >= 4) {
+                    // Set emotes and Standing to play once then stop
+                    if (EMOTES.indexOf(c.name) >= 0 || STATES.indexOf(c.name) >= 2) {
                         action.clampWhenFinished = true;
                         action.loop = LoopOnce;
                     }
@@ -254,6 +262,74 @@ export class RobotAssistantSystem extends createSystem({
         record.currentAction = name;
     }
 
+    // Turn voice-listening mode on or off
+    setVoiceListening(active: boolean): void {
+        this.voiceActive = active;
+        if (active) {
+            for (const record of this.robotRecords.values()) {
+                this.fadeToAction(record, "Standing", FADE_DURATION);
+                record.entity.setValue(RobotAssistantComponent, "currentState", "Standing");
+            }
+            console.log("[RobotAssistant] 🎤 Voice listening ON — Standing");
+        } else {
+            this.voiceEmoteSequence = null;
+            for (const record of this.robotRecords.values()) {
+                this.fadeToAction(record, "Walking", FADE_DURATION);
+                record.entity.setValue(RobotAssistantComponent, "currentState", "Walking");
+            }
+            console.log("[RobotAssistant] 🎤 Voice listening OFF — resuming walking");
+        }
+    }
+
+    // Play a sequence of emotes
+    playEmoteSequence(emotes: string[], onDone?: () => void): void {
+        if (emotes.length === 0) {
+            onDone?.();
+            this.setVoiceListening(false);
+            return;
+        }
+        const firstRecord = this.robotRecords.values().next().value as RobotAssistantRecord | undefined;
+        if (!firstRecord) {
+            onDone?.();
+            this.setVoiceListening(false);
+            return;
+        }
+        this.voiceActive = true;
+        this.voiceEmoteSequence = {
+            emotes,
+            onDone,
+            index: 0,
+            record: firstRecord,
+        };
+        const seq = this.voiceEmoteSequence;
+        const playNext = () => {
+            const emoteName = seq.emotes[seq.index];
+            if (!firstRecord.animationsMap.has(emoteName)) {
+                console.warn(`[RobotAssistant] Emote "${emoteName}" not found, skipping sequence`);
+                this.voiceEmoteSequence = null;
+                seq.onDone?.();
+                this.setVoiceListening(false);
+                return;
+            }
+            this.fadeToAction(firstRecord, emoteName, FADE_DURATION);
+            firstRecord.entity.setValue(RobotAssistantComponent, "currentState", emoteName);
+            const onFinished = () => {
+                firstRecord.mixer.removeEventListener("finished", onFinished);
+                seq.index++;
+                if (seq.index < seq.emotes.length) {
+                    playNext();
+                    firstRecord.mixer.addEventListener("finished", onFinished);
+                } else {
+                    this.voiceEmoteSequence = null;
+                    seq.onDone?.();
+                    this.setVoiceListening(false);
+                }
+            };
+            firstRecord.mixer.addEventListener("finished", onFinished);
+        };
+        playNext();
+    }
+
     update(dt: number): void {
         this.timeElapsed += dt;
 
@@ -261,82 +337,66 @@ export class RobotAssistantSystem extends createSystem({
             // Always update mixer
             record.mixer.update(dt);
 
+            // Voice-driven mode: stay Standing (or let emote sequence run), skip movement and random transitions
+            if (this.voiceActive) {
+                if (!this.voiceEmoteSequence && record.currentAction !== "Standing") {
+                    this.fadeToAction(record, "Standing", FADE_DURATION);
+                    record.entity.setValue(RobotAssistantComponent, "currentState", "Standing");
+                }
+                // Still update head expressions below, then skip the rest
+                if (record.headMesh) {
+                    const dict = (record.headMesh as any).morphTargetDictionary;
+                    const influences = (record.headMesh as any).morphTargetInfluences;
+                    if (dict && influences) {
+                        if (dict["angry"] !== undefined) influences[dict["angry"]] = 0.0;
+                        if (dict["surprised"] !== undefined) influences[dict["surprised"]] = 0.0;
+                        if (dict["sad"] !== undefined) influences[dict["sad"]] = 0.0;
+                    }
+                }
+                continue;
+            }
+
             const entity = record.entity;
-            const nextTransitionTime = entity.getValue(RobotAssistantComponent, "nextTransitionTime") as number;
             const currentState = entity.getValue(RobotAssistantComponent, "currentState") as string;
             const targetX = entity.getValue(RobotAssistantComponent, "targetX") as number;
             const targetZ = entity.getValue(RobotAssistantComponent, "targetZ") as number;
             const hasReachedTarget = entity.getValue(RobotAssistantComponent, "hasReachedTarget") as boolean;
             const nextWaypointTime = entity.getValue(RobotAssistantComponent, "nextWaypointTime") as number;
-            const moveSpeed = entity.getValue(RobotAssistantComponent, "moveSpeed") as number;
 
-            // Calculate movement intention
-            let shouldMove = false;
-            let distanceToTarget = 0;
+            // Distance to waypoint — only Walking and Idle in normal mode (no random emotes/states)
+            const dx = targetX - record.model.position.x;
+            const dz = targetZ - record.model.position.z;
+            const distanceToTarget = Math.sqrt(dx * dx + dz * dz);
+            const shouldMove = distanceToTarget > WAYPOINT_REACH_DISTANCE;
 
-            if (currentState === "Walking" || currentState === "Idle") {
-                const dx = targetX - record.model.position.x;
-                const dz = targetZ - record.model.position.z;
-                distanceToTarget = Math.sqrt(dx * dx + dz * dz);
-                shouldMove = distanceToTarget > WAYPOINT_REACH_DISTANCE;
+            // Switch to Walking when about to move, Idle when in place
+            if (shouldMove && currentState === "Idle") {
+                this.fadeToAction(record, "Walking", FADE_DURATION);
+                entity.setValue(RobotAssistantComponent, "currentState", "Walking");
+            } else if (!shouldMove && currentState === "Walking") {
+                this.fadeToAction(record, "Idle", FADE_DURATION);
+                entity.setValue(RobotAssistantComponent, "currentState", "Idle");
             }
 
-            // Auto-switch animation BEFORE movement to prevent sliding
-            // Only switch if not playing emotes or special animations
-            const isEmote = EMOTES.includes(currentState);
-            const isSpecialState = ["Dance", "Death", "Sitting", "Standing"].includes(currentState);
-
-            if (!isEmote && !isSpecialState) {
-                if (shouldMove && currentState === "Idle") {
-                    // About to start moving - switch to Walking FIRST
-                    this.fadeToAction(record, "Walking", FADE_DURATION);
-                    entity.setValue(RobotAssistantComponent, "currentState", "Walking");
-                    console.log(`[RobotAssistant] 🚶 Auto-switched to Walking (about to move)`);
-                } else if (!shouldMove && currentState === "Walking") {
-                    // Not moving - switch to Idle
-                    this.fadeToAction(record, "Idle", FADE_DURATION);
-                    entity.setValue(RobotAssistantComponent, "currentState", "Idle");
-                    console.log(`[RobotAssistant] 🧍 Auto-switched to Idle (stopped)`);
-                }
-            }
-
-            // Now perform actual movement (animation is already correct)
-            // The robot should rotate and move if its current state is Walking,
-            // or just rotate if its current state is Idle but it's about to move.
+            // Perform movement (only when moving toward waypoint)
             if (shouldMove) {
-                const dx = targetX - record.model.position.x;
-                const dz = targetZ - record.model.position.z;
-                // Recalculate distanceToTarget as currentState might have changed
                 const currentDistanceToTarget = Math.sqrt(dx * dx + dz * dz);
-
                 if (currentDistanceToTarget > WAYPOINT_REACH_DISTANCE) {
-                    // Normalize direction
                     record.walkDirection.set(dx / currentDistanceToTarget, 0, dz / currentDistanceToTarget);
-
-                    // Calculate target rotation
                     const targetAngle = Math.atan2(dx, dz);
                     record.rotateQuaternion.setFromAxisAngle(record.rotateAngle, targetAngle);
-
-                    // Smoothly rotate toward target
                     (record.model as any).quaternion.rotateTowards(record.rotateQuaternion, ROTATE_SPEED);
 
-                    // Move forward (only if in Walking state)
-                    if (entity.getValue(RobotAssistantComponent, "currentState") === "Walking") {
-                        const moveX = record.walkDirection.x * WALK_VELOCITY * dt;
-                        const moveZ = record.walkDirection.z * WALK_VELOCITY * dt;
-
-                        record.model.position.x += moveX;
-                        record.model.position.z += moveZ;
-
-                        // Clamp to walkable area
-                        const [clampedX, clampedZ] = clampToWalkableArea(
-                            record.model.position.x,
-                            record.model.position.z
-                        );
-                        record.model.position.x = clampedX;
-                        record.model.position.z = clampedZ;
-                    }
-
+                    const moveX = record.walkDirection.x * WALK_VELOCITY * dt;
+                    const moveZ = record.walkDirection.z * WALK_VELOCITY * dt;
+                    record.model.position.x += moveX;
+                    record.model.position.z += moveZ;
+                    const [clampedX, clampedZ] = clampToWalkableArea(
+                        record.model.position.x,
+                        record.model.position.z
+                    );
+                    record.model.position.x = clampedX;
+                    record.model.position.z = clampedZ;
                     entity.setValue(RobotAssistantComponent, "hasReachedTarget", false);
                 }
             } else if (!hasReachedTarget) {
@@ -357,51 +417,6 @@ export class RobotAssistantSystem extends createSystem({
                 entity.setValue(RobotAssistantComponent, "nextWaypointTime", this.timeElapsed + WAYPOINT_INTERVAL + Math.random() * 4.0);
 
                 console.log(`[RobotAssistant] 🎯 New waypoint: (${newTargetX.toFixed(2)}, ${newTargetZ.toFixed(2)})`);
-            }
-
-
-            // Check if it's time for a random transition
-            if (this.timeElapsed >= nextTransitionTime) {
-                // Decide: state change or emote
-                const doEmote = Math.random() < 0.3;
-
-                if (doEmote) {
-                    // Pick random emote
-                    const emote = EMOTES[Math.floor(Math.random() * EMOTES.length)];
-                    console.log(`[RobotAssistant] 🎭 Playing emote: ${emote}`);
-                    this.fadeToAction(record, emote, FADE_DURATION);
-
-                    // Listen for emote finish, then return to previous state
-                    const onFinished = () => {
-                        record.mixer.removeEventListener("finished", onFinished);
-                        console.log(`[RobotAssistant] 🔄 Returning to state: ${currentState}`);
-                        this.fadeToAction(record, currentState, FADE_DURATION);
-                    };
-                    record.mixer.addEventListener("finished", onFinished);
-                } else {
-                    // Change state (bias towards Walking)
-                    const rand = Math.random();
-                    let newState: string;
-
-                    if (rand < 0.6) {
-                        newState = "Walking";
-                    } else if (rand < 0.8) {
-                        newState = "Idle";
-                    } else {
-                        const otherStates = STATES.filter(s => s !== currentState && s !== "Walking" && s !== "Death");
-                        newState = otherStates[Math.floor(Math.random() * otherStates.length)] || "Walking";
-                    }
-
-                    if (newState !== currentState) {
-                        console.log(`[RobotAssistant] 🤖 Changing state: ${currentState} → ${newState}`);
-                        this.fadeToAction(record, newState, FADE_DURATION);
-                        entity.setValue(RobotAssistantComponent, "currentState", newState);
-                    }
-                }
-
-                // Set next transition time
-                const nextInterval = 5.0 + Math.random() * 5.0;
-                entity.setValue(RobotAssistantComponent, "nextTransitionTime", this.timeElapsed + nextInterval);
             }
 
             // Ensure expressions stay at 0.0
