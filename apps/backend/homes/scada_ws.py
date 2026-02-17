@@ -17,9 +17,9 @@ class WebSocket2Scada:
     def __init__(
         self,
         target: str,
-        login: str = "",
-        password: str = "",
-        token: str | None = None,
+        login: str,
+        password: str,
+        token: str,
         tags: list[str] | None = None,
         on_tag=None,  # callback: (tag: str, value: Any, at: str) -> None
         verify_tls: bool = False,
@@ -76,33 +76,50 @@ class WebSocket2Scada:
 
     # ---------- WebSocket handlers ----------
     def _on_message(self, ws, message: str):
+        print(f"[SCADA_WS] message: {message}")
         try:
-            envelope = json.loads(message)  # {'message': '...json...'}
-            payload = json.loads(envelope["message"])
-            # Examples:
-            # {'type': 'notify_tag', 'tag': 'passion.HueLight02.onoff', 'value': '1', 'time': '2021-06-25 16:01:17.783675'}
+            # Try parsing as wrapped message first
+            try:
+                envelope = json.loads(message)
+                if "message" in envelope and isinstance(envelope["message"], str):
+                    payload = json.loads(envelope["message"])
+                else:
+                    payload = envelope
+            except json.JSONDecodeError:
+                print("[SCADA_WS] JSON decode error")
+                return
+
+            print(f"[SCADA_WS] payload: {payload}")
+
+            # Handle notify_tag
             if payload.get("type") == "notify_tag":
                 tag = payload.get("tag")
                 value = payload.get("value")
                 at = payload.get("time")
                 if self.on_tag:
                     self.on_tag(tag, value, at)
+            
+            # Handle settag_response
+            elif payload.get("message_type") == "settag_response":
+                print(f"[SCADA_WS] Set tag response: {payload.get('status')} for {payload.get('tag_fullname')}")
+
         except Exception as e:
-            print("on_message parse error:", e)
+            print("[SCADA_WS] on_message error:", e)
 
     def _on_error(self, ws, error):
-        print("WebSocket error:", error)
+        print("[SCADA_WS] WebSocket error:", error)
 
     def _on_close(self, ws, *_):
         with self._lock:
             self._connected = False
-        print("WebSocket closed")
+        print("[SCADA_WS] WebSocket closed")
 
     def _on_open(self, ws):
-        print("WebSocket opened")
+        print("[SCADA_WS] WebSocket opened")
         if self.tags:
             msg = json.dumps({"type": "add_tags", "tags": self.tags})
             ws.send(json.dumps({"message": msg}))
+        
 
     # ---------- Public API ----------
     def start(self, extra_tags: list[str] | None = None) -> bool:

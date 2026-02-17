@@ -14,19 +14,18 @@ import { getWebSocketClient } from "./api/WebSocketClient";
 import { getStore } from "./store/DeviceStore";
 import { DeviceComponent } from "./components/DeviceComponent";
 import { UserControlledAvatarComponent } from "./components/UserControlledAvatarComponent";
-import { SkeletonControlledAvatarComponent } from "./components/SkeletonControlledAvatarComponent";
 import { RobotAssistantComponent } from "./components/RobotAssistantComponent";
 import { DeviceRendererSystem } from "./systems/DeviceRendererSystem";
 import { DeviceInteractionSystem } from "./systems/DeviceInteractionSystem";
 import { UserControlledAvatarSystem } from "./systems/UserControlledAvatarSystem";
 import { RPMUserControlledAvatarSystem } from "./systems/RPMUserControlledAvatarSystem";
-import { SkeletonControlledAvatarSystem } from "./systems/SkeletonControlledAvatarSystem";
 import { RobotAssistantSystem } from "./systems/RobotAssistantSystem";
 import { PanelSystem } from "./ui/panel";
 import { LightbulbPanelSystem } from "./ui/LightbulbPanelSystem";
 import { TelevisionPanelSystem } from "./ui/TelevisionPanelSystem";
 import { FanPanelSystem } from "./ui/FanPanelSystem";
 import { AirConditionerPanelSystem } from "./ui/AirConditionerPanelSystem";
+import { GraphPanelSystem } from "./ui/GraphPanelSystem";
 import { VoiceControlSystem } from "./systems/VoiceControlSystem";
 import { VoicePanel } from "./ui/VoicePanel";
 import { RoomScanningSystem } from "./systems/RoomScanningSystem";
@@ -40,6 +39,7 @@ import {
   setupAvatarSwitcherPanel,
 } from "./ui/AvatarSwitcherPanel";
 import { setupLipSyncControlPanel } from "./ui/LipSyncPanel";
+import { speakGreeting, speakSeeYouAgain } from "./utils/VoiceTextToSpeech";
 import * as LucideIconsKit from "@pmndrs/uikit-lucide";
 
 const assets: AssetManifest = {
@@ -85,6 +85,11 @@ const assets: AssetManifest = {
   },
   rpmClip_model: {
     url: "/models/avatar/resident/RPM_clip.glb",
+    type: AssetType.GLTF,
+    priority: "critical",
+  },
+  rpmClip_model1: {
+    url: "/models/avatar/resident/MediumRes12.glb",
     type: AssetType.GLTF,
     priority: "critical",
   },
@@ -168,19 +173,18 @@ async function main(): Promise<void> {
   world
     .registerComponent(DeviceComponent)
     .registerComponent(UserControlledAvatarComponent)
-    .registerComponent(SkeletonControlledAvatarComponent)
     .registerComponent(RobotAssistantComponent)
     .registerSystem(DeviceRendererSystem)
     .registerSystem(DeviceInteractionSystem)
     .registerSystem(UserControlledAvatarSystem)
     .registerSystem(RPMUserControlledAvatarSystem)
-    .registerSystem(SkeletonControlledAvatarSystem)
     .registerSystem(RobotAssistantSystem)
     .registerSystem(PanelSystem)
     .registerSystem(LightbulbPanelSystem)
     .registerSystem(TelevisionPanelSystem)
     .registerSystem(FanPanelSystem)
     .registerSystem(AirConditionerPanelSystem)
+    .registerSystem(GraphPanelSystem)
     .registerSystem(RoomScanningSystem)
 
   console.log("✅ Systems registered");
@@ -235,8 +239,6 @@ async function main(): Promise<void> {
   console.log("✅ WebSocket connected for real-time updates");
 
   const voiceSystem = new VoiceControlSystem();
-  new VoicePanel(voiceSystem);
-  console.log("✅ Voice Control System initialized");
 
   setAvatarSwitcherCamera(camera);
 
@@ -244,34 +246,47 @@ async function main(): Promise<void> {
   const rpmAvatarSystem = world.getSystem(RPMUserControlledAvatarSystem);
   let setLipSyncEnabled: (enabled: boolean) => void = () => { };
   if (rpmAvatarSystem) {
-    await rpmAvatarSystem.createRPMUserControlledAvatar("player1", "RPM Avatar", "rpmClip_model", [-0.6, 0, -1.5]);
+    await rpmAvatarSystem.createRPMUserControlledAvatar("player1", "RPM Avatar", "rpmClip_model1", [-0.6, 0, -1.5]);
     registerAvatar(rpmAvatarSystem as ControllableAvatarSystem, "player1", "RPM Avatar");
     setLipSyncEnabled = setupLipSyncControlPanel(rpmAvatarSystem);
     console.log("✅ RPM avatar (RPM_clip.glb)");
   }
 
-  // 2) Skeleton-controlled (bone-only)
-  const skeletonAvatarSystem = world.getSystem(SkeletonControlledAvatarSystem);
-  if (skeletonAvatarSystem) {
-    await skeletonAvatarSystem.createSkeletonControlledAvatar("player2", "Skeleton Avatar", "rpmBone_model", [0, 0, -1.5]);
-    registerAvatar(skeletonAvatarSystem as ControllableAvatarSystem, "player2", "Skeleton Avatar");
-    console.log("✅ Skeleton avatar (RPM_bone.glb)");
-  }
-
-  // 3) User-controlled (clip-based)
+  // 2) User-controlled (clip-based)
   const userAvatarSystem = world.getSystem(UserControlledAvatarSystem);
   if (userAvatarSystem) {
-    await userAvatarSystem.createUserControlledAvatar("player3", "Soldier", "soldier_model", [-1.2, 0, -1.5]);
-    registerAvatar(userAvatarSystem as ControllableAvatarSystem, "player3", "Soldier");
+    await userAvatarSystem.createUserControlledAvatar("player2", "Soldier", "soldier_model", [-1.2, 0, -1.5]);
+    registerAvatar(userAvatarSystem as ControllableAvatarSystem, "player2", "Soldier");
     console.log("✅ Soldier avatar (soldier_model)");
   }
 
-  // 4) Robot Assistant
+  // 3) Robot Assistant
   const robotAssistantSystem = world.getSystem(RobotAssistantSystem);
   if (robotAssistantSystem) {
     await robotAssistantSystem.createRobotAssistant("robot1", "Robot Assistant", "robot_assistant", [0.6, 0, -1.5]);
     console.log("✅ Robot Assistant (robot_3D_scene.glb) - autonomous behavior");
   }
+
+  // Voice panel: wire status to robot (listening → Standing; idle → success: Yes+ThumbsUp, failure: No, cancelled: Jump)
+  new VoicePanel(voiceSystem, (status, payload) => {
+    if (!robotAssistantSystem) return;
+    if (status === "listening") {
+      robotAssistantSystem.setVoiceListening(true);
+      speakGreeting();
+    } else if (status === "idle" && payload !== undefined) {
+      if (payload.cancelled) {
+        speakSeeYouAgain();
+        robotAssistantSystem.playEmoteSequence(["Jump"], () => robotAssistantSystem.setVoiceListening(false));
+      } else if (payload.success === false) {
+        robotAssistantSystem.playEmoteSequence(["No"], () => robotAssistantSystem.setVoiceListening(false));
+      } else if (payload.success === true) {
+        robotAssistantSystem.playEmoteSequence(["Yes", "ThumbsUp"], () => robotAssistantSystem.setVoiceListening(false));
+      }
+      // If payload exists but has no known flag, do nothing (robot stays Standing; user can cancel with mic).
+    }
+    // If payload is undefined (e.g. recognition onerror): do nothing — robot stays Standing.
+  });
+  console.log("✅ Voice Control System initialized");
 
   setupAvatarSwitcherPanel();
   setOnAvatarSwitch((entry) => {

@@ -15,7 +15,7 @@ import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { AuthService } from "@/services/AuthService";
 import { useAuthStore } from "@/stores/auth";
 import { ThreeDWorldButton } from "@/components/three-d-world-button";
-import { RobotAssistant } from "@/components/robot-assistant";
+import { RobotAssistant } from "@/components/RobotAssistant";
 import { WebSocketService } from "@/services/WebSocketService";
 import { useEffect } from "react";
 
