@@ -101,32 +101,51 @@ export class GraphPanelSystem extends createSystem({
         const lineText = document.getElementById("graph-line-text") as UIKit.Text;
         const pieText = document.getElementById("graph-pie-text") as UIKit.Text;
 
-        if (barText) barText.setProperties({ text: this.getChartLabel(deviceType, "bar") });
-        if (lineText) lineText.setProperties({ text: this.getChartLabel(deviceType, "line") });
-        if (pieText) pieText.setProperties({ text: this.getChartLabel(deviceType, "pie") });
+        const barLabel = this.getChartLabel(deviceType, "bar");
+        const lineLabel = this.getChartLabel(deviceType, "line");
+        const pieLabel = this.getChartLabel(deviceType, "pie");
+
+        if (barText) barText.setProperties({ text: barLabel });
+        if (lineText) lineText.setProperties({ text: lineLabel });
+        if (pieText) pieText.setProperties({ text: pieLabel });
 
         if (barBtn) {
-            console.log(`[GraphPanel] Adding click listener to barBtn for device ${deviceId}`);
-            barBtn.addEventListener("click", () => {
-                console.log(`[GraphPanel] Bar button clicked for ${deviceId}`);
-                this.handleChartSelection(deviceId, "bar");
-            });
+            if (barLabel === "No Data") {
+                barBtn.setProperties({ display: "none" });
+            } else {
+                barBtn.setProperties({ display: "flex" });
+                console.log(`[GraphPanel] Adding click listener to barBtn for device ${deviceId}`);
+                barBtn.addEventListener("click", () => {
+                    console.log(`[GraphPanel] Bar button clicked for ${deviceId}`);
+                    this.handleChartSelection(deviceId, "bar");
+                });
+            }
         }
 
         if (lineBtn) {
-            console.log(`[GraphPanel] Adding click listener to lineBtn for device ${deviceId}`);
-            lineBtn.addEventListener("click", () => {
-                console.log(`[GraphPanel] Line button clicked for ${deviceId}`);
-                this.handleChartSelection(deviceId, "line");
-            });
+            if (lineLabel === "No Data") {
+                lineBtn.setProperties({ display: "none" });
+            } else {
+                lineBtn.setProperties({ display: "flex" });
+                console.log(`[GraphPanel] Adding click listener to lineBtn for device ${deviceId}`);
+                lineBtn.addEventListener("click", () => {
+                    console.log(`[GraphPanel] Line button clicked for ${deviceId}`);
+                    this.handleChartSelection(deviceId, "line");
+                });
+            }
         }
 
         if (pieBtn) {
-            console.log(`[GraphPanel] Adding click listener to pieBtn for device ${deviceId}`);
-            pieBtn.addEventListener("click", () => {
-                console.log(`[GraphPanel] Pie button clicked for ${deviceId}`);
-                this.handleChartSelection(deviceId, "pie");
-            });
+            if (pieLabel === "No Data") {
+                pieBtn.setProperties({ display: "none" });
+            } else {
+                pieBtn.setProperties({ display: "flex" });
+                console.log(`[GraphPanel] Adding click listener to pieBtn for device ${deviceId}`);
+                pieBtn.addEventListener("click", () => {
+                    console.log(`[GraphPanel] Pie button clicked for ${deviceId}`);
+                    this.handleChartSelection(deviceId, "pie");
+                });
+            }
         }
 
         console.log(`[GraphPanel] Button listeners set up for ${deviceId}`);

@@ -259,7 +259,7 @@
       <BarChart3Icon class="header-icon" />
     </div>
     <div class="header-text">
-      <span class="panel-title">Graph Type</span>
+      <span class="panel-title">Usage Graph</span>
       <span class="panel-subtitle">Select visualization</span>
     </div>
   </div>
