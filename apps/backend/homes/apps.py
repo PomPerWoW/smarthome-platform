@@ -8,6 +8,12 @@ class HomesConfig(AppConfig):
     def ready(self):
         import homes.signals
 
-        if 'runserver' in sys.argv:
+        # Check if we are running as a server (runserver, gunicorn, uvicorn)
+        # sys.argv for gunicorn usually looks like ['/usr/local/bin/gunicorn', ...]
+        is_runserver = 'runserver' in sys.argv
+        is_gunicorn = any('gunicorn' in arg for arg in sys.argv)
+        is_uvicorn = any('uvicorn' in arg for arg in sys.argv)
+
+        if is_runserver or is_gunicorn or is_uvicorn:
             from .scada import ScadaManager
             ScadaManager().start()
