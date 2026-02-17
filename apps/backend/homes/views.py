@@ -8,6 +8,7 @@ from .models import *
 from .serializers import *
 from .services import VoiceAssistantService
 from datetime import datetime
+from .scada import ScadaManager
 
 # --- 1. Home ViewSet ---
 class HomeViewSet(viewsets.ModelViewSet):
@@ -289,8 +290,28 @@ class AirConditionerViewSet(BaseDeviceViewSet):
         if temp is not None:
             ac.temperature = float(temp)
             ac.save()
+            
+            if ac.tag:
+                ScadaManager().send_command(f"{ac.tag}.set_temp", ac.temperature)
+
             return Response({"status": "temperature set", "current_temp": ac.temperature})
         return Response({"error": "temp parameter missing"}, status=400)
+
+    def perform_update(self, serializer):
+        """
+        Intercepts the update to check for 'is_on' changes and trigger SCADA.
+        """
+        old_instance = self.get_object()
+        old_is_on = old_instance.is_on
+        
+        # Save the new state
+        instance = serializer.save()
+        
+        # Check if is_on changed (or just if we want to enforce state on every patch containing is_on)
+        if instance.is_on != old_is_on:
+             if instance.tag:
+                 value = 1 if instance.is_on else 0
+                 ScadaManager().send_command(f"{instance.tag}.onoff", value)
 
 
 class FanViewSet(BaseDeviceViewSet):
@@ -313,6 +334,10 @@ class FanViewSet(BaseDeviceViewSet):
         if speed is not None:
             fan.speed = int(speed)
             fan.save()
+            
+            if fan.tag:
+                ScadaManager().send_command(f"{fan.tag}.speed", fan.speed)
+
             return Response({"status": "speed set", "current_speed": fan.speed})
         return Response({"error": "speed parameter missing"}, status=400)
 
@@ -329,8 +354,29 @@ class FanViewSet(BaseDeviceViewSet):
         if swing is not None:
             fan.swing = bool(swing)
             fan.save()
+            
+            if fan.tag:
+                value = 1 if fan.swing else 0
+                ScadaManager().send_command(f"{fan.tag}.shake", value)
+
             return Response({"status": "swing updated", "is_swinging": fan.swing})
         return Response({"error": "swing parameter missing"}, status=400)
+
+    def perform_update(self, serializer):
+        """
+        Intercepts the update to check for 'is_on' changes and trigger SCADA.
+        """
+        old_instance = self.get_object()
+        old_is_on = old_instance.is_on
+        
+        # Save the new state
+        instance = serializer.save()
+        
+        # Check if is_on changed
+        if instance.is_on != old_is_on:
+             if instance.tag:
+                 value = 1 if instance.is_on else 0
+                 ScadaManager().send_command(f"{instance.tag}.on", value)
 
 
 class LightbulbViewSet(BaseDeviceViewSet):
@@ -353,6 +399,10 @@ class LightbulbViewSet(BaseDeviceViewSet):
         if brightness is not None:
             bulb.brightness = int(brightness)
             bulb.save()
+            
+            if bulb.tag:
+                ScadaManager().send_command(f"{bulb.tag}.Brightness", bulb.brightness)
+                
             return Response({"status": "brightness set", "current_brightness": bulb.brightness})
         return Response({"error": "brightness parameter missing"}, status=400)
 
@@ -369,8 +419,27 @@ class LightbulbViewSet(BaseDeviceViewSet):
         if colour:
             bulb.colour = colour
             bulb.save()
+            
+            if bulb.tag:
+                 ScadaManager().send_command(f"{bulb.tag}.Color", bulb.colour)
+                 
             return Response({"status": "colour set", "current_colour": bulb.colour})
-        return Response({"error": "colour parameter missing"}, status=400)
+
+    def perform_update(self, serializer):
+        """
+        Intercepts the update to check for 'is_on' changes and trigger SCADA.
+        """
+        old_instance = self.get_object()
+        old_is_on = old_instance.is_on
+        
+        # Save the new state
+        instance = serializer.save()
+        
+        # Check if is_on changed (or just if we want to enforce state on every patch containing is_on)
+        if instance.is_on != old_is_on:
+             if instance.tag:
+                 value = 1 if instance.is_on else 0
+                 ScadaManager().send_command(f"{instance.tag}.onoff", value)
 
 
 class TelevisionViewSet(BaseDeviceViewSet):
@@ -393,6 +462,10 @@ class TelevisionViewSet(BaseDeviceViewSet):
         if volume is not None:
             tv.volume = int(volume)
             tv.save()
+            
+            if tv.tag:
+                ScadaManager().send_command(f"{tv.tag}.volume", tv.volume)
+
             return Response({"status": "volume set", "current_volume": tv.volume})
         return Response({"error": "volume parameter missing"}, status=400)
 
@@ -409,6 +482,10 @@ class TelevisionViewSet(BaseDeviceViewSet):
         if channel is not None:
             tv.channel = int(channel)
             tv.save()
+            
+            if tv.tag:
+                ScadaManager().send_command(f"{tv.tag}.channel", tv.channel)
+
             return Response({"status": "channel set", "current_channel": tv.channel})
         return Response({"error": "channel parameter missing"}, status=400)
 
@@ -425,10 +502,28 @@ class TelevisionViewSet(BaseDeviceViewSet):
         if mute is not None:
             tv.is_mute = bool(mute)
             tv.save()
+            
+            if tv.tag:
+                value = 1 if tv.is_mute else 0
+                ScadaManager().send_command(f"{tv.tag}.mute", value)
+
             return Response({"status": "mute updated", "is_muted": tv.is_mute})
-            tv.save()
-            return Response({"status": "mute updated", "is_muted": tv.is_mute})
-        return Response({"error": "mute parameter missing"}, status=400)
+            
+    def perform_update(self, serializer):
+        """
+        Intercepts the update to check for 'is_on' changes and trigger SCADA.
+        """
+        old_instance = self.get_object()
+        old_is_on = old_instance.is_on
+        
+        # Save the new state
+        instance = serializer.save()
+        
+        # Check if is_on changed
+        if instance.is_on != old_is_on:
+             if instance.tag:
+                 value = 1 if instance.is_on else 0
+                 ScadaManager().send_command(f"{instance.tag}.on", value)
 
 class VoiceCommandViewSet(viewsets.ViewSet):
     permission_classes = [permissions.IsAuthenticated]
