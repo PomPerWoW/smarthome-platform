@@ -122,3 +122,18 @@ class AutomationSerializer(serializers.ModelSerializer):
         adjusted_dt = dummy_dt - timedelta(hours=7)
         
         return adjusted_dt.time()
+
+    def to_representation(self, instance):
+        """
+        Adjust output time from UTC (System Time) to GMT+7.
+        Adds 7 hours to the stored time.
+        """
+        data = super().to_representation(instance)
+        
+        if instance.time:
+            from datetime import datetime, timedelta, date
+            dummy_dt = datetime.combine(date.today(), instance.time)
+            adjusted_dt = dummy_dt + timedelta(hours=7)
+            data['time'] = adjusted_dt.time()
+            
+        return data
