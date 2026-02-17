@@ -125,4 +125,56 @@ class Scheduler:
         print(f"Device: {automation.device.device_name}")
         print(f"Action Payload: {automation.action}")
         print(f"Time: {datetime.now()}")
+        
+        # SCADA Command Implementation
+        from .scada import ScadaManager
+        
+        device = automation.device
+        if not device.tag:
+            print("Device has no SCADA tag, skipping.")
+            print(f"---------------------------------------------------")
+            return
+
+        actions = automation.action
+        scada = ScadaManager()
+
+        # Iterate over action items and map to SCADA tags
+        for key, value in actions.items():
+            tag_suffix = None
+            
+            # Common
+            if key == 'is_on':
+                tag_suffix = '.onoff'
+            
+            # Lightbulb
+            elif key == 'color':
+                tag_suffix = '.Color'
+            elif key == 'brightness':
+                tag_suffix = '.Brightness'
+                
+            # AC
+            elif key == 'temp':
+                tag_suffix = '.set_temp'
+            
+            # Fan
+            elif key == 'speed':
+                tag_suffix = '.speed'
+            elif key == 'swing':
+                tag_suffix = '.shake'
+                
+            # Television
+            elif key == 'volume':
+                tag_suffix = '.volume'
+            elif key == 'channel':
+                tag_suffix = '.channel'
+            elif key == 'is_mute':
+                tag_suffix = '.mute'
+                
+            if tag_suffix:
+                full_tag = f"{device.tag}{tag_suffix}"
+                print(f"Sending SCADA command: {full_tag} = {value}")
+                scada.send_command(full_tag, value)
+            else:
+                print(f"Unknown action key: {key}")
+
         print(f"---------------------------------------------------")
