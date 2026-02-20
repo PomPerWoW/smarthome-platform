@@ -1,5 +1,5 @@
 import { ApiService } from "./ApiService";
-import { speakGreeting, speakSeeYouAgain } from "./VoiceTextToSpeech";
+import { speakGreeting, speakSeeYouAgain, speakCompletion, speakNoMatch } from "./VoiceTextToSpeech";
 import { toast } from "sonner"; // Assuming sonner is used for notifications based on pkg.json
 
 // Type definition for Web Speech API
@@ -68,9 +68,26 @@ export class VoiceService {
       onStatusChange?.("processing");
 
       try {
-        await this.sendVoiceCommand(transcript);
-        toast.success(`Executed: "${transcript}"`);
-        onStatusChange?.("idle", { success: true });
+        const response = await this.sendVoiceCommand(transcript);
+        
+        // Check if we got any actions
+        if (response?.actions && response.actions.length > 0) {
+          const firstAction = response.actions[0];
+          if (firstAction.status === "success" && firstAction.action && firstAction.device) {
+            toast.success(`Executed: "${transcript}"`);
+            speakCompletion(firstAction.action, firstAction.device);
+            onStatusChange?.("idle", { success: true });
+          } else {
+            // Action failed
+            toast.error("Failed to process command.");
+            onStatusChange?.("idle", { success: false });
+          }
+        } else {
+          // No actions found - out of scope or weird input
+          toast.info("Command not recognized.");
+          speakNoMatch();
+          onStatusChange?.("idle", { success: false });
+        }
       } catch (error) {
         console.error(error);
         toast.error("Failed to process command.");
@@ -118,12 +135,25 @@ export class VoiceService {
     }
   }
 
-  private async sendVoiceCommand(command: string) {
-    // Assuming the base URL is set in ApiService's axios instance
-    // Calling the endpoint we created: POST /api/homes/voice/command/
-    return ApiService.getInstance().post("/api/homes/voice/command/", {
-      command,
-    });
+  private async sendVoiceCommand(command: string): Promise<{
+    actions?: Array<{
+      status?: string;
+      action?: string;
+      device?: string;
+    }>;
+  }> {
+    type VoiceCommandResponse = {
+      actions?: Array<{
+        status?: string;
+        action?: string;
+        device?: string;
+      }>;
+    };
+    const data = await ApiService.getInstance().post<VoiceCommandResponse>(
+      "/api/homes/voice/command/",
+      { command }
+    );
+    return data ?? {};
   }
 }
 

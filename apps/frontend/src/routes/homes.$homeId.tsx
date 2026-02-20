@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, ArrowLeft, Loader2, DoorOpen, Lightbulb } from "lucide-react";
@@ -35,6 +35,7 @@ import { HomeService } from "@/services/HomeService";
 import { DeviceService } from "@/services/DeviceService";
 import type { Room, BaseDevice } from "@/models";
 import { DeviceType } from "@/types/device.types";
+import { useUIStore } from "@/stores/ui_store";
 
 export const Route = createFileRoute("/homes/$homeId")({
   component: HomeDetailPage,
@@ -42,6 +43,7 @@ export const Route = createFileRoute("/homes/$homeId")({
 
 function HomeDetailPage() {
   const { homeId } = Route.useParams();
+  const setModalOpen = useUIStore((s) => s.set_modal_open);
   const [isCreateRoomOpen, setIsCreateRoomOpen] = useState(false);
   const [newRoomName, setNewRoomName] = useState("");
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
@@ -54,6 +56,28 @@ function HomeDetailPage() {
   const [isAddDeviceOpen, setIsAddDeviceOpen] = useState(false);
   const [addDeviceRoomId, setAddDeviceRoomId] = useState<string | null>(null);
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const open =
+      isCreateRoomOpen ||
+      !!roomToRename ||
+      !!roomToDelete ||
+      !!deviceToRename ||
+      !!deviceToDelete ||
+      isAddDeviceOpen ||
+      isDeviceDrawerOpen;
+    setModalOpen(open);
+    return () => setModalOpen(false);
+  }, [
+    isCreateRoomOpen,
+    roomToRename,
+    roomToDelete,
+    deviceToRename,
+    deviceToDelete,
+    isAddDeviceOpen,
+    isDeviceDrawerOpen,
+    setModalOpen,
+  ]);
 
   const { data: home, isLoading: isLoadingHome } = useQuery({
     queryKey: ["home", homeId],
