@@ -14,7 +14,8 @@ interface UIState {
   avatar_is_listening: boolean;
   voice_status: VoiceStatus;
   voice_payload: VoiceIdlePayload | null;
-  
+  is_any_modal_open: boolean;
+
   set_loading: (is_loading: boolean) => void;
   set_error: (message: string) => void;
   set_success: (message: string) => void;
@@ -30,6 +31,7 @@ interface UIState {
   set_avatar_listening: (is_listening: boolean) => void;
   set_voice_status: (status: VoiceStatus, payload?: VoiceIdlePayload) => void;
   clear_voice_payload: () => void;
+  set_modal_open: (open: boolean) => void;
   reset_state: () => void;
 }
 
@@ -43,7 +45,8 @@ export const useUIStore = create<UIState>()((set, get) => ({
   avatar_is_listening: false,
   voice_status: "idle",
   voice_payload: null,
-  
+  is_any_modal_open: false,
+
   set_loading: (is_loading) => set({ loading: is_loading }),
   
   set_error: (message) => {
@@ -87,7 +90,9 @@ export const useUIStore = create<UIState>()((set, get) => ({
     }),
 
   clear_voice_payload: () => set({ voice_payload: null }),
-  
+
+  set_modal_open: (open) => set({ is_any_modal_open: open }),
+
   reset_state: () => set({
     loading: false,
     error_message: "",
@@ -97,5 +102,6 @@ export const useUIStore = create<UIState>()((set, get) => ({
     avatar_is_listening: false,
     voice_status: "idle",
     voice_payload: null,
+    is_any_modal_open: false,
   }),
 }));
