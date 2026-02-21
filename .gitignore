@@ -177,3 +177,8 @@ data/
 .vscode-test/
 .cert/
 apps/*/certs/
+
+# ===== Scene Creator =====
+apps/scene-creator/scripts/
+apps/scene-creator/room-scans/
+chairs-etc/

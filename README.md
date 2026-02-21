@@ -64,6 +64,19 @@ Each app has a symlink: `apps/*/public/models → packages/assets/models`
 | `npm run dev:backend`  | Run backend (installs deps + migrates) |
 | `npm run build`        | Build all apps                         |
 | `npm run lint`         | Lint all apps                          |
+| `npm run set-ip <ip>`  | Set local network IP for all apps      |
+
+### 🌐 Network Configuration
+
+If you want to run the project on a local network (i.e., test on meta quest 3), you need to update the IP addresses in all `.env` files. We provide a script to do this automatically:
+
+```bash
+# Example: Use your current local IP (e.g., 192.168.1.100)
+npm run set-ip 192.168.1.100
+
+# After setting the IP, start the network dev servers
+npm run dev:network
+```
 
 ### Backend-Specific Commands
 

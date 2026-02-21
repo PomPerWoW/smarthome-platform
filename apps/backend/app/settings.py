@@ -56,7 +56,7 @@ DEBUG = get_required_env("DEBUG", "True").lower() in ("true", "1", "yes")
 HOST_IP = get_required_env("HOST_IP", None)
 
 
-ALLOWED_HOSTS = get_required_env("ALLOWED_HOSTS", "*").split(",")
+ALLOWED_HOSTS = [host for host in get_required_env("ALLOWED_HOSTS", "*").split(",") if host]
 
 if HOST_IP:
     ALLOWED_HOSTS.append(HOST_IP)

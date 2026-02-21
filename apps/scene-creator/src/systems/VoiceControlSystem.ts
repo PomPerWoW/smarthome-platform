@@ -26,14 +26,11 @@ export class VoiceControlSystem {
   private readonly SOUND_THRESHOLD = 10;
 
   private constructor() {
-    const isQuest =
-      navigator.userAgent.includes("OculusBrowser") ||
-      navigator.userAgent.includes("SamsungBrowser"); // Sometimes Quest spoof
     const SpeechRecognition =
       window.SpeechRecognition || window.webkitSpeechRecognition;
 
-    if (SpeechRecognition && !isQuest) {
-      console.log("[VoiceControl] Using SpeechRecognition");
+    if (SpeechRecognition) {
+      console.log("[VoiceControl] Using native SpeechRecognition");
       this.recognition = new SpeechRecognition();
       if (this.recognition) {
         this.recognition.continuous = false;
@@ -43,7 +40,7 @@ export class VoiceControlSystem {
       }
     } else {
       console.log(
-        "[VoiceControl] Forcing MediaRecorder fallback (Quest/Unsupported)",
+        "[VoiceControl] Forcing MediaRecorder fallback (Unsupported)",
       );
       this.useFallback = true;
     }
@@ -146,7 +143,10 @@ export class VoiceControlSystem {
         try {
           // Optimized: Transcribe AND Execute in one call
           const { transcript, command_result } =
-            await BackendApiClient.getInstance().sendVoiceAudio(audioBlob, true);
+            await BackendApiClient.getInstance().sendVoiceAudio(
+              audioBlob,
+              true,
+            );
 
           console.log("[VoiceControl] Transcribed:", transcript);
 
@@ -199,7 +199,9 @@ export class VoiceControlSystem {
     const AudioContextClass =
       (window as any).AudioContext || (window as any).webkitAudioContext;
     if (!AudioContextClass) {
-      console.warn("[VoiceControl] AudioContext not available for silence detection");
+      console.warn(
+        "[VoiceControl] AudioContext not available for silence detection",
+      );
       return;
     }
 
@@ -253,7 +255,7 @@ export class VoiceControlSystem {
       this.safetyTimeout = null;
     }
     if (this.audioContext && this.audioContext.state !== "closed") {
-      this.audioContext.close().catch(() => { });
+      this.audioContext.close().catch(() => {});
     }
     this.audioContext = null;
     this.analyser = null;

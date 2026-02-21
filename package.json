@@ -16,7 +16,8 @@
     "dev:network:scene-creator": "turbo dev:network --filter=@smarthome/scene-creator",
     "dev:landing-page": "turbo dev --filter=@smarthome/landing-page",
     "build": "turbo build",
-    "lint": "turbo lint"
+    "lint": "turbo lint",
+    "set-ip": "node scripts/set-ip.js"
   },
   "devDependencies": {
     "turbo": "^2.7.0"

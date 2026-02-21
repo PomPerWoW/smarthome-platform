@@ -33,7 +33,6 @@ import { VoicePanelSystem } from "./ui/VoicePanelSystem";
 import { RoomScanningSystem } from "./systems/RoomScanningSystem";
 import { PhysicsSystem } from "./systems/PhysicsSystem";
 import { RoomColliderSystem } from "./systems/RoomColliderSystem";
-import { HandMenuSystem } from "./systems/HandMenuSystem";
 import { DevicePlacementSystem } from "./systems/DevicePlacementSystem";
 import { RoomAlignmentSystem } from "./systems/RoomAlignmentSystem";
 import { initializeNavMesh } from "./config/navmesh";
@@ -197,10 +196,9 @@ async function main(): Promise<void> {
     .registerSystem(RoomScanningSystem)
     .registerSystem(PhysicsSystem)
     .registerSystem(RoomColliderSystem)
-    .registerSystem(HandMenuSystem)
     .registerSystem(DevicePlacementSystem)
     .registerSystem(RoomAlignmentSystem)
-    .registerSystem(VoicePanelSystem)
+    .registerSystem(VoicePanelSystem);
 
   console.log("✅ Systems registered");
 
@@ -234,19 +232,6 @@ async function main(): Promise<void> {
 
   voice3DPanel.object3D!.position.set(0, 1.4, -0.4); // Initial position
   console.log("✅ Voice 3D Panel created");
-
-  // Hand Menu Panel (floating, like voice panel)
-  const handMenuPanel = world
-    .createTransformEntity()
-    .addComponent(PanelUI, {
-      config: "./ui/hand_menu.json",
-      maxHeight: 0.2,
-      maxWidth: 0.25,
-    })
-    .addComponent(Interactable);
-
-  handMenuPanel.object3D!.position.set(-0.3, 1.4, -0.4);
-  console.log("✅ Hand Menu floating panel created");
 
   const store = getStore();
 
@@ -286,10 +271,19 @@ async function main(): Promise<void> {
 
   // 1) RPM (Ready Player Me with clip-based) – lip sync available
   const rpmAvatarSystem = world.getSystem(RPMUserControlledAvatarSystem);
-  let setLipSyncEnabled: (enabled: boolean) => void = () => { };
+  let setLipSyncEnabled: (enabled: boolean) => void = () => {};
   if (rpmAvatarSystem) {
-    await rpmAvatarSystem.createRPMUserControlledAvatar("player1", "RPM Avatar", "rpmClip_model", [-0.6, 0, -1.5]);
-    registerAvatar(rpmAvatarSystem as ControllableAvatarSystem, "player1", "RPM Avatar");
+    await rpmAvatarSystem.createRPMUserControlledAvatar(
+      "player1",
+      "RPM Avatar",
+      "rpmClip_model",
+      [-0.6, 0, -1.5],
+    );
+    registerAvatar(
+      rpmAvatarSystem as ControllableAvatarSystem,
+      "player1",
+      "RPM Avatar",
+    );
     setLipSyncEnabled = setupLipSyncControlPanel(rpmAvatarSystem);
     console.log("✅ RPM avatar (RPM_clip.glb)");
   }
@@ -297,24 +291,49 @@ async function main(): Promise<void> {
   // 2) Skeleton-controlled (bone-only)
   const skeletonAvatarSystem = world.getSystem(SkeletonControlledAvatarSystem);
   if (skeletonAvatarSystem) {
-    await skeletonAvatarSystem.createSkeletonControlledAvatar("player2", "Skeleton Avatar", "rpmBone_model", [0, 0, -1.5]);
-    registerAvatar(skeletonAvatarSystem as ControllableAvatarSystem, "player2", "Skeleton Avatar");
+    await skeletonAvatarSystem.createSkeletonControlledAvatar(
+      "player2",
+      "Skeleton Avatar",
+      "rpmBone_model",
+      [0, 0, -1.5],
+    );
+    registerAvatar(
+      skeletonAvatarSystem as ControllableAvatarSystem,
+      "player2",
+      "Skeleton Avatar",
+    );
     console.log("✅ Skeleton avatar (RPM_bone.glb)");
   }
 
   // 3) User-controlled (clip-based)
   const userAvatarSystem = world.getSystem(UserControlledAvatarSystem);
   if (userAvatarSystem) {
-    await userAvatarSystem.createUserControlledAvatar("player3", "Soldier", "soldier_model", [-1.2, 0, -1.5]);
-    registerAvatar(userAvatarSystem as ControllableAvatarSystem, "player3", "Soldier");
+    await userAvatarSystem.createUserControlledAvatar(
+      "player3",
+      "Soldier",
+      "soldier_model",
+      [-1.2, 0, -1.5],
+    );
+    registerAvatar(
+      userAvatarSystem as ControllableAvatarSystem,
+      "player3",
+      "Soldier",
+    );
     console.log("✅ Soldier avatar (soldier_model)");
   }
 
   // 4) Robot Assistant
   const robotAssistantSystem = world.getSystem(RobotAssistantSystem);
   if (robotAssistantSystem) {
-    await robotAssistantSystem.createRobotAssistant("robot1", "Robot Assistant", "robot_assistant", [0.6, 0, -1.5]);
-    console.log("✅ Robot Assistant (robot_3D_scene.glb) - autonomous behavior");
+    await robotAssistantSystem.createRobotAssistant(
+      "robot1",
+      "Robot Assistant",
+      "robot_assistant",
+      [0.6, 0, -1.5],
+    );
+    console.log(
+      "✅ Robot Assistant (robot_3D_scene.glb) - autonomous behavior",
+    );
   }
 
   setupAvatarSwitcherPanel();
@@ -326,7 +345,9 @@ async function main(): Promise<void> {
     setLipSyncEnabled(entry?.avatarId === "player1");
   });
 
-  console.log("🎮 Controls: I/K/J/L = Move, Shift = Run, SPACE = Jump. O = switch avatar (when 2+ avatars).");
+  console.log(
+    "🎮 Controls: I/K/J/L = Move, Shift = Run, SPACE = Jump. O = switch avatar (when 2+ avatars).",
+  );
 
   console.log("\n🚀 SmartHome Platform Scene Creator ready!");
 
@@ -338,7 +359,9 @@ async function main(): Promise<void> {
   console.log("───────────────────────────────────");
   console.log("💡 Click devices to control");
   console.log("✋ Grab devices to move");
-  console.log("🎮 Use IJKL + SPACE to control avatar. O = switch avatar (when 2+).");
+  console.log(
+    "🎮 Use IJKL + SPACE to control avatar. O = switch avatar (when 2+).",
+  );
   console.log('🥽 Press "Enter AR" to start');
   console.log("───────────────────────────────────");
   console.log("🎤 Lip Sync: 1 = Speak, 2 = Stop, 3 = Mic mode");
