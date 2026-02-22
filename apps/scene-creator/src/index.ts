@@ -202,6 +202,14 @@ async function main(): Promise<void> {
 
   console.log("✅ Systems registered");
 
+  const roomAlignmentSystem = world.getSystem(RoomAlignmentSystem);
+  if (roomAlignmentSystem) {
+    (globalThis as any).__roomAlignmentSystem = roomAlignmentSystem;
+    console.log(
+      "💡 Room alignment: call __realignRoom() to force re-alignment",
+    );
+  }
+
   const welcomePanel = world
     .createTransformEntity()
     .addComponent(PanelUI, {

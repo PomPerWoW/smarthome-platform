@@ -26,10 +26,11 @@ export class VoiceControlSystem {
   private readonly SOUND_THRESHOLD = 10;
 
   private constructor() {
+    const isQuest = /Quest|Oculus/i.test(navigator.userAgent);
     const SpeechRecognition =
       window.SpeechRecognition || window.webkitSpeechRecognition;
 
-    if (SpeechRecognition) {
+    if (SpeechRecognition && !isQuest) {
       console.log("[VoiceControl] Using native SpeechRecognition");
       this.recognition = new SpeechRecognition();
       if (this.recognition) {
@@ -40,7 +41,7 @@ export class VoiceControlSystem {
       }
     } else {
       console.log(
-        "[VoiceControl] Forcing MediaRecorder fallback (Unsupported)",
+        `[VoiceControl] Forcing MediaRecorder fallback (Unsupported or VR mode. isQuest: ${isQuest})`,
       );
       this.useFallback = true;
     }
@@ -87,7 +88,22 @@ export class VoiceControlSystem {
     };
 
     this.recognition.onerror = (event: any) => {
-      console.error("Speech Recognition Error:", event);
+      if (event.error === "no-speech") {
+        console.warn("[VoiceControl] No speech detected.");
+      } else if (event.error === "aborted") {
+        console.log("[VoiceControl] Speech recognition aborted.");
+      } else if (event.error === "network") {
+        console.error(
+          "[VoiceControl] Network error in native Speech Recognition. Switching to fallback.",
+        );
+        this.useFallback = true;
+      } else {
+        console.error(
+          `[VoiceControl] Speech Recognition Error (${event.error}):`,
+          event,
+        );
+      }
+
       if (this.onStatusChange) this.onStatusChange("idle");
       this.isListening = false;
     };

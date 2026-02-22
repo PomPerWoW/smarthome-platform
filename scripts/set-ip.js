@@ -23,8 +23,8 @@ function findEnvFiles(dir, fileList = []) {
          findEnvFiles(filePath, fileList);
       }
     } else {
-      // Catch .env, .env.network, etc. but ignore .example files
-      if (file.startsWith('.env') && !file.endsWith('.example')) {
+      // Catch only .env.network files
+      if (file === '.env.network') {
          fileList.push(filePath);
       }
     }
