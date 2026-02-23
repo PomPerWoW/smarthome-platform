@@ -1,6 +1,12 @@
 import { BackendApiClient } from "../api/BackendApiClient";
 
-export type VoiceIdlePayload = { success?: boolean; cancelled?: boolean };
+export type VoiceIdlePayload = { 
+  success?: boolean; 
+  cancelled?: boolean;
+  action?: string;
+  device?: string;
+  noMatch?: boolean;
+};
 
 export class VoiceControlSystem {
   private recognition: SpeechRecognition | null = null;
@@ -43,9 +49,35 @@ export class VoiceControlSystem {
       if (this.onStatusChange) this.onStatusChange("processing");
 
       try {
-        await BackendApiClient.getInstance().sendVoiceCommand(transcript);
+        const response = await BackendApiClient.getInstance().sendVoiceCommand(transcript);
         console.log("Voice command executed successfully.");
-        if (this.onStatusChange) this.onStatusChange("idle", { success: true });
+        
+        // Extract action and device from response for TTS
+        let action: string | undefined;
+        let device: string | undefined;
+        let noMatch = false;
+        
+        if (response?.actions && response.actions.length > 0) {
+          const firstAction = response.actions[0];
+          if (firstAction.status === "success" && firstAction.action && firstAction.device) {
+            action = firstAction.action;
+            device = firstAction.device;
+          } else {
+            // Action failed
+            if (this.onStatusChange) {
+              this.onStatusChange("idle", { success: false });
+            }
+            this.isListening = false;
+            return;
+          }
+        } else {
+          // No actions found - out of scope or weird input
+          noMatch = true;
+        }
+        
+        if (this.onStatusChange) {
+          this.onStatusChange("idle", { success: !noMatch, action, device, noMatch });
+        }
       } catch (error) {
         console.error("Failed to execute voice command:", error);
         if (this.onStatusChange) this.onStatusChange("idle", { success: false });

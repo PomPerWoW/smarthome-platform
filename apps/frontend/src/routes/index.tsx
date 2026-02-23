@@ -27,6 +27,7 @@ import {
 import { RenameDialog } from "@/components/ui/rename-dialog";
 import { HomeBlock } from "@/components/devices";
 import { useHomeStore } from "@/stores/home_store";
+import { useUIStore } from "@/stores/ui_store";
 import { HomeService } from "@/services/HomeService";
 import type { Home } from "@/models";
 
@@ -36,6 +37,7 @@ export const Route = createFileRoute("/")({
 
 function DashboardPage() {
   const { homes, isLoadingHomes, error, fetchHomes } = useHomeStore();
+  const setModalOpen = useUIStore((s) => s.set_modal_open);
   const [homeToDelete, setHomeToDelete] = useState<Home | null>(null);
   const [homeToRename, setHomeToRename] = useState<Home | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -44,6 +46,12 @@ function DashboardPage() {
   useEffect(() => {
     fetchHomes();
   }, [fetchHomes]);
+
+  useEffect(() => {
+    const open = isCreateOpen || !!homeToDelete || !!homeToRename;
+    setModalOpen(open);
+    return () => setModalOpen(false);
+  }, [isCreateOpen, homeToDelete, homeToRename, setModalOpen]);
 
   const createMutation = useMutation({
     mutationFn: (name: string) => HomeService.getInstance().createHome(name),
