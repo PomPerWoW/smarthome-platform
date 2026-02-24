@@ -321,11 +321,11 @@ export class GraphPanelSystem extends createSystem({
                 viewMonth === selectedDate.getMonth() &&
                 displayDay === selectedDate.getDate();
 
-            // Update cell styling
+            // Update cell styling — use panel bg color to properly clear previous selection
             cellInfo.cell.setProperties({
-                backgroundColor: isSelected ? "#a855f7" : "transparent",
+                backgroundColor: isSelected ? "#a855f7" : "#09090b",
                 borderWidth: isToday && !isSelected ? 0.1 : 0,
-                borderColor: isToday && !isSelected ? "#a855f7" : "transparent"
+                borderColor: isToday && !isSelected ? "#a855f7" : "#09090b"
             });
         }
     }
@@ -348,15 +348,15 @@ export class GraphPanelSystem extends createSystem({
             currentDateText.setProperties({ text: this.formatDate(state.selectedDate) });
         }
 
+        // Re-render BEFORE closing so setProperties takes effect while cells are visible
+        this.renderCalendarGrid(document, deviceId);
+
         // Close the picker
         const datePickerOverlay = document.getElementById("date-picker-overlay") as UIKit.Container;
         if (datePickerOverlay) {
             datePickerOverlay.setProperties({ display: "none" });
             state.isOpen = false;
         }
-
-        // Re-render to show new selection
-        this.renderCalendarGrid(document, deviceId);
 
         // Emit date change event for chart updates
         this.handleDateChange(deviceId, state.selectedDate);

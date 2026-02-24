@@ -242,10 +242,6 @@
     background-color: transparent;
   }
 
-  .day-cell:hover {
-    background-color: #27272a;
-  }
-
   .day-text {
     font-size: 1.4;
     color: #fafafa;
