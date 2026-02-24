@@ -1,4 +1,5 @@
 import { ApiService } from "./ApiService";
+import { speakGreeting, speakSeeYouAgain } from "./VoiceTextToSpeech";
 import { toast } from "sonner";
 
 // Type definition for Web Speech API
@@ -74,6 +75,7 @@ export class VoiceService {
     }
 
     this.isListening = true;
+    speakGreeting();
 
     this.recognition.onresult = async (event: any) => {
       const transcript = event.results[0][0].transcript;
@@ -143,7 +145,10 @@ export class VoiceService {
 
         try {
           // Optimized: Transcribe AND Execute
-          const { transcript, command_result } = await this.sendVoiceAudio(audioBlob, true);
+          const { transcript, command_result } = await this.sendVoiceAudio(
+            audioBlob,
+            true,
+          );
           console.log("[VoiceService] Transcribed:", transcript);
           onResult(transcript);
 
@@ -179,7 +184,6 @@ export class VoiceService {
 
       // Start silence detection
       this.setupSilenceDetection(stream);
-
     } catch (err) {
       console.error("[VoiceService] getUserMedia failed:", err);
       toast.error("Could not access microphone.");
@@ -246,7 +250,7 @@ export class VoiceService {
     }
 
     if (this.audioContext && this.audioContext.state !== "closed") {
-      this.audioContext.close().catch(() => { });
+      this.audioContext.close().catch(() => {});
     }
     this.audioContext = null;
     this.analyser = null;
@@ -264,6 +268,7 @@ export class VoiceService {
     if (this.recognition && this.isListening) {
       this.recognition.stop();
       this.isListening = false;
+      speakSeeYouAgain();
     }
   }
 
@@ -280,11 +285,12 @@ export class VoiceService {
     const formData = new FormData();
     formData.append("audio", blob, "recording.webm");
     formData.append("execute", execute.toString());
-    return ApiService.getInstance().post<{ transcript: string; command_result?: any }>(
-      "/api/homes/voice/transcribe/",
-      formData,
-      { headers: { "Content-Type": "multipart/form-data" } },
-    );
+    return ApiService.getInstance().post<{
+      transcript: string;
+      command_result?: any;
+    }>("/api/homes/voice/transcribe/", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
   }
 }
 

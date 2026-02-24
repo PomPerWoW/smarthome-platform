@@ -14,13 +14,11 @@ import { getWebSocketClient } from "./api/WebSocketClient";
 import { getStore } from "./store/DeviceStore";
 import { DeviceComponent } from "./components/DeviceComponent";
 import { UserControlledAvatarComponent } from "./components/UserControlledAvatarComponent";
-import { SkeletonControlledAvatarComponent } from "./components/SkeletonControlledAvatarComponent";
 import { RobotAssistantComponent } from "./components/RobotAssistantComponent";
 import { DeviceRendererSystem } from "./systems/DeviceRendererSystem";
 import { DeviceInteractionSystem } from "./systems/DeviceInteractionSystem";
 import { UserControlledAvatarSystem } from "./systems/UserControlledAvatarSystem";
 import { RPMUserControlledAvatarSystem } from "./systems/RPMUserControlledAvatarSystem";
-import { SkeletonControlledAvatarSystem } from "./systems/SkeletonControlledAvatarSystem";
 import { RobotAssistantSystem } from "./systems/RobotAssistantSystem";
 import { PanelSystem } from "./ui/panel";
 import { LightbulbPanelSystem } from "./ui/LightbulbPanelSystem";
@@ -46,6 +44,7 @@ import {
   setupAvatarSwitcherPanel,
 } from "./ui/AvatarSwitcherPanel";
 import { setupLipSyncControlPanel } from "./ui/LipSyncPanel";
+import { speakGreeting, speakSeeYouAgain } from "./utils/VoiceTextToSpeech";
 import * as LucideIconsKit from "@pmndrs/uikit-lucide";
 
 const assets: AssetManifest = {
@@ -91,6 +90,11 @@ const assets: AssetManifest = {
   },
   rpmClip_model: {
     url: "/models/avatar/resident/RPM_clip.glb",
+    type: AssetType.GLTF,
+    priority: "critical",
+  },
+  rpmClip_model1: {
+    url: "/models/avatar/resident/MediumRes12.glb",
     type: AssetType.GLTF,
     priority: "critical",
   },
@@ -180,13 +184,11 @@ async function main(): Promise<void> {
   world
     .registerComponent(DeviceComponent)
     .registerComponent(UserControlledAvatarComponent)
-    .registerComponent(SkeletonControlledAvatarComponent)
     .registerComponent(RobotAssistantComponent)
     .registerSystem(DeviceRendererSystem)
     .registerSystem(DeviceInteractionSystem)
     .registerSystem(UserControlledAvatarSystem)
     .registerSystem(RPMUserControlledAvatarSystem)
-    .registerSystem(SkeletonControlledAvatarSystem)
     .registerSystem(RobotAssistantSystem)
     .registerSystem(PanelSystem)
     .registerSystem(LightbulbPanelSystem)
@@ -330,7 +332,7 @@ async function main(): Promise<void> {
     console.log("✅ Soldier avatar (soldier_model)");
   }
 
-  // 4) Robot Assistant
+  // 3) Robot Assistant
   const robotAssistantSystem = world.getSystem(RobotAssistantSystem);
   if (robotAssistantSystem) {
     await robotAssistantSystem.createRobotAssistant(

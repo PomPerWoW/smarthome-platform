@@ -122,6 +122,8 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5174",
     "https://127.0.0.1:5174",
     "https://127.0.0.1:8081",
+    "https://192.168.89.103:5173", # Change to your actual local IP
+    "https://192.168.89.103:8081", # Change to your actual local IP
 ]
 
 if HOST_IP:

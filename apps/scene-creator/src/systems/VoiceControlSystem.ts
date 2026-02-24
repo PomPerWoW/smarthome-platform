@@ -1,5 +1,7 @@
 import { BackendApiClient } from "../api/BackendApiClient";
 
+export type VoiceIdlePayload = { success?: boolean; cancelled?: boolean };
+
 export class VoiceControlSystem {
   private static instance: VoiceControlSystem;
 
@@ -9,7 +11,7 @@ export class VoiceControlSystem {
   private mediaRecorder: MediaRecorder | null = null;
   private audioChunks: Blob[] = [];
   private onStatusChange:
-    | ((status: "listening" | "processing" | "idle") => void)
+    | ((status: "listening" | "processing" | "idle", payload?: VoiceIdlePayload) => void)
     | null = null;
 
   // New: Transcript callback
@@ -55,7 +57,7 @@ export class VoiceControlSystem {
   }
 
   public setStatusListener(
-    callback: (status: "listening" | "processing" | "idle") => void,
+    callback: (status: "listening" | "processing" | "idle", payload?: VoiceIdlePayload) => void,
   ) {
     this.onStatusChange = callback;
   }
@@ -79,12 +81,12 @@ export class VoiceControlSystem {
       try {
         await BackendApiClient.getInstance().sendVoiceCommand(transcript);
         console.log("Voice command executed successfully.");
+        if (this.onStatusChange) this.onStatusChange("idle", { success: true });
       } catch (error) {
         console.error("Failed to execute voice command:", error);
-      } finally {
-        if (this.onStatusChange) this.onStatusChange("idle");
-        this.isListening = false;
+        if (this.onStatusChange) this.onStatusChange("idle", { success: false });
       }
+      this.isListening = false;
     };
 
     this.recognition.onerror = (event: any) => {
@@ -302,7 +304,7 @@ export class VoiceControlSystem {
     if (this.isListening) {
       this.recognition.stop();
       this.isListening = false;
-      if (this.onStatusChange) this.onStatusChange("idle");
+      if (this.onStatusChange) this.onStatusChange("idle", { cancelled: true });
     } else {
       try {
         this.recognition.start();
