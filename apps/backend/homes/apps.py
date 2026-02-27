@@ -17,3 +17,6 @@ class HomesConfig(AppConfig):
         if is_runserver or is_gunicorn or is_uvicorn:
             from .scada import ScadaManager
             ScadaManager().start()
+
+            from .smartmeter import SmartmeterManager
+            SmartmeterManager().start()
