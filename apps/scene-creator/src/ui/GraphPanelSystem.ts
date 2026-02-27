@@ -275,6 +275,9 @@ export class GraphPanelSystem extends createSystem({
         let nextMonthDayCounter = 1;
 
         // Update all 42 cells
+        let hasCurrentMonthInFifthRow = false;
+        let hasCurrentMonthInSixthRow = false;
+
         for (let i = 0; i < 42; i++) {
             const cellInfo = cells[i];
             if (!cellInfo) continue;
@@ -297,6 +300,16 @@ export class GraphPanelSystem extends createSystem({
                 displayDay = nextMonthDayCounter;
                 isOtherMonth = true;
                 nextMonthDayCounter++;
+            }
+
+            // Track if 5th row has any current month days
+            if (i >= 28 && i < 35 && isCurrentMonth) {
+                hasCurrentMonthInFifthRow = true;
+            }
+
+            // Track if 6th row has any current month days
+            if (i >= 35 && isCurrentMonth) {
+                hasCurrentMonthInSixthRow = true;
             }
 
             // Store day info for click handling
@@ -326,6 +339,22 @@ export class GraphPanelSystem extends createSystem({
                 backgroundColor: isSelected ? "#a855f7" : "#09090b",
                 borderWidth: isToday && !isSelected ? 0.1 : 0,
                 borderColor: isToday && !isSelected ? "#a855f7" : "#09090b"
+            });
+        }
+
+        // Hide or show the 5th row based on if it contains current month days
+        const cell28 = cells[28];
+        if (cell28 && cell28.cell.parent) {
+            (cell28.cell.parent as UIKit.Container).setProperties({
+                display: hasCurrentMonthInFifthRow ? "flex" : "none"
+            });
+        }
+
+        // Hide or show the 6th row based on if it contains current month days
+        const cell35 = cells[35];
+        if (cell35 && cell35.cell.parent) {
+            (cell35.cell.parent as UIKit.Container).setProperties({
+                display: hasCurrentMonthInSixthRow ? "flex" : "none"
             });
         }
     }
