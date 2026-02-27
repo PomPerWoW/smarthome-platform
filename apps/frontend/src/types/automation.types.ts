@@ -18,7 +18,7 @@ export const SolarEvent = {
 export type SolarEvent = (typeof SolarEvent)[keyof typeof SolarEvent];
 
 export interface AutomationAction {
-    turn_on?: boolean;
+    is_on?: boolean;
     brightness?: number; // 0-100 (Lightbulb)
     color?: string; // Hex color code (Lightbulb)
     temperature?: number; // (AC)

@@ -88,7 +88,7 @@ const automationSchema = z.object({
   solar_event: z.nativeEnum(SolarEvent).nullable().optional(),
   repeat_days: z.array(z.nativeEnum(DayOfWeek)).default([]),
   action: z.object({
-    turn_on: z.boolean().optional(),
+    is_on: z.boolean().optional(),
     brightness: z.number().min(0).max(100).optional(),
     color: z.string().optional(),
     temperature: z.number().optional(),
@@ -284,7 +284,7 @@ function AutomationPage() {
 
             let actionChanged = false;
             // Check common fields
-            if (currentAction.turn_on !== originalAction.turn_on) actionChanged = true;
+            if (currentAction.is_on !== originalAction.is_on) actionChanged = true;
             if (currentAction.brightness !== originalAction.brightness) actionChanged = true;
             if (currentAction.color !== originalAction.color) actionChanged = true;
             if (currentAction.temperature !== originalAction.temperature) actionChanged = true;
@@ -372,8 +372,8 @@ function AutomationCard({
     const parts = [];
     const action = automation.action;
 
-    if (action.turn_on === true) parts.push("Turn On");
-    else if (action.turn_on === false) parts.push("Turn Off");
+    if (action.is_on === true) parts.push("Turn On");
+    else if (action.is_on === false) parts.push("Turn Off");
 
     if (deviceType === DeviceType.Lightbulb) {
       if (action.brightness) parts.push(`Brightness: ${action.brightness}%`);
@@ -509,7 +509,7 @@ function AutomationSheet({
       sunrise_sunset: false,
       time: "12:00:00",
       repeat_days: [],
-      action: { turn_on: true, brightness: 100 },
+      action: { is_on: true, brightness: 100 },
       solar_event: null,
     },
     values: automation
@@ -520,7 +520,7 @@ function AutomationSheet({
         sunrise_sunset: automation.sunrise_sunset,
         repeat_days: automation.repeat_days,
         time: automation.time || "12:00:00",
-        action: automation.action || { turn_on: true, brightness: 100 },
+        action: automation.action || { is_on: true, brightness: 100 },
         solar_event: automation.solar_event,
       }
       : undefined,
@@ -662,18 +662,18 @@ function AutomationSheet({
               <Label className="font-normal">Turn the device</Label>
               <div className="flex items-center gap-2">
                 <span
-                  className={`text-sm ${watch("action.turn_on") === false ? "font-bold" : "text-muted-foreground"}`}
+                  className={`text-sm ${watch("action.is_on") === false ? "font-bold" : "text-muted-foreground"}`}
                 >
                   OFF
                 </span>
                 <Switch
-                  checked={watch("action.turn_on") !== false}
+                  checked={watch("action.is_on") !== false}
                   onCheckedChange={(checked) =>
-                    setValue("action.turn_on", checked)
+                    setValue("action.is_on", checked)
                   }
                 />
                 <span
-                  className={`text-sm ${watch("action.turn_on") !== false ? "font-bold" : "text-muted-foreground"}`}
+                  className={`text-sm ${watch("action.is_on") !== false ? "font-bold" : "text-muted-foreground"}`}
                 >
                   ON
                 </span>
