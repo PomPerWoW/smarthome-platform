@@ -209,6 +209,10 @@
     font-size: 1.4;
     color: #71717a;
   }
+
+  .graph-row {
+    margin-top: 5;
+  }
 </style>
 
 <div class="panel-container">
@@ -294,6 +298,19 @@
           </div>
         </button>
       </div>
+    </div>
+  </div>
+    <!-- Graph Control -->
+    <div class="control-row graph-row">
+      <div>
+        <ActivityIcon class="control-icon" />
+      </div>
+      <span class="control-label">Usage</span>
+      <button class="power-btn" id="show-graph-btn">
+        <div>
+          <ActivityIcon class="power-icon" />
+        </div>
+      </button>
     </div>
   </div>
 

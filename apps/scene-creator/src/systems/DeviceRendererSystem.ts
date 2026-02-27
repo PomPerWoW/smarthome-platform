@@ -19,6 +19,7 @@ import { Device, DeviceType, DeviceRecord, Fan } from "../types";
 import { DeviceComponent } from "../components/DeviceComponent";
 import { BaseDevice, DeviceFactory } from "../entities";
 import { DEVICE_ASSET_KEYS } from "../constants";
+import { chart3D, ChartType } from "../components/Chart3D";
 
 export class DeviceRendererSystem extends createSystem({
   devices: {
@@ -299,6 +300,144 @@ export class DeviceRendererSystem extends createSystem({
     return panelEntity;
   }
 
+  private createGraphPanel(deviceId: string, deviceType: DeviceType): Entity {
+    const graphPanelEntity = this.world
+      .createTransformEntity()
+      .addComponent(PanelUI, {
+        config: "./ui/graph-panel.json",
+        maxHeight: 0.35,
+        maxWidth: 0.3,
+      })
+      .addComponent(Interactable)
+      .addComponent(DeviceComponent, {
+        deviceId,
+        deviceType,
+      });
+
+    // Start hidden
+    if (graphPanelEntity.object3D) {
+      graphPanelEntity.object3D.visible = false;
+    }
+
+    console.log(`[DeviceRenderer] Created graph panel for device ${deviceId}`);
+    return graphPanelEntity;
+  }
+
+  /**
+   * Toggle the visibility of the graph panel for a device
+   */
+  toggleGraphPanel(deviceId: string): void {
+    const record = this.deviceRecords.get(deviceId);
+    if (!record) return;
+
+    // Create graph panel lazily if it doesn't exist
+    if (!record.graphPanelEntity) {
+      record.graphPanelEntity = this.createGraphPanel(deviceId, record.device.type);
+      record.graphPanelVisible = false;
+    }
+
+    // Toggle visibility
+    record.graphPanelVisible = !record.graphPanelVisible;
+    if (record.graphPanelEntity.object3D) {
+      record.graphPanelEntity.object3D.visible = record.graphPanelVisible;
+    }
+
+    console.log(
+      `[DeviceRenderer] Graph panel ${record.graphPanelVisible ? "shown" : "hidden"} for ${deviceId}`,
+    );
+  }
+
+  /**
+   * Hide the graph panel for a device
+   */
+  hideGraphPanel(deviceId: string): void {
+    const record = this.deviceRecords.get(deviceId);
+    if (!record?.graphPanelEntity) return;
+
+    record.graphPanelVisible = false;
+    if (record.graphPanelEntity.object3D) {
+      record.graphPanelEntity.object3D.visible = false;
+    }
+  }
+
+  /**
+   * Show a 3D chart for a device
+   */
+  showChart(deviceId: string, chartType: ChartType): void {
+    console.log(`[DeviceRenderer] showChart called for deviceId=${deviceId}, chartType=${chartType}`);
+    const record = this.deviceRecords.get(deviceId);
+    if (!record) {
+      console.warn(`[DeviceRenderer] No record found for deviceId=${deviceId}. Available IDs: ${Array.from(this.deviceRecords.keys()).join(', ')}`);
+      return;
+    }
+
+    // If same chart type is already showing, hide it (toggle)
+    if (record.activeChartType === chartType && record.chartEntity) {
+      this.hideChart(deviceId);
+      return;
+    }
+
+    // Hide existing chart if different type
+    if (record.chartEntity) {
+      this.destroyChartEntity(record);
+    }
+
+    // Create new chart
+    const chartObject = chart3D.createChart(chartType, record.device.type);
+    this.world.scene.add(chartObject);
+
+    // Create entity for the chart
+    const chartEntity = this.world
+      .createTransformEntity(chartObject)
+      .addComponent(Interactable)
+      .addComponent(DistanceGrabbable, {
+        movementMode: MovementMode.RotateAtSource,
+      });
+
+    record.chartEntity = chartEntity;
+    record.activeChartType = chartType;
+
+    // Position the chart initially
+    if (record.entity.object3D && chartEntity.object3D) {
+      const devicePos = record.entity.object3D.position;
+      chartEntity.object3D.position.set(
+        devicePos.x + 1.5,
+        devicePos.y,
+        devicePos.z,
+      );
+    }
+
+    console.log(
+      `[DeviceRenderer] Showing ${chartType} chart for ${deviceId}`,
+    );
+  }
+
+  /**
+   * Hide the chart for a device
+   */
+  hideChart(deviceId: string): void {
+    const record = this.deviceRecords.get(deviceId);
+    if (!record?.chartEntity) return;
+
+    this.destroyChartEntity(record);
+    console.log(`[DeviceRenderer] Hidden chart for ${deviceId}`);
+  }
+
+  /**
+   * Destroy chart entity and clean up
+   */
+  private destroyChartEntity(record: DeviceRecord): void {
+    if (record.chartEntity) {
+      const obj = record.chartEntity.object3D;
+      if (obj?.parent) {
+        obj.parent.remove(obj);
+      }
+      record.chartEntity.destroy();
+      record.chartEntity = undefined;
+      record.activeChartType = undefined;
+    }
+  }
+
   private syncDevicesWithScene(devices: Device[]): void {
     const currentIds = new Set(devices.map((d) => d.id));
 
@@ -438,6 +577,20 @@ export class DeviceRendererSystem extends createSystem({
         const camera = this.world.camera;
         if (camera) {
           record.panelEntity.object3D.lookAt(camera.position);
+        }
+
+        // Position graph panel to the right of the control panel
+        if (record.graphPanelEntity?.object3D && record.graphPanelVisible) {
+          record.graphPanelEntity.object3D.position.set(
+            devicePos.x + 1.0, // Further right than the control panel
+            devicePos.y,
+            devicePos.z,
+          );
+
+          // Make graph panel face the camera
+          if (camera) {
+            record.graphPanelEntity.object3D.lookAt(camera.position);
+          }
         }
       }
     }
