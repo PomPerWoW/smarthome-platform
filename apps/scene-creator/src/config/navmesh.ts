@@ -1,3 +1,4 @@
+// @ts-ignore
 import { NavMesh, Polygon, Vector3 as YukaVector3 } from "yuka";
 import { Box3, Vector3, Object3D } from "three";
 
@@ -47,7 +48,7 @@ export function initializeNavMesh(roomModel: any, padding: number = 0.5): NavMes
   ];
 
   const polygon = new Polygon().fromContour(vertices);
-  
+
   navMesh.regions.push(polygon);
 
   console.log(`🗺️ [NavMesh] Created NavMesh with walkable area:`);

@@ -13,6 +13,7 @@ import { SkeletonUtils } from "three-stdlib";
 import { Lipsync, VISEMES } from "wawa-lipsync";
 import { UserControlledAvatarComponent } from "../components/UserControlledAvatarComponent";
 import { clampToWalkableArea, getRoomBounds } from "../config/navmesh";
+import { constrainMovement, AVATAR_COLLISION_RADIUS } from "../config/collision";
 
 // ============================================================================
 // LIP SYNC CONFIG
@@ -419,14 +420,14 @@ export class RPMUserControlledAvatarSystem extends createSystem({
       console.warn("[RPMUserControlledAvatar] Switch off microphone mode first to play pre-scripted audio");
       return;
     }
-    
+
     // Stop any current playback first
     this.stopSpeaking();
-    
+
     // Set the new source and connect to lipsync manager
     this.audioElement.src = audioUrl;
     this.lipsyncManager.connectAudio(this.audioElement);
-    
+
     // Set speaking state and play
     this.isSpeaking = true;
     this.audioElement.play().catch((err) => {
@@ -493,12 +494,12 @@ export class RPMUserControlledAvatarSystem extends createSystem({
         lipsyncAny.features = null;
         lipsyncAny.state = "silence";
         lipsyncAny.visemeStartTime = performance.now();
-        
+
         // Clear viseme history for fresh start
         this.micVisemeHistory = [];
-        
+
         this.micSource = await this.lipsyncManager.connectMicrophone();
-        
+
         // Configure microphone constraints for better quality
         if (this.micSource && this.micSource.mediaStream) {
           const audioTracks = this.micSource.mediaStream.getAudioTracks();
@@ -518,16 +519,16 @@ export class RPMUserControlledAvatarSystem extends createSystem({
             }
           }
         }
-        
+
         // Disconnect analyser from speakers so user doesn't hear their own voice
         lipsyncAny.analyser?.disconnect?.();
-        
+
         // Try to configure analyser for better frequency analysis
         if (lipsyncAny.analyser) {
           lipsyncAny.analyser.fftSize = 2048; // Higher FFT size for better frequency resolution
           lipsyncAny.analyser.smoothingTimeConstant = 0.3; // Less smoothing for more responsive visemes
         }
-        
+
         this.useMicrophoneMode = true;
         console.log("[RPMUserControlledAvatar] 🎤 Microphone mode ON (muted: no speaker output, optimized for lip sync)");
       } catch (err) {
@@ -538,7 +539,7 @@ export class RPMUserControlledAvatarSystem extends createSystem({
       this.useMicrophoneMode = false;
       // Clear viseme history when turning off mic mode
       this.micVisemeHistory = [];
-      
+
       // Disconnect mic from analyser and reconnect analyser to destination so pre-scripted audio (1/2) plays again.
       // After connectMicrophone() we had called analyser.disconnect(), so playback was silent until we fix the graph.
       if (this.micSource) {
@@ -548,7 +549,7 @@ export class RPMUserControlledAvatarSystem extends createSystem({
             this.micSource.mediaStream.getTracks().forEach(track => track.stop());
           }
           this.micSource.disconnect();
-        } catch (_) {}
+        } catch (_) { }
         this.micSource = null;
       }
       const lipsyncAny = this.lipsyncManager as any;
@@ -619,7 +620,7 @@ export class RPMUserControlledAvatarSystem extends createSystem({
     if (this.useMicrophoneMode) {
       const lipsyncAny = this.lipsyncManager as any;
       const volume = lipsyncAny.features?.volume ?? 0;
-      
+
       // Filter out low-volume noise
       if (volume < MIC_VOLUME_THRESHOLD) {
         // Reset all visemes when volume is too low (silence)
@@ -630,7 +631,7 @@ export class RPMUserControlledAvatarSystem extends createSystem({
         if (this.micVisemeHistory.length > MIC_VISEME_SMOOTHING_WINDOW) {
           this.micVisemeHistory.shift();
         }
-        
+
         // Use most common viseme in the smoothing window
         const visemeCounts = new Map<typeof VISEMES[keyof typeof VISEMES], number>();
         for (const viseme of this.micVisemeHistory) {
@@ -658,13 +659,13 @@ export class RPMUserControlledAvatarSystem extends createSystem({
 
     // Use different lerp speeds for mic mode vs pre-recorded audio
     const lerpSpeeds = this.useMicrophoneMode ? MIC_LIPSYNC_LERP_SPEED : LIPSYNC_LERP_SPEED;
-    
+
     // If volume is too low, reset all visemes instead of applying current viseme
     if (shouldResetVisemes) {
       this.resetAllVisemes(record);
       return;
     }
-    
+
     const isVowel = ["viseme_aa", "viseme_E", "viseme_I", "viseme_O", "viseme_U"].includes(currentViseme);
     const lerpSpeed = isVowel ? lerpSpeeds.vowel : lerpSpeeds.consonant;
 
@@ -752,8 +753,19 @@ export class RPMUserControlledAvatarSystem extends createSystem({
       const moveX = record.walkDirection.x * velocity * dt;
       const moveZ = record.walkDirection.z * velocity * dt;
 
-      record.model.position.x += moveX;
-      record.model.position.z += moveZ;
+      const oldX = record.model.position.x;
+      const oldZ = record.model.position.z;
+      const nextX = oldX + moveX;
+      const nextZ = oldZ + moveZ;
+
+      // Collision check against lab model meshes
+      const constrained = constrainMovement(
+        oldX, oldZ, nextX, nextZ,
+        record.model.position.y,
+        AVATAR_COLLISION_RADIUS
+      );
+      record.model.position.x = constrained.x;
+      record.model.position.z = constrained.z;
 
       const [clampedX, clampedZ] = clampToWalkableArea(
         record.model.position.x,

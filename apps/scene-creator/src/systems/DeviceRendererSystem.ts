@@ -19,6 +19,11 @@ import { Device, DeviceType, DeviceRecord, Fan } from "../types";
 import { DeviceComponent } from "../components/DeviceComponent";
 import { BaseDevice, DeviceFactory } from "../entities";
 import { DEVICE_ASSET_KEYS } from "../constants";
+import {
+  constrainMovement,
+  DEVICE_COLLISION_RADIUS,
+  clampDeviceY,
+} from "../config/collision";
 import { chart3D, ChartType } from "../components/Chart3D";
 
 export class DeviceRendererSystem extends createSystem({
@@ -29,6 +34,9 @@ export class DeviceRendererSystem extends createSystem({
   private deviceRecords: Map<string, DeviceRecord> = new Map();
   private modelCache: Map<DeviceType, Object3D> = new Map();
   private animationCache: Map<DeviceType, AnimationClip[]> = new Map();
+  // Track last valid position per device for collision detection during grab
+  private lastValidPositions: Map<string, { x: number; y: number; z: number }> =
+    new Map();
   private initialized = false;
   private unsubscribe?: () => void;
 
@@ -332,7 +340,10 @@ export class DeviceRendererSystem extends createSystem({
 
     // Create graph panel lazily if it doesn't exist
     if (!record.graphPanelEntity) {
-      record.graphPanelEntity = this.createGraphPanel(deviceId, record.device.type);
+      record.graphPanelEntity = this.createGraphPanel(
+        deviceId,
+        record.device.type,
+      );
       record.graphPanelVisible = false;
     }
 
@@ -364,10 +375,14 @@ export class DeviceRendererSystem extends createSystem({
    * Show a 3D chart for a device
    */
   showChart(deviceId: string, chartType: ChartType): void {
-    console.log(`[DeviceRenderer] showChart called for deviceId=${deviceId}, chartType=${chartType}`);
+    console.log(
+      `[DeviceRenderer] showChart called for deviceId=${deviceId}, chartType=${chartType}`,
+    );
     const record = this.deviceRecords.get(deviceId);
     if (!record) {
-      console.warn(`[DeviceRenderer] No record found for deviceId=${deviceId}. Available IDs: ${Array.from(this.deviceRecords.keys()).join(', ')}`);
+      console.warn(
+        `[DeviceRenderer] No record found for deviceId=${deviceId}. Available IDs: ${Array.from(this.deviceRecords.keys()).join(", ")}`,
+      );
       return;
     }
 
@@ -407,9 +422,7 @@ export class DeviceRendererSystem extends createSystem({
       );
     }
 
-    console.log(
-      `[DeviceRenderer] Showing ${chartType} chart for ${deviceId}`,
-    );
+    console.log(`[DeviceRenderer] Showing ${chartType} chart for ${deviceId}`);
   }
 
   /**
@@ -561,6 +574,29 @@ export class DeviceRendererSystem extends createSystem({
           rot.x = 0;
           rot.z = 0;
         }
+
+        // Collision check for grabbed/moved devices
+        const pos = record.entity.object3D.position;
+        const lastValid = this.lastValidPositions.get(deviceId);
+        if (lastValid) {
+          // XZ collision constraint (walls, desk edges, furniture)
+          const constrained = constrainMovement(
+            lastValid.x,
+            lastValid.z,
+            pos.x,
+            pos.z,
+            pos.y,
+            DEVICE_COLLISION_RADIUS,
+          );
+          if (pos.x !== lastValid.x || pos.z !== lastValid.z) {
+            pos.x = constrained.x;
+            pos.z = constrained.z;
+          }
+          // Y collision constraint (floor and ceiling)
+          pos.y = clampDeviceY(pos.y);
+        }
+        // Store current position as last valid
+        this.lastValidPositions.set(deviceId, { x: pos.x, y: pos.y, z: pos.z });
       }
 
       if (record.panelEntity?.object3D && record.entity.object3D) {

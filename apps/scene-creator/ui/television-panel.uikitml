@@ -314,6 +314,23 @@
     </div>
   </div>
 
+    <!-- Position Control -->
+    <div class="control-row">
+      <div>
+        <MoveIcon class="control-icon" />
+      </div>
+      <span class="control-label">Position</span>
+      <div class="value-container">
+        <button class="control-btn" id="get-position-btn" style="width: 8; background-color: #3f3f46;">
+          <span style="font-size: 1.4; color: #fafafa;">Get</span>
+        </button>
+        <button class="control-btn" id="save-position-btn" style="width: 8; background-color: #3f3f46;">
+          <span style="font-size: 1.4; color: #fafafa;">Save</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Status Footer -->
   <div class="status-section">
     <div class="status-dot" id="status-dot"></div>

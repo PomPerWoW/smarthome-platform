@@ -115,6 +115,29 @@ class BaseDeviceViewSet(viewsets.ModelViewSet):
         if room and room.home.user != self.request.user:
             raise PermissionDenied("You do not own this room.")
         serializer.save()
+
+    def perform_update(self, serializer):
+        """
+        Intercepts the update to check for 'is_on' changes and trigger SCADA.
+        """
+        old_instance = self.get_object()
+        old_is_on = getattr(old_instance, 'is_on', None)
+        
+        # Save the new state
+        instance = serializer.save()
+        
+        # Check if is_on changed
+        if hasattr(instance, 'is_on') and getattr(instance, 'is_on') != old_is_on:
+             if instance.tag:
+                 value = 1 if instance.is_on else 0
+                 
+                 suffix = "onoff" # Default for Lightbulb and AirConditioner
+                 if hasattr(instance, 'television'):
+                     suffix = "on"
+                 elif hasattr(instance, 'fan'):
+                     suffix = "on"
+                 
+                 ScadaManager().send_command(f"{instance.tag}.{suffix}", value)
     
     @action(detail=True, methods=['post'])
     def set_position(self, request, pk=None):
@@ -299,101 +322,6 @@ class AirConditionerViewSet(BaseDeviceViewSet):
             return Response({"status": "temperature set", "current_temp": ac.temperature})
         return Response({"error": "temp parameter missing"}, status=400)
 
-    @action(detail=False, methods=['get'], url_path='getACLog')
-    def getACLog(self, request):
-        """
-        Retrieves AC logs for a specific date by aggregating data from an external API.
-        
-        URL: GET /api/homes/acs/getACLog/?date=YYYY-MM-DD
-        """
-        date_str = request.query_params.get('date')
-        if not date_str:
-            return Response({"error": "date parameter is required (YYYY-MM-DD)"}, status=400)
-            
-        try:
-            target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
-        except ValueError:
-            return Response({"error": "Invalid date format. Use YYYY-MM-DD"}, status=400)
-
-        # Define time range for the day
-        start_dt = datetime.combine(target_date, datetime.min.time())
-        
-        # Start iterating from the end of the day backwards
-        curr_end = start_dt.replace(hour=23, minute=55, second=0)
-        
-        aggregated_data = {} 
-        device_name = "Unknown"
-        
-        while curr_end >= start_dt:
-            end_str = curr_end.strftime("%Y-%m-%dT%H:%M:%S")
-            # Template ID 6 for AC
-            url = f"https://171.102.128.142:6443/restapi/tag/get_log_data/?template_id=6&end_datetime={end_str}"
-            
-            try:
-                resp = requests.get(url, verify=False, timeout=10)
-                if resp.status_code == 200:
-                    data_json = resp.json()
-                    
-                    if device_name == "Unknown" and "header" in data_json and len(data_json["header"]) > 0:
-                        device_name = data_json["header"][0].get("big_column_name", "Unknown")
-                    
-                    rows = data_json.get("data", [])
-                    for row in rows:
-                        if len(row) < 4:
-                            continue
-                        
-                        ts_str = row[0]
-                        # Parsing logic
-                        on_raw = row[1]
-                        current_temp_raw = row[2]
-                        set_temp_raw = row[3]
-                        
-                        try:
-                            ts = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S")
-                            if ts.date() != target_date:
-                                continue 
-                        except ValueError:
-                            continue
-
-                        onoff = True if on_raw == "1" else False
-                        
-                        current_temp = None
-                        if current_temp_raw != "-" and current_temp_raw is not None:
-                             try:
-                                 current_temp = float(current_temp_raw)
-                             except ValueError:
-                                 pass
-                                 
-                        set_temp = None
-                        if set_temp_raw != "-" and set_temp_raw is not None:
-                             try:
-                                 set_temp = float(set_temp_raw)
-                             except ValueError:
-                                 pass
-
-                        entry = {
-                            "timestamp": ts_str,
-                            "onoff": onoff,
-                            "current_temp": current_temp,
-                            "set_temp": set_temp
-                        }
-                        
-                        aggregated_data[ts_str] = entry
-                
-            except requests.RequestException:
-                pass
-            
-            curr_end = curr_end - timedelta(minutes=100)
-            
-            if curr_end < start_dt - timedelta(hours=2):
-                break
-
-        sorted_data = sorted(aggregated_data.values(), key=lambda x: x['timestamp'], reverse=True)
-        
-        return Response({
-            "device_name": device_name,
-            "data": sorted_data
-        })
     def perform_update(self, serializer):
         """
         Intercepts the update to check for 'is_on' changes and trigger SCADA.
@@ -459,102 +387,6 @@ class FanViewSet(BaseDeviceViewSet):
             return Response({"status": "swing updated", "is_swinging": fan.swing})
         return Response({"error": "swing parameter missing"}, status=400)
 
-    @action(detail=False, methods=['get'], url_path='getFanLog')
-    def getFanLog(self, request):
-        """
-        Retrieves fan logs for a specific date by aggregating data from an external API.
-        
-        URL: GET /api/homes/fans/getFanLog/?date=YYYY-MM-DD
-        """
-        date_str = request.query_params.get('date')
-        if not date_str:
-            return Response({"error": "date parameter is required (YYYY-MM-DD)"}, status=400)
-            
-        try:
-            target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
-        except ValueError:
-            return Response({"error": "Invalid date format. Use YYYY-MM-DD"}, status=400)
-
-        # Define time range for the day
-        start_dt = datetime.combine(target_date, datetime.min.time())
-        # end_dt = datetime.combine(target_date, datetime.max.time())
-        
-        # Start iterating from the end of the day backwards
-        curr_end = start_dt.replace(hour=23, minute=55, second=0)
-        
-        aggregated_data = {} 
-        device_name = "Unknown"
-        
-        # Loop until we cover the start of the day
-        while curr_end >= start_dt:
-            # Format datetime for API: 2026-01-24T18:30:00
-            end_str = curr_end.strftime("%Y-%m-%dT%H:%M:%S")
-            # Template ID 5 for Fan
-            url = f"https://171.102.128.142:6443/restapi/tag/get_log_data/?template_id=5&end_datetime={end_str}"
-            
-            try:
-                resp = requests.get(url, verify=False, timeout=10)
-                if resp.status_code == 200:
-                    data_json = resp.json()
-                    
-                    if device_name == "Unknown" and "header" in data_json and len(data_json["header"]) > 0:
-                        device_name = data_json["header"][0].get("big_column_name", "Unknown")
-                    
-                    rows = data_json.get("data", [])
-                    for row in rows:
-                        if len(row) < 4:
-                            continue
-                        
-                        ts_str = row[0]
-                        on_raw = row[1]
-                        shake_raw = row[2]
-                        speed_raw = row[3]
-                        
-                        try:
-                            ts = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S")
-                            if ts.date() != target_date:
-                                continue 
-                        except ValueError:
-                            continue
-
-                        # Map values
-                        # Row[1]: on ("1" / "-")
-                        onoff = True if on_raw == "1" else False
-                        
-                        # Row[2]: shake ("1" / "-")
-                        shake = True if shake_raw == "1" else False
-                        
-                        # Row[3]: speed (int / "-")
-                        speed = None
-                        if speed_raw != "-" and speed_raw is not None:
-                            try:
-                                speed = int(speed_raw)
-                            except ValueError:
-                                pass
-                            
-                        entry = {
-                            "timestamp": ts_str,
-                            "onoff": onoff,
-                            "shake": shake,
-                            "speed": speed
-                        }
-                        
-                        aggregated_data[ts_str] = entry
-                
-            except requests.RequestException:
-                pass
-            
-            curr_end = curr_end - timedelta(minutes=100)
-            
-            if curr_end < start_dt - timedelta(hours=2):
-                break
-
-        sorted_data = sorted(aggregated_data.values(), key=lambda x: x['timestamp'], reverse=True)
-        
-        return Response({
-            "device_name": device_name,
-            "data": sorted_data
-        })
     def perform_update(self, serializer):
         """
         Intercepts the update to check for 'is_on' changes and trigger SCADA.
@@ -728,22 +560,6 @@ class LightbulbViewSet(BaseDeviceViewSet):
                  
             return Response({"status": "colour set", "current_colour": bulb.colour})
 
-    def perform_update(self, serializer):
-        """
-        Intercepts the update to check for 'is_on' changes and trigger SCADA.
-        """
-        old_instance = self.get_object()
-        old_is_on = old_instance.is_on
-        
-        # Save the new state
-        instance = serializer.save()
-        
-        # Check if is_on changed (or just if we want to enforce state on every patch containing is_on)
-        if instance.is_on != old_is_on:
-             if instance.tag:
-                 value = 1 if instance.is_on else 0
-                 ScadaManager().send_command(f"{instance.tag}.onoff", value)
-
 
 class TelevisionViewSet(BaseDeviceViewSet):
     """
@@ -811,7 +627,6 @@ class TelevisionViewSet(BaseDeviceViewSet):
                 ScadaManager().send_command(f"{tv.tag}.mute", value)
 
             return Response({"status": "mute updated", "is_muted": tv.is_mute})
-        return Response({"error": "mute parameter missing"}, status=400)
             
     def perform_update(self, serializer):
         """
@@ -943,3 +758,61 @@ class VoiceCommandViewSet(viewsets.ViewSet):
         result = service.process_voice_command(request.user, command_text)
         
         return Response(result)
+
+    @action(detail=False, methods=['post'])
+    def transcribe(self, request):
+        """
+        Accepts an audio file upload and transcribes it using Groq Whisper API.
+        Used as a fallback for browsers that don't support Web Speech API (e.g. Meta Quest 3).
+        """
+        import os
+        import tempfile
+
+        audio_file = request.FILES.get('audio')
+        if not audio_file:
+            return Response({"error": "Audio file is required."}, status=400)
+
+        should_execute = request.data.get('execute', 'false').lower() == 'true'
+
+        try:
+            from groq import Groq
+            api_key = os.getenv("GROQ_API_KEY")
+            if not api_key:
+                return Response({"error": "Groq API key not configured."}, status=500)
+
+            client = Groq(api_key=api_key)
+
+            # Write uploaded audio to a temp file (Groq SDK needs a file path)
+            ext = os.path.splitext(audio_file.name)[1] if audio_file.name else '.webm'
+            with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
+                for chunk in audio_file.chunks():
+                    tmp.write(chunk)
+                tmp_path = tmp.name
+
+            try:
+                with open(tmp_path, "rb") as f:
+                    transcription = client.audio.transcriptions.create(
+                        model="whisper-large-v3-turbo",
+                        file=("audio" + ext, f),
+                        language="en",
+                    )
+                transcript = transcription.text.strip()
+            finally:
+                os.unlink(tmp_path)
+
+            if not transcript:
+                return Response({"error": "Could not transcribe audio."}, status=400)
+
+            response_data = {"transcript": transcript}
+
+            if should_execute:
+                service = VoiceAssistantService()
+                command_result = service.process_voice_command(request.user, transcript)
+                response_data["command_result"] = command_result
+
+            return Response(response_data)
+
+        except ImportError:
+            return Response({"error": "groq package not installed."}, status=500)
+        except Exception as e:
+            return Response({"error": f"Transcription failed: {str(e)}"}, status=500)
