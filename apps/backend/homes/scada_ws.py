@@ -181,6 +181,10 @@ class WebSocket2Scada:
         """
         if not self._ws:
             raise RuntimeError("WebSocket not started")
+            
+        if isinstance(value, bool):
+            value = 1 if value else 0
+            
         payload = {"type": "set_tag", "tag": tag, "value": value}
         self._ws.send(json.dumps({"message": json.dumps(payload)}))
 

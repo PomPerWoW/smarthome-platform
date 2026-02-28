@@ -7,6 +7,7 @@ from .permissions import IsHomeOwner
 from .models import *
 from .serializers import *
 from .services import VoiceAssistantService
+from datetime import datetime
 from .scada import ScadaManager
 
 from datetime import datetime, timedelta
@@ -758,7 +759,7 @@ class VoiceCommandViewSet(viewsets.ViewSet):
         result = service.process_voice_command(request.user, command_text)
         
         return Response(result)
-
+    
     @action(detail=False, methods=['post'])
     def transcribe(self, request):
         """
@@ -816,3 +817,36 @@ class VoiceCommandViewSet(viewsets.ViewSet):
             return Response({"error": "groq package not installed."}, status=500)
         except Exception as e:
             return Response({"error": f"Transcription failed: {str(e)}"}, status=500)
+
+class AutomationViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing Automations.
+    """
+    serializer_class = AutomationSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        """
+        Return automations for devices that belong to the user's homes.
+        """
+        return Automation.objects.filter(device__room__home__user=self.request.user)
+
+    def perform_create(self, serializer):
+        """
+        Ensure the user owns the device they are attaching an automation to.
+        """
+        device = serializer.validated_data['device']
+        if device.room.home.user != self.request.user:
+            raise PermissionDenied("You do not own this device.")
+        instance = serializer.save()
+        
+        if instance.sunrise_sunset:
+             from .services import update_automation_solar_time
+             update_automation_solar_time(instance)
+
+    def perform_update(self, serializer):
+        instance = serializer.save()
+        
+        if instance.sunrise_sunset:
+             from .services import update_automation_solar_time
+             update_automation_solar_time(instance)
