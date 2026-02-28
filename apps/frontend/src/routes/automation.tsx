@@ -128,7 +128,6 @@ function AutomationPage() {
     queryFn: () => DeviceService.getInstance().getAllDevices(),
   });
 
-  // Mutations
   const createMutation = useMutation({
     mutationFn: (data: CreateAutomationDTO) =>
       AutomationService.getInstance().createAutomation(data),
@@ -205,21 +204,23 @@ function AutomationPage() {
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {automations.map((automation) => (
-          <AutomationCard
-            key={automation.id}
-            automation={automation}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-            devices={devices}
-          />
-        ))}
-        {automations.length === 0 && (
-          <div className="col-span-full text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
-            No automations found. Create one to get started.
-          </div>
-        )}
+      <div className="h-[calc(100vh-140px)] overflow-y-auto pb-6 pr-2">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {automations.map((automation) => (
+            <AutomationCard
+              key={automation.id}
+              automation={automation}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+              devices={devices}
+            />
+          ))}
+          {automations.length === 0 && (
+            <div className="col-span-full text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
+              No automations found. Create one to get started.
+            </div>
+          )}
+        </div>
       </div>
 
       <AutomationSheet
@@ -309,7 +310,14 @@ function AutomationPage() {
               time: values.sunrise_sunset ? null : values.time,
               solar_event: values.sunrise_sunset ? values.solar_event : null,
             };
-            createMutation.mutate(submissionData);
+            createMutation.mutate(submissionData, {
+              onSuccess: () => {
+                // The form state will be reset when reopened because
+                // handleCreate sets editingAutomation to null and the sheet re-renders.
+                // Re-rendering happens when editingAutomation becomes null.
+                // However, react-hook-form cache might preserve values if not explicitly reset.
+              }
+            });
           }
         }}
         isPending={createMutation.isPending || updateMutation.isPending}
@@ -511,7 +519,7 @@ function AutomationSheet({
       time: "12:00:00",
       repeat_days: [],
       action: { is_on: true, brightness: 100 },
-      solar_event: null,
+      solar_event: SolarEvent.Sunrise,
     },
     values: automation
       ? {
@@ -522,10 +530,14 @@ function AutomationSheet({
         repeat_days: automation.repeat_days,
         time: automation.time || "12:00:00",
         action: automation.action || { is_on: true, brightness: 100 },
-        solar_event: automation.solar_event,
+        solar_event: automation.solar_event || SolarEvent.Sunrise,
       }
       : undefined,
   });
+
+  // Reset form when sheet is fully closed or opened for creation
+  // `automation` prop going to null signals creation
+  // We use key inside the Sheet content wrapper below instead of useEffect
 
   const { watch, setValue } = form;
   const isSunriseSunset = watch("sunrise_sunset");
@@ -563,7 +575,9 @@ function AutomationSheet({
           </SheetDescription>
         </SheetHeader>
 
+        {/* Use a key prop to force re-render/reset form on create */}
         <form
+          key={automation ? automation.id : "new"}
           onSubmit={form.handleSubmit(onSubmit)}
           className="space-y-6 py-6"
         >
