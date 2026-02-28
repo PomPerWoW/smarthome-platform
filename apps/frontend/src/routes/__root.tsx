@@ -14,8 +14,9 @@ import { ReactQueryDevtoolsPanel } from "@tanstack/react-query-devtools";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { AuthService } from "@/services/AuthService";
 import { useAuthStore } from "@/stores/auth";
+import { useUIStore } from "@/stores/ui_store";
 import { ThreeDWorldButton } from "@/components/three-d-world-button";
-import { RobotAssistant } from "@/components/robot-assistant";
+import { RobotAssistant } from "@/components/RobotAssistant";
 import { WebSocketService } from "@/services/WebSocketService";
 import { useEffect } from "react";
 
@@ -62,6 +63,7 @@ function RootLayout() {
   const location = useLocation();
   const isAuthPage = authRoutes.includes(location.pathname);
   const { isAuthenticated } = useAuthStore();
+  const isAnyModalOpen = useUIStore((s) => s.is_any_modal_open);
 
   // WebSocket Connection for Real-time Updates
   useEffect(() => {
@@ -106,7 +108,7 @@ function RootLayout() {
               <main className="relative z-10 flex-1 p-4">
                 <Outlet />
               </main>
-              <RobotAssistant />
+              {!isAnyModalOpen && <RobotAssistant />}
             </SidebarInset>
           </SidebarProvider>
         )}

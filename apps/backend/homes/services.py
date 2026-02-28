@@ -2,6 +2,7 @@ from typing import Dict, Any, List
 from .llm_interfaces import LLMProvider, CommandIntent
 from .llm_providers import LLMFactory
 from .models import Device, Lightbulb, Television, Fan, AirConditioner
+from .scada import ScadaManager
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 
@@ -157,7 +158,32 @@ class VoiceAssistantService:
                 device_child.temperature = params.get('temperature', device_child.temperature)
 
             device_child.save()
-            device_child.save()
+            
+            # Send to SCADA if the device has a tag
+            if device_child.tag:
+                scada = ScadaManager()
+                if action == 'turn_on':
+                    suffix = "on" if hasattr(device_child, 'television') or hasattr(device_child, 'fan') else "onoff"
+                    scada.send_command(f"{device_child.tag}.{suffix}", 1)
+                elif action == 'turn_off':
+                    suffix = "on" if hasattr(device_child, 'television') or hasattr(device_child, 'fan') else "onoff"
+                    scada.send_command(f"{device_child.tag}.{suffix}", 0)
+                elif action == 'set_brightness':
+                    scada.send_command(f"{device_child.tag}.Brightness", device_child.brightness)
+                elif action == 'set_colour':
+                    scada.send_command(f"{device_child.tag}.Color", device_child.colour)
+                elif action == 'set_volume':
+                    scada.send_command(f"{device_child.tag}.volume", device_child.volume)
+                elif action == 'set_channel':
+                    scada.send_command(f"{device_child.tag}.channel", device_child.channel)
+                elif action == 'set_mute':
+                    scada.send_command(f"{device_child.tag}.mute", 1 if device_child.is_mute else 0)
+                elif action == 'set_speed':
+                    scada.send_command(f"{device_child.tag}.speed", device_child.speed)
+                elif action == 'set_swing':
+                    scada.send_command(f"{device_child.tag}.shake", 1 if device_child.swing else 0)
+                elif action == 'set_temperature':
+                    scada.send_command(f"{device_child.tag}.set_temp", device_child.temperature)
             
             # Broadcast update via WebSockets
             channel_layer = get_channel_layer()

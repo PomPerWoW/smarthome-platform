@@ -10,6 +10,9 @@ from .services import VoiceAssistantService
 from datetime import datetime
 from .scada import ScadaManager
 
+from datetime import datetime, timedelta
+import requests
+
 # --- 1. Home ViewSet ---
 class HomeViewSet(viewsets.ModelViewSet):
     """
@@ -113,6 +116,29 @@ class BaseDeviceViewSet(viewsets.ModelViewSet):
         if room and room.home.user != self.request.user:
             raise PermissionDenied("You do not own this room.")
         serializer.save()
+
+    def perform_update(self, serializer):
+        """
+        Intercepts the update to check for 'is_on' changes and trigger SCADA.
+        """
+        old_instance = self.get_object()
+        old_is_on = getattr(old_instance, 'is_on', None)
+        
+        # Save the new state
+        instance = serializer.save()
+        
+        # Check if is_on changed
+        if hasattr(instance, 'is_on') and getattr(instance, 'is_on') != old_is_on:
+             if instance.tag:
+                 value = 1 if instance.is_on else 0
+                 
+                 suffix = "onoff" # Default for Lightbulb and AirConditioner
+                 if hasattr(instance, 'television'):
+                     suffix = "on"
+                 elif hasattr(instance, 'fan'):
+                     suffix = "on"
+                 
+                 ScadaManager().send_command(f"{instance.tag}.{suffix}", value)
     
     @action(detail=True, methods=['post'])
     def set_position(self, request, pk=None):
@@ -406,6 +432,116 @@ class LightbulbViewSet(BaseDeviceViewSet):
             return Response({"status": "brightness set", "current_brightness": bulb.brightness})
         return Response({"error": "brightness parameter missing"}, status=400)
 
+    @action(detail=False, methods=['get'], url_path='getLightbulbLog')
+    def getLightbulbLog(self, request):
+        """
+        Retrieves lightbulb logs for a specific date by aggregating data from an external API.
+        
+        URL: GET /api/homes/devices/getLightbulbLog/?date=YYYY-MM-DD
+        """
+        date_str = request.query_params.get('date')
+        if not date_str:
+            return Response({"error": "date parameter is required (YYYY-MM-DD)"}, status=400)
+            
+        try:
+            target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+        except ValueError:
+            return Response({"error": "Invalid date format. Use YYYY-MM-DD"}, status=400)
+
+        # Define time range for the day
+        start_dt = datetime.combine(target_date, datetime.min.time())
+        end_dt = datetime.combine(target_date, datetime.max.time())
+        
+        # Start iterating from the end of the day backwards
+        # The API returns the last 100 minutes from end_datetime.
+        # We align to 5-minute intervals roughly.
+        # Starting at 23:55:00 covers up to 23:59 roughly if buckets are 5 mins.
+        curr_end = start_dt.replace(hour=23, minute=55, second=0)
+        
+        aggregated_data = {} # Use dict to dedup by timestamp
+        device_name = "Unknown"
+        
+        # Loop until we cover the start of the day
+        # We go backwards. The last fetch should cover 00:00.
+        # 100 mins step.
+        while curr_end >= start_dt:
+            # Format datetime for API: 2026-01-24T18:30:00
+            end_str = curr_end.strftime("%Y-%m-%dT%H:%M:%S")
+            url = f"https://171.102.128.142:6443/restapi/tag/get_log_data/?template_id=4&end_datetime={end_str}"
+            
+            try:
+                # SSL Verify False as it might be a private/self-signed endpoint
+                resp = requests.get(url, verify=False, timeout=10)
+                if resp.status_code == 200:
+                    data_json = resp.json()
+                    
+                    # Extract device name from header if not yet found
+                    if device_name == "Unknown" and "header" in data_json and len(data_json["header"]) > 0:
+                        device_name = data_json["header"][0].get("big_column_name", "Unknown")
+                    
+                    # Process rows
+                    # Row format: [Timestamp, onoff("1"|"-"), brightness("54"|"-"), color("#.."|"-")]
+                    rows = data_json.get("data", [])
+                    for row in rows:
+                        if len(row) < 4:
+                            continue
+                        
+                        ts_str = row[0]
+                        onoff_raw = row[1]
+                        bright_raw = row[2]
+                        color_raw = row[3]
+                        
+                        # Parse timestamp to ensure it's within the requested day (API might return outside range?)
+                        try:
+                            ts = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S")
+                            if ts.date() != target_date:
+                                continue # Skip if outside the day
+                        except ValueError:
+                            continue
+
+                        # Map values
+                        onoff = True if onoff_raw == "1" else False
+                        
+                        brightness = None
+                        if bright_raw != "-" and bright_raw is not None:
+                            try:
+                                brightness = int(bright_raw)
+                            except ValueError:
+                                pass
+                                
+                        color = None
+                        if color_raw != "-" and color_raw is not None:
+                            color = color_raw
+                            
+                        entry = {
+                            "timestamp": ts_str,
+                            "onoff": onoff,
+                            "brightness": brightness,
+                            "color": color
+                        }
+                        
+                        aggregated_data[ts_str] = entry
+                
+            except requests.RequestException:
+                # Log error or continue? We should probably continue to try to get partial data
+                pass
+            
+            # Move back 100 minutes
+            curr_end = curr_end - timedelta(minutes=100)
+            
+            # Safety break if we go way back (shouldn't happen with while condition)
+            if curr_end < start_dt - timedelta(hours=2):
+                break
+
+        # Convert to list and sort
+        sorted_data = sorted(aggregated_data.values(), key=lambda x: x['timestamp'], reverse=True)
+        
+        return Response({
+            "device_name": device_name,
+            "data": sorted_data
+        })
+
+
     @action(detail=True, methods=['post'])
     def set_colour(self, request, pk=None):
         """
@@ -424,22 +560,6 @@ class LightbulbViewSet(BaseDeviceViewSet):
                  ScadaManager().send_command(f"{bulb.tag}.Color", bulb.colour)
                  
             return Response({"status": "colour set", "current_colour": bulb.colour})
-
-    def perform_update(self, serializer):
-        """
-        Intercepts the update to check for 'is_on' changes and trigger SCADA.
-        """
-        old_instance = self.get_object()
-        old_is_on = old_instance.is_on
-        
-        # Save the new state
-        instance = serializer.save()
-        
-        # Check if is_on changed (or just if we want to enforce state on every patch containing is_on)
-        if instance.is_on != old_is_on:
-             if instance.tag:
-                 value = 1 if instance.is_on else 0
-                 ScadaManager().send_command(f"{instance.tag}.onoff", value)
 
 
 class TelevisionViewSet(BaseDeviceViewSet):
@@ -525,6 +645,106 @@ class TelevisionViewSet(BaseDeviceViewSet):
                  value = 1 if instance.is_on else 0
                  ScadaManager().send_command(f"{instance.tag}.on", value)
 
+    @action(detail=False, methods=['get'], url_path='getTVLog')
+    def getTVLog(self, request):
+        """
+        Retrieves TV logs for a specific date by aggregating data from an external API.
+        
+        URL: GET /api/homes/tvs/getTVLog/?date=YYYY-MM-DD
+        """
+        date_str = request.query_params.get('date')
+        if not date_str:
+            return Response({"error": "date parameter is required (YYYY-MM-DD)"}, status=400)
+            
+        try:
+            target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+        except ValueError:
+            return Response({"error": "Invalid date format. Use YYYY-MM-DD"}, status=400)
+
+        # Define time range for the day
+        start_dt = datetime.combine(target_date, datetime.min.time())
+        
+        # Start iterating from the end of the day backwards
+        curr_end = start_dt.replace(hour=23, minute=55, second=0)
+        
+        aggregated_data = {} 
+        device_name = "Unknown"
+        
+        while curr_end >= start_dt:
+            end_str = curr_end.strftime("%Y-%m-%dT%H:%M:%S")
+            # Template ID 7 for TV
+            url = f"https://171.102.128.142:6443/restapi/tag/get_log_data/?template_id=7&end_datetime={end_str}"
+            
+            try:
+                resp = requests.get(url, verify=False, timeout=10)
+                if resp.status_code == 200:
+                    data_json = resp.json()
+                    
+                    if device_name == "Unknown" and "header" in data_json and len(data_json["header"]) > 0:
+                        device_name = data_json["header"][0].get("big_column_name", "Unknown")
+                    
+                    rows = data_json.get("data", [])
+                    for row in rows:
+                        if len(row) < 5:
+                            continue
+                        
+                        ts_str = row[0]
+                        # Parsing logic
+                        on_raw = row[1]
+                        channel_raw = row[2]
+                        volume_raw = row[3]
+                        mute_raw = row[4]
+                        
+                        try:
+                            ts = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S")
+                            if ts.date() != target_date:
+                                continue 
+                        except ValueError:
+                            continue
+
+                        onoff = True if on_raw == "1" else False
+                        
+                        channel = None
+                        if channel_raw != "-" and channel_raw is not None:
+                             try:
+                                 channel = int(channel_raw)
+                             except ValueError:
+                                 pass
+                                 
+                        volume = None
+                        if volume_raw != "-" and volume_raw is not None:
+                             try:
+                                 volume = int(volume_raw)
+                             except ValueError:
+                                 pass
+                        
+                        mute = True if mute_raw == "1" else False
+
+                        entry = {
+                            "timestamp": ts_str,
+                            "onoff": onoff,
+                            "channel": channel,
+                            "volume": volume,
+                            "mute": mute
+                        }
+                        
+                        aggregated_data[ts_str] = entry
+                
+            except requests.RequestException:
+                pass
+            
+            curr_end = curr_end - timedelta(minutes=100)
+            
+            if curr_end < start_dt - timedelta(hours=2):
+                break
+
+        sorted_data = sorted(aggregated_data.values(), key=lambda x: x['timestamp'], reverse=True)
+        
+        return Response({
+            "device_name": device_name,
+            "data": sorted_data
+        })
+
 class VoiceCommandViewSet(viewsets.ViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -539,6 +759,64 @@ class VoiceCommandViewSet(viewsets.ViewSet):
         result = service.process_voice_command(request.user, command_text)
         
         return Response(result)
+    
+    @action(detail=False, methods=['post'])
+    def transcribe(self, request):
+        """
+        Accepts an audio file upload and transcribes it using Groq Whisper API.
+        Used as a fallback for browsers that don't support Web Speech API (e.g. Meta Quest 3).
+        """
+        import os
+        import tempfile
+
+        audio_file = request.FILES.get('audio')
+        if not audio_file:
+            return Response({"error": "Audio file is required."}, status=400)
+
+        should_execute = request.data.get('execute', 'false').lower() == 'true'
+
+        try:
+            from groq import Groq
+            api_key = os.getenv("GROQ_API_KEY")
+            if not api_key:
+                return Response({"error": "Groq API key not configured."}, status=500)
+
+            client = Groq(api_key=api_key)
+
+            # Write uploaded audio to a temp file (Groq SDK needs a file path)
+            ext = os.path.splitext(audio_file.name)[1] if audio_file.name else '.webm'
+            with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
+                for chunk in audio_file.chunks():
+                    tmp.write(chunk)
+                tmp_path = tmp.name
+
+            try:
+                with open(tmp_path, "rb") as f:
+                    transcription = client.audio.transcriptions.create(
+                        model="whisper-large-v3-turbo",
+                        file=("audio" + ext, f),
+                        language="en",
+                    )
+                transcript = transcription.text.strip()
+            finally:
+                os.unlink(tmp_path)
+
+            if not transcript:
+                return Response({"error": "Could not transcribe audio."}, status=400)
+
+            response_data = {"transcript": transcript}
+
+            if should_execute:
+                service = VoiceAssistantService()
+                command_result = service.process_voice_command(request.user, transcript)
+                response_data["command_result"] = command_result
+
+            return Response(response_data)
+
+        except ImportError:
+            return Response({"error": "groq package not installed."}, status=500)
+        except Exception as e:
+            return Response({"error": f"Transcription failed: {str(e)}"}, status=500)
 
 class AutomationViewSet(viewsets.ModelViewSet):
     """

@@ -21,6 +21,9 @@ class HomesConfig(AppConfig):
             from .scheduler import Scheduler
             Scheduler().start()
             
+            from .smartmeter import SmartmeterManager
+            SmartmeterManager().start()
+            
         elif any('gunicorn' in arg for arg in sys.argv) or 'daphne' in sys.argv[0] or 'uvicorn' in sys.argv[0]:
              from .scheduler import Scheduler
              Scheduler().start()

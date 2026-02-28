@@ -157,12 +157,12 @@ public/gltf/generated/
 public/glxf/
 public/ui/
 
-# ZODB
-data/
-*.fs
-*.fs.index
-*.fs.lock
-*.fs.tmp
+# # ZODB
+# data/
+# *.fs
+# *.fs.index
+# *.fs.lock
+# *.fs.tmp
 
 # ===== Misc =====
 .cache/
@@ -176,4 +176,9 @@ data/
 .tern-port
 .vscode-test/
 .cert/
-apps/backend/certs/
+apps/*/certs/
+
+# ===== Scene Creator =====
+apps/scene-creator/scripts/
+apps/scene-creator/room-scans/
+chairs-etc/

@@ -15,7 +15,7 @@ export const RobotAssistantComponent = createComponent("RobotAssistantComponent"
     // Movement state
     targetX: { type: Types.Float32, default: 0 },
     targetZ: { type: Types.Float32, default: 0 },
-    moveSpeed: { type: Types.Float32, default: 1.0 }, // Walking speed
+    moveSpeed: { type: Types.Float32, default: 1.0 },
     hasReachedTarget: { type: Types.Boolean, default: false },
     nextWaypointTime: { type: Types.Float32, default: 0 },
 
@@ -26,4 +26,10 @@ export const RobotAssistantComponent = createComponent("RobotAssistantComponent"
     angryExpression: { type: Types.Float32, default: 0.0 },
     surprisedExpression: { type: Types.Float32, default: 0.0 },
     sadExpression: { type: Types.Float32, default: 0.0 },
+
+    // Collision/Stuck detection
+    stuckTime: { type: Types.Float32, default: 0 },
+    lastX: { type: Types.Float32, default: 0 },
+    lastZ: { type: Types.Float32, default: 0 },
+    collisionCooldown: { type: Types.Float32, default: 0 },
 });

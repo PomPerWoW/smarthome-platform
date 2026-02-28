@@ -247,6 +247,10 @@
     font-size: 1.4;
     color: #71717a;
   }
+
+  .graph-row {
+    margin-top: 5;
+  }
 </style>
 
 <div class="panel-container">
@@ -324,6 +328,35 @@
         <button class="color-btn color-purple" id="color-a855f7"></button>
         <button class="color-btn color-pink" id="color-ec4899"></button>
       </div>
+    </div>
+
+    <!-- Position Control -->
+    <div class="control-row">
+      <div>
+        <MoveIcon class="control-icon" />
+      </div>
+      <span class="control-label">Position</span>
+      <div class="brightness-container">
+        <button class="brightness-btn" id="get-position-btn" style="width: 8; background-color: #3f3f46;">
+          <span style="font-size: 1.4; color: #fafafa;">Get</span>
+        </button>
+        <button class="brightness-btn" id="save-position-btn" style="width: 8; background-color: #3f3f46;">
+          <span style="font-size: 1.4; color: #fafafa;">Save</span>
+        </button>
+      </div>
+    </div>
+  </div>
+    <!-- Graph Control -->
+    <div class="control-row graph-row">
+      <div>
+        <ActivityIcon class="control-icon" />
+      </div>
+      <span class="control-label">Usage</span>
+      <button class="power-btn" id="show-graph-btn">
+        <div>
+          <ActivityIcon class="power-icon" />
+        </div>
+      </button>
     </div>
   </div>
 
