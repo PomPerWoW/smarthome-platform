@@ -13,6 +13,7 @@ import {
   Wind,
   Tv,
   Lightbulb,
+  X,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -546,6 +547,10 @@ function AutomationSheet({
 
   const days = Object.values(DayOfWeek);
 
+  const clearActionValue = (field: keyof AutomationFormValues["action"]) => {
+    setValue(`action.${field}` as any, undefined);
+  };
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="overflow-y-auto w-full sm:max-w-md">
@@ -684,21 +689,50 @@ function AutomationSheet({
             {selectedDevice?.type === DeviceType.Lightbulb && (
               <div className="space-y-4 pt-2">
                 <div className="space-y-2">
-                  <div className="flex justify-between">
+                  <div className="flex justify-between items-center">
                     <Label>Brightness</Label>
-                    <span className="text-xs text-muted-foreground">
-                      {watch("action.brightness")}%
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">
+                        {watch("action.brightness") !== undefined ? `${watch("action.brightness")}%` : "Not set"}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                        onClick={() => clearActionValue("brightness")}
+                        title="Clear brightness"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                   <Slider
-                    value={[watch("action.brightness") || 0]}
+                    value={[watch("action.brightness") ?? 100]}
                     max={100}
                     step={1}
                     onValueChange={([val]) => setValue("action.brightness", val)}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Color</Label>
+                  <div className="flex justify-between items-center">
+                    <Label>Color</Label>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">
+                        {watch("action.color") || "Not set"}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                        onClick={() => clearActionValue("color")}
+                        title="Clear color"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
                   <Input
                     type="color"
                     value={watch("action.color") || "#ffffff"}
@@ -713,18 +747,30 @@ function AutomationSheet({
             {selectedDevice?.type === DeviceType.AirConditioner && (
               <div className="space-y-4 pt-2">
                 <div className="space-y-2">
-                  <div className="flex justify-between">
+                  <div className="flex justify-between items-center">
                     <Label>Temperature (°C)</Label>
-                    <span className="text-xs text-muted-foreground">
-                      {watch("action.temperature")}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">
+                        {watch("action.temperature") !== undefined ? watch("action.temperature") : "Not set"}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                        onClick={() => clearActionValue("temperature")}
+                        title="Clear temperature"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                   <Input
                     type="number"
                     step="0.5"
                     min="16"
                     max="30"
-                    value={watch("action.temperature")}
+                    value={watch("action.temperature") ?? ""}
                     onChange={(e) => setValue("action.temperature", parseFloat(e.target.value))}
                   />
                 </div>
@@ -735,22 +781,53 @@ function AutomationSheet({
             {selectedDevice?.type === DeviceType.Fan && (
               <div className="space-y-4 pt-2">
                 <div className="space-y-2">
-                  <Label>Speed (1-5)</Label>
+                  <div className="flex justify-between items-center">
+                    <Label>Speed (1-5)</Label>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">
+                        {watch("action.speed") !== undefined ? watch("action.speed") : "Not set"}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                        onClick={() => clearActionValue("speed")}
+                        title="Clear speed"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
                   <Slider
-                    value={[watch("action.speed") || 1]}
+                    value={[watch("action.speed") ?? 1]}
                     min={1}
                     max={5}
                     step={1}
                     onValueChange={([val]) => setValue("action.speed", val)}
                   />
-                  <div className="text-right text-xs text-muted-foreground">{watch("action.speed")}</div>
                 </div>
                 <div className="flex items-center justify-between">
                   <Label>Swing</Label>
-                  <Switch
-                    checked={watch("action.swing")}
-                    onCheckedChange={(val) => setValue("action.swing", val)}
-                  />
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground mr-2">
+                      {watch("action.swing") !== undefined ? (watch("action.swing") ? "On" : "Off") : "Not set"}
+                    </span>
+                    <Switch
+                      checked={!!watch("action.swing")}
+                      onCheckedChange={(val) => setValue("action.swing", val)}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                      onClick={() => clearActionValue("swing")}
+                      title="Clear swing"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}
@@ -759,9 +836,26 @@ function AutomationSheet({
             {selectedDevice?.type === DeviceType.Television && (
               <div className="space-y-4 pt-2">
                 <div className="space-y-2">
-                  <Label>Volume</Label>
+                  <div className="flex justify-between items-center">
+                    <Label>Volume</Label>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">
+                        {watch("action.volume") !== undefined ? watch("action.volume") : "Not set"}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                        onClick={() => clearActionValue("volume")}
+                        title="Clear volume"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
                   <Slider
-                    value={[watch("action.volume") || 10]}
+                    value={[watch("action.volume") ?? 10]}
                     min={0}
                     max={100}
                     step={1}
@@ -769,11 +863,28 @@ function AutomationSheet({
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Channel</Label>
+                  <div className="flex justify-between items-center">
+                    <Label>Channel</Label>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">
+                        {watch("action.channel") !== undefined ? watch("action.channel") : "Not set"}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                        onClick={() => clearActionValue("channel")}
+                        title="Clear channel"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
                   <Input
                     type="number"
                     min="1"
-                    value={watch("action.channel")}
+                    value={watch("action.channel") ?? ""}
                     onChange={(e) => setValue("action.channel", parseInt(e.target.value))}
                   />
                 </div>
