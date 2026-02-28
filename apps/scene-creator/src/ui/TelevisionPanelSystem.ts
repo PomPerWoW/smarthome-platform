@@ -112,6 +112,13 @@ export class TelevisionPanelSystem extends createSystem({
       });
     }
 
+    const showGraphBtn = document.getElementById("show-graph-btn");
+    if (showGraphBtn) {
+      showGraphBtn.addEventListener("click", () => {
+        this.handleShowGraph(deviceId);
+      });
+    }
+
     this.updatePanel(entity, deviceId, document);
   }
 
@@ -144,6 +151,16 @@ export class TelevisionPanelSystem extends createSystem({
     console.log(`[TelevisionPanel] Setting channel to ${newChannel}`);
 
     store.updateTelevision(deviceId, { channel: newChannel });
+  }
+
+  private handleShowGraph(deviceId: string): void {
+    console.log(`[TVPanel] Show graph clicked for ${deviceId}`);
+
+    // Toggle the separate graph panel
+    const deviceRenderer = this.world.getSystem(DeviceRendererSystem);
+    if (deviceRenderer) {
+      deviceRenderer.toggleGraphPanel(deviceId);
+    }
   }
 
   private handleMuteToggle(deviceId: string): void {
@@ -247,14 +264,14 @@ export class TelevisionPanelSystem extends createSystem({
       scale: { x: scale.x, y: scale.y, z: scale.z },
       properties: device
         ? {
-            is_on: device.is_on,
-            volume: device.volume,
-            channel: device.channel,
-            is_mute: device.is_mute,
-            room: device.room_name,
-            floor: device.floor_name,
-            home: device.home_name,
-          }
+          is_on: device.is_on,
+          volume: device.volume,
+          channel: device.channel,
+          is_mute: device.is_mute,
+          room: device.room_name,
+          floor: device.floor_name,
+          home: device.home_name,
+        }
         : null,
     });
   }

@@ -25,6 +25,7 @@ import { LightbulbPanelSystem } from "./ui/LightbulbPanelSystem";
 import { TelevisionPanelSystem } from "./ui/TelevisionPanelSystem";
 import { FanPanelSystem } from "./ui/FanPanelSystem";
 import { AirConditionerPanelSystem } from "./ui/AirConditionerPanelSystem";
+import { GraphPanelSystem } from "./ui/GraphPanelSystem";
 import { VoiceControlSystem } from "./systems/VoiceControlSystem";
 import { VoicePanelSystem } from "./ui/VoicePanelSystem";
 // import { VoicePanel } from "./ui/VoicePanel"; // Legacy DOM panel
@@ -33,7 +34,7 @@ import { PhysicsSystem } from "./systems/PhysicsSystem";
 import { RoomColliderSystem } from "./systems/RoomColliderSystem";
 import { DevicePlacementSystem } from "./systems/DevicePlacementSystem";
 import { RoomAlignmentSystem } from "./systems/RoomAlignmentSystem";
-import { initializeNavMesh } from "./config/navmesh";
+import { initializeNavMesh, getRoomBounds } from "./config/navmesh";
 import { initializeCollision } from "./config/collision";
 import {
   type ControllableAvatarSystem,
@@ -44,8 +45,14 @@ import {
   setupAvatarSwitcherPanel,
 } from "./ui/AvatarSwitcherPanel";
 import { setupLipSyncControlPanel } from "./ui/LipSyncPanel";
-import { speakGreeting, speakSeeYouAgain } from "./utils/VoiceTextToSpeech";
+import {
+  speakGreeting,
+  speakSeeYouAgain,
+  speakCompletion,
+  speakNoMatch,
+} from "./utils/VoiceTextToSpeech";
 import * as LucideIconsKit from "@pmndrs/uikit-lucide";
+import { Box3 } from "three";
 
 const assets: AssetManifest = {
   chimeSound: {
@@ -100,6 +107,11 @@ const assets: AssetManifest = {
   },
   robot_assistant: {
     url: "/models/avatar/assistant/robot_3D_scene.glb",
+    type: AssetType.GLTF,
+    priority: "critical",
+  },
+  chair: {
+    url: "/models/furnitures/chair/chair.glb",
     type: AssetType.GLTF,
     priority: "critical",
   },
@@ -181,6 +193,43 @@ async function main(): Promise<void> {
     console.warn("⚠️ Room scene not available");
   }
 
+  // Chair on lab room floor: raise so bottom of chair (casters) sits on floor
+  const labFloorY = 0.8;
+  const chairGltf = AssetManager.getGLTF("chair");
+  if (chairGltf) {
+    const bounds = getRoomBounds();
+    const chairModel = chairGltf.scene.clone();
+    chairModel.scale.setScalar(0.5);
+    chairModel.rotation.set(0, Math.PI, 0);
+    const chairBox = new Box3().setFromObject(chairModel as any);
+    const chairBottomY = chairBox.min.y;
+    let x: number, z: number;
+    if (bounds) {
+      x = (bounds.minX + bounds.maxX) * 0.5 - 0.5;
+      z = (bounds.minZ + bounds.maxZ) * 0.5 - 0.3;
+    } else {
+      x = -1.0;
+      z = -1.2;
+    }
+    chairModel.position.set(x, labFloorY - chairBottomY, z);
+    world.scene.add(chairModel);
+    console.log("✅ Chair placed inside room (floor-aligned)");
+
+    // Second chair at specific position [-0.6, 0, -1.5], facing forward
+    const chairModel2 = chairGltf.scene.clone();
+    chairModel2.scale.setScalar(0.5);
+    chairModel2.rotation.set(0, 0, 0); // Face forward (opposite of chair 1)
+    const chairBox2 = new Box3().setFromObject(chairModel2 as any);
+    const chairBottomY2 = chairBox2.min.y;
+    const x2 = -0.6;
+    const z2 = -1.5;
+    chairModel2.position.set(x2, labFloorY - chairBottomY2, z2);
+    world.scene.add(chairModel2);
+    console.log("✅ Second chair placed inside room (floor-aligned)");
+  } else {
+    console.warn("⚠️ Chair model not available");
+  }
+
   world
     .registerComponent(DeviceComponent)
     .registerComponent(UserControlledAvatarComponent)
@@ -195,6 +244,7 @@ async function main(): Promise<void> {
     .registerSystem(TelevisionPanelSystem)
     .registerSystem(FanPanelSystem)
     .registerSystem(AirConditionerPanelSystem)
+    .registerSystem(GraphPanelSystem)
     .registerSystem(RoomScanningSystem)
     .registerSystem(PhysicsSystem)
     .registerSystem(RoomColliderSystem)

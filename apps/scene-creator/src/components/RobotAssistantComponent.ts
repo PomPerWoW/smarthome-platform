@@ -15,7 +15,7 @@ export const RobotAssistantComponent = createComponent("RobotAssistantComponent"
     // Movement state
     targetX: { type: Types.Float32, default: 0 },
     targetZ: { type: Types.Float32, default: 0 },
-    moveSpeed: { type: Types.Float32, default: 1.0 }, // Walking speed
+    moveSpeed: { type: Types.Float32, default: 1.0 },
     hasReachedTarget: { type: Types.Boolean, default: false },
     nextWaypointTime: { type: Types.Float32, default: 0 },
 

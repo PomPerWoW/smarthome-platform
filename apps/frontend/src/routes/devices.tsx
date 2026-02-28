@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Lightbulb, Filter, Tv, Fan, Snowflake } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +33,7 @@ import { DeviceService } from "@/services/DeviceService";
 import { DeviceType } from "@/types/device.types";
 import type { BaseDevice } from "@/models";
 import { RenameDialog } from "@/components/ui/rename-dialog";
+import { useUIStore } from "@/stores/ui_store";
 
 export const Route = createFileRoute("/devices")({
   component: DevicesPage,
@@ -46,6 +47,7 @@ const deviceIcons = {
 };
 
 function DevicesPage() {
+  const setModalOpen = useUIStore((s) => s.set_modal_open);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
@@ -53,6 +55,13 @@ function DevicesPage() {
   const [deviceToDelete, setDeviceToDelete] = useState<BaseDevice | null>(null);
   const [deviceToRename, setDeviceToRename] = useState<BaseDevice | null>(null);
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const open =
+      !!deviceToDelete || !!deviceToRename || isDrawerOpen;
+    setModalOpen(open);
+    return () => setModalOpen(false);
+  }, [deviceToDelete, deviceToRename, isDrawerOpen, setModalOpen]);
 
   const {
     data: devices = [],

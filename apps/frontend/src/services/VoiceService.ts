@@ -1,5 +1,10 @@
 import { ApiService } from "./ApiService";
-import { speakGreeting, speakSeeYouAgain } from "./VoiceTextToSpeech";
+import {
+  speakGreeting,
+  speakSeeYouAgain,
+  speakCompletion,
+  speakNoMatch,
+} from "./VoiceTextToSpeech";
 import { toast } from "sonner";
 
 // Type definition for Web Speech API
@@ -24,6 +29,7 @@ declare global {
 export class VoiceService {
   private recognition: SpeechRecognition | null = null;
   private isListening: boolean = false;
+  private stopRequested: boolean = false;
   private useFallback: boolean = false;
   private mediaRecorder: MediaRecorder | null = null;
   private audioChunks: Blob[] = [];
@@ -61,7 +67,14 @@ export class VoiceService {
     }
   }
 
-  startListening(onResult: (text: string) => void, onEnd: () => void): void {
+  startListening(
+    onResult: (text: string) => void,
+    onEnd: () => void,
+    onStatusChange?: (
+      status: "listening" | "processing" | "idle",
+      payload?: { success?: boolean; cancelled?: boolean },
+    ) => void,
+  ): void {
     if (this.isListening) return;
 
     if (this.useFallback) {
@@ -75,30 +88,72 @@ export class VoiceService {
     }
 
     this.isListening = true;
+    this.stopRequested = false;
     speakGreeting();
+    onStatusChange?.("listening");
 
     this.recognition.onresult = async (event: any) => {
       const transcript = event.results[0][0].transcript;
       onResult(transcript);
+      onStatusChange?.("processing");
 
       try {
-        await this.sendVoiceCommand(transcript);
-        toast.success(`Executed: "${transcript}"`);
+        const response = await this.sendVoiceCommand(transcript);
+
+        // Check if we got any actions
+        if (response?.actions && response.actions.length > 0) {
+          const firstAction = response.actions[0];
+          if (
+            firstAction.status === "success" &&
+            firstAction.action &&
+            firstAction.device
+          ) {
+            toast.success(`Executed: "${transcript}"`);
+            speakCompletion(firstAction.action, firstAction.device);
+            onStatusChange?.("idle", { success: true });
+          } else {
+            // Action failed
+            toast.error("Failed to process command.");
+            onStatusChange?.("idle", { success: false });
+          }
+        } else {
+          // No actions found - out of scope or weird input
+          toast.info("Command not recognized.");
+          speakNoMatch();
+          onStatusChange?.("idle", { success: false });
+        }
       } catch (error) {
         console.error(error);
         toast.error("Failed to process command.");
+        onStatusChange?.("idle", { success: false });
       }
     };
 
     this.recognition.onerror = (event: any) => {
+      // Note: calling recognition.stop() commonly triggers an "aborted" error.
+      // Treat that as a user-cancel so the UI/robot flow stays consistent.
+      const err = String(event?.error ?? "");
+      if (this.stopRequested || err === "aborted") {
+        this.stopRequested = false;
+        this.isListening = false;
+        onStatusChange?.("idle", { cancelled: true });
+        onEnd();
+        return;
+      }
+
       console.error("Speech error", event);
       toast.error("Error hearing voice command.");
       this.isListening = false;
+      onStatusChange?.("idle", { success: false });
       onEnd();
     };
 
     this.recognition.onend = () => {
       this.isListening = false;
+      if (this.stopRequested) {
+        this.stopRequested = false;
+        onStatusChange?.("idle", { cancelled: true });
+      }
       onEnd();
     };
 
@@ -266,16 +321,32 @@ export class VoiceService {
     }
 
     if (this.recognition && this.isListening) {
+      this.stopRequested = true;
       this.recognition.stop();
       this.isListening = false;
       speakSeeYouAgain();
     }
   }
 
-  private async sendVoiceCommand(command: string) {
-    return ApiService.getInstance().post("/api/homes/voice/command/", {
-      command,
-    });
+  private async sendVoiceCommand(command: string): Promise<{
+    actions?: Array<{
+      status?: string;
+      action?: string;
+      device?: string;
+    }>;
+  }> {
+    type VoiceCommandResponse = {
+      actions?: Array<{
+        status?: string;
+        action?: string;
+        device?: string;
+      }>;
+    };
+    const data = await ApiService.getInstance().post<VoiceCommandResponse>(
+      "/api/homes/voice/command/",
+      { command },
+    );
+    return data ?? {};
   }
 
   private async sendVoiceAudio(
