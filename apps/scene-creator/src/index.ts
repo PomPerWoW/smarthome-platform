@@ -199,7 +199,7 @@ async function main(): Promise<void> {
     .registerSystem(PhysicsSystem)
     .registerSystem(RoomColliderSystem)
     .registerSystem(DevicePlacementSystem)
-    .registerSystem(RoomAlignmentSystem)
+    // .registerSystem(RoomAlignmentSystem)
     .registerSystem(VoicePanelSystem);
 
   console.log("✅ Systems registered");
@@ -299,21 +299,21 @@ async function main(): Promise<void> {
   }
 
   // 2) Skeleton-controlled (bone-only)
-  const skeletonAvatarSystem = world.getSystem(SkeletonControlledAvatarSystem);
-  if (skeletonAvatarSystem) {
-    await skeletonAvatarSystem.createSkeletonControlledAvatar(
-      "player2",
-      "Skeleton Avatar",
-      "rpmBone_model",
-      [0, 0, -1.5],
-    );
-    registerAvatar(
-      skeletonAvatarSystem as ControllableAvatarSystem,
-      "player2",
-      "Skeleton Avatar",
-    );
-    console.log("✅ Skeleton avatar (RPM_bone.glb)");
-  }
+  // const skeletonAvatarSystem = world.getSystem(SkeletonControlledAvatarSystem);
+  // if (skeletonAvatarSystem) {
+  //   await skeletonAvatarSystem.createSkeletonControlledAvatar(
+  //     "player2",
+  //     "Skeleton Avatar",
+  //     "rpmBone_model",
+  //     [0, 0, -1.5],
+  //   );
+  //   registerAvatar(
+  //     skeletonAvatarSystem as ControllableAvatarSystem,
+  //     "player2",
+  //     "Skeleton Avatar",
+  //   );
+  //   console.log("✅ Skeleton avatar (RPM_bone.glb)");
+  // }
 
   // 3) User-controlled (clip-based)
   const userAvatarSystem = world.getSystem(UserControlledAvatarSystem);

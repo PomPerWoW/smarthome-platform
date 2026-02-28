@@ -112,6 +112,29 @@ class BaseDeviceViewSet(viewsets.ModelViewSet):
         if room and room.home.user != self.request.user:
             raise PermissionDenied("You do not own this room.")
         serializer.save()
+
+    def perform_update(self, serializer):
+        """
+        Intercepts the update to check for 'is_on' changes and trigger SCADA.
+        """
+        old_instance = self.get_object()
+        old_is_on = getattr(old_instance, 'is_on', None)
+        
+        # Save the new state
+        instance = serializer.save()
+        
+        # Check if is_on changed
+        if hasattr(instance, 'is_on') and getattr(instance, 'is_on') != old_is_on:
+             if instance.tag:
+                 value = 1 if instance.is_on else 0
+                 
+                 suffix = "onoff" # Default for Lightbulb and AirConditioner
+                 if hasattr(instance, 'television'):
+                     suffix = "on"
+                 elif hasattr(instance, 'fan'):
+                     suffix = "on"
+                 
+                 ScadaManager().send_command(f"{instance.tag}.{suffix}", value)
     
     @action(detail=True, methods=['post'])
     def set_position(self, request, pk=None):
@@ -296,22 +319,6 @@ class AirConditionerViewSet(BaseDeviceViewSet):
             return Response({"status": "temperature set", "current_temp": ac.temperature})
         return Response({"error": "temp parameter missing"}, status=400)
 
-    def perform_update(self, serializer):
-        """
-        Intercepts the update to check for 'is_on' changes and trigger SCADA.
-        """
-        old_instance = self.get_object()
-        old_is_on = old_instance.is_on
-        
-        # Save the new state
-        instance = serializer.save()
-        
-        # Check if is_on changed (or just if we want to enforce state on every patch containing is_on)
-        if instance.is_on != old_is_on:
-             if instance.tag:
-                 value = 1 if instance.is_on else 0
-                 ScadaManager().send_command(f"{instance.tag}.onoff", value)
-
 
 class FanViewSet(BaseDeviceViewSet):
     """
@@ -361,22 +368,6 @@ class FanViewSet(BaseDeviceViewSet):
             return Response({"status": "swing updated", "is_swinging": fan.swing})
         return Response({"error": "swing parameter missing"}, status=400)
 
-    def perform_update(self, serializer):
-        """
-        Intercepts the update to check for 'is_on' changes and trigger SCADA.
-        """
-        old_instance = self.get_object()
-        old_is_on = old_instance.is_on
-        
-        # Save the new state
-        instance = serializer.save()
-        
-        # Check if is_on changed
-        if instance.is_on != old_is_on:
-             if instance.tag:
-                 value = 1 if instance.is_on else 0
-                 ScadaManager().send_command(f"{instance.tag}.on", value)
-
 
 class LightbulbViewSet(BaseDeviceViewSet):
     """
@@ -423,22 +414,6 @@ class LightbulbViewSet(BaseDeviceViewSet):
                  ScadaManager().send_command(f"{bulb.tag}.Color", bulb.colour)
                  
             return Response({"status": "colour set", "current_colour": bulb.colour})
-
-    def perform_update(self, serializer):
-        """
-        Intercepts the update to check for 'is_on' changes and trigger SCADA.
-        """
-        old_instance = self.get_object()
-        old_is_on = old_instance.is_on
-        
-        # Save the new state
-        instance = serializer.save()
-        
-        # Check if is_on changed (or just if we want to enforce state on every patch containing is_on)
-        if instance.is_on != old_is_on:
-             if instance.tag:
-                 value = 1 if instance.is_on else 0
-                 ScadaManager().send_command(f"{instance.tag}.onoff", value)
 
 
 class TelevisionViewSet(BaseDeviceViewSet):
@@ -507,22 +482,6 @@ class TelevisionViewSet(BaseDeviceViewSet):
                 ScadaManager().send_command(f"{tv.tag}.mute", value)
 
             return Response({"status": "mute updated", "is_muted": tv.is_mute})
-            
-    def perform_update(self, serializer):
-        """
-        Intercepts the update to check for 'is_on' changes and trigger SCADA.
-        """
-        old_instance = self.get_object()
-        old_is_on = old_instance.is_on
-        
-        # Save the new state
-        instance = serializer.save()
-        
-        # Check if is_on changed
-        if instance.is_on != old_is_on:
-             if instance.tag:
-                 value = 1 if instance.is_on else 0
-                 ScadaManager().send_command(f"{instance.tag}.on", value)
 
 class VoiceCommandViewSet(viewsets.ViewSet):
     permission_classes = [permissions.IsAuthenticated]

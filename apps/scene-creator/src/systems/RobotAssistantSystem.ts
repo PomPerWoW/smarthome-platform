@@ -436,6 +436,10 @@ export class RobotAssistantSystem extends createSystem({
         RobotAssistantComponent,
         "moveSpeed",
       ) as number;
+      const nextTransitionTime = entity.getValue(
+        RobotAssistantComponent,
+        "nextTransitionTime",
+      ) as number;
       let collisionCooldown = entity.getValue(
         RobotAssistantComponent,
         "collisionCooldown",
@@ -453,10 +457,12 @@ export class RobotAssistantSystem extends createSystem({
       // Calculate movement intention
       let shouldMove = false;
       let distanceToTarget = 0;
+      let dx = 0;
+      let dz = 0;
 
       if (currentState === "Walking" || currentState === "Idle") {
-        const dx = targetX - record.model.position.x;
-        const dz = targetZ - record.model.position.z;
+        dx = targetX - record.model.position.x;
+        dz = targetZ - record.model.position.z;
         distanceToTarget = Math.sqrt(dx * dx + dz * dz);
         shouldMove = distanceToTarget > WAYPOINT_REACH_DISTANCE;
       }
