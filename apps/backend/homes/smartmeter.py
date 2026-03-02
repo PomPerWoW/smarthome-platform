@@ -17,17 +17,9 @@ SMARTMETER_LOGIN = "scada"
 SMARTMETER_PASSWORD = "scadatest1234"
 SMARTMETER_TOKEN = "535a4d29f85c1c851eb81843ea89b951011ffd58"
 
-SMARTMETER_TAGS = [
-    "smartmeter-raspi.meter-1phase-01.v",
-    "smartmeter-raspi.meter-1phase-01.i",
-    "smartmeter-raspi.meter-1phase-01.P",
-    "smartmeter-raspi.meter-1phase-01.Q",
-    "smartmeter-raspi.meter-1phase-01.S",
-    "smartmeter-raspi.meter-1phase-01.PF",
-    "smartmeter-raspi.meter-1phase-01.KWH",
-    "smartmeter-raspi.meter-1phase-01.KVARH",
+SMARTMETER_TAG_SUFFIXES = [
+    "v", "i", "P", "Q", "S", "PF", "KWH", "KVARH"
 ]
-
 
 class SmartmeterManager:
     _instance = None
@@ -45,13 +37,25 @@ class SmartmeterManager:
         if self.client and self.client.is_connected():
             return
 
-        print("[SMARTMETER] 🔌 Starting Smartmeter Connection…")
+        from .models import SmartMeter
+        # Build the dynamic list of tags for all SmartMeters that are turned on
+        active_meters = SmartMeter.objects.filter(is_on=True).exclude(tag__isnull=True).exclude(tag__exact='')
+        if not active_meters.exists():
+            print("[SMARTMETER] ℹ️ No active smart meters found. Not connecting.")
+            return
+
+        tags_to_subscribe = []
+        for meter in active_meters:
+            for suffix in SMARTMETER_TAG_SUFFIXES:
+                tags_to_subscribe.append(f"{meter.tag}.{suffix}")
+
+        print(f"[SMARTMETER] 🔌 Starting Smartmeter Connection for {len(tags_to_subscribe)} tags…")
         self.client = WebSocket2Scada(
             target=SMARTMETER_TARGET,
             login=SMARTMETER_LOGIN,
             password=SMARTMETER_PASSWORD,
             token=SMARTMETER_TOKEN,
-            tags=SMARTMETER_TAGS,
+            tags=tags_to_subscribe,
             on_tag=self._handle_tag_update,
             verify_tls=False,
         )

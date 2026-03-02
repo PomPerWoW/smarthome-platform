@@ -69,6 +69,9 @@ class Television(Device):
     channel = models.IntegerField(default=1)
     is_mute = models.BooleanField(default=False)
 
+class SmartMeter(Device):
+    pass
+
 
 class Automation(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

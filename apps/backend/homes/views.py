@@ -745,6 +745,27 @@ class TelevisionViewSet(BaseDeviceViewSet):
             "data": sorted_data
         })
 
+class SmartMeterViewSet(BaseDeviceViewSet):
+    """
+    ViewSet for SmartMeter devices.
+    """
+    queryset = SmartMeter.objects.all()
+    serializer_class = SmartMeterSerializer
+
+    def perform_update(self, serializer):
+        old_instance = self.get_object()
+        old_is_on = old_instance.is_on
+        
+        instance = serializer.save()
+        
+        if instance.is_on != old_is_on:
+            from .smartmeter import SmartmeterManager
+            if instance.is_on:
+                SmartmeterManager().start()
+            else:
+                SmartmeterManager().close()
+
+
 class VoiceCommandViewSet(viewsets.ViewSet):
     permission_classes = [permissions.IsAuthenticated]
 

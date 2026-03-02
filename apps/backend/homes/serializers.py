@@ -80,6 +80,10 @@ class TelevisionSerializer(DeviceBaseSerializer):
         model = Television
         fields = '__all__'
 
+class SmartMeterSerializer(DeviceBaseSerializer):
+    class Meta:
+        model = SmartMeter
+        fields = '__all__'
 
 # --- 4. The Polymorphic "Smart" Serializer ---
 
@@ -100,6 +104,9 @@ class DeviceSerializer(DeviceBaseSerializer):
         
         elif hasattr(instance, 'television'):
             return TelevisionSerializer(instance.television).data
+            
+        elif hasattr(instance, 'smartmeter'):
+            return SmartMeterSerializer(instance.smartmeter).data
             
         return super().to_representation(instance)
 
