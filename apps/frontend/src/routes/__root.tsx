@@ -105,7 +105,7 @@ function RootLayout() {
                 <ThreeDWorldButton />
                 <ModeToggle />
               </header>
-              <main className="relative z-10 flex-1 p-4">
+              <main className="relative z-10 flex-1 overflow-y-auto p-4">
                 <Outlet />
               </main>
               {!isAnyModalOpen && <RobotAssistant />}

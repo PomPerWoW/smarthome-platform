@@ -24,6 +24,7 @@ const DEFAULT_POSITIONS: Record<DeviceType, [number, number, number]> = {
   [DeviceType.Television]: [1.5, 1, -2],
   [DeviceType.Fan]: [-1.5, 1, -2],
   [DeviceType.AirConditioner]: [0, 2, -2.5],
+  [DeviceType.SmartMeter]: [-2, 1, -2],
 };
 
 export function mapRawDeviceToDevice(raw: RawDeviceResponse): Device {
@@ -79,6 +80,11 @@ export function mapRawDeviceToDevice(raw: RawDeviceResponse): Device {
         ...base,
         type: DeviceType.AirConditioner,
         temperature: raw.temperature ?? 24,
+      };
+    case DeviceType.SmartMeter:
+      return {
+        ...base,
+        type: DeviceType.SmartMeter,
       };
     default:
       // Fallback for unknown types - treat as lightbulb

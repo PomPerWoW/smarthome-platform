@@ -84,6 +84,7 @@ export class DevicePlacementSystem extends createSystem({
       case DeviceType.Fan: assetId = "fan"; break;
       case DeviceType.Television: assetId = "television"; break;
       case DeviceType.AirConditioner: assetId = "air_conditioner"; break;
+      case DeviceType.SmartMeter: assetId = "smartmeter"; break;
     }
 
     const gltf = AssetManager.getGLTF(assetId);

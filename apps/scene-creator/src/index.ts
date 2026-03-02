@@ -85,6 +85,11 @@ const assets: AssetManifest = {
     type: AssetType.GLTF,
     priority: "critical",
   },
+  smartmeter: {
+    url: "/models/devices/smartmeter/scene.gltf",
+    type: AssetType.GLTF,
+    priority: "critical",
+  },
   soldier_model: {
     url: "/models/avatar/resident/Soldier.glb",
     type: AssetType.GLTF,
@@ -331,7 +336,7 @@ async function main(): Promise<void> {
 
   // 1) RPM (Ready Player Me with clip-based) – lip sync available
   const rpmAvatarSystem = world.getSystem(RPMUserControlledAvatarSystem);
-  let setLipSyncEnabled: (enabled: boolean) => void = () => {};
+  let setLipSyncEnabled: (enabled: boolean) => void = () => { };
   if (rpmAvatarSystem) {
     await rpmAvatarSystem.createRPMUserControlledAvatar(
       "player1",

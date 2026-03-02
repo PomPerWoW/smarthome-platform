@@ -3,6 +3,7 @@ export const DeviceType = {
   Television: "Television",
   Fan: "Fan",
   AirConditioner: "AirConditioner",
+  SmartMeter: "SmartMeter",
 } as const;
 
 export type DeviceType = (typeof DeviceType)[keyof typeof DeviceType];
@@ -47,11 +48,16 @@ export interface AirConditionerDTO extends DeviceBaseDTO {
   temperature: number;
 }
 
+export interface SmartMeterDTO extends DeviceBaseDTO {
+  type: "SmartMeter";
+}
+
 export type DeviceDTO =
   | LightbulbDTO
   | TelevisionDTO
   | FanDTO
-  | AirConditionerDTO;
+  | AirConditionerDTO
+  | SmartMeterDTO;
 
 export interface CreateLightbulbDTO {
   device_name: string;
@@ -78,4 +84,9 @@ export interface CreateAirConditionerDTO {
   device_name: string;
   room: string;
   temperature?: number;
+}
+
+export interface CreateSmartMeterDTO {
+  device_name: string;
+  room: string;
 }

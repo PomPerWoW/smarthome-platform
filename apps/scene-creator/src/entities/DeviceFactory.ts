@@ -4,6 +4,7 @@ import { Lightbulb } from "./Lightbulb";
 import { Television } from "./Television";
 import { Fan } from "./Fan";
 import { AirConditioner } from "./AirConditioner";
+import { SmartMeter } from "./SmartMeter";
 
 export class DeviceFactory {
   static create(data: Device): BaseDevice {
@@ -16,6 +17,8 @@ export class DeviceFactory {
         return new Fan(data);
       case DeviceType.AirConditioner:
         return new AirConditioner(data);
+      case DeviceType.SmartMeter:
+        return new SmartMeter(data as any);
       default:
         const _exhaustive: never = data;
         throw new Error(`Unknown device type: ${(_exhaustive as Device).type}`);

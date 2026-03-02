@@ -5,6 +5,7 @@ export const DEVICE_SCALES: Record<DeviceType, number> = {
   [DeviceType.Television]: 0.4,
   [DeviceType.Fan]: 0.25,
   [DeviceType.AirConditioner]: 0.2,
+  [DeviceType.SmartMeter]: 1.5,
 };
 
 export const DEVICE_ICONS: Record<DeviceType, string> = {
@@ -12,6 +13,7 @@ export const DEVICE_ICONS: Record<DeviceType, string> = {
   [DeviceType.Television]: "📺",
   [DeviceType.Fan]: "🌀",
   [DeviceType.AirConditioner]: "❄️",
+  [DeviceType.SmartMeter]: "⚡",
 };
 
 export const DEVICE_TYPE_LABELS: Record<DeviceType, string> = {
@@ -19,6 +21,7 @@ export const DEVICE_TYPE_LABELS: Record<DeviceType, string> = {
   [DeviceType.Television]: "📺 Smart TV",
   [DeviceType.Fan]: "🌀 Tower Fan",
   [DeviceType.AirConditioner]: "❄️ Air Conditioner",
+  [DeviceType.SmartMeter]: "⚡ Smart Meter",
 };
 
 export const LIGHTBULB_COLORS = [
@@ -53,4 +56,5 @@ export const DEVICE_ASSET_KEYS: Record<DeviceType, string> = {
   [DeviceType.Television]: "television",
   [DeviceType.Fan]: "fan",
   [DeviceType.AirConditioner]: "air_conditioner",
+  [DeviceType.SmartMeter]: "smartmeter",
 };

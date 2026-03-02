@@ -3,6 +3,7 @@ export enum DeviceType {
   Television = "Television",
   Fan = "Fan",
   AirConditioner = "AirConditioner",
+  SmartMeter = "SmartMeter",
 }
 
 export interface DeviceBase {
@@ -46,7 +47,11 @@ export interface AirConditioner extends DeviceBase {
   max_temp?: number;
 }
 
-export type Device = Lightbulb | Television | Fan | AirConditioner;
+export interface SmartMeter extends DeviceBase {
+  type: DeviceType.SmartMeter;
+}
+
+export type Device = Lightbulb | Television | Fan | AirConditioner | SmartMeter;
 
 export interface LightbulbProperties {
   brightness: number;
