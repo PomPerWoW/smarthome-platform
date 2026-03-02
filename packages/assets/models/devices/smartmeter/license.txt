@@ -1,0 +1,11 @@
+Model Information:
+* title:	Alternating current electricity meter
+* source:	https://sketchfab.com/3d-models/alternating-current-electricity-meter-97691498576d4e42b400bbfcda403c61
+* author:	Museum of Engineering and Technology, Krakow (https://sketchfab.com/mitkrakow)
+
+Model License:
+* license type:	CC-BY-NC-SA-4.0 (http://creativecommons.org/licenses/by-nc-sa/4.0/)
+* requirements:	Author must be credited. No commercial use. Modified versions must have the same license.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Alternating current electricity meter" (https://sketchfab.com/3d-models/alternating-current-electricity-meter-97691498576d4e42b400bbfcda403c61) by Museum of Engineering and Technology, Krakow (https://sketchfab.com/mitkrakow) licensed under CC-BY-NC-SA-4.0 (http://creativecommons.org/licenses/by-nc-sa/4.0/)
