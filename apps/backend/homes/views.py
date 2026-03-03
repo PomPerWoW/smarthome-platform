@@ -129,7 +129,19 @@ class BaseDeviceViewSet(viewsets.ModelViewSet):
         
         # Check if is_on changed
         if hasattr(instance, 'is_on') and getattr(instance, 'is_on') != old_is_on:
-             if instance.tag:
+             if hasattr(instance, 'smartmeter'):
+                 from .smartmeter import SmartmeterManager
+                 # Let the manager decide whether to actually start/stop based on global state
+                 if instance.is_on:
+                     SmartmeterManager().start()
+                 else:
+                     SmartmeterManager().close()
+
+                 if instance.tag:
+                     value = 1 if instance.is_on else 0
+                     ScadaManager().send_command(f"{instance.tag}.onoff", value)
+                     
+             elif instance.tag:
                  value = 1 if instance.is_on else 0
                  
                  suffix = "onoff" # Default for Lightbulb and AirConditioner
@@ -759,11 +771,17 @@ class SmartMeterViewSet(BaseDeviceViewSet):
         instance = serializer.save()
         
         if instance.is_on != old_is_on:
+            # 1. Start or Stop the periodic feed over WebSocket2Scada
             from .smartmeter import SmartmeterManager
             if instance.is_on:
                 SmartmeterManager().start()
             else:
                 SmartmeterManager().close()
+
+            # 2. Forward the onoff command to SCADA hardware directly
+            if instance.tag:
+                value = 1 if instance.is_on else 0
+                ScadaManager().send_command(f"{instance.tag}.onoff", value)
 
 
 class VoiceCommandViewSet(viewsets.ViewSet):

@@ -104,7 +104,13 @@ class SmartmeterManager:
             print("[SMARTMETER] ⚠️ Not connected, cannot send value")
 
     def close(self):
-        """Shut down the smartmeter connection."""
+        """Shut down the smartmeter connection if no meters are active."""
+        from .models import SmartMeter
+        active_meters = SmartMeter.objects.filter(is_on=True).exclude(tag__isnull=True).exclude(tag__exact='')
+        if active_meters.exists():
+            print(f"[SMARTMETER] ℹ️ Not closing. {active_meters.count()} meters still active.")
+            return
+
         if self.client:
             self.client.close()
             self.client = None
