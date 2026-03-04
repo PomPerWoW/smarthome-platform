@@ -7,6 +7,8 @@ import {
   PanelUI,
   Interactable,
   ScreenSpace,
+  Follower,
+  FollowBehavior,
 } from "@iwsdk/core";
 
 import { getAuth } from "./api/auth";
@@ -28,7 +30,11 @@ import { AirConditionerPanelSystem } from "./ui/AirConditionerPanelSystem";
 import { VoiceControlSystem } from "./systems/VoiceControlSystem";
 import { VoicePanel } from "./ui/VoicePanel";
 import { RoomScanningSystem } from "./systems/RoomScanningSystem";
+import { LegPoseLoggerSystem } from "./systems/LegPoseLoggerSystem";
+import { PunchToWalkSystem } from "./systems/PunchToWalkSystem";
 import { initializeNavMesh, getRoomBounds } from "./config/navmesh";
+import { setupPCLegPoseSimulator } from "./utils/pcLegPoseSimulator";
+import { LegPosePanelSystem } from "./ui/LegPosePanelSystem";
 import {
   type ControllableAvatarSystem,
   getAvatarCount,
@@ -37,7 +43,7 @@ import {
   setOnAvatarSwitch,
   setupAvatarSwitcherPanel,
 } from "./ui/AvatarSwitcherPanel";
-import { setupLipSyncControlPanel } from "./ui/LipSyncPanel";
+// import { setupLipSyncControlPanel } from "./ui/LipSyncPanel";
 import { speakGreeting, speakSeeYouAgain, speakCompletion, speakNoMatch } from "./utils/VoiceTextToSpeech";
 import * as LucideIconsKit from "@pmndrs/uikit-lucide";
 import { Box3 } from "three";
@@ -157,6 +163,10 @@ async function main(): Promise<void> {
 
   console.log("✅ World created");
 
+  // On desktop without WebXR (no navigator.xr), start a simple fake leg
+  // motion so logging + debug panels can be tested without a headset.
+  setupPCLegPoseSimulator();
+
   const { camera } = world;
 
   camera.position.set(0, 1.6, 0.5);
@@ -222,11 +232,14 @@ async function main(): Promise<void> {
     .registerSystem(RPMUserControlledAvatarSystem)
     .registerSystem(RobotAssistantSystem)
     .registerSystem(PanelSystem)
+    .registerSystem(LegPosePanelSystem)
     .registerSystem(LightbulbPanelSystem)
     .registerSystem(TelevisionPanelSystem)
     .registerSystem(FanPanelSystem)
     .registerSystem(AirConditionerPanelSystem)
     .registerSystem(RoomScanningSystem)
+    .registerSystem(LegPoseLoggerSystem)
+    .registerSystem(PunchToWalkSystem)
 
   console.log("✅ Systems registered");
 
@@ -247,6 +260,27 @@ async function main(): Promise<void> {
   welcomePanel.object3D!.position.set(0, 1.5, -0.8);
 
   console.log("✅ Welcome panel created");
+
+  const legPosePanel = world
+    .createTransformEntity()
+    .addComponent(PanelUI, {
+      config: "./ui/legpose-logger.json",
+      maxHeight: 0.22,
+      maxWidth: 0.4,
+    })
+    .addComponent(Interactable)
+    .addComponent(Follower, {
+      // Follow the camera / HMD so the panel feels like a HUD
+      target: world.camera,
+      // Slightly below and to the left, in front of the view
+      offsetPosition: [-0.3, -0.25, -0.8],
+      behavior: FollowBehavior.PivotY,
+      speed: 5,
+      tolerance: 0.3,
+      maxAngle: 35,
+    });
+
+  console.log("✅ Leg pose logger panel created (camera-follow HUD)");
 
   const store = getStore();
 
@@ -285,12 +319,18 @@ async function main(): Promise<void> {
 
   // 1) RPM (Ready Player Me with clip-based) – lip sync available
   const rpmAvatarSystem = world.getSystem(RPMUserControlledAvatarSystem);
-  let setLipSyncEnabled: (enabled: boolean) => void = () => { };
+  // let setLipSyncEnabled: (enabled: boolean) => void = () => { };
   if (rpmAvatarSystem) {
     await rpmAvatarSystem.createRPMUserControlledAvatar("player1", "RPM Avatar", "rpmClip_model1", [-0.6, 0, -1.5]);
     registerAvatar(rpmAvatarSystem as ControllableAvatarSystem, "player1", "RPM Avatar");
-    setLipSyncEnabled = setupLipSyncControlPanel(rpmAvatarSystem);
     console.log("✅ RPM avatar (RPM_clip.glb)");
+
+    // Wire punch-to-walk: VR controller punches → avatar walking
+    const punchToWalkSystem = world.getSystem(PunchToWalkSystem);
+    if (punchToWalkSystem) {
+      punchToWalkSystem.setAvatarSystem(rpmAvatarSystem);
+      console.log("✅ PunchToWalk system linked to RPM avatar");
+    }
   }
 
   // 2) User-controlled (clip-based)
@@ -338,13 +378,13 @@ async function main(): Promise<void> {
   console.log("✅ Voice Control System initialized");
 
   setupAvatarSwitcherPanel();
-  setOnAvatarSwitch((entry) => {
-    if (entry?.avatarId !== "player1" && rpmAvatarSystem) {
-      rpmAvatarSystem.setMicrophoneMode(false);
-      rpmAvatarSystem.stopSpeaking();
-    }
-    setLipSyncEnabled(entry?.avatarId === "player1");
-  });
+  // setOnAvatarSwitch((entry) => {
+  //   if (entry?.avatarId !== "player1" && rpmAvatarSystem) {
+  //     rpmAvatarSystem.setMicrophoneMode(false);
+  //     rpmAvatarSystem.stopSpeaking();
+  //   }
+  //   setLipSyncEnabled(entry?.avatarId === "player1");
+  // });
 
   console.log("🎮 Controls: I/K/J/L = Move, Shift = Run, SPACE = Jump. O = switch avatar (when 2+ avatars).");
 
@@ -361,8 +401,8 @@ async function main(): Promise<void> {
   console.log("🎮 Use IJKL + SPACE to control avatar. O = switch avatar (when 2+).");
   console.log('🥽 Press "Enter AR" to start');
   console.log("───────────────────────────────────");
-  console.log("🎤 Lip Sync: 1 = Speak, 2 = Stop, 3 = Mic mode");
-  console.log("───────────────────────────────────");
+  // console.log("🎤 Lip Sync: 1 = Speak, 2 = Stop, 3 = Mic mode");
+  // console.log("───────────────────────────────────");
 }
 
 main().catch((error) => {
