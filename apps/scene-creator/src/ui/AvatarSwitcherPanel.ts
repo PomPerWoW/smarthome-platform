@@ -80,12 +80,12 @@ function updatePanelHighlight(): void {
 
 // Create the avatar switcher panel and O key listener (visible only if count >= 2)
 export function setupAvatarSwitcherPanel(): void {
-  if (entries.length < 2) return;
+  if (entries.length === 0) return;
 
   // First registered = first to control
   currentIndex = 0;
 
-  // Set initial active: only the "first to control" (first registered) is active
+  // Set initial active and camera so IJKL movement works (required even with 1 avatar)
   entries.forEach((e, i) => {
     e.system.setActive(i === currentIndex);
   });
@@ -94,6 +94,9 @@ export function setupAvatarSwitcherPanel(): void {
     active.system.setCamera(camera);
     active.system.switchToAvatar(active.avatarId);
   }
+
+  // Panel UI only when user can switch between 2+ avatars
+  if (entries.length < 2) return;
 
   panelContainer = document.createElement("div");
   panelContent = document.createElement("div");
