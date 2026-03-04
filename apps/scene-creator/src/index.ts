@@ -27,14 +27,22 @@ import { LightbulbPanelSystem } from "./ui/LightbulbPanelSystem";
 import { TelevisionPanelSystem } from "./ui/TelevisionPanelSystem";
 import { FanPanelSystem } from "./ui/FanPanelSystem";
 import { AirConditionerPanelSystem } from "./ui/AirConditionerPanelSystem";
+import { GraphPanelSystem } from "./ui/GraphPanelSystem";
 import { VoiceControlSystem } from "./systems/VoiceControlSystem";
-import { VoicePanel } from "./ui/VoicePanel";
+import { VoicePanelSystem } from "./ui/VoicePanelSystem";
+// import { VoicePanel } from "./ui/VoicePanel"; // Legacy DOM panel
 import { RoomScanningSystem } from "./systems/RoomScanningSystem";
 import { LegPoseLoggerSystem } from "./systems/LegPoseLoggerSystem";
 import { PunchToWalkSystem } from "./systems/PunchToWalkSystem";
 import { initializeNavMesh, getRoomBounds } from "./config/navmesh";
 import { setupPCLegPoseSimulator } from "./utils/pcLegPoseSimulator";
 import { LegPosePanelSystem } from "./ui/LegPosePanelSystem";
+import { PhysicsSystem } from "./systems/PhysicsSystem";
+import { RoomColliderSystem } from "./systems/RoomColliderSystem";
+import { DevicePlacementSystem } from "./systems/DevicePlacementSystem";
+import { RoomAlignmentSystem } from "./systems/RoomAlignmentSystem";
+import { initializeNavMesh, getRoomBounds } from "./config/navmesh";
+import { initializeCollision } from "./config/collision";
 import {
   type ControllableAvatarSystem,
   getAvatarCount,
@@ -45,6 +53,13 @@ import {
 } from "./ui/AvatarSwitcherPanel";
 // import { setupLipSyncControlPanel } from "./ui/LipSyncPanel";
 import { speakGreeting, speakSeeYouAgain, speakCompletion, speakNoMatch } from "./utils/VoiceTextToSpeech";
+import { setupLipSyncControlPanel } from "./ui/LipSyncPanel";
+import {
+  speakGreeting,
+  speakSeeYouAgain,
+  speakCompletion,
+  speakNoMatch,
+} from "./utils/VoiceTextToSpeech";
 import * as LucideIconsKit from "@pmndrs/uikit-lucide";
 import { Box3 } from "three";
 
@@ -175,12 +190,18 @@ async function main(): Promise<void> {
   if (roomGltf) {
     const roomModel = roomGltf.scene;
     roomModel.scale.setScalar(0.5);
-    roomModel.position.set(-4.2, 0.8, 0.8);
-    world.scene.add(roomModel);
+    roomModel.position.set(-4.2, 0.8, 0.8); // Default position (overridden by RoomAlignmentSystem in AR)
+    world.scene.add(roomModel as any);
     console.log("✅ Room scene loaded");
 
-    initializeNavMesh(roomModel, 0.5);
+    initializeNavMesh(roomModel as any, 0.5);
     console.log("✅ NavMesh initialized for lab room");
+
+    initializeCollision(roomModel as any);
+    console.log("✅ Collision meshes initialized for lab room");
+
+    // Store reference for RoomAlignmentSystem (set after systems are registered)
+    (globalThis as any).__labRoomModel = roomModel;
   } else {
     console.warn("⚠️ Room scene not available");
   }
@@ -237,11 +258,25 @@ async function main(): Promise<void> {
     .registerSystem(TelevisionPanelSystem)
     .registerSystem(FanPanelSystem)
     .registerSystem(AirConditionerPanelSystem)
+    .registerSystem(GraphPanelSystem)
     .registerSystem(RoomScanningSystem)
     .registerSystem(LegPoseLoggerSystem)
     .registerSystem(PunchToWalkSystem)
+    .registerSystem(PhysicsSystem)
+    .registerSystem(RoomColliderSystem)
+    .registerSystem(DevicePlacementSystem)
+    // .registerSystem(RoomAlignmentSystem)
+    .registerSystem(VoicePanelSystem);
 
   console.log("✅ Systems registered");
+
+  const roomAlignmentSystem = world.getSystem(RoomAlignmentSystem);
+  if (roomAlignmentSystem) {
+    (globalThis as any).__roomAlignmentSystem = roomAlignmentSystem;
+    console.log(
+      "💡 Room alignment: call __realignRoom() to force re-alignment",
+    );
+  }
 
   const welcomePanel = world
     .createTransformEntity()
@@ -279,8 +314,20 @@ async function main(): Promise<void> {
       tolerance: 0.3,
       maxAngle: 35,
     });
-
   console.log("✅ Leg pose logger panel created (camera-follow HUD)");
+  
+  // Voice Panel (3D)
+  const voice3DPanel = world
+    .createTransformEntity()
+    .addComponent(PanelUI, {
+      config: "./ui/voice_panel.json",
+      maxHeight: 0.2, // Small panel
+      maxWidth: 0.3,
+    })
+    .addComponent(Interactable); // No ScreenSpace, so it renders in 3D
+
+  voice3DPanel.object3D!.position.set(0, 1.4, -0.4); // Initial position
+  console.log("✅ Voice 3D Panel created");
 
   const store = getStore();
 
@@ -313,7 +360,8 @@ async function main(): Promise<void> {
   });
   console.log("✅ WebSocket connected for real-time updates");
 
-  const voiceSystem = new VoiceControlSystem();
+  // VoiceControlSystem is now a singleton managed by VoicePanelSystem
+  console.log("✅ Voice Control System initialized (Singleton)");
 
   setAvatarSwitcherCamera(camera);
 
@@ -323,6 +371,7 @@ async function main(): Promise<void> {
   if (rpmAvatarSystem) {
     await rpmAvatarSystem.createRPMUserControlledAvatar("player1", "RPM Avatar", "rpmClip_model1", [-0.6, 0, -1.5]);
     registerAvatar(rpmAvatarSystem as ControllableAvatarSystem, "player1", "RPM Avatar");
+//     setLipSyncEnabled = setupLipSyncControlPanel(rpmAvatarSystem);
     console.log("✅ RPM avatar (RPM_clip.glb)");
 
     // Wire punch-to-walk: VR controller punches → avatar walking
@@ -333,49 +382,53 @@ async function main(): Promise<void> {
     }
   }
 
-  // 2) User-controlled (clip-based)
+  // 2) Skeleton-controlled (bone-only)
+  // const skeletonAvatarSystem = world.getSystem(SkeletonControlledAvatarSystem);
+  // if (skeletonAvatarSystem) {
+  //   await skeletonAvatarSystem.createSkeletonControlledAvatar(
+  //     "player2",
+  //     "Skeleton Avatar",
+  //     "rpmBone_model",
+  //     [0, 0, -1.5],
+  //   );
+  //   registerAvatar(
+  //     skeletonAvatarSystem as ControllableAvatarSystem,
+  //     "player2",
+  //     "Skeleton Avatar",
+  //   );
+  //   console.log("✅ Skeleton avatar (RPM_bone.glb)");
+  // }
+
+  // 3) User-controlled (clip-based)
   const userAvatarSystem = world.getSystem(UserControlledAvatarSystem);
   if (userAvatarSystem) {
-    await userAvatarSystem.createUserControlledAvatar("player2", "Soldier", "soldier_model", [-1.2, 0, -1.5]);
-    registerAvatar(userAvatarSystem as ControllableAvatarSystem, "player2", "Soldier");
+    await userAvatarSystem.createUserControlledAvatar(
+      "player3",
+      "Soldier",
+      "soldier_model",
+      [-1.2, 0, -1.5],
+    );
+    registerAvatar(
+      userAvatarSystem as ControllableAvatarSystem,
+      "player3",
+      "Soldier",
+    );
     console.log("✅ Soldier avatar (soldier_model)");
   }
 
   // 3) Robot Assistant
   const robotAssistantSystem = world.getSystem(RobotAssistantSystem);
   if (robotAssistantSystem) {
-    await robotAssistantSystem.createRobotAssistant("robot1", "Robot Assistant", "robot_assistant", [0.6, 0, -1.5]);
-    console.log("✅ Robot Assistant (robot_3D_scene.glb) - autonomous behavior");
+    await robotAssistantSystem.createRobotAssistant(
+      "robot1",
+      "Robot Assistant",
+      "robot_assistant",
+      [0.6, 0, -1.5],
+    );
+    console.log(
+      "✅ Robot Assistant (robot_3D_scene.glb) - autonomous behavior",
+    );
   }
-
-  // Voice panel: wire status to robot (listening → Standing; idle → success: Yes+ThumbsUp, failure: No, cancelled: Wave)
-  new VoicePanel(voiceSystem, (status, payload) => {
-    if (!robotAssistantSystem) return;
-    if (status === "listening") {
-      robotAssistantSystem.setVoiceListening(true);
-      speakGreeting();
-    } else if (status === "idle" && payload !== undefined) {
-      if (payload.cancelled) {
-        speakSeeYouAgain();
-        robotAssistantSystem.playEmoteSequence(["Wave"], () => robotAssistantSystem.setVoiceListening(false));
-      } else if (payload.success === false) {
-        // Check if it's a no-match case (out of scope or weird input)
-        if (payload.noMatch) {
-          speakNoMatch();
-        }
-        robotAssistantSystem.playEmoteSequence(["No"], () => robotAssistantSystem.setVoiceListening(false));
-      } else if (payload.success === true) {
-        // Speak completion message if action and device are available
-        if (payload.action && payload.device) {
-          speakCompletion(payload.action, payload.device);
-        }
-        robotAssistantSystem.playEmoteSequence(["Yes", "ThumbsUp"], () => robotAssistantSystem.setVoiceListening(false));
-      }
-      // If payload exists but has no known flag, do nothing (robot stays Standing; user can cancel with mic).
-    }
-    // If payload is undefined (e.g. recognition onerror): do nothing — robot stays Standing.
-  });
-  console.log("✅ Voice Control System initialized");
 
   setupAvatarSwitcherPanel();
   // setOnAvatarSwitch((entry) => {
@@ -386,7 +439,9 @@ async function main(): Promise<void> {
   //   setLipSyncEnabled(entry?.avatarId === "player1");
   // });
 
-  console.log("🎮 Controls: I/K/J/L = Move, Shift = Run, SPACE = Jump. O = switch avatar (when 2+ avatars).");
+  console.log(
+    "🎮 Controls: I/K/J/L = Move, Shift = Run, SPACE = Jump. O = switch avatar (when 2+ avatars).",
+  );
 
   console.log("\n🚀 SmartHome Platform Scene Creator ready!");
 
@@ -398,7 +453,9 @@ async function main(): Promise<void> {
   console.log("───────────────────────────────────");
   console.log("💡 Click devices to control");
   console.log("✋ Grab devices to move");
-  console.log("🎮 Use IJKL + SPACE to control avatar. O = switch avatar (when 2+).");
+  console.log(
+    "🎮 Use IJKL + SPACE to control avatar. O = switch avatar (when 2+).",
+  );
   console.log('🥽 Press "Enter AR" to start');
   console.log("───────────────────────────────────");
   // console.log("🎤 Lip Sync: 1 = Speak, 2 = Stop, 3 = Mic mode");

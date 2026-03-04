@@ -20,7 +20,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 def load_env_file():
     """Load environment variables from .env file"""
-    env_file = BASE_DIR / ".env"
+    env_file_name = os.environ.get("ENV_FILE", ".env")
+    env_file = BASE_DIR / env_file_name
     if env_file.exists():
         with open(env_file, "r") as f:
             for line in f:
@@ -55,7 +56,7 @@ DEBUG = get_required_env("DEBUG", "True").lower() in ("true", "1", "yes")
 HOST_IP = get_required_env("HOST_IP", None)
 
 
-ALLOWED_HOSTS = get_required_env("ALLOWED_HOSTS", "*").split(",")
+ALLOWED_HOSTS = [host for host in get_required_env("ALLOWED_HOSTS", "*").split(",") if host]
 
 if HOST_IP:
     ALLOWED_HOSTS.append(HOST_IP)

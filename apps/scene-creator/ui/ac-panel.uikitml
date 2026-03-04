@@ -202,6 +202,10 @@
     font-size: 1.4;
     color: #71717a;
   }
+
+  .graph-row {
+    margin-top: 5;
+  }
 </style>
 
 <div class="panel-container">
@@ -271,6 +275,36 @@
         </button>
         <button class="preset-btn" id="preset-28">
           <span class="preset-text">28°</span>
+        </button>
+      </div>
+    </div>
+  </div>
+    <!-- Graph Control -->
+    <div class="control-row graph-row">
+      <div>
+        <ActivityIcon class="control-icon" />
+      </div>
+      <span class="control-label">Usage</span>
+      <button class="power-btn" id="show-graph-btn">
+        <div>
+          <ActivityIcon class="power-icon" />
+        </div>
+      </button>
+    </div>
+  </div>
+
+    <!-- Position Control -->
+    <div class="control-row">
+      <div>
+        <MoveIcon class="control-icon" />
+      </div>
+      <span class="control-label">Position</span>
+      <div class="temp-container">
+        <button class="control-btn" id="get-position-btn" style="width: 8; background-color: #3f3f46;">
+          <span style="font-size: 1.4; color: #fafafa;">Get</span>
+        </button>
+        <button class="control-btn" id="save-position-btn" style="width: 8; background-color: #3f3f46;">
+          <span style="font-size: 1.4; color: #fafafa;">Save</span>
         </button>
       </div>
     </div>

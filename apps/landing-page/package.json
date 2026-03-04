@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host",
+    "dev:network": "vite --host --mode network",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"

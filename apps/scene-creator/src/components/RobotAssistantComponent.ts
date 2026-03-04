@@ -26,4 +26,10 @@ export const RobotAssistantComponent = createComponent("RobotAssistantComponent"
     angryExpression: { type: Types.Float32, default: 0.0 },
     surprisedExpression: { type: Types.Float32, default: 0.0 },
     sadExpression: { type: Types.Float32, default: 0.0 },
+
+    // Collision/Stuck detection
+    stuckTime: { type: Types.Float32, default: 0 },
+    lastX: { type: Types.Float32, default: 0 },
+    lastZ: { type: Types.Float32, default: 0 },
+    collisionCooldown: { type: Types.Float32, default: 0 },
 });

@@ -12,7 +12,7 @@ import {
 export class BackendApiClient {
   private static instance: BackendApiClient;
 
-  private constructor() {}
+  private constructor() { }
 
   static getInstance(): BackendApiClient {
     if (!BackendApiClient.instance) {
@@ -39,6 +39,11 @@ export class BackendApiClient {
     return mapRawDevicesToDevices(response.data);
   }
 
+  async createDevice(deviceData: Partial<Device>): Promise<Device> {
+    const response = await api.post<any>("/api/homes/devices/", deviceData);
+    return mapRawDeviceToDevice(response.data);
+  }
+
   async getDevice(deviceId: string): Promise<Device> {
     const response = await api.get<any>(`/api/homes/devices/${deviceId}/`);
     return mapRawDeviceToDevice(response.data);
@@ -46,7 +51,7 @@ export class BackendApiClient {
 
   async setDeviceState(
     deviceId: string,
-    updates: Partial<Device>,
+    updates: Partial<Device>
   ): Promise<Device> {
     await api.patch<any>(`/api/homes/devices/${deviceId}/`, updates);
     const response = await api.get<any>(`/api/homes/devices/${deviceId}/`);
@@ -55,7 +60,7 @@ export class BackendApiClient {
 
   // ===== Device Position =====
   async getDevicePosition(
-    deviceId: string,
+    deviceId: string
   ): Promise<{ position: [number, number, number] | null }> {
     const response = await api.get<{
       position: [number, number, number] | null;
@@ -65,11 +70,11 @@ export class BackendApiClient {
 
   async setDevicePosition(
     deviceId: string,
-    position: { x: number; y: number; z: number; rotation_y?: number },
+    position: { x: number; y: number; z: number; rotation_y?: number }
   ): Promise<Device> {
     await api.post<any>(
       `/api/homes/devices/${deviceId}/set_position/`,
-      position,
+      position
     );
     const response = await api.get<any>(`/api/homes/devices/${deviceId}/`);
     return mapRawDeviceToDevice(response.data);
@@ -83,7 +88,7 @@ export class BackendApiClient {
 
   async setLightbulb(
     deviceId: string,
-    options: { brightness?: number; colour?: string },
+    options: { brightness?: number; colour?: string }
   ): Promise<Lightbulb> {
     if (options.brightness !== undefined) {
       await api.post<any>(`/api/homes/lightbulbs/${deviceId}/set_brightness/`, {
@@ -174,6 +179,22 @@ export class BackendApiClient {
   async sendVoiceCommand(command: string): Promise<any> {
     const response = await api.post<any>("/api/homes/voice/command/", {
       command,
+    });
+    return response.data;
+  }
+
+  async sendVoiceAudio(
+    blob: Blob,
+    execute: boolean = false,
+  ): Promise<{ transcript: string; command_result?: any }> {
+    const formData = new FormData();
+    formData.append("audio", blob, "recording.webm");
+    formData.append("execute", execute.toString());
+    const response = await api.post<{
+      transcript: string;
+      command_result?: any;
+    }>("/api/homes/voice/transcribe/", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
     });
     return response.data;
   }

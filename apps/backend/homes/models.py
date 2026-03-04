@@ -68,3 +68,22 @@ class Television(Device):
     volume = models.IntegerField(default=20)
     channel = models.IntegerField(default=1)
     is_mute = models.BooleanField(default=False)
+
+
+class Automation(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    device = models.ForeignKey(Device, on_delete=models.CASCADE, related_name='automations')
+    title = models.CharField(max_length=255)
+    time = models.TimeField(null=True, blank=True)
+    repeat_days = models.JSONField(default=list)  # e.g., ["mon", "tue"]
+    action = models.JSONField(default=dict)
+    is_active = models.BooleanField(default=True)
+    sunrise_sunset = models.BooleanField(default=False)
+    SOLAR_EVENT_CHOICES = [
+        ('sunrise', 'Sunrise'),
+        ('sunset', 'Sunset'),
+    ]
+    solar_event = models.CharField(max_length=20, choices=SOLAR_EVENT_CHOICES, null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.title} ({self.device.device_name})"

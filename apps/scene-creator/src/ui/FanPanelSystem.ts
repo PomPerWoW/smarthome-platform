@@ -90,6 +90,13 @@ export class FanPanelSystem extends createSystem({
       });
     }
 
+    const showGraphBtn = document.getElementById("show-graph-btn");
+    if (showGraphBtn) {
+      showGraphBtn.addEventListener("click", () => {
+        this.handleShowGraph(deviceId);
+      });
+    }
+
     this.updatePanel(entity, document, deviceId);
   }
 
@@ -114,6 +121,16 @@ export class FanPanelSystem extends createSystem({
 
     console.log(`[FanPanel] Toggling swing`);
     store.updateFan(deviceId, { swing: !device.swing });
+  }
+
+  private handleShowGraph(deviceId: string): void {
+    console.log(`[FanPanel] Show graph clicked for ${deviceId}`);
+
+    // Toggle the separate graph panel
+    const deviceRenderer = this.world.getSystem(DeviceRendererSystem);
+    if (deviceRenderer) {
+      deviceRenderer.toggleGraphPanel(deviceId);
+    }
   }
 
   private handleGetPosition(entity: Entity, deviceId: string): void {

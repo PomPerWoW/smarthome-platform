@@ -34,6 +34,7 @@ export function getDeviceProperties(device: Device): Record<string, unknown> {
       return {
         volume: device.volume,
         channel: device.channel,
+        is_mute: (device as any).is_mute || false,
       } satisfies TelevisionProperties;
     case DeviceType.Fan:
       return {

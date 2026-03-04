@@ -126,3 +126,12 @@ class HomeConsumer(AsyncWebsocketConsumer):
             "device_id": event["device_id"],
             "action": event["action"]
         }))
+
+    # 4. Receive smartmeter reading (via Channel Layer)
+    async def smartmeter_update(self, event):
+        await self.send(text_data=json.dumps({
+            "type": "smartmeter_update",
+            "tag": event["tag"],
+            "value": event["value"],
+            "timestamp": event["timestamp"],
+        }))
