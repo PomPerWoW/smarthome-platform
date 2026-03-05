@@ -117,7 +117,7 @@ export class RobotAssistantSystem extends createSystem({
       }
 
       const robotModel = SkeletonUtils.clone(gltf.scene) as Object3D;
-      robotModel.scale.setScalar(0.1);
+      robotModel.scale.setScalar(0.2);
       robotModel.position.set(finalX, finalY, finalZ);
       robotModel.rotation.set(0, 0, 0);
       robotModel.visible = true;
@@ -130,25 +130,12 @@ export class RobotAssistantSystem extends createSystem({
       // Simple floor alignment - ensure we stay on the computed floor height
       robotModel.position.y = finalY;
 
-      // Debug logging
       console.log(
         `[RobotAssistant] 🔍 Final position: (${robotModel.position.x.toFixed(2)}, ${robotModel.position.y.toFixed(2)}, ${robotModel.position.z.toFixed(2)})`,
       );
       console.log(`[RobotAssistant] 🔍 Scale: ${robotModel.scale.x}`);
 
-      // Check children and materials
-      let meshCount = 0;
-      robotModel.traverse((child: any) => {
-        if (child.isMesh) {
-          meshCount++;
-          if (meshCount <= 3) {
-            console.log(
-              `[RobotAssistant] 🔍 Mesh "${child.name}": visible=${child.visible}, material=${child.material?.type || "none"}`,
-            );
-          }
-        }
-      });
-      console.log(`[RobotAssistant] 🔍 Total mesh count: ${meshCount}`);
+      // Ensure mesh visibility
       robotModel.traverse((child: any) => {
         if (child.isMesh) {
           child.visible = true;
@@ -176,7 +163,6 @@ export class RobotAssistantSystem extends createSystem({
             `[RobotAssistant] 🤖 Found head mesh with expressions:`,
             Object.keys(dict),
           );
-          // Set angry, surprised, sad to 0.0
           if (dict["angry"] !== undefined) influences[dict["angry"]] = 0.0;
           if (dict["surprised"] !== undefined)
             influences[dict["surprised"]] = 0.0;
@@ -380,12 +366,60 @@ export class RobotAssistantSystem extends createSystem({
     playNext();
   }
 
+  // ── Helper: convert room-local position to world position ──
+  private roomLocalToWorld(
+    lx: number, ly: number, lz: number,
+  ): { x: number; y: number; z: number } {
+    const roomModel = (globalThis as any).__labRoomModel;
+    if (!roomModel) return { x: lx, y: ly, z: lz };
+    const rotY = roomModel.rotation.y;
+    const cosR = Math.cos(rotY);
+    const sinR = Math.sin(rotY);
+    return {
+      x: roomModel.position.x + lx * cosR - lz * sinR,
+      y: roomModel.position.y + ly,
+      z: roomModel.position.z + lx * sinR + lz * cosR,
+    };
+  }
+
+  // ── Helper: convert world position to room-local position ──
+  private worldToRoomLocal(
+    wx: number, wy: number, wz: number,
+  ): { x: number; y: number; z: number } {
+    const roomModel = (globalThis as any).__labRoomModel;
+    if (!roomModel) return { x: wx, y: wy, z: wz };
+    const rotY = roomModel.rotation.y;
+    const cosR = Math.cos(-rotY);
+    const sinR = Math.sin(-rotY);
+    const dx = wx - roomModel.position.x;
+    const dz = wz - roomModel.position.z;
+    return {
+      x: dx * cosR - dz * sinR,
+      y: wy - roomModel.position.y,
+      z: dx * sinR + dz * cosR,
+    };
+  }
+
   update(dt: number): void {
     this.timeElapsed += dt;
 
     for (const [robotId, record] of this.robotRecords) {
       // Always update mixer
       record.mixer.update(dt);
+
+      // ── START OF FRAME: Convert world position → room-local ──
+      // Movement code (waypoints, clamping, collision) all work in
+      // room-local coords that match roomBounds. After movement,
+      // we convert back to world at end-of-frame.
+      const roomLocal = this.worldToRoomLocal(
+        record.model.position.x,
+        record.model.position.y,
+        record.model.position.z,
+      );
+      record.model.position.set(roomLocal.x, roomLocal.y, roomLocal.z);
+      // Also undo room rotation from the model's visual rotation
+      const roomModel = (globalThis as any).__labRoomModel;
+      const roomRotY = roomModel ? roomModel.rotation.y : 0;
 
       // Voice-driven mode: stay Standing (or let emote sequence run), skip movement and random transitions
       if (this.voiceActive) {
@@ -408,6 +442,14 @@ export class RobotAssistantSystem extends createSystem({
             if (dict["sad"] !== undefined) influences[dict["sad"]] = 0.0;
           }
         }
+        // Must still apply room transform before continuing
+        const voiceWorldPos = this.roomLocalToWorld(
+          record.model.position.x,
+          record.model.position.y,
+          record.model.position.z,
+        );
+        record.model.position.set(voiceWorldPos.x, voiceWorldPos.y, voiceWorldPos.z);
+        record.model.rotation.y += roomRotY;
         continue;
       }
 
@@ -754,6 +796,18 @@ export class RobotAssistantSystem extends createSystem({
           if (dict["sad"] !== undefined) influences[dict["sad"]] = 0.0;
         }
       }
+
+      // ── END OF FRAME: Convert room-local position → world ──
+      // Apply the room model's transform so the robot renders at
+      // the correct world position relative to the aligned room.
+      const worldPos = this.roomLocalToWorld(
+        record.model.position.x,
+        record.model.position.y,
+        record.model.position.z,
+      );
+      record.model.position.set(worldPos.x, worldPos.y, worldPos.z);
+      // Add room rotation to the robot's facing direction
+      record.model.rotation.y += roomRotY;
     }
   }
 
