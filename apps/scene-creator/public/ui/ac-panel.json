@@ -12,82 +12,82 @@
             "sourceTag": "div",
             "children": [
               {
-                "type": "container",
-                "sourceTag": "div",
-                "children": [
-                  {
-                    "sourceTag": "airventicon",
-                    "type": "custom",
-                    "children": [],
-                    "properties": {
-                      "class": "device-icon",
-                      "id": "header-icon"
-                    },
-                    "dataUid": "uid-4"
-                  }
-                ],
-                "properties": {},
-                "dataUid": "uid-3"
-              },
-              {
-                "type": "container",
-                "sourceTag": "div",
-                "children": [
-                  {
-                    "sourceTag": "span",
-                    "type": "custom",
-                    "children": [
-                      "Air Conditioner"
-                    ],
-                    "properties": {
-                      "class": "device-name",
-                      "id": "device-name"
-                    },
-                    "dataUid": "uid-6"
-                  },
-                  {
-                    "sourceTag": "span",
-                    "type": "custom",
-                    "children": [
-                      "Loading..."
-                    ],
-                    "properties": {
-                      "class": "device-location",
-                      "id": "device-location"
-                    },
-                    "dataUid": "uid-7"
-                  },
-                  {
-                    "sourceTag": "span",
-                    "type": "custom",
-                    "children": [],
-                    "properties": {
-                      "class": "device-position",
-                      "id": "device-position"
-                    },
-                    "dataUid": "uid-8"
-                  }
-                ],
+                "sourceTag": "airventicon",
+                "type": "custom",
+                "children": [],
                 "properties": {
-                  "class": "header-text"
+                  "class": "device-icon",
+                  "id": "header-icon"
                 },
-                "dataUid": "uid-5"
+                "dataUid": "uid-4"
               }
             ],
-            "properties": {
-              "class": "header-section"
-            },
-            "dataUid": "uid-2"
+            "properties": {},
+            "dataUid": "uid-3"
           },
           {
             "type": "container",
             "sourceTag": "div",
-            "children": [],
+            "children": [
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "Air Conditioner"
+                ],
+                "properties": {
+                  "class": "device-name",
+                  "id": "device-name"
+                },
+                "dataUid": "uid-6"
+              },
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "Loading..."
+                ],
+                "properties": {
+                  "class": "device-location",
+                  "id": "device-location"
+                },
+                "dataUid": "uid-7"
+              },
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [],
+                "properties": {
+                  "class": "device-position",
+                  "id": "device-position"
+                },
+                "dataUid": "uid-8"
+              }
+            ],
             "properties": {
-              "class": "divider"
+              "class": "header-text"
             },
-            "dataUid": "uid-9"
-          },
+            "dataUid": "uid-5"
+          }
+        ],
+        "properties": {
+          "class": "header-section"
+        },
+        "dataUid": "uid-2"
+      },
+      {
+        "type": "container",
+        "sourceTag": "div",
+        "children": [],
+        "properties": {
+          "class": "divider"
+        },
+        "dataUid": "uid-9"
+      },
+      {
+        "type": "container",
+        "sourceTag": "div",
+        "children": [
           {
             "type": "container",
             "sourceTag": "div",
@@ -95,6 +95,34 @@
               {
                 "type": "container",
                 "sourceTag": "div",
+                "children": [
+                  {
+                    "sourceTag": "powericon",
+                    "type": "custom",
+                    "children": [],
+                    "properties": {
+                      "class": "control-icon"
+                    },
+                    "dataUid": "uid-13"
+                  }
+                ],
+                "properties": {},
+                "dataUid": "uid-12"
+              },
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "Power"
+                ],
+                "properties": {
+                  "class": "control-label"
+                },
+                "dataUid": "uid-14"
+              },
+              {
+                "sourceTag": "button",
+                "type": "custom",
                 "children": [
                   {
                     "type": "container",
@@ -105,24 +133,113 @@
                         "type": "custom",
                         "children": [],
                         "properties": {
-                          "class": "control-icon"
+                          "class": "power-icon"
                         },
-                        "dataUid": "uid-13"
+                        "dataUid": "uid-17"
                       }
                     ],
                     "properties": {},
-                    "dataUid": "uid-12"
+                    "dataUid": "uid-16"
+                  }
+                ],
+                "properties": {
+                  "class": "power-btn-on",
+                  "id": "power-btn"
+                },
+                "dataUid": "uid-15"
+              }
+            ],
+            "properties": {
+              "class": "control-row"
+            },
+            "dataUid": "uid-11"
+          },
+          {
+            "type": "container",
+            "sourceTag": "div",
+            "children": [
+              {
+                "type": "container",
+                "sourceTag": "div",
+                "children": [
+                  {
+                    "sourceTag": "thermometericon",
+                    "type": "custom",
+                    "children": [],
+                    "properties": {
+                      "class": "control-icon"
+                    },
+                    "dataUid": "uid-20"
+                  }
+                ],
+                "properties": {},
+                "dataUid": "uid-19"
+              },
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "Temp"
+                ],
+                "properties": {
+                  "class": "control-label"
+                },
+                "dataUid": "uid-21"
+              },
+              {
+                "type": "container",
+                "sourceTag": "div",
+                "children": [
+                  {
+                    "sourceTag": "button",
+                    "type": "custom",
+                    "children": [
+                      {
+                        "type": "container",
+                        "sourceTag": "div",
+                        "children": [
+                          {
+                            "sourceTag": "minusicon",
+                            "type": "custom",
+                            "children": [],
+                            "properties": {
+                              "class": "control-btn-icon"
+                            },
+                            "dataUid": "uid-25"
+                          }
+                        ],
+                        "properties": {},
+                        "dataUid": "uid-24"
+                      }
+                    ],
+                    "properties": {
+                      "class": "control-btn",
+                      "id": "temp-down"
+                    },
+                    "dataUid": "uid-23"
                   },
                   {
                     "sourceTag": "span",
                     "type": "custom",
                     "children": [
-                      "Power"
+                      "24"
                     ],
                     "properties": {
-                      "class": "control-label"
+                      "class": "temp-value",
+                      "id": "temp-value"
                     },
-                    "dataUid": "uid-14"
+                    "dataUid": "uid-26"
+                  },
+                  {
+                    "sourceTag": "span",
+                    "type": "custom",
+                    "children": [
+                      "°C"
+                    ],
+                    "properties": {
+                      "class": "temp-unit"
+                    },
+                    "dataUid": "uid-27"
                   },
                   {
                     "sourceTag": "button",
@@ -133,282 +250,155 @@
                         "sourceTag": "div",
                         "children": [
                           {
-                            "sourceTag": "powericon",
+                            "sourceTag": "plusicon",
                             "type": "custom",
                             "children": [],
                             "properties": {
-                              "class": "power-icon"
+                              "class": "control-btn-icon"
                             },
-                            "dataUid": "uid-17"
+                            "dataUid": "uid-30"
                           }
                         ],
                         "properties": {},
-                        "dataUid": "uid-16"
+                        "dataUid": "uid-29"
                       }
                     ],
                     "properties": {
-                      "class": "power-btn-on",
-                      "id": "power-btn"
+                      "class": "control-btn",
+                      "id": "temp-up"
                     },
-                    "dataUid": "uid-15"
+                    "dataUid": "uid-28"
                   }
                 ],
                 "properties": {
-                  "class": "control-row"
+                  "class": "temp-container"
                 },
-                "dataUid": "uid-11"
-              },
-              {
-                "type": "container",
-                "sourceTag": "div",
-                "children": [
-                  {
-                    "type": "container",
-                    "sourceTag": "div",
-                    "children": [
-                      {
-                        "sourceTag": "thermometericon",
-                        "type": "custom",
-                        "children": [],
-                        "properties": {
-                          "class": "control-icon"
-                        },
-                        "dataUid": "uid-20"
-                      }
-                    ],
-                    "properties": {},
-                    "dataUid": "uid-19"
-                  },
-                  {
-                    "sourceTag": "span",
-                    "type": "custom",
-                    "children": [
-                      "Temp"
-                    ],
-                    "properties": {
-                      "class": "control-label"
-                    },
-                    "dataUid": "uid-21"
-                  },
-                  {
-                    "type": "container",
-                    "sourceTag": "div",
-                    "children": [
-                      {
-                        "sourceTag": "button",
-                        "type": "custom",
-                        "children": [
-                          {
-                            "type": "container",
-                            "sourceTag": "div",
-                            "children": [
-                              {
-                                "sourceTag": "minusicon",
-                                "type": "custom",
-                                "children": [],
-                                "properties": {
-                                  "class": "control-btn-icon"
-                                },
-                                "dataUid": "uid-25"
-                              }
-                            ],
-                            "properties": {},
-                            "dataUid": "uid-24"
-                          }
-                        ],
-                        "properties": {
-                          "class": "control-btn",
-                          "id": "temp-down"
-                        },
-                        "dataUid": "uid-23"
-                      },
-                      {
-                        "sourceTag": "span",
-                        "type": "custom",
-                        "children": [
-                          "24"
-                        ],
-                        "properties": {
-                          "class": "temp-value",
-                          "id": "temp-value"
-                        },
-                        "dataUid": "uid-26"
-                      },
-                      {
-                        "sourceTag": "span",
-                        "type": "custom",
-                        "children": [
-                          "°C"
-                        ],
-                        "properties": {
-                          "class": "temp-unit"
-                        },
-                        "dataUid": "uid-27"
-                      },
-                      {
-                        "sourceTag": "button",
-                        "type": "custom",
-                        "children": [
-                          {
-                            "type": "container",
-                            "sourceTag": "div",
-                            "children": [
-                              {
-                                "sourceTag": "plusicon",
-                                "type": "custom",
-                                "children": [],
-                                "properties": {
-                                  "class": "control-btn-icon"
-                                },
-                                "dataUid": "uid-30"
-                              }
-                            ],
-                            "properties": {},
-                            "dataUid": "uid-29"
-                          }
-                        ],
-                        "properties": {
-                          "class": "control-btn",
-                          "id": "temp-up"
-                        },
-                        "dataUid": "uid-28"
-                      }
-                    ],
-                    "properties": {
-                      "class": "temp-container"
-                    },
-                    "dataUid": "uid-22"
-                  }
-                ],
-                "properties": {
-                  "class": "control-row"
-                },
-                "dataUid": "uid-18"
-              },
-              {
-                "type": "container",
-                "sourceTag": "div",
-                "children": [
-                  {
-                    "sourceTag": "span",
-                    "type": "custom",
-                    "children": [
-                      "Quick Set"
-                    ],
-                    "properties": {
-                      "class": "preset-label"
-                    },
-                    "dataUid": "uid-32"
-                  },
-                  {
-                    "type": "container",
-                    "sourceTag": "div",
-                    "children": [
-                      {
-                        "sourceTag": "button",
-                        "type": "custom",
-                        "children": [
-                          {
-                            "sourceTag": "span",
-                            "type": "custom",
-                            "children": [
-                              "18°"
-                            ],
-                            "properties": {
-                              "class": "preset-text"
-                            },
-                            "dataUid": "uid-35"
-                          }
-                        ],
-                        "properties": {
-                          "class": "preset-btn",
-                          "id": "preset-18"
-                        },
-                        "dataUid": "uid-34"
-                      },
-                      {
-                        "sourceTag": "button",
-                        "type": "custom",
-                        "children": [
-                          {
-                            "sourceTag": "span",
-                            "type": "custom",
-                            "children": [
-                              "22°"
-                            ],
-                            "properties": {
-                              "class": "preset-text"
-                            },
-                            "dataUid": "uid-37"
-                          }
-                        ],
-                        "properties": {
-                          "class": "preset-btn",
-                          "id": "preset-22"
-                        },
-                        "dataUid": "uid-36"
-                      },
-                      {
-                        "sourceTag": "button",
-                        "type": "custom",
-                        "children": [
-                          {
-                            "sourceTag": "span",
-                            "type": "custom",
-                            "children": [
-                              "25°"
-                            ],
-                            "properties": {
-                              "class": "preset-text"
-                            },
-                            "dataUid": "uid-39"
-                          }
-                        ],
-                        "properties": {
-                          "class": "preset-btn preset-btn-cool",
-                          "id": "preset-25"
-                        },
-                        "dataUid": "uid-38"
-                      },
-                      {
-                        "sourceTag": "button",
-                        "type": "custom",
-                        "children": [
-                          {
-                            "sourceTag": "span",
-                            "type": "custom",
-                            "children": [
-                              "28°"
-                            ],
-                            "properties": {
-                              "class": "preset-text"
-                            },
-                            "dataUid": "uid-41"
-                          }
-                        ],
-                        "properties": {
-                          "class": "preset-btn",
-                          "id": "preset-28"
-                        },
-                        "dataUid": "uid-40"
-                      }
-                    ],
-                    "properties": {
-                      "class": "preset-grid"
-                    },
-                    "dataUid": "uid-33"
-                  }
-                ],
-                "properties": {
-                  "class": "preset-section"
-                },
-                "dataUid": "uid-31"
+                "dataUid": "uid-22"
               }
             ],
             "properties": {
-              "class": "control-section"
+              "class": "control-row"
             },
-            "dataUid": "uid-10"
+            "dataUid": "uid-18"
+          },
+          {
+            "type": "container",
+            "sourceTag": "div",
+            "children": [
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "Quick Set"
+                ],
+                "properties": {
+                  "class": "preset-label"
+                },
+                "dataUid": "uid-32"
+              },
+              {
+                "type": "container",
+                "sourceTag": "div",
+                "children": [
+                  {
+                    "sourceTag": "button",
+                    "type": "custom",
+                    "children": [
+                      {
+                        "sourceTag": "span",
+                        "type": "custom",
+                        "children": [
+                          "18°"
+                        ],
+                        "properties": {
+                          "class": "preset-text"
+                        },
+                        "dataUid": "uid-35"
+                      }
+                    ],
+                    "properties": {
+                      "class": "preset-btn",
+                      "id": "preset-18"
+                    },
+                    "dataUid": "uid-34"
+                  },
+                  {
+                    "sourceTag": "button",
+                    "type": "custom",
+                    "children": [
+                      {
+                        "sourceTag": "span",
+                        "type": "custom",
+                        "children": [
+                          "22°"
+                        ],
+                        "properties": {
+                          "class": "preset-text"
+                        },
+                        "dataUid": "uid-37"
+                      }
+                    ],
+                    "properties": {
+                      "class": "preset-btn",
+                      "id": "preset-22"
+                    },
+                    "dataUid": "uid-36"
+                  },
+                  {
+                    "sourceTag": "button",
+                    "type": "custom",
+                    "children": [
+                      {
+                        "sourceTag": "span",
+                        "type": "custom",
+                        "children": [
+                          "25°"
+                        ],
+                        "properties": {
+                          "class": "preset-text"
+                        },
+                        "dataUid": "uid-39"
+                      }
+                    ],
+                    "properties": {
+                      "class": "preset-btn preset-btn-cool",
+                      "id": "preset-25"
+                    },
+                    "dataUid": "uid-38"
+                  },
+                  {
+                    "sourceTag": "button",
+                    "type": "custom",
+                    "children": [
+                      {
+                        "sourceTag": "span",
+                        "type": "custom",
+                        "children": [
+                          "28°"
+                        ],
+                        "properties": {
+                          "class": "preset-text"
+                        },
+                        "dataUid": "uid-41"
+                      }
+                    ],
+                    "properties": {
+                      "class": "preset-btn",
+                      "id": "preset-28"
+                    },
+                    "dataUid": "uid-40"
+                  }
+                ],
+                "properties": {
+                  "class": "preset-grid"
+                },
+                "dataUid": "uid-33"
+              }
+            ],
+            "properties": {
+              "class": "preset-section"
+            },
+            "dataUid": "uid-31"
           },
           {
             "type": "container",
@@ -515,12 +505,78 @@
               "class": "control-row"
             },
             "dataUid": "uid-42"
+          },
+          {
+            "type": "container",
+            "sourceTag": "div",
+            "children": [
+              {
+                "type": "container",
+                "sourceTag": "div",
+                "children": [
+                  {
+                    "sourceTag": "activityicon",
+                    "type": "custom",
+                    "children": [],
+                    "properties": {
+                      "class": "control-icon"
+                    },
+                    "dataUid": "uid-53"
+                  }
+                ],
+                "properties": {},
+                "dataUid": "uid-52"
+              },
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "Usage"
+                ],
+                "properties": {
+                  "class": "control-label"
+                },
+                "dataUid": "uid-54"
+              },
+              {
+                "sourceTag": "button",
+                "type": "custom",
+                "children": [
+                  {
+                    "type": "container",
+                    "sourceTag": "div",
+                    "children": [
+                      {
+                        "sourceTag": "activityicon",
+                        "type": "custom",
+                        "children": [],
+                        "properties": {
+                          "class": "power-icon"
+                        },
+                        "dataUid": "uid-57"
+                      }
+                    ],
+                    "properties": {},
+                    "dataUid": "uid-56"
+                  }
+                ],
+                "properties": {
+                  "class": "power-btn",
+                  "id": "show-graph-btn"
+                },
+                "dataUid": "uid-55"
+              }
+            ],
+            "properties": {
+              "class": "control-row graph-row"
+            },
+            "dataUid": "uid-51"
           }
         ],
         "properties": {
-          "class": "panel-container"
+          "class": "control-section"
         },
-        "dataUid": "uid-1"
+        "dataUid": "uid-10"
       },
       {
         "type": "container",
@@ -534,7 +590,7 @@
               "class": "status-dot",
               "id": "status-dot"
             },
-            "dataUid": "uid-52"
+            "dataUid": "uid-59"
           },
           {
             "sourceTag": "span",
@@ -546,16 +602,19 @@
               "class": "status-text",
               "id": "status-text"
             },
-            "dataUid": "uid-53"
+            "dataUid": "uid-60"
           }
         ],
         "properties": {
           "class": "status-section"
         },
-        "dataUid": "uid-51"
+        "dataUid": "uid-58"
       }
     ],
-    "properties": {}
+    "properties": {
+      "class": "panel-container"
+    },
+    "dataUid": "uid-1"
   },
   "classes": {
     "panel-container": {
@@ -792,7 +851,7 @@
     },
     "graph-row": {
       "content": {
-        "marginTop": "5"
+        "marginTop": "0"
       }
     }
   },
@@ -1093,10 +1152,8 @@
         "column": 0
       },
       "end": {
-        "line": 293,
-        "column": 8
-        "line": 293,
-        "column": 8
+        "line": 315,
+        "column": 6
       }
     },
     "uid-2": {
@@ -1185,7 +1242,7 @@
         "column": 2
       },
       "end": {
-        "line": 280,
+        "line": 308,
         "column": 8
       }
     },
@@ -1501,121 +1558,191 @@
     },
     "uid-42": {
       "start": {
-        "line": 279,
+        "line": 281,
         "column": 4
       },
       "end": {
-        "line": 292,
+        "line": 294,
         "column": 10
       }
     },
-    "uid-50": {
+    "uid-43": {
       "start": {
-        "line": 280,
+        "line": 282,
         "column": 6
       },
       "end": {
-        "line": 282,
+        "line": 284,
         "column": 12
       }
     },
-    "uid-51": {
+    "uid-44": {
       "start": {
-        "line": 281,
+        "line": 283,
         "column": 8
       },
       "end": {
-        "line": 282,
+        "line": 284,
         "column": 6
       }
     },
     "uid-45": {
       "start": {
-        "line": 283,
+        "line": 285,
         "column": 6
       },
       "end": {
-        "line": 283,
+        "line": 285,
         "column": 49
       }
     },
     "uid-46": {
       "start": {
-        "line": 284,
+        "line": 286,
         "column": 6
       },
       "end": {
-        "line": 291,
+        "line": 293,
         "column": 12
       }
     },
     "uid-47": {
       "start": {
-        "line": 285,
+        "line": 287,
         "column": 8
       },
       "end": {
-        "line": 287,
+        "line": 289,
         "column": 17
       }
     },
     "uid-48": {
       "start": {
-        "line": 286,
+        "line": 288,
         "column": 10
       },
       "end": {
-        "line": 286,
+        "line": 288,
         "column": 66
       }
     },
     "uid-49": {
       "start": {
-        "line": 288,
+        "line": 290,
         "column": 8
       },
       "end": {
-        "line": 290,
+        "line": 292,
         "column": 17
       }
     },
     "uid-50": {
       "start": {
-        "line": 289,
+        "line": 291,
         "column": 10
       },
       "end": {
-        "line": 289,
+        "line": 291,
         "column": 67
       }
     },
     "uid-51": {
       "start": {
-        "line": 296,
-        "column": 2
+        "line": 297,
+        "column": 4
       },
       "end": {
-        "line": 299,
-        "column": 8
+        "line": 307,
+        "column": 10
       }
     },
     "uid-52": {
       "start": {
-        "line": 297,
-        "column": 4
+        "line": 298,
+        "column": 6
       },
       "end": {
-        "line": 297,
-        "column": 50
+        "line": 300,
+        "column": 12
       }
     },
     "uid-53": {
       "start": {
-        "line": 298,
+        "line": 299,
+        "column": 8
+      },
+      "end": {
+        "line": 300,
+        "column": 6
+      }
+    },
+    "uid-54": {
+      "start": {
+        "line": 301,
+        "column": 6
+      },
+      "end": {
+        "line": 301,
+        "column": 46
+      }
+    },
+    "uid-55": {
+      "start": {
+        "line": 302,
+        "column": 6
+      },
+      "end": {
+        "line": 306,
+        "column": 15
+      }
+    },
+    "uid-56": {
+      "start": {
+        "line": 303,
+        "column": 8
+      },
+      "end": {
+        "line": 305,
+        "column": 14
+      }
+    },
+    "uid-57": {
+      "start": {
+        "line": 304,
+        "column": 10
+      },
+      "end": {
+        "line": 305,
+        "column": 8
+      }
+    },
+    "uid-58": {
+      "start": {
+        "line": 311,
+        "column": 2
+      },
+      "end": {
+        "line": 314,
+        "column": 8
+      }
+    },
+    "uid-59": {
+      "start": {
+        "line": 312,
         "column": 4
       },
       "end": {
-        "line": 298,
+        "line": 312,
+        "column": 50
+      }
+    },
+    "uid-60": {
+      "start": {
+        "line": 313,
+        "column": 4
+      },
+      "end": {
+        "line": 313,
         "column": 56
       }
     }

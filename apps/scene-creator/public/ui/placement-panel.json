@@ -1,0 +1,1029 @@
+{
+  "element": {
+    "type": "container",
+    "sourceTag": "div",
+    "children": [
+      {
+        "type": "container",
+        "sourceTag": "div",
+        "children": [
+          {
+            "sourceTag": "packageicon",
+            "type": "custom",
+            "children": [
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "Place Items"
+                ],
+                "properties": {
+                  "class": "heading"
+                },
+                "dataUid": "uid-4"
+              }
+            ],
+            "properties": {
+              "class": "heading",
+              "style": {
+                "width": "3",
+                "height": "3",
+                "color": "#3b82f6"
+              }
+            },
+            "dataUid": "uid-3"
+          }
+        ],
+        "properties": {
+          "class": "panel-header"
+        },
+        "dataUid": "uid-2"
+      },
+      {
+        "sourceTag": "span",
+        "type": "custom",
+        "children": [
+          "Smart Devices"
+        ],
+        "properties": {
+          "class": "section-label"
+        },
+        "dataUid": "uid-5"
+      },
+      {
+        "type": "container",
+        "sourceTag": "div",
+        "children": [
+          {
+            "type": "container",
+            "sourceTag": "div",
+            "children": [
+              {
+                "type": "image",
+                "sourceTag": "img",
+                "properties": {
+                  "class": "item-icon",
+                  "src": "./ui/thumbnails/lightbulb.png"
+                },
+                "dataUid": "uid-8"
+              },
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "Light"
+                ],
+                "properties": {
+                  "class": "item-label"
+                },
+                "dataUid": "uid-9"
+              }
+            ],
+            "properties": {
+              "class": "item-btn",
+              "id": "place-lightbulb"
+            },
+            "dataUid": "uid-7"
+          },
+          {
+            "type": "container",
+            "sourceTag": "div",
+            "children": [
+              {
+                "type": "image",
+                "sourceTag": "img",
+                "properties": {
+                  "class": "item-icon",
+                  "src": "./ui/thumbnails/television.png"
+                },
+                "dataUid": "uid-11"
+              },
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "TV"
+                ],
+                "properties": {
+                  "class": "item-label"
+                },
+                "dataUid": "uid-12"
+              }
+            ],
+            "properties": {
+              "class": "item-btn",
+              "id": "place-television"
+            },
+            "dataUid": "uid-10"
+          },
+          {
+            "type": "container",
+            "sourceTag": "div",
+            "children": [
+              {
+                "type": "image",
+                "sourceTag": "img",
+                "properties": {
+                  "class": "item-icon",
+                  "src": "./ui/thumbnails/fan.png"
+                },
+                "dataUid": "uid-14"
+              },
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "Fan"
+                ],
+                "properties": {
+                  "class": "item-label"
+                },
+                "dataUid": "uid-15"
+              }
+            ],
+            "properties": {
+              "class": "item-btn",
+              "id": "place-fan"
+            },
+            "dataUid": "uid-13"
+          },
+          {
+            "type": "container",
+            "sourceTag": "div",
+            "children": [
+              {
+                "type": "image",
+                "sourceTag": "img",
+                "properties": {
+                  "class": "item-icon",
+                  "src": "./ui/thumbnails/ac.png"
+                },
+                "dataUid": "uid-17"
+              },
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "AC"
+                ],
+                "properties": {
+                  "class": "item-label"
+                },
+                "dataUid": "uid-18"
+              }
+            ],
+            "properties": {
+              "class": "item-btn",
+              "id": "place-ac"
+            },
+            "dataUid": "uid-16"
+          }
+        ],
+        "properties": {
+          "class": "item-grid"
+        },
+        "dataUid": "uid-6"
+      },
+      {
+        "sourceTag": "span",
+        "type": "custom",
+        "children": [
+          "Furniture"
+        ],
+        "properties": {
+          "class": "section-label"
+        },
+        "dataUid": "uid-19"
+      },
+      {
+        "type": "container",
+        "sourceTag": "div",
+        "children": [
+          {
+            "type": "container",
+            "sourceTag": "div",
+            "children": [
+              {
+                "type": "image",
+                "sourceTag": "img",
+                "properties": {
+                  "class": "item-icon",
+                  "src": "./ui/thumbnails/chair.png"
+                },
+                "dataUid": "uid-22"
+              },
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "Chair"
+                ],
+                "properties": {
+                  "class": "item-label"
+                },
+                "dataUid": "uid-23"
+              }
+            ],
+            "properties": {
+              "class": "item-btn",
+              "id": "place-chair"
+            },
+            "dataUid": "uid-21"
+          },
+          {
+            "type": "container",
+            "sourceTag": "div",
+            "children": [
+              {
+                "type": "image",
+                "sourceTag": "img",
+                "properties": {
+                  "class": "item-icon",
+                  "src": "./ui/thumbnails/chair.png"
+                },
+                "dataUid": "uid-25"
+              },
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "Chair 2"
+                ],
+                "properties": {
+                  "class": "item-label"
+                },
+                "dataUid": "uid-26"
+              }
+            ],
+            "properties": {
+              "class": "item-btn",
+              "id": "place-chair2"
+            },
+            "dataUid": "uid-24"
+          },
+          {
+            "type": "container",
+            "sourceTag": "div",
+            "children": [
+              {
+                "type": "image",
+                "sourceTag": "img",
+                "properties": {
+                  "class": "item-icon",
+                  "src": "./ui/thumbnails/chair.png"
+                },
+                "dataUid": "uid-28"
+              },
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "Chair 3"
+                ],
+                "properties": {
+                  "class": "item-label"
+                },
+                "dataUid": "uid-29"
+              }
+            ],
+            "properties": {
+              "class": "item-btn",
+              "id": "place-chair3"
+            },
+            "dataUid": "uid-27"
+          },
+          {
+            "type": "container",
+            "sourceTag": "div",
+            "children": [
+              {
+                "type": "image",
+                "sourceTag": "img",
+                "properties": {
+                  "class": "item-icon",
+                  "src": "./ui/thumbnails/chair.png"
+                },
+                "dataUid": "uid-31"
+              },
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "Chair 4"
+                ],
+                "properties": {
+                  "class": "item-label"
+                },
+                "dataUid": "uid-32"
+              }
+            ],
+            "properties": {
+              "class": "item-btn",
+              "id": "place-chair4"
+            },
+            "dataUid": "uid-30"
+          },
+          {
+            "type": "container",
+            "sourceTag": "div",
+            "children": [
+              {
+                "type": "image",
+                "sourceTag": "img",
+                "properties": {
+                  "class": "item-icon",
+                  "src": "./ui/thumbnails/chair.png"
+                },
+                "dataUid": "uid-34"
+              },
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "Chair 5"
+                ],
+                "properties": {
+                  "class": "item-label"
+                },
+                "dataUid": "uid-35"
+              }
+            ],
+            "properties": {
+              "class": "item-btn",
+              "id": "place-chair5"
+            },
+            "dataUid": "uid-33"
+          },
+          {
+            "type": "container",
+            "sourceTag": "div",
+            "children": [
+              {
+                "type": "image",
+                "sourceTag": "img",
+                "properties": {
+                  "class": "item-icon",
+                  "src": "./ui/thumbnails/chair.png"
+                },
+                "dataUid": "uid-37"
+              },
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "Chair 6"
+                ],
+                "properties": {
+                  "class": "item-label"
+                },
+                "dataUid": "uid-38"
+              }
+            ],
+            "properties": {
+              "class": "item-btn",
+              "id": "place-chair6"
+            },
+            "dataUid": "uid-36"
+          }
+        ],
+        "properties": {
+          "class": "item-grid"
+        },
+        "dataUid": "uid-20"
+      },
+      {
+        "type": "container",
+        "sourceTag": "div",
+        "children": [
+          {
+            "sourceTag": "span",
+            "type": "custom",
+            "children": [
+              "Close"
+            ],
+            "properties": {
+              "class": "close-text"
+            },
+            "dataUid": "uid-40"
+          }
+        ],
+        "properties": {
+          "class": "close-btn",
+          "id": "close-placement"
+        },
+        "dataUid": "uid-39"
+      }
+    ],
+    "properties": {
+      "class": "panel-container"
+    },
+    "dataUid": "uid-1"
+  },
+  "classes": {
+    "panel-container": {
+      "content": {
+        "alignItems": "flex-start",
+        "padding": "2",
+        "width": "45",
+        "height": "auto",
+        "display": "flex",
+        "flexDirection": "column",
+        "backgroundColor": "#09090b",
+        "borderColor": "#27272a",
+        "borderWidth": "0.15",
+        "borderRadius": 2
+      }
+    },
+    "panel-header": {
+      "content": {
+        "display": "flex",
+        "flexDirection": "row",
+        "alignItems": "center",
+        "gap": "1",
+        "marginBottom": "1.5"
+      }
+    },
+    "heading": {
+      "content": {
+        "fontSize": "2.5",
+        "fontWeight": "bold",
+        "color": "#fafafa"
+      }
+    },
+    "section-label": {
+      "content": {
+        "fontSize": "1.6",
+        "fontWeight": "bold",
+        "color": "#a1a1aa",
+        "marginTop": "1.5",
+        "marginBottom": "0.5"
+      }
+    },
+    "item-grid": {
+      "content": {
+        "display": "flex",
+        "flexDirection": "row",
+        "flexWrap": "wrap",
+        "gap": "1",
+        "width": "100%"
+      }
+    },
+    "item-btn": {
+      "content": {
+        "width": "19",
+        "padding": "1.2",
+        "backgroundColor": "#18181b",
+        "borderRadius": 1.5,
+        "borderWidth": "0.1",
+        "borderColor": "#27272a",
+        "display": "flex",
+        "flexDirection": "column",
+        "alignItems": "center",
+        "justifyContent": "center",
+        "gap": "0.5",
+        "cursor": "pointer",
+        "hover": {
+          "backgroundColor": "#27272a"
+        }
+      }
+    },
+    "item-icon": {
+      "content": {
+        "width": "4",
+        "height": "4",
+        "objectFit": "contain"
+      }
+    },
+    "item-label": {
+      "content": {
+        "fontSize": "1.4",
+        "color": "#a1a1aa",
+        "textAlign": "center"
+      }
+    },
+    "close-btn": {
+      "content": {
+        "width": "100%",
+        "padding": "1",
+        "backgroundColor": "#27272a",
+        "borderRadius": 1,
+        "display": "flex",
+        "alignItems": "center",
+        "justifyContent": "center",
+        "marginTop": "2",
+        "cursor": "pointer",
+        "hover": {
+          "backgroundColor": "#3f3f46"
+        }
+      }
+    },
+    "close-text": {
+      "content": {
+        "fontSize": "1.6",
+        "color": "#fafafa"
+      }
+    }
+  },
+  "ranges": {
+    "panel-container": {
+      "start": {
+        "line": 1,
+        "column": 2
+      },
+      "end": {
+        "line": 1,
+        "column": 18
+      }
+    },
+    "panel-header": {
+      "start": {
+        "line": 14,
+        "column": 2
+      },
+      "end": {
+        "line": 14,
+        "column": 15
+      }
+    },
+    "heading": {
+      "start": {
+        "line": 22,
+        "column": 2
+      },
+      "end": {
+        "line": 22,
+        "column": 10
+      }
+    },
+    "section-label": {
+      "start": {
+        "line": 28,
+        "column": 2
+      },
+      "end": {
+        "line": 28,
+        "column": 16
+      }
+    },
+    "item-grid": {
+      "start": {
+        "line": 36,
+        "column": 2
+      },
+      "end": {
+        "line": 36,
+        "column": 12
+      }
+    },
+    "item-btn": {
+      "start": {
+        "line": 44,
+        "column": 2
+      },
+      "end": {
+        "line": 44,
+        "column": 11
+      }
+    },
+    "item-icon": {
+      "start": {
+        "line": 63,
+        "column": 2
+      },
+      "end": {
+        "line": 63,
+        "column": 12
+      }
+    },
+    "item-label": {
+      "start": {
+        "line": 69,
+        "column": 2
+      },
+      "end": {
+        "line": 69,
+        "column": 13
+      }
+    },
+    "close-btn": {
+      "start": {
+        "line": 75,
+        "column": 2
+      },
+      "end": {
+        "line": 75,
+        "column": 12
+      }
+    },
+    "close-text": {
+      "start": {
+        "line": 91,
+        "column": 2
+      },
+      "end": {
+        "line": 91,
+        "column": 13
+      }
+    },
+    "uid-1": {
+      "start": {
+        "line": 97,
+        "column": 0
+      },
+      "end": {
+        "line": 154,
+        "column": 6
+      }
+    },
+    "uid-2": {
+      "start": {
+        "line": 98,
+        "column": 2
+      },
+      "end": {
+        "line": 101,
+        "column": 8
+      }
+    },
+    "uid-3": {
+      "start": {
+        "line": 99,
+        "column": 4
+      },
+      "end": {
+        "line": 101,
+        "column": 2
+      }
+    },
+    "uid-4": {
+      "start": {
+        "line": 100,
+        "column": 4
+      },
+      "end": {
+        "line": 100,
+        "column": 44
+      }
+    },
+    "uid-5": {
+      "start": {
+        "line": 103,
+        "column": 2
+      },
+      "end": {
+        "line": 103,
+        "column": 50
+      }
+    },
+    "uid-6": {
+      "start": {
+        "line": 104,
+        "column": 2
+      },
+      "end": {
+        "line": 121,
+        "column": 8
+      }
+    },
+    "uid-7": {
+      "start": {
+        "line": 105,
+        "column": 4
+      },
+      "end": {
+        "line": 108,
+        "column": 10
+      }
+    },
+    "uid-8": {
+      "start": {
+        "line": 106,
+        "column": 6
+      },
+      "end": {
+        "line": 106,
+        "column": 65
+      }
+    },
+    "uid-9": {
+      "start": {
+        "line": 107,
+        "column": 6
+      },
+      "end": {
+        "line": 107,
+        "column": 43
+      }
+    },
+    "uid-10": {
+      "start": {
+        "line": 109,
+        "column": 4
+      },
+      "end": {
+        "line": 112,
+        "column": 10
+      }
+    },
+    "uid-11": {
+      "start": {
+        "line": 110,
+        "column": 6
+      },
+      "end": {
+        "line": 110,
+        "column": 66
+      }
+    },
+    "uid-12": {
+      "start": {
+        "line": 111,
+        "column": 6
+      },
+      "end": {
+        "line": 111,
+        "column": 40
+      }
+    },
+    "uid-13": {
+      "start": {
+        "line": 113,
+        "column": 4
+      },
+      "end": {
+        "line": 116,
+        "column": 10
+      }
+    },
+    "uid-14": {
+      "start": {
+        "line": 114,
+        "column": 6
+      },
+      "end": {
+        "line": 114,
+        "column": 59
+      }
+    },
+    "uid-15": {
+      "start": {
+        "line": 115,
+        "column": 6
+      },
+      "end": {
+        "line": 115,
+        "column": 41
+      }
+    },
+    "uid-16": {
+      "start": {
+        "line": 117,
+        "column": 4
+      },
+      "end": {
+        "line": 120,
+        "column": 10
+      }
+    },
+    "uid-17": {
+      "start": {
+        "line": 118,
+        "column": 6
+      },
+      "end": {
+        "line": 118,
+        "column": 58
+      }
+    },
+    "uid-18": {
+      "start": {
+        "line": 119,
+        "column": 6
+      },
+      "end": {
+        "line": 119,
+        "column": 40
+      }
+    },
+    "uid-19": {
+      "start": {
+        "line": 123,
+        "column": 2
+      },
+      "end": {
+        "line": 123,
+        "column": 46
+      }
+    },
+    "uid-20": {
+      "start": {
+        "line": 124,
+        "column": 2
+      },
+      "end": {
+        "line": 149,
+        "column": 8
+      }
+    },
+    "uid-21": {
+      "start": {
+        "line": 125,
+        "column": 4
+      },
+      "end": {
+        "line": 128,
+        "column": 10
+      }
+    },
+    "uid-22": {
+      "start": {
+        "line": 126,
+        "column": 6
+      },
+      "end": {
+        "line": 126,
+        "column": 61
+      }
+    },
+    "uid-23": {
+      "start": {
+        "line": 127,
+        "column": 6
+      },
+      "end": {
+        "line": 127,
+        "column": 43
+      }
+    },
+    "uid-24": {
+      "start": {
+        "line": 129,
+        "column": 4
+      },
+      "end": {
+        "line": 132,
+        "column": 10
+      }
+    },
+    "uid-25": {
+      "start": {
+        "line": 130,
+        "column": 6
+      },
+      "end": {
+        "line": 130,
+        "column": 61
+      }
+    },
+    "uid-26": {
+      "start": {
+        "line": 131,
+        "column": 6
+      },
+      "end": {
+        "line": 131,
+        "column": 45
+      }
+    },
+    "uid-27": {
+      "start": {
+        "line": 133,
+        "column": 4
+      },
+      "end": {
+        "line": 136,
+        "column": 10
+      }
+    },
+    "uid-28": {
+      "start": {
+        "line": 134,
+        "column": 6
+      },
+      "end": {
+        "line": 134,
+        "column": 61
+      }
+    },
+    "uid-29": {
+      "start": {
+        "line": 135,
+        "column": 6
+      },
+      "end": {
+        "line": 135,
+        "column": 45
+      }
+    },
+    "uid-30": {
+      "start": {
+        "line": 137,
+        "column": 4
+      },
+      "end": {
+        "line": 140,
+        "column": 10
+      }
+    },
+    "uid-31": {
+      "start": {
+        "line": 138,
+        "column": 6
+      },
+      "end": {
+        "line": 138,
+        "column": 61
+      }
+    },
+    "uid-32": {
+      "start": {
+        "line": 139,
+        "column": 6
+      },
+      "end": {
+        "line": 139,
+        "column": 45
+      }
+    },
+    "uid-33": {
+      "start": {
+        "line": 141,
+        "column": 4
+      },
+      "end": {
+        "line": 144,
+        "column": 10
+      }
+    },
+    "uid-34": {
+      "start": {
+        "line": 142,
+        "column": 6
+      },
+      "end": {
+        "line": 142,
+        "column": 61
+      }
+    },
+    "uid-35": {
+      "start": {
+        "line": 143,
+        "column": 6
+      },
+      "end": {
+        "line": 143,
+        "column": 45
+      }
+    },
+    "uid-36": {
+      "start": {
+        "line": 145,
+        "column": 4
+      },
+      "end": {
+        "line": 148,
+        "column": 10
+      }
+    },
+    "uid-37": {
+      "start": {
+        "line": 146,
+        "column": 6
+      },
+      "end": {
+        "line": 146,
+        "column": 61
+      }
+    },
+    "uid-38": {
+      "start": {
+        "line": 147,
+        "column": 6
+      },
+      "end": {
+        "line": 147,
+        "column": 45
+      }
+    },
+    "uid-39": {
+      "start": {
+        "line": 151,
+        "column": 2
+      },
+      "end": {
+        "line": 153,
+        "column": 8
+      }
+    },
+    "uid-40": {
+      "start": {
+        "line": 152,
+        "column": 4
+      },
+      "end": {
+        "line": 152,
+        "column": 41
+      }
+    }
+  }
+}

@@ -17,7 +17,8 @@
     "dev:landing-page": "turbo dev --filter=@smarthome/landing-page",
     "build": "turbo build",
     "lint": "turbo lint",
-    "set-ip": "node scripts/set-ip.js"
+    "set-ip": "node scripts/set-ip.js",
+    "postinstall": "node scripts/patch-uikitml.js"
   },
   "devDependencies": {
     "turbo": "^2.7.0"

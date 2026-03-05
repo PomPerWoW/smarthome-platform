@@ -1,0 +1,441 @@
+{
+  "element": {
+    "sourceTag": "panel",
+    "type": "custom",
+    "children": [
+      {
+        "sourceTag": "span",
+        "type": "custom",
+        "children": [
+          "Manual Room Alignment"
+        ],
+        "properties": {
+          "class": "title"
+        },
+        "dataUid": "uid-2"
+      },
+      {
+        "sourceTag": "span",
+        "type": "custom",
+        "children": [
+          "P: (0, 0, 0) R: 0°"
+        ],
+        "properties": {
+          "class": "status",
+          "id": "alignment-status"
+        },
+        "dataUid": "uid-3"
+      },
+      {
+        "sourceTag": "panel",
+        "type": "custom",
+        "children": [
+          {
+            "sourceTag": "button",
+            "type": "custom",
+            "children": [
+              "Left"
+            ],
+            "properties": {
+              "class": "action-btn",
+              "id": "btn-move-left"
+            },
+            "dataUid": "uid-5"
+          },
+          {
+            "sourceTag": "button",
+            "type": "custom",
+            "children": [
+              "Right"
+            ],
+            "properties": {
+              "class": "action-btn",
+              "id": "btn-move-right"
+            },
+            "dataUid": "uid-8"
+          }
+        ],
+        "properties": {
+          "class": "btn-row"
+        },
+        "dataUid": "uid-4"
+      },
+      {
+        "sourceTag": "panel",
+        "type": "custom",
+        "children": [
+          {
+            "sourceTag": "button",
+            "type": "custom",
+            "children": [
+              "Fwd"
+            ],
+            "properties": {
+              "class": "action-btn",
+              "id": "btn-move-fwd"
+            },
+            "dataUid": "uid-7"
+          },
+          {
+            "sourceTag": "button",
+            "type": "custom",
+            "children": [
+              "Back"
+            ],
+            "properties": {
+              "class": "action-btn",
+              "id": "btn-move-back"
+            },
+            "dataUid": "uid-6"
+          }
+        ],
+        "properties": {
+          "class": "btn-row"
+        },
+        "dataUid": "uid-4_2"
+      },
+      {
+        "sourceTag": "panel",
+        "type": "custom",
+        "children": [
+          {
+            "sourceTag": "button",
+            "type": "custom",
+            "children": [
+              "Y Up"
+            ],
+            "properties": {
+              "class": "action-btn",
+              "id": "btn-move-up"
+            },
+            "dataUid": "uid-10"
+          },
+          {
+            "sourceTag": "button",
+            "type": "custom",
+            "children": [
+              "Y Down"
+            ],
+            "properties": {
+              "class": "action-btn",
+              "id": "btn-move-down"
+            },
+            "dataUid": "uid-11"
+          }
+        ],
+        "properties": {
+          "class": "btn-row"
+        },
+        "dataUid": "uid-9"
+      },
+      {
+        "sourceTag": "panel",
+        "type": "custom",
+        "children": [
+          {
+            "sourceTag": "button",
+            "type": "custom",
+            "children": [
+              "Rot CCW"
+            ],
+            "properties": {
+              "class": "action-btn",
+              "id": "btn-rot-left"
+            },
+            "dataUid": "uid-12"
+          },
+          {
+            "sourceTag": "button",
+            "type": "custom",
+            "children": [
+              "Rot CW"
+            ],
+            "properties": {
+              "class": "action-btn",
+              "id": "btn-rot-right"
+            },
+            "dataUid": "uid-13"
+          }
+        ],
+        "properties": {
+          "class": "btn-row"
+        },
+        "dataUid": "uid-9_2"
+      },
+      {
+        "sourceTag": "button",
+        "type": "custom",
+        "children": [
+          "Save Room Alignment"
+        ],
+        "properties": {
+          "class": "save-btn",
+          "id": "btn-save-alignment"
+        },
+        "dataUid": "uid-14"
+      }
+    ],
+    "properties": {
+      "class": "panel-container"
+    },
+    "dataUid": "uid-1"
+  },
+  "classes": {
+    "panel-container": {
+      "content": {
+        "width": "600",
+        "height": "500",
+        "flexDirection": "column",
+        "backgroundColor": "#1a1a1a",
+        "borderRadius": 20,
+        "padding": "20",
+        "alignItems": "center",
+        "justifyContent": "space-between"
+      }
+    },
+    "title": {
+      "content": {
+        "fontSize": "32",
+        "color": "#ffffff",
+        "marginBottom": "10"
+      }
+    },
+    "status": {
+      "content": {
+        "fontSize": "20",
+        "color": "#aaaaaa",
+        "marginBottom": "20"
+      }
+    },
+    "btn-row": {
+      "content": {
+        "flexDirection": "row",
+        "justifyContent": "center",
+        "gap": "10",
+        "marginBottom": "10"
+      }
+    },
+    "action-btn": {
+      "content": {
+        "fontSize": "20",
+        "backgroundColor": "#3a3a3a",
+        "padding": "10",
+        "borderRadius": 10,
+        "width": "250",
+        "justifyContent": "center"
+      }
+    },
+    "save-btn": {
+      "content": {
+        "fontSize": "24",
+        "backgroundColor": "#007aff",
+        "color": "#ffffff",
+        "padding": "15",
+        "borderRadius": 15,
+        "width": "560"
+      }
+    }
+  },
+  "ranges": {
+    "panel-container": {
+      "start": {
+        "line": 1,
+        "column": 2
+      },
+      "end": {
+        "line": 1,
+        "column": 18
+      }
+    },
+    "title": {
+      "start": {
+        "line": 12,
+        "column": 2
+      },
+      "end": {
+        "line": 12,
+        "column": 8
+      }
+    },
+    "status": {
+      "start": {
+        "line": 18,
+        "column": 2
+      },
+      "end": {
+        "line": 18,
+        "column": 9
+      }
+    },
+    "btn-row": {
+      "start": {
+        "line": 24,
+        "column": 2
+      },
+      "end": {
+        "line": 24,
+        "column": 10
+      }
+    },
+    "action-btn": {
+      "start": {
+        "line": 31,
+        "column": 2
+      },
+      "end": {
+        "line": 31,
+        "column": 13
+      }
+    },
+    "save-btn": {
+      "start": {
+        "line": 38,
+        "column": 2
+      },
+      "end": {
+        "line": 38,
+        "column": 11
+      }
+    },
+    "uid-1": {
+      "start": {
+        "line": 48,
+        "column": 0
+      },
+      "end": {
+        "line": 67,
+        "column": 8
+      }
+    },
+    "uid-2": {
+      "start": {
+        "line": 49,
+        "column": 2
+      },
+      "end": {
+        "line": 49,
+        "column": 50
+      }
+    },
+    "uid-3": {
+      "start": {
+        "line": 50,
+        "column": 2
+      },
+      "end": {
+        "line": 50,
+        "column": 70
+      }
+    },
+    "uid-4": {
+      "start": {
+        "line": 52,
+        "column": 2
+      },
+      "end": {
+        "line": 57,
+        "column": 10
+      }
+    },
+    "uid-5": {
+      "start": {
+        "line": 53,
+        "column": 4
+      },
+      "end": {
+        "line": 53,
+        "column": 70
+      }
+    },
+    "uid-6": {
+      "start": {
+        "line": 54,
+        "column": 4
+      },
+      "end": {
+        "line": 54,
+        "column": 70
+      }
+    },
+    "uid-7": {
+      "start": {
+        "line": 55,
+        "column": 4
+      },
+      "end": {
+        "line": 55,
+        "column": 68
+      }
+    },
+    "uid-8": {
+      "start": {
+        "line": 56,
+        "column": 4
+      },
+      "end": {
+        "line": 56,
+        "column": 72
+      }
+    },
+    "uid-9": {
+      "start": {
+        "line": 59,
+        "column": 2
+      },
+      "end": {
+        "line": 64,
+        "column": 10
+      }
+    },
+    "uid-10": {
+      "start": {
+        "line": 60,
+        "column": 4
+      },
+      "end": {
+        "line": 60,
+        "column": 61
+      }
+    },
+    "uid-11": {
+      "start": {
+        "line": 61,
+        "column": 4
+      },
+      "end": {
+        "line": 61,
+        "column": 65
+      }
+    },
+    "uid-12": {
+      "start": {
+        "line": 62,
+        "column": 4
+      },
+      "end": {
+        "line": 62,
+        "column": 73
+      }
+    },
+    "uid-13": {
+      "start": {
+        "line": 63,
+        "column": 4
+      },
+      "end": {
+        "line": 63,
+        "column": 73
+      }
+    },
+    "uid-14": {
+      "start": {
+        "line": 66,
+        "column": 2
+      },
+      "end": {
+        "line": 66,
+        "column": 79
+      }
+    }
+  }
+}

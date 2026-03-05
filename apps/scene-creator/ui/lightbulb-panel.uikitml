@@ -249,7 +249,7 @@
   }
 
   .graph-row {
-    margin-top: 5;
+    margin-top: 0;
   }
 </style>
 
@@ -345,7 +345,6 @@
         </button>
       </div>
     </div>
-  </div>
     <!-- Graph Control -->
     <div class="control-row graph-row">
       <div>

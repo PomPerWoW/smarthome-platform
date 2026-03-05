@@ -5,44 +5,57 @@ const NO_MATCH = "Sorry, that's out of my scope.";
 
 function getEnUsLocalVoices(): SpeechSynthesisVoice[] {
   if (typeof window === "undefined" || !window.speechSynthesis) return [];
-  return window.speechSynthesis.getVoices().filter(
-    (v) => (v.lang === "en-US" || v.lang.startsWith("en-US")) && v.localService === true
-  );
+  return window.speechSynthesis
+    .getVoices()
+    .filter(
+      (v) =>
+        (v.lang === "en-US" || v.lang.startsWith("en-US")) &&
+        v.localService === true,
+    );
 }
 
 function getSamanthaOrFirst(): SpeechSynthesisVoice | null {
   const voices = getEnUsLocalVoices();
-  return voices.find((v) => v.name === PREFERRED_VOICE_NAME) || voices[0] || null;
+  return (
+    voices.find((v) => v.name === PREFERRED_VOICE_NAME) || voices[0] || null
+  );
 }
 
-function speakText(text: string): void {
-  if (typeof window === "undefined" || !window.speechSynthesis) return;
-  const synth = window.speechSynthesis;
-  const doSpeak = (): void => {
-    const voice = getSamanthaOrFirst();
-    synth.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = "en-US";
-    if (voice) u.voice = voice;
-    synth.speak(u);
-  };
-  if (synth.getVoices().length > 0) {
-    doSpeak();
-  } else {
-    synth.addEventListener("voiceschanged", doSpeak, { once: true });
-  }
+function speakText(text: string): Promise<void> {
+  return new Promise((resolve) => {
+    if (typeof window === "undefined" || !window.speechSynthesis) {
+      resolve();
+      return;
+    }
+    const synth = window.speechSynthesis;
+    const doSpeak = (): void => {
+      const voice = getSamanthaOrFirst();
+      synth.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = "en-US";
+      if (voice) u.voice = voice;
+      u.onend = () => resolve();
+      u.onerror = () => resolve();
+      synth.speak(u);
+    };
+    if (synth.getVoices().length > 0) {
+      doSpeak();
+    } else {
+      synth.addEventListener("voiceschanged", doSpeak, { once: true });
+    }
+  });
 }
 
-export function speakGreeting(): void {
-  speakText(GREETING);
+export function speakGreeting(): Promise<void> {
+  return speakText(GREETING);
 }
 
-export function speakSeeYouAgain(): void {
-  speakText(GOODBYE);
+export function speakSeeYouAgain(): Promise<void> {
+  return speakText(GOODBYE);
 }
 
-export function speakNoMatch(): void {
-  speakText(NO_MATCH);
+export function speakNoMatch(): Promise<void> {
+  return speakText(NO_MATCH);
 }
 
 // Format action name from backend format (e.g., "turn_on") to natural language (e.g., "turn on")

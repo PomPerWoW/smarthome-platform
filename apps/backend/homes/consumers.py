@@ -19,6 +19,7 @@ class HomeConsumer(AsyncWebsocketConsumer):
         # Join the group to receive SCADA updates
         await self.channel_layer.group_add(self.group_name, self.channel_name)
         await self.accept()
+        print(f"[HomeConsumer] ✅ Connection accepted for {user}")
 
     async def disconnect(self, close_code):
         await self.channel_layer.group_discard(self.group_name, self.channel_name)
@@ -47,23 +48,30 @@ class HomeConsumer(AsyncWebsocketConsumer):
 
         print("[HomeConsumer] received message from frontend:", data)
 
+        # Handle ping/pong heartbeat
+        if action == "ping":
+            await self.send(text_data=json.dumps({"type": "pong"}))
+            return
+
         if action in self.DEVICE_ACTIONS and device_id:
             scada_suffix, model_attr = self.DEVICE_ACTIONS[action]
-            
+            device_tag = await self.get_device_tag(device_id)
+
             if device_tag:
                 ScadaManager().send_command(f"{device_tag}{scada_suffix}", value)
-                await self.update_device_state(device_id, model_attr, value)
+            
+            await self.update_device_state(device_id, model_attr, value)
 
-                # Broadcast the update to all connected clients (Frontend & Scene Creator)
-                await self.channel_layer.group_send(
-                    self.group_name,
-                    {
-                        "type": "device_update",
-                        "device_id": device_id,
-                        "action": action,
-                        "value": value
-                    }
-                )
+            # Broadcast the update to all connected clients (Frontend & Scene Creator)
+            await self.channel_layer.group_send(
+                self.group_name,
+                {
+                    "type": "device_update",
+                    "device_id": device_id,
+                    "action": action,
+                    "value": value
+                }
+            )
 
     @database_sync_to_async
     def get_device_tag(self, device_id):
@@ -124,7 +132,8 @@ class HomeConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({
             "type": "device_update",
             "device_id": event["device_id"],
-            "action": event["action"]
+            "action": event["action"],
+            "value": event.get("value"),
         }))
 
     # 4. Receive smartmeter reading (via Channel Layer)

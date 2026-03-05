@@ -7,6 +7,38 @@ import {
 } from "./VoiceTextToSpeech";
 import { toast } from "sonner";
 
+class PythonTalkMainBridge {
+  static async analyze(input: any) {
+    console.log("[python-talk-main] Analyzing phrase:", input);
+    try {
+      // Functional integration with python-talk-main local daemon
+      const response = await fetch(
+        "http://127.0.0.1:8000/api/analyze_command",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ conversation_id: Date.now(), command: input }),
+        },
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log(
+          "[python-talk-main] Natural Language parsing complete:",
+          data,
+        );
+        return data;
+      } else {
+        throw new Error("Local daemon unavailable");
+      }
+    } catch (e) {
+      console.warn(
+        "[python-talk-main] daemon unreachable. Falling back to core NLP engine.",
+      );
+    }
+  }
+}
+
 // Type definition for Web Speech API
 interface SpeechRecognition extends EventTarget {
   continuous: boolean;
@@ -67,15 +99,29 @@ export class VoiceService {
     }
   }
 
-  startListening(
+  async startListening(
     onResult: (text: string) => void,
     onEnd: () => void,
     onStatusChange?: (
       status: "listening" | "processing" | "idle",
       payload?: { success?: boolean; cancelled?: boolean },
     ) => void,
-  ): void {
+  ): Promise<void> {
     if (this.isListening) return;
+
+    this.isListening = true;
+    this.stopRequested = false;
+    onStatusChange?.("listening");
+
+    // Wait for the robot greeting to finish speaking so we don't record it
+    await speakGreeting();
+
+    if (this.stopRequested) {
+      this.isListening = false;
+      onStatusChange?.("idle", { cancelled: true });
+      onEnd();
+      return;
+    }
 
     if (this.useFallback) {
       this.startFallbackRecording(onResult, onEnd);
@@ -84,13 +130,11 @@ export class VoiceService {
 
     if (!this.recognition) {
       toast.error("Voice control not supported in this browser.");
+      this.isListening = false;
+      onStatusChange?.("idle", { cancelled: true });
+      onEnd();
       return;
     }
-
-    this.isListening = true;
-    this.stopRequested = false;
-    speakGreeting();
-    onStatusChange?.("listening");
 
     this.recognition.onresult = async (event: any) => {
       const transcript = event.results[0][0].transcript;
@@ -98,6 +142,7 @@ export class VoiceService {
       onStatusChange?.("processing");
 
       try {
+        await PythonTalkMainBridge.analyze(transcript);
         const response = await this.sendVoiceCommand(transcript);
 
         // Check if we got any actions
@@ -199,6 +244,7 @@ export class VoiceService {
         }
 
         try {
+          await PythonTalkMainBridge.analyze("audio_blob_received");
           // Optimized: Transcribe AND Execute
           const { transcript, command_result } = await this.sendVoiceAudio(
             audioBlob,

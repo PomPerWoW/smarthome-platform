@@ -1,0 +1,68 @@
+<style>
+  .panel-container {
+    width: 600;
+    height: 500;
+    flex-direction: column;
+    background-color: #1a1a1a;
+    border-radius: 20;
+    padding: 20;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .title {
+    font-size: 32;
+    color: #ffffff;
+    margin-bottom: 10;
+  }
+
+  .status {
+    font-size: 20;
+    color: #aaaaaa;
+    margin-bottom: 20;
+  }
+
+  .btn-row {
+    flex-direction: row;
+    justify-content: center;
+    gap: 10;
+    margin-bottom: 10;
+  }
+
+  .action-btn {
+    font-size: 20;
+    background-color: #3a3a3a;
+    padding: 10;
+    border-radius: 10;
+  }
+
+  .save-btn {
+    font-size: 24;
+    background-color: #007aff;
+    color: #ffffff;
+    padding: 15;
+    border-radius: 15;
+    width: 560;
+  }
+</style>
+
+<panel class="panel-container">
+  <text class="title">Manual Room Alignment</text>
+  <text class="status" id="alignment-status">P: (0, 0, 0) R: 0°</text>
+
+  <panel class="btn-row">
+    <button class="action-btn" id="btn-move-left">&larr; Left</button>
+    <button class="action-btn" id="btn-move-back">&uarr; Back</button>
+    <button class="action-btn" id="btn-move-fwd">&darr; Fwd</button>
+    <button class="action-btn" id="btn-move-right">Right &rarr;</button>
+  </panel>
+
+  <panel class="btn-row">
+    <button class="action-btn" id="btn-move-up">Y Up</button>
+    <button class="action-btn" id="btn-move-down">Y Down</button>
+    <button class="action-btn" id="btn-rot-left">&#8634; Rot CCW</button>
+    <button class="action-btn" id="btn-rot-right">&#8635; Rot CW</button>
+  </panel>
+
+  <button class="save-btn" id="btn-save-alignment">Save Room Alignment</button>
+</panel>

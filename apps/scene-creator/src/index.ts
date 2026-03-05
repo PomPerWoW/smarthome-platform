@@ -30,10 +30,13 @@ import { VoiceControlSystem } from "./systems/VoiceControlSystem";
 import { VoicePanelSystem } from "./ui/VoicePanelSystem";
 // import { VoicePanel } from "./ui/VoicePanel"; // Legacy DOM panel
 import { RoomScanningSystem } from "./systems/RoomScanningSystem";
+import { RoomAlignmentSystem } from "./systems/RoomAlignmentSystem";
 import { PhysicsSystem } from "./systems/PhysicsSystem";
 import { RoomColliderSystem } from "./systems/RoomColliderSystem";
 import { DevicePlacementSystem } from "./systems/DevicePlacementSystem";
-import { RoomAlignmentSystem } from "./systems/RoomAlignmentSystem";
+import { PlacementPanelSystem } from "./ui/PlacementPanelSystem";
+import { RoomAlignmentPanelSystem } from "./ui/RoomAlignmentPanelSystem";
+
 import { initializeNavMesh, getRoomBounds } from "./config/navmesh";
 import { initializeCollision } from "./config/collision";
 import {
@@ -52,7 +55,6 @@ import {
   speakNoMatch,
 } from "./utils/VoiceTextToSpeech";
 import * as LucideIconsKit from "@pmndrs/uikit-lucide";
-import { Box3 } from "three";
 
 const assets: AssetManifest = {
   chimeSound: {
@@ -112,6 +114,31 @@ const assets: AssetManifest = {
   },
   chair: {
     url: "/models/furnitures/chair/chair.glb",
+    type: AssetType.GLTF,
+    priority: "critical",
+  },
+  chair2: {
+    url: "/models/furnitures/chair2/B07B4DBBPY.glb",
+    type: AssetType.GLTF,
+    priority: "critical",
+  },
+  chair3: {
+    url: "/models/furnitures/chair3/B07B7B244W.glb",
+    type: AssetType.GLTF,
+    priority: "critical",
+  },
+  chair4: {
+    url: "/models/furnitures/chair4/B073G6GTKL.glb",
+    type: AssetType.GLTF,
+    priority: "critical",
+  },
+  chair5: {
+    url: "/models/furnitures/chair5/B075X33T21.glb",
+    type: AssetType.GLTF,
+    priority: "critical",
+  },
+  chair6: {
+    url: "/models/furnitures/chair6/B071W5VD5C.glb",
     type: AssetType.GLTF,
     priority: "critical",
   },
@@ -176,54 +203,49 @@ async function main(): Promise<void> {
   const roomGltf = AssetManager.getGLTF("room_scene");
   if (roomGltf) {
     const roomModel = roomGltf.scene;
-    roomModel.scale.setScalar(0.5);
-    roomModel.position.set(-4.2, 0.8, 0.8); // Default position (overridden by RoomAlignmentSystem in AR)
+    // No scaling — LabPlan renders at real-world size (9m × 10.5m × 2.78m)
+    roomModel.position.set(0, 0, 0);
     world.scene.add(roomModel as any);
-    console.log("✅ Room scene loaded");
+    console.log("✅ Room scene loaded (1:1 scale)");
 
-    initializeNavMesh(roomModel as any, 0.5);
+    initializeNavMesh(roomModel as any, 1.0);
     console.log("✅ NavMesh initialized for lab room");
 
     initializeCollision(roomModel as any);
     console.log("✅ Collision meshes initialized for lab room");
 
-    // Store reference for RoomAlignmentSystem (set after systems are registered)
     (globalThis as any).__labRoomModel = roomModel;
   } else {
     console.warn("⚠️ Room scene not available");
   }
 
-  // Chair on lab room floor: raise so bottom of chair (casters) sits on floor
-  const labFloorY = 0.8;
+  // Chair on lab room floor: no scaling, real-world size
+  // LabPlan floor Y=0 at 1:1 scale
+  const labFloorY = 0;
   const chairGltf = AssetManager.getGLTF("chair");
   if (chairGltf) {
     const bounds = getRoomBounds();
     const chairModel = chairGltf.scene.clone();
-    chairModel.scale.setScalar(0.5);
+    // No scaling — chairs at real-world size
     chairModel.rotation.set(0, Math.PI, 0);
-    const chairBox = new Box3().setFromObject(chairModel as any);
-    const chairBottomY = chairBox.min.y;
     let x: number, z: number;
     if (bounds) {
-      x = (bounds.minX + bounds.maxX) * 0.5 - 0.5;
-      z = (bounds.minZ + bounds.maxZ) * 0.5 - 0.3;
+      x = (bounds.minX + bounds.maxX) * 0.5 - 1.0;
+      z = (bounds.minZ + bounds.maxZ) * 0.5 - 0.6;
     } else {
-      x = -1.0;
-      z = -1.2;
+      x = 3.5;
+      z = -5.0;
     }
-    chairModel.position.set(x, labFloorY - chairBottomY, z);
+    chairModel.position.set(x, labFloorY, z);
     world.scene.add(chairModel);
     console.log("✅ Chair placed inside room (floor-aligned)");
 
-    // Second chair at specific position [-0.6, 0, -1.5], facing forward
+    // Second chair
     const chairModel2 = chairGltf.scene.clone();
-    chairModel2.scale.setScalar(0.5);
-    chairModel2.rotation.set(0, 0, 0); // Face forward (opposite of chair 1)
-    const chairBox2 = new Box3().setFromObject(chairModel2 as any);
-    const chairBottomY2 = chairBox2.min.y;
-    const x2 = -0.6;
-    const z2 = -1.5;
-    chairModel2.position.set(x2, labFloorY - chairBottomY2, z2);
+    chairModel2.rotation.set(0, 0, 0);
+    const x2 = 5.0;
+    const z2 = -5.0;
+    chairModel2.position.set(x2, labFloorY, z2);
     world.scene.add(chairModel2);
     console.log("✅ Second chair placed inside room (floor-aligned)");
   } else {
@@ -246,21 +268,15 @@ async function main(): Promise<void> {
     .registerSystem(AirConditionerPanelSystem)
     .registerSystem(GraphPanelSystem)
     .registerSystem(RoomScanningSystem)
+    .registerSystem(RoomAlignmentSystem)
+    .registerSystem(RoomAlignmentPanelSystem)
     .registerSystem(PhysicsSystem)
     .registerSystem(RoomColliderSystem)
     .registerSystem(DevicePlacementSystem)
-    // .registerSystem(RoomAlignmentSystem)
-    .registerSystem(VoicePanelSystem);
+    .registerSystem(VoicePanelSystem)
+    .registerSystem(PlacementPanelSystem);
 
   console.log("✅ Systems registered");
-
-  const roomAlignmentSystem = world.getSystem(RoomAlignmentSystem);
-  if (roomAlignmentSystem) {
-    (globalThis as any).__roomAlignmentSystem = roomAlignmentSystem;
-    console.log(
-      "💡 Room alignment: call __realignRoom() to force re-alignment",
-    );
-  }
 
   const welcomePanel = world
     .createTransformEntity()
@@ -280,6 +296,20 @@ async function main(): Promise<void> {
 
   console.log("✅ Welcome panel created");
 
+  // Placement Panel (3D floating panel, starts hidden)
+  const placementPanel = world
+    .createTransformEntity()
+    .addComponent(PanelUI, {
+      config: "./ui/placement-panel.json",
+      maxHeight: 0.6,
+      maxWidth: 0.5,
+    })
+    .addComponent(Interactable);
+
+  placementPanel.object3D!.position.set(-0.6, 1.5, -0.8);
+  placementPanel.object3D!.visible = false; // Hidden until "Devices" button pressed
+  console.log("✅ Placement panel created (hidden)");
+
   // Voice Panel (3D)
   const voice3DPanel = world
     .createTransformEntity()
@@ -292,6 +322,21 @@ async function main(): Promise<void> {
 
   voice3DPanel.object3D!.position.set(0, 1.4, -0.4); // Initial position
   console.log("✅ Voice 3D Panel created");
+
+  // Room Alignment Panel (3D floating panel, starts hidden)
+  const alignmentPanel = world
+    .createTransformEntity()
+    .addComponent(PanelUI, {
+      config: "./ui/room-alignment-panel.json",
+      maxHeight: 0.6,
+      maxWidth: 0.5,
+    })
+    .addComponent(Interactable);
+
+  alignmentPanel.object3D!.position.set(0.6, 1.5, -0.8);
+  alignmentPanel.object3D!.visible = false; // Hidden until "Align Room" button pressed
+  (globalThis as any).__alignmentPanelEntity = alignmentPanel;
+  console.log("✅ Room Alignment panel created (hidden)");
 
   const store = getStore();
 
@@ -311,7 +356,8 @@ async function main(): Promise<void> {
   }
 
   const wsClient = getWebSocketClient();
-  wsClient.connect();
+  const authToken = auth.getToken();
+  wsClient.connect(authToken || undefined);
 
   console.log("\n👥 Initializing resident avatars...");
 

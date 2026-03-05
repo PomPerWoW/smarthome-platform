@@ -10,6 +10,8 @@ import {
   Euler,
 } from "@iwsdk/core";
 
+import { Vector3 } from "three";
+
 import { DeviceComponent } from "../components/DeviceComponent";
 import { deviceStore, getStore } from "../store/DeviceStore";
 import { DeviceType } from "../types";
@@ -145,10 +147,12 @@ export class FanPanelSystem extends createSystem({
     const rot = object3D.rotation;
     const scale = object3D.scale;
 
-    // Get world matrix rotation (accounts for parent transforms)
+    // Get world matrix rotation for debugging/display
     object3D.updateMatrixWorld(true);
     const worldQuaternion = object3D.getWorldQuaternion(new Quaternion());
-    const worldEuler = new Euler().setFromQuaternion(worldQuaternion);
+    const worldEuler = new Euler().setFromQuaternion(worldQuaternion as any);
+    const worldPos = new Vector3();
+    object3D.getWorldPosition(worldPos as any);
 
     const store = getStore();
     const device = store.getFan(deviceId);
@@ -162,7 +166,13 @@ export class FanPanelSystem extends createSystem({
       `╠══════════════════════════════════════════════════════════════╣`,
     );
     console.log(
-      `║ 📍 POSITION: X=${pos.x.toFixed(3)}, Y=${pos.y.toFixed(3)}, Z=${pos.z.toFixed(3)}`,
+      `║ 📍 LOCAL POSITION: X=${pos.x.toFixed(3)}, Y=${pos.y.toFixed(3)}, Z=${pos.z.toFixed(3)}`,
+    );
+    console.log(
+      `╠══════════════════════════════════════════════════════════════╣`,
+    );
+    console.log(
+      `║ 🌍 WORLD POSITION: X=${worldPos.x.toFixed(3)}, Y=${worldPos.y.toFixed(3)}, Z=${worldPos.z.toFixed(3)}`,
     );
     console.log(
       `╠══════════════════════════════════════════════════════════════╣`,
@@ -244,15 +254,12 @@ export class FanPanelSystem extends createSystem({
     const object3D = record.entity.object3D;
     const pos = object3D.position;
 
-    // Get world rotation Y (accounts for parent transforms)
-    object3D.updateMatrixWorld(true);
-    const worldQuaternion = object3D.getWorldQuaternion(new Quaternion());
-    const worldEuler = new Euler().setFromQuaternion(worldQuaternion);
-    const rotationY = (worldEuler.y * 180) / Math.PI;
+    // We now use local rotation
+    const rotationY = (object3D.rotation.y * 180) / Math.PI;
 
     console.log(
-      `[FanPanel] Saving position for device ${deviceId}:`,
-      `x: ${pos.x.toFixed(3)}, y: ${pos.y.toFixed(3)}, z: ${pos.z.toFixed(3)}, rotation_y: ${rotationY.toFixed(2)}° (world)`,
+      `[FanPanel] Saving local position for device ${deviceId}:`,
+      `x: ${pos.x.toFixed(3)}, y: ${pos.y.toFixed(3)}, z: ${pos.z.toFixed(3)}, rotation_y: ${rotationY.toFixed(2)}° (local)`,
     );
 
     try {

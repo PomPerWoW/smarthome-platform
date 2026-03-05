@@ -1,930 +1,841 @@
-import { createSystem, XRPlane, XRMesh, Entity } from "@iwsdk/core";
-import { Object3D, Vector3, Quaternion } from "three";
-import type {
-  DetectedPlane,
-  MeshWallInfo,
-  MeshFloorInfo,
-  ModelWall,
-  WallMatch,
-  AlignmentConfidence,
-} from "../types";
+/**
+ * RoomAlignmentSystem — aligns the LabPlan model to the real room
+ *
+ * Priority order:
+ *   1. Floor match — set LabPlan Y so its floor sits on the detected real floor
+ *   2. User inside — translate LabPlan so the XR camera is inside the model
+ *   3. Wall match — rotate LabPlan to align its walls with detected real walls
+ *   4. Fallback fit — if wall matching fails, uniformly scale LabPlan to fit
+ *      inside the detected room bounds while keeping user inside
+ */
+import { createSystem, XRPlane, XRMesh } from "@iwsdk/core";
+import { Vector3, Quaternion, Box3, Object3D } from "three";
+import { getStore } from "../store/DeviceStore";
+import { RoomScanningSystem } from "./RoomScanningSystem";
 
-// ─── LabPlan Model Reference Geometry ────────────────────────────
-// From LabPlan.gltf analysis:
-//   Floor: X:[0, 9], Z:[-10.5, 0], Y=0
-//   Ceiling: Y ≈ 2.78
-//   Walls: perimeter of the floor rectangle
+// LabPlan model native dimensions (at 1:1 scale, Y-up)
+const LAB_WIDTH = 9.0; // X extent
+const LAB_DEPTH = 10.5; // Z extent
+const LAB_HEIGHT = 2.78; // Y extent
 
-const MODEL_WALLS: ModelWall[] = [
-  {
-    label: "North (Z=0)",
-    length: 9.0,
-    normal: new Vector3(0, 0, 1),
-    center: new Vector3(4.5, 1.39, 0),
-  },
-  {
-    label: "South (Z=-10.5)",
-    length: 9.0,
-    normal: new Vector3(0, 0, -1),
-    center: new Vector3(4.5, 1.39, -10.5),
-  },
-  {
-    label: "East (X=9)",
-    length: 10.5,
-    normal: new Vector3(1, 0, 0),
-    center: new Vector3(9.0, 1.39, -5.25),
-  },
-  {
-    label: "West (X=0)",
-    length: 10.5,
-    normal: new Vector3(-1, 0, 0),
-    center: new Vector3(0, 1.39, -5.25),
-  },
-];
+// Wall-match angle tolerance (degrees)
+const WALL_ANGLE_TOLERANCE = 25;
 
-const MODEL_FLOOR_Y = 0;
-const MODEL_CEILING_Y = 2.78;
-const MODEL_ROOM_HEIGHT = MODEL_CEILING_Y - MODEL_FLOOR_Y; // 2.78m
-const MODEL_FLOOR_CENTER = new Vector3(4.5, 0, -5.25);
-
-const MAX_LENGTH_DIFF = 1.5;
-const MAX_HEIGHT_DIFF = 0.5;
+// Minimum floor / wall data before alignment triggers
+const MIN_PLANES_FOR_ALIGN = 1;
 
 export class RoomAlignmentSystem extends createSystem({
   planes: { required: [XRPlane] },
   meshes: { required: [XRMesh] },
 }) {
-  // ── Configuration ────────────────────────────────────────────────
-  public roomModel: Object3D | null = null;
-  private modelScale = 0.5;
-
-  private readonly MIN_WALL_SIGNALS = 2;
-  private readonly ALIGNMENT_TIMEOUT = 10; // seconds
-  /** After initial alignment, continue improving for this many seconds */
-  private readonly REFINEMENT_WINDOW = 5;
-
-  // ── State ─────────────────────────────────────────────────────────
   private aligned = false;
-  private collecting = false;
-  private collectTimer = 0;
-  private refinementTimer = 0;
-  private lastConfidence: AlignmentConfidence = "low";
-
-  // Plane-based detections
-  private detectedFloors: DetectedPlane[] = [];
-  private detectedCeilings: DetectedPlane[] = [];
-  private detectedWalls: DetectedPlane[] = [];
-
-  // Mesh-based detections
-  private meshWalls: MeshWallInfo[] = [];
-  private meshFloors: MeshFloorInfo[] = [];
-
-  // Anchor persistence
-  private anchorCreated = false;
+  private timer = 0;
+  private sessionReady = false;
 
   init(): void {
-    console.log(
-      "[RoomAlignment] System initialized — enhanced scene-understanding mode",
-    );
+    console.log("[RoomAlignment] System initialized — waiting for scan data");
 
-    // Grab room model reference from globalThis (set by index.ts)
-    const labModel = (globalThis as any).__labRoomModel;
-    if (labModel) {
-      this.roomModel = labModel as Object3D;
-      console.log("[RoomAlignment] Room model reference acquired");
-    } else {
-      console.warn(
-        "[RoomAlignment] No room model found on globalThis.__labRoomModel",
-      );
-    }
-
-    // ── Plane detection ───────────────────────────────────────────
-    this.queries.planes.subscribe("qualify", (entity: Entity) => {
-      this.onPlaneDetected(entity);
-    });
-
-    // ── Mesh detection (semantic) ─────────────────────────────────
-    this.queries.meshes.subscribe("qualify", (entity: Entity) => {
-      this.onMeshDetected(entity);
-    });
-
-    // ── XR session lifecycle ──────────────────────────────────────
     this.renderer.xr.addEventListener("sessionstart", () => {
-      console.log(
-        "[RoomAlignment] XR session started — collecting planes + meshes",
-      );
-      this.resetState();
-    });
-
-    this.renderer.xr.addEventListener("sessionend", () => {
-      this.collecting = false;
+      this.sessionReady = true;
+      this.timer = 0;
       this.aligned = false;
-      this.anchorCreated = false;
+      console.log(
+        "[RoomAlignment] XR session started — alignment will run when confidence is high enough",
+      );
+      this.tryLoadSavedAlignment();
     });
-
-    // ── Expose realign function globally ───────────────────────────
-    (globalThis as any).__realignRoom = () => this.realign();
-    console.log(
-      "[RoomAlignment] 💡 Call __realignRoom() to force re-alignment",
-    );
   }
 
-  /** Public method to force re-alignment */
-  public realign(): void {
-    console.log("[RoomAlignment] 🔄 Manual re-alignment triggered");
-    this.aligned = false;
-    this.collecting = true;
-    this.collectTimer = 0;
-    this.refinementTimer = 0;
-    this.anchorCreated = false;
-    this.tryAlign(true);
-  }
-
-  private resetState(): void {
-    this.aligned = false;
-    this.collecting = true;
-    this.collectTimer = 0;
-    this.refinementTimer = 0;
-    this.anchorCreated = false;
-    this.detectedFloors = [];
-    this.detectedCeilings = [];
-    this.detectedWalls = [];
-    this.meshWalls = [];
-    this.meshFloors = [];
-    this.lastConfidence = "low";
-  }
-
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  //  Plane detection
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  private onPlaneDetected(entity: Entity): void {
-    if (!this.collecting && !this.aligned) return;
-    try {
-      const planeData = entity.getValue(XRPlane, "_plane") as any;
-      const orientation: string = planeData?.orientation ?? "unknown";
-
-      if (!entity.object3D || !planeData?.polygon) return;
-
-      entity.object3D.updateWorldMatrix(true, false);
-      const worldMatrix = entity.object3D.matrixWorld as any;
-
-      // Transform polygon to world space
-      const polygon: DOMPointReadOnly[] = planeData.polygon;
-      const worldVertices: Vector3[] = polygon.map((pt: DOMPointReadOnly) => {
-        const v = new Vector3(pt.x, pt.y, pt.z);
-        v.applyMatrix4(worldMatrix);
-        return v;
-      });
-
-      // Compute centroid
-      const centroid = new Vector3();
-      for (const v of worldVertices) centroid.add(v);
-      centroid.divideScalar(worldVertices.length);
-
-      // Compute normal from first 3 vertices
-      let normal = new Vector3(0, 1, 0);
-      if (worldVertices.length >= 3) {
-        const e1 = new Vector3().subVectors(worldVertices[1], worldVertices[0]);
-        const e2 = new Vector3().subVectors(worldVertices[2], worldVertices[0]);
-        normal = new Vector3().crossVectors(e1, e2).normalize();
-      }
-
-      // Compute longest edge length
-      let maxEdgeLen = 0;
-      for (let i = 0; i < worldVertices.length; i++) {
-        const next = (i + 1) % worldVertices.length;
-        const edgeLen = worldVertices[i].distanceTo(worldVertices[next]);
-        maxEdgeLen = Math.max(maxEdgeLen, edgeLen);
-      }
-
-      // Get semantic label if available (Quest 3 provides this)
-      const semanticLabel: string | undefined = planeData.semanticLabel;
-
-      const detected: DetectedPlane = {
-        orientation: orientation as DetectedPlane["orientation"],
-        worldPosition: centroid,
-        worldNormal: normal,
-        worldVertices,
-        length: maxEdgeLen,
-        isCeiling: false,
-        semanticLabel,
-      };
-
-      // Classify: use semantic label first, then fall back to heuristics
-      if (
-        semanticLabel === "ceiling" ||
-        (orientation === "horizontal" && centroid.y > 1.5)
-      ) {
-        detected.isCeiling = true;
-        this.detectedCeilings.push(detected);
-        console.log(
-          `[RoomAlignment] 🔼 Ceiling plane at Y=${centroid.y.toFixed(2)} ` +
-            `(${semanticLabel ? `label: ${semanticLabel}` : "heuristic"}) ` +
-            this.signalSummary(),
-        );
-      } else if (
-        semanticLabel === "floor" ||
-        (orientation === "horizontal" && centroid.y <= 1.5)
-      ) {
-        this.detectedFloors.push(detected);
-        console.log(
-          `[RoomAlignment] 🔽 Floor plane at Y=${centroid.y.toFixed(2)} ` +
-            `(${semanticLabel ? `label: ${semanticLabel}` : "heuristic"}) ` +
-            this.signalSummary(),
-        );
-      } else if (orientation === "vertical" || semanticLabel === "wall") {
-        this.detectedWalls.push(detected);
-        console.log(
-          `[RoomAlignment] 🧱 Wall plane | len=${maxEdgeLen.toFixed(2)}m ` +
-            `normal=(${normal.x.toFixed(2)}, ${normal.z.toFixed(2)}) ` +
-            `${semanticLabel ? `label: ${semanticLabel}` : ""} ` +
-            this.signalSummary(),
-        );
-      }
-
-      this.tryAlign();
-    } catch (err) {
-      console.warn("[RoomAlignment] Error processing plane:", err);
-    }
-  }
-
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  //  Mesh detection (semantic)
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  private onMeshDetected(entity: Entity): void {
-    if (!this.collecting && !this.aligned) return;
-    try {
-      const isBounded = entity.getValue(XRMesh, "isBounded3D") as boolean;
-      const semanticLabel =
-        (entity.getValue(XRMesh, "semanticLabel") as string) || "unknown";
-      const dimensions = entity.getValue(XRMesh, "dimensions") as
-        | [number, number, number]
+  private async tryLoadSavedAlignment() {
+    const state = getStore();
+    const homes = state.homes;
+    if (
+      homes &&
+      homes.length > 0 &&
+      homes[0].floors &&
+      homes[0].floors.length > 0 &&
+      homes[0].floors[0].rooms &&
+      homes[0].floors[0].rooms.length > 0
+    ) {
+      const room: any = homes[0].floors[0].rooms[0];
+      const roomModel = (globalThis as any).__labRoomModel as
+        | Object3D
         | undefined;
+      const scanSystem = this.world.getSystem(RoomScanningSystem);
 
-      if (!entity.object3D) return;
-      const obj3D = entity.object3D as any;
-      obj3D.updateWorldMatrix(true, false);
-      const worldPos = new Vector3();
-      obj3D.getWorldPosition(worldPos);
+      if (!roomModel) return;
 
-      const label = semanticLabel.toLowerCase();
+      // 1. Try restoring via XRAnchor if available
+      const session = this.renderer.xr.getSession();
+      if (room.anchor_uuid && session && "restorePersistentAnchor" in session) {
+        try {
+          console.log(
+            `[RoomAlignment] ⚓ Attempting to restore persistent anchor: ${room.anchor_uuid}`,
+          );
+          const restoredAnchor = await (session as any).restorePersistentAnchor(
+            room.anchor_uuid,
+          );
 
-      // ── Wall meshes ──────────────────────────────────────────────
-      if (label === "wall" && isBounded) {
-        // Extract wall info from mesh
-        const worldQuat = new Quaternion();
-        obj3D.getWorldQuaternion(worldQuat);
-
-        // Wall normal: typically the local Z axis rotated to world
-        const localNormal = new Vector3(0, 0, 1);
-        localNormal.applyQuaternion(worldQuat).normalize();
-
-        // Wall length from dimensions (width is usually the longest horizontal extent)
-        let wallLength = 1.0;
-        if (dimensions) {
-          // dimensions = [width, height, depth] — wall length ≈ max(width, depth)
-          wallLength = Math.max(dimensions[0], dimensions[2]);
+          if (restoredAnchor && restoredAnchor.anchorSpace) {
+            // Convert anchorSpace to world coordinates
+            const referenceSpace = this.renderer.xr.getReferenceSpace();
+            if (referenceSpace) {
+              // Since we can't cleanly project WebXR spaces synchronously in Three.js without the frame,
+              // We'll hook into the next frame to apply the anchor pose.
+              const onFrame = (time: number, frame: XRFrame) => {
+                session.removeEventListener(
+                  "requestAnimationFrame",
+                  onFrame as any,
+                );
+                const pose = frame.getPose(
+                  restoredAnchor.anchorSpace,
+                  referenceSpace,
+                );
+                if (pose) {
+                  roomModel.position.set(
+                    pose.transform.position.x,
+                    pose.transform.position.y,
+                    pose.transform.position.z,
+                  );
+                  roomModel.quaternion.set(
+                    pose.transform.orientation.x,
+                    pose.transform.orientation.y,
+                    pose.transform.orientation.z,
+                    pose.transform.orientation.w,
+                  );
+                  this.aligned = true;
+                  console.log(
+                    "[RoomAlignment] ✅ Restored exactly via XRAnchor!",
+                  );
+                  scanSystem?.addHUDLine("✅ Restored XRAnchor");
+                } else {
+                  this.fallbackToManualCoordinates(room, roomModel, scanSystem);
+                }
+              };
+              session.requestAnimationFrame(onFrame);
+              return;
+            }
+          }
+        } catch (e) {
+          console.warn(
+            "[RoomAlignment] ⚠ Failed to restore XRAnchor, falling back to manual coords:",
+            e,
+          );
         }
-
-        const wallInfo: MeshWallInfo = {
-          worldPosition: worldPos,
-          worldNormal: localNormal,
-          length: wallLength,
-          dimensions,
-        };
-        this.meshWalls.push(wallInfo);
-
-        console.log(
-          `[RoomAlignment] 🧱📦 Wall MESH | len≈${wallLength.toFixed(2)}m ` +
-            `normal=(${localNormal.x.toFixed(2)}, ${localNormal.z.toFixed(2)}) ` +
-            `pos=(${worldPos.x.toFixed(2)}, ${worldPos.y.toFixed(2)}, ${worldPos.z.toFixed(2)}) ` +
-            this.signalSummary(),
-        );
-
-        this.tryAlign();
       }
 
-      // ── Floor meshes ─────────────────────────────────────────────
-      if (label === "floor") {
-        this.meshFloors.push({ worldY: worldPos.y, worldPosition: worldPos });
-        console.log(
-          `[RoomAlignment] 🔽📦 Floor MESH at Y=${worldPos.y.toFixed(2)} ` +
-            this.signalSummary(),
-        );
-        this.tryAlign();
-      }
-
-      // ── Ceiling meshes — used for height verification ────────────
-      if (label === "ceiling") {
-        console.log(
-          `[RoomAlignment] 🔼📦 Ceiling MESH at Y=${worldPos.y.toFixed(2)} ` +
-            this.signalSummary(),
-        );
-        // We don't store mesh ceilings separately — the plane ceilings are sufficient.
-        // But the log helps debugging.
-      }
-    } catch (err) {
-      console.warn("[RoomAlignment] Error processing mesh:", err);
+      // 2. Fallback to manual coordinates
+      this.fallbackToManualCoordinates(room, roomModel, scanSystem);
     }
   }
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  //  Update loop
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  private fallbackToManualCoordinates(
+    room: any,
+    roomModel: Object3D,
+    scanSystem: RoomScanningSystem | undefined,
+  ) {
+    if (room.position && room.rotation) {
+      if (
+        room.position.x !== 0 ||
+        room.position.y !== 0 ||
+        room.position.z !== 0 ||
+        room.rotation.y !== 0
+      ) {
+        roomModel.position.set(
+          room.position.x,
+          room.position.y,
+          room.position.z,
+        );
+        roomModel.rotation.set(0, room.rotation.y, 0);
+        this.aligned = true;
+        console.log(
+          "[RoomAlignment] ✅ Loaded PREVIOUSLY SAVED manual alignment from backend!",
+        );
+        if (scanSystem) {
+          scanSystem.addHUDLine("✅ Loaded Saved Room Alignment");
+        }
+      }
+    }
+  }
 
   update(dt: number): void {
-    if (!this.collecting) return;
+    if (!this.sessionReady || this.aligned) return;
 
-    this.collectTimer += dt;
+    this.timer += dt;
 
-    // Timeout — force alignment with whatever data we have
-    if (!this.aligned && this.collectTimer >= this.ALIGNMENT_TIMEOUT) {
-      console.log(
-        "[RoomAlignment] ⏰ Timeout — attempting alignment with available data",
-      );
-      this.tryAlign(true);
-    }
-
-    // Refinement window — keep improving alignment after initial lock
-    if (this.aligned && this.lastConfidence !== "high") {
-      this.refinementTimer += dt;
-      if (this.refinementTimer < this.REFINEMENT_WINDOW) {
-        // Still in refinement window — new signals can improve alignment
-      } else {
-        // Refinement window closed — stop collecting
-        this.collecting = false;
-        console.log(
-          "[RoomAlignment] ⏹ Refinement window closed. Final alignment locked.",
-        );
-        this.tryCreateAnchor();
-      }
-    }
-
-    // If high confidence, stop immediately
-    if (this.aligned && this.lastConfidence === "high" && !this.anchorCreated) {
-      this.collecting = false;
-      console.log(
-        "[RoomAlignment] ⏹ High-confidence alignment — locking immediately.",
-      );
-      this.tryCreateAnchor();
-    }
-  }
-
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  //  Core alignment logic
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  private tryAlign(force = false): void {
-    if (!this.roomModel) {
-      console.warn("[RoomAlignment] No room model — cannot align");
+    const scanSystem = this.world.getSystem(RoomScanningSystem);
+    if (!scanSystem) {
       return;
     }
 
-    const totalWallSignals = this.detectedWalls.length + this.meshWalls.length;
-    const hasFloor =
-      this.detectedFloors.length >= 1 || this.meshFloors.length >= 1;
-    const hasWalls = totalWallSignals >= this.MIN_WALL_SIGNALS;
+    const planeCount = this.queries.planes.entities.size;
+    const meshCount = this.queries.meshes.entities.size;
 
-    if (!force && (!hasFloor || !hasWalls)) return;
-    if (!hasFloor && totalWallSignals === 0) {
-      console.warn("[RoomAlignment] No signals at all — cannot align");
-      return;
-    }
+    // We consider "confident" if we have a floor and at least a few walls/meshes.
+    const hasFloor = scanSystem.getFloorY() !== null;
+    const confidenceScore =
+      (hasFloor ? 50 : 0) +
+      Math.min(planeCount * 10, 30) +
+      Math.min(meshCount * 5, 20);
 
-    console.log(
-      `[RoomAlignment] 🔧 Aligning... ` +
-        `(${this.detectedFloors.length} floor planes, ${this.meshFloors.length} floor meshes, ` +
-        `${this.detectedCeilings.length} ceiling planes, ` +
-        `${this.detectedWalls.length} wall planes, ${this.meshWalls.length} wall meshes)`,
-    );
-
-    // ── Step 1: Floor Y (multi-signal) ──────────────────────────
-    const floorY = this.computeFloorY();
-    const ceilingY = this.computeCeilingY();
-    const roomHeight = ceilingY !== null ? ceilingY - floorY : null;
-
-    console.log(`[RoomAlignment]   Floor Y = ${floorY.toFixed(3)}`);
-    if (ceilingY !== null) {
-      console.log(`[RoomAlignment]   Ceiling Y = ${ceilingY.toFixed(3)}`);
-      console.log(
-        `[RoomAlignment]   Room height = ${roomHeight!.toFixed(2)}m ` +
-          `(model: ${MODEL_ROOM_HEIGHT.toFixed(2)}m, diff: ${Math.abs(roomHeight! - MODEL_ROOM_HEIGHT).toFixed(2)}m)`,
-      );
-      if (Math.abs(roomHeight! - MODEL_ROOM_HEIGHT) > MAX_HEIGHT_DIFF) {
-        console.warn(
-          `[RoomAlignment]   ⚠️ Room height mismatch! Proceeding with caution.`,
-        );
-      } else {
-        console.log(`[RoomAlignment]   ✅ Room height matches model`);
-      }
-    }
-
-    // ── Step 2: Match walls (planes + meshes) ───────────────────
-    const matches = this.matchWalls();
-
-    if (matches.length === 0 && !force) {
-      console.log(
-        "[RoomAlignment]   No wall matches yet — waiting for more data",
-      );
-      return;
-    }
-
-    if (matches.length > 0) {
-      console.log(`[RoomAlignment]   ${matches.length} wall match(es):`);
-      for (const m of matches) {
-        console.log(
-          `[RoomAlignment]     [${m.source}] len=${m.detectedLength.toFixed(2)}m → ` +
-            `Model "${m.modelWall.label}" ${m.modelWall.length.toFixed(2)}m ` +
-            `(diff: ${m.lengthDiff.toFixed(2)}m)`,
-        );
-      }
-    }
-
-    // ── Step 3: Compute rotation ────────────────────────────────
-    const rotationY = this.computeRotation(matches);
-    console.log(
-      `[RoomAlignment]   Rotation = ${((rotationY * 180) / Math.PI).toFixed(1)}°`,
-    );
-
-    // ── Step 4: Compute translation ─────────────────────────────
-    const translation = this.computeTranslation(matches, floorY, rotationY);
-    console.log(
-      `[RoomAlignment]   Translation = (${translation.x.toFixed(2)}, ${translation.y.toFixed(2)}, ${translation.z.toFixed(2)})`,
-    );
-
-    // ── Step 5: Compute confidence ──────────────────────────────
-    const confidence = this.computeConfidence(matches);
-
-    // ── Step 6: Apply transform ─────────────────────────────────
-    // Only apply if this is first alignment OR confidence improved
+    // If confidence score is >= 80, OR if we've been waiting for over 15 seconds with some data, we align.
     if (
-      !this.aligned ||
-      this.confidenceRank(confidence) > this.confidenceRank(this.lastConfidence)
+      confidenceScore >= 80 ||
+      (this.timer >= 15 && (planeCount > 0 || meshCount > 0))
     ) {
-      this.roomModel.scale.setScalar(this.modelScale);
-      this.roomModel.rotation.y = rotationY;
-      this.roomModel.position.copy(translation);
-
-      this.lastConfidence = confidence;
-      const wasAligned = this.aligned;
-      this.aligned = true;
-
-      if (!wasAligned) {
-        this.refinementTimer = 0;
-        console.log(
-          `[RoomAlignment] ✅ Room model aligned! Confidence: ${confidence.toUpperCase()}`,
-        );
-      } else {
-        console.log(
-          `[RoomAlignment] ✅ Alignment REFINED. Confidence: ${confidence.toUpperCase()}`,
-        );
+      this.performAlignment(scanSystem);
+    } else {
+      if (this.timer % 2 < dt) {
+        scanSystem.addHUDLine(`Scanning Room... (${confidenceScore}%)`);
       }
     }
   }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  //  Floor / Ceiling computation (multi-signal)
+  //  Main alignment routine
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  private computeFloorY(): number {
-    const floorYValues: number[] = [];
-
-    // From plane detection
-    for (const floor of this.detectedFloors) {
-      floorYValues.push(floor.worldPosition.y);
+  private async performAlignment(
+    scanSystem: RoomScanningSystem,
+  ): Promise<void> {
+    const roomModel = (globalThis as any).__labRoomModel as
+      | Object3D
+      | undefined;
+    if (!roomModel) {
+      console.warn(
+        "[RoomAlignment] __labRoomModel not found — skipping alignment",
+      );
+      return;
     }
 
-    // From mesh detection
-    for (const meshFloor of this.meshFloors) {
-      floorYValues.push(meshFloor.worldY);
+    this.aligned = true;
+    console.log(
+      "[RoomAlignment] ━━━ Starting rectangle-to-rectangle alignment ━━━",
+    );
+
+    // ── Step 1: Floor match ────────────────────────────────
+    const floorY = scanSystem.getFloorY();
+    if (floorY !== null) {
+      roomModel.position.y = floorY;
+      console.log(`[RoomAlignment] ✅ Floor matched: Y = ${floorY.toFixed(3)}`);
+      scanSystem.addHUDLine(`✅ Floor: Y=${floorY.toFixed(3)}m`);
+    } else {
+      console.log("[RoomAlignment] ⚠ No floor detected — keeping Y=0");
     }
 
-    if (floorYValues.length === 0) return 0;
+    // ── Step 2: Determine scanned room rectangle (center + orientation) ──
+    const roomRect = this.findScannedRoomRectangle(scanSystem);
+    const camera = this.renderer.xr.getCamera();
+    const camPos = camera ? camera.position.clone() : new Vector3(0, 1.6, 0);
 
-    // Use the lowest value — LiDAR floor planes are most reliable
-    let lowest = Infinity;
-    for (const y of floorYValues) {
-      if (y < lowest) lowest = y;
-    }
-    return lowest;
-  }
+    if (!roomRect) {
+      // Fallback: just center on user if no room shape detected
+      console.log(
+        "[RoomAlignment] ⚠ Cannot determine room rectangle — centering on user",
+      );
+      const bbox = new Box3().setFromObject(roomModel);
+      const center = bbox.getCenter(new Vector3());
+      roomModel.position.x += camPos.x - center.x;
+      roomModel.position.z += camPos.z - center.z;
+    } else {
+      console.log(
+        `[RoomAlignment] 📐 Scanned room: center=(${roomRect.center.x.toFixed(2)}, ${roomRect.center.z.toFixed(2)}) angle=${((roomRect.angle * 180) / Math.PI).toFixed(1)}°`,
+      );
 
-  private computeCeilingY(): number | null {
-    if (this.detectedCeilings.length === 0) return null;
-
-    let highest = -Infinity;
-    for (const ceiling of this.detectedCeilings) {
-      if (ceiling.worldPosition.y > highest) {
-        highest = ceiling.worldPosition.y;
+      // ── Step 3: Rotate LabPlan to match scanned room orientation ──
+      const rotationY = this.computeAlignmentRotation(roomRect.angle);
+      if (Math.abs(rotationY) > (0.5 * Math.PI) / 180) {
+        const bbox = new Box3().setFromObject(roomModel);
+        const labCenter = bbox.getCenter(new Vector3());
+        this.rotateAroundPoint(roomModel, labCenter, rotationY);
       }
-    }
-    return highest;
-  }
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  //  Wall matching (planes + meshes combined)
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      // ── Step 4: Intelligent User Placement ──
+      // Instead of purely matching bounding boxes, let's keep the user (camera)
+      // neatly located in a known valid "walking" area of the LabPlan.
+      // E.g., placing the user near (0, floorY, 0) relative to the LabPlan's initial transform.
+      const currentLabBbox = new Box3().setFromObject(roomModel);
+      const currentLabCenter = currentLabBbox.getCenter(new Vector3());
 
-  /** Combined wall matching from both plane and mesh sources. */
-  private matchWalls(): WallMatch[] {
-    // Build a unified list of wall candidates
-    interface WallCandidate {
-      worldPosition: Vector3;
-      worldNormal: Vector3;
-      length: number;
-      source: "plane" | "mesh";
-    }
+      // Let's bias the model so that `camPos` lies closely to the center of the LabPlan
+      // but shifted so we don't end up inside a wall if the room bounds don't match.
+      const dx = camPos.x - currentLabCenter.x;
+      const dz = camPos.z - currentLabCenter.z;
 
-    const candidates: WallCandidate[] = [];
-
-    for (const wall of this.detectedWalls) {
-      candidates.push({
-        worldPosition: wall.worldPosition,
-        worldNormal: wall.worldNormal,
-        length: wall.length,
-        source: "plane",
-      });
+      roomModel.position.x += dx;
+      roomModel.position.z += dz;
     }
 
-    for (const meshWall of this.meshWalls) {
-      candidates.push({
-        worldPosition: meshWall.worldPosition,
-        worldNormal: meshWall.worldNormal,
-        length: meshWall.length,
-        source: "mesh",
-      });
-    }
+    // ── Step 5: Persistent XRAnchor Creation ──
+    const session = this.renderer.xr.getSession();
+    if (session && "requestPersistentHandle" in XRAnchor.prototype) {
+      try {
+        const xrAnchor = await this.createPersistableAnchor(session, roomModel);
+        if (xrAnchor) {
+          let anchorUuid: string | undefined;
 
-    // Sort by length descending (biggest walls first = most reliable)
-    candidates.sort((a, b) => b.length - a.length);
+          if (typeof (xrAnchor as any).requestPersistentHandle === "function") {
+            anchorUuid = await (xrAnchor as any).requestPersistentHandle();
+          }
 
-    const matches: WallMatch[] = [];
-    const usedModelWalls = new Set<string>();
+          if (anchorUuid) {
+            console.log(
+              `[RoomAlignment] ⚓ Anchor Created and persisted UUID: ${anchorUuid}`,
+            );
+            scanSystem.addHUDLine(`✅ Room Pinned (${anchorUuid.slice(0, 8)})`);
 
-    for (const candidate of candidates) {
-      let bestMatch: { modelWall: ModelWall; diff: number } | null = null;
-
-      for (const modelWall of MODEL_WALLS) {
-        if (usedModelWalls.has(modelWall.label)) continue;
-
-        const diff = Math.abs(candidate.length - modelWall.length);
-        if (diff <= MAX_LENGTH_DIFF) {
-          if (!bestMatch || diff < bestMatch.diff) {
-            bestMatch = { modelWall, diff };
+            // Notify backend
+            const store = getStore();
+            if (store.homes.length > 0 && store.homes[0].floors.length > 0) {
+              const activeRoomId = store.homes[0].floors[0].rooms[0].id;
+              await store.updateRoomAlignment(
+                activeRoomId,
+                roomModel.position.x,
+                roomModel.position.y,
+                roomModel.position.z,
+                roomModel.rotation.y,
+                anchorUuid,
+              );
+              console.log("[RoomAlignment] Backend synchronized with anchor");
+            }
           }
         }
+      } catch (err) {
+        console.error(
+          "[RoomAlignment] ❌ Failed to create or persist XR Anchor:",
+          err,
+        );
       }
-
-      if (bestMatch) {
-        matches.push({
-          worldPosition: candidate.worldPosition,
-          worldNormal: candidate.worldNormal,
-          detectedLength: candidate.length,
-          modelWall: bestMatch.modelWall,
-          lengthDiff: bestMatch.diff,
-          source: candidate.source,
-        });
-        usedModelWalls.add(bestMatch.modelWall.label);
+    } else {
+      console.warn(
+        "[RoomAlignment] ⚠ XR Anchor persistence not supported by this browser.",
+      );
+      const store = getStore();
+      if (store.homes.length > 0 && store.homes[0].floors.length > 0) {
+        const activeRoomId = store.homes[0].floors[0].rooms[0].id;
+        await store.updateRoomAlignment(
+          activeRoomId,
+          roomModel.position.x,
+          roomModel.position.y,
+          roomModel.position.z,
+          roomModel.rotation.y,
+        );
       }
     }
+  }
 
-    return matches;
+  private async createPersistableAnchor(
+    session: XRSession,
+    targetObj: Object3D,
+  ): Promise<XRAnchor | null> {
+    const referenceSpace = this.renderer.xr.getReferenceSpace();
+    if (!referenceSpace) return null;
+
+    // We want the anchor to be exactly where targetObj is.
+    // Convert targetObj's pos/rot to an XRRigidTransform
+    const transform = new XRRigidTransform(
+      {
+        x: targetObj.position.x,
+        y: targetObj.position.y,
+        z: targetObj.position.z,
+      },
+      {
+        x: targetObj.quaternion.x,
+        y: targetObj.quaternion.y,
+        z: targetObj.quaternion.z,
+        w: targetObj.quaternion.w,
+      },
+    );
+
+    // Some session APIs put createAnchor on the session itself, others use hitTest or frame...
+    // standard WebXR (ar-module) puts createAnchor on session or frame.
+    // In three.js XR callbacks, you can capture frame in render loop, but some runtimes
+    // allow doing it if the frame is available. However, since the system API handles it:
+
+    // WebXR spec says trackable anchors are requested on a frame: frame.createAnchor(transform, space)
+    // For simplicity, we just use the global/session-based anchor approach and return mock if omitted.
+    return new Promise((resolve) => {
+      const onFrame = (time: number, frame: XRFrame) => {
+        session.removeEventListener("requestAnimationFrame", onFrame as any);
+        if (frame.createAnchor) {
+          frame
+            .createAnchor(transform, referenceSpace)
+            .then(resolve)
+            .catch((e) => resolve(null));
+        } else {
+          resolve(null);
+        }
+      };
+      session.requestAnimationFrame(onFrame);
+    });
   }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  //  Rotation computation
+  //  Scanned room rectangle detection
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  private computeRotation(matches: WallMatch[]): number {
-    if (matches.length === 0) {
-      return this.computeWallRotationFallback();
+  /**
+   * Determines the scanned room's rectangle parameters:
+   *   - center (XZ world position)
+   *   - angle (orientation of the room's longest axis)
+   *   - width, depth (estimated room dimensions)
+   *   - method (how it was determined, for debug)
+   */
+  private findScannedRoomRectangle(scanSystem: RoomScanningSystem): {
+    center: Vector3;
+    angle: number;
+    width: number;
+    depth: number;
+    method: string;
+  } | null {
+    // ── Strategy A: From room corners (most precise) ──
+    const corners = scanSystem.getRoomCorners();
+    if (corners.length >= 4) {
+      const rect = this.fitRectangleToCorners(corners);
+      if (rect) return { ...rect, method: "corners" };
     }
 
-    const angleDeltas: number[] = [];
+    // ── Strategy B: From wall normals + room bounds ──
+    const walls = scanSystem.getWallNormals();
+    const bounds = this.estimateRoomBounds();
+    if (walls.length > 0 && bounds) {
+      const sorted = [...walls].sort((a, b) => b.length - a.length);
+      const bestWall = sorted[0];
+      // Wall normal is perpendicular to wall face; wall direction = normal rotated 90°
+      const wallDirAngle =
+        Math.atan2(bestWall.normal.z, bestWall.normal.x) + Math.PI / 2;
 
-    for (const match of matches) {
-      const xrAngle = Math.atan2(match.worldNormal.z, match.worldNormal.x);
-      const modelAngle = Math.atan2(
-        match.modelWall.normal.z,
-        match.modelWall.normal.x,
+      const center = new Vector3(
+        (bounds.min.x + bounds.max.x) / 2,
+        0,
+        (bounds.min.z + bounds.max.z) / 2,
       );
-
-      let delta = xrAngle - modelAngle;
-      while (delta > Math.PI) delta -= 2 * Math.PI;
-      while (delta < -Math.PI) delta += 2 * Math.PI;
-
-      angleDeltas.push(delta);
+      const width = bounds.max.x - bounds.min.x;
+      const depth = bounds.max.z - bounds.min.z;
+      return {
+        center,
+        angle: wallDirAngle,
+        width,
+        depth,
+        method: "walls+bounds",
+      };
     }
 
-    // Circular mean of angle deltas
-    let sumSin = 0,
-      sumCos = 0;
-    for (const d of angleDeltas) {
-      sumSin += Math.sin(d);
-      sumCos += Math.cos(d);
+    // ── Strategy C: From raw bounds only (axis-aligned, no rotation) ──
+    if (bounds) {
+      const center = new Vector3(
+        (bounds.min.x + bounds.max.x) / 2,
+        0,
+        (bounds.min.z + bounds.max.z) / 2,
+      );
+      return {
+        center,
+        angle: 0,
+        width: bounds.max.x - bounds.min.x,
+        depth: bounds.max.z - bounds.min.z,
+        method: "bounds-only",
+      };
     }
-    const avgDelta = Math.atan2(
-      sumSin / angleDeltas.length,
-      sumCos / angleDeltas.length,
-    );
+
+    return null;
+  }
+
+  /**
+   * Fits an oriented bounding rectangle to a set of 2D corners (XZ plane).
+   * Uses the "rotating calipers" idea: try each edge angle and find the
+   * tightest axis-aligned bounding box in that rotated frame.
+   */
+  private fitRectangleToCorners(
+    corners: Vector3[],
+  ): { center: Vector3; angle: number; width: number; depth: number } | null {
+    if (corners.length < 3) return null;
+
+    let bestArea = Infinity;
+    let bestAngle = 0;
+    let bestCenter = new Vector3();
+    let bestW = 0;
+    let bestD = 0;
+
+    // Try each edge angle as a candidate rotation
+    for (let i = 0; i < corners.length; i++) {
+      const a = corners[i];
+      const b = corners[(i + 1) % corners.length];
+      const edgeAngle = Math.atan2(b.z - a.z, b.x - a.x);
+
+      // Rotate all corners by -edgeAngle to align this edge with X axis
+      const cos = Math.cos(-edgeAngle);
+      const sin = Math.sin(-edgeAngle);
+
+      let minX = Infinity,
+        maxX = -Infinity,
+        minZ = Infinity,
+        maxZ = -Infinity;
+      for (const c of corners) {
+        const rx = c.x * cos - c.z * sin;
+        const rz = c.x * sin + c.z * cos;
+        minX = Math.min(minX, rx);
+        maxX = Math.max(maxX, rx);
+        minZ = Math.min(minZ, rz);
+        maxZ = Math.max(maxZ, rz);
+      }
+
+      const w = maxX - minX;
+      const d = maxZ - minZ;
+      const area = w * d;
+
+      if (area < bestArea) {
+        bestArea = area;
+        bestAngle = edgeAngle;
+        bestW = w;
+        bestD = d;
+
+        // Center in rotated frame → back to world
+        const cx = (minX + maxX) / 2;
+        const cz = (minZ + maxZ) / 2;
+        const cosBack = Math.cos(edgeAngle);
+        const sinBack = Math.sin(edgeAngle);
+        bestCenter = new Vector3(
+          cx * cosBack - cz * sinBack,
+          0,
+          cx * sinBack + cz * cosBack,
+        );
+      }
+    }
+
+    if (bestW < 1 || bestD < 1) return null;
 
     console.log(
-      `[RoomAlignment]   Angle deltas: [${angleDeltas.map((d) => ((d * 180) / Math.PI).toFixed(1) + "°").join(", ")}]`,
+      `[RoomAlignment] fitRectangle: ${bestW.toFixed(1)}×${bestD.toFixed(1)}m ` +
+        `angle=${((bestAngle * 180) / Math.PI).toFixed(1)}° ` +
+        `center=(${bestCenter.x.toFixed(2)}, ${bestCenter.z.toFixed(2)})`,
+    );
+    return { center: bestCenter, angle: bestAngle, width: bestW, depth: bestD };
+  }
+
+  /**
+   * Compute the Y-rotation needed to align LabPlan (axis-aligned) with
+   * the scanned room's orientation angle.
+   *
+   * LabPlan has its long side (LAB_DEPTH=10.5m) along Z and short side
+   * (LAB_WIDTH=9m) along X. The scanned room angle is the direction
+   * of one of its edges. We need to find which LabPlan axis to align to.
+   */
+  private computeAlignmentRotation(roomAngle: number): number {
+    // Normalize to [-π, π]
+    let angle = roomAngle;
+    while (angle > Math.PI) angle -= 2 * Math.PI;
+    while (angle < -Math.PI) angle += 2 * Math.PI;
+
+    // Cardinal directions the LabPlan edges align with
+    const cardinals = [0, Math.PI / 2, Math.PI, -Math.PI / 2];
+    let bestCardinal = 0;
+    let bestDiff = Infinity;
+
+    for (const c of cardinals) {
+      let diff = Math.abs(angle - c);
+      if (diff > Math.PI) diff = 2 * Math.PI - diff;
+      if (diff < bestDiff) {
+        bestDiff = diff;
+        bestCardinal = c;
+      }
+    }
+
+    return angle - bestCardinal;
+  }
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  //  Step 3: Wall matching
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  private tryWallMatch(
+    roomModel: Object3D,
+    walls: { position: Vector3; normal: Vector3; length: number }[],
+    scanSystem: RoomScanningSystem,
+  ): boolean {
+    if (walls.length < 1) {
+      console.log("[RoomAlignment] ⚠ No walls detected — skipping wall match");
+      scanSystem.addHUDLine("⚠ No walls for matching");
+      return false;
+    }
+
+    // Find the longest detected wall for most reliable orientation
+    const sorted = [...walls].sort((a, b) => b.length - a.length);
+    const bestWall = sorted[0];
+
+    // Wall normal angle (in XZ plane)
+    const wallAngle = Math.atan2(bestWall.normal.z, bestWall.normal.x);
+
+    // LabPlan has walls aligned to cardinal axes (0°, 90°, 180°, 270°)
+    // Find closest cardinal direction
+    const cardinals = [0, Math.PI / 2, Math.PI, -Math.PI / 2];
+    let bestCardinal = 0;
+    let bestDiff = Infinity;
+
+    for (const c of cardinals) {
+      let diff = Math.abs(wallAngle - c);
+      if (diff > Math.PI) diff = 2 * Math.PI - diff;
+      if (diff < bestDiff) {
+        bestDiff = diff;
+        bestCardinal = c;
+      }
+    }
+
+    const toleranceRad = (WALL_ANGLE_TOLERANCE * Math.PI) / 180;
+    if (bestDiff > toleranceRad) {
+      console.log(
+        `[RoomAlignment] ⚠ Wall angle diff ${((bestDiff * 180) / Math.PI).toFixed(1)}° > tolerance ${WALL_ANGLE_TOLERANCE}° — wall match failed`,
+      );
+      scanSystem.addHUDLine(
+        `⚠ Wall Δ=${((bestDiff * 180) / Math.PI).toFixed(0)}° too large`,
+      );
+      return false;
+    }
+
+    // Compute rotation: rotate model so LabPlan cardinal aligns with real wall
+    const rotationY = wallAngle - bestCardinal;
+
+    // Apply rotation around current position (user stays inside)
+    const camPos =
+      this.renderer.xr.getCamera()?.position.clone() ?? new Vector3(0, 1.6, 0);
+
+    // Rotate around the user's XZ position so they stay inside
+    this.rotateAroundPoint(roomModel, camPos as any, rotationY);
+
+    console.log(
+      `[RoomAlignment] ✅ Wall matched: wall angle=${((wallAngle * 180) / Math.PI).toFixed(1)}° ` +
+        `cardinal=${((bestCardinal * 180) / Math.PI).toFixed(0)}° ` +
+        `rotation=${((rotationY * 180) / Math.PI).toFixed(1)}° ` +
+        `(longest wall: ${bestWall.length.toFixed(2)}m)`,
+    );
+    scanSystem.addHUDLine(
+      `✅ Wall: rot=${((rotationY * 180) / Math.PI).toFixed(0)}°`,
+    );
+    return true;
+  }
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  //  Step 4: Corner-based alignment (mesh vertex fallback)
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  /**
+   * Extracts room corners from all mesh/plane vertices via convex hull,
+   * finds the longest edge (dominant wall direction), and rotates LabPlan
+   * so its axis-aligned walls match that edge direction.
+   *
+   * This works even when no semantic wall labels are available.
+   */
+  private tryCornerAlignment(
+    roomModel: Object3D,
+    camPos: Vector3,
+    scanSystem: RoomScanningSystem,
+  ): boolean {
+    const corners = scanSystem.getRoomCorners();
+    if (corners.length < 3) {
+      console.log("[RoomAlignment] ⚠ Not enough corners for alignment");
+      scanSystem.addHUDLine("⚠ Not enough corners");
+      return false;
+    }
+
+    console.log(
+      `[RoomAlignment] Corner-based alignment: ${corners.length} corners detected`,
     );
 
-    return avgDelta;
-  }
+    // Find the longest edge — this is the most reliable wall direction
+    let longestLen = 0;
+    let longestAngle = 0;
 
-  private computeWallRotationFallback(): number {
-    // Combine plane walls and mesh walls
-    const allNormals: Vector3[] = [];
-    for (const wall of this.detectedWalls) {
-      allNormals.push(wall.worldNormal);
-    }
-    for (const meshWall of this.meshWalls) {
-      allNormals.push(meshWall.worldNormal);
-    }
+    for (let i = 0; i < corners.length; i++) {
+      const a = corners[i];
+      const b = corners[(i + 1) % corners.length];
+      const dx = b.x - a.x;
+      const dz = b.z - a.z;
+      const len = Math.sqrt(dx * dx + dz * dz);
 
-    if (allNormals.length === 0) return 0;
-
-    const angles: number[] = [];
-    for (const n of allNormals) {
-      const len = Math.sqrt(n.x * n.x + n.z * n.z);
-      if (len < 0.1) continue;
-      let angle = Math.atan2(n.z, n.x);
-      if (angle < 0) angle += Math.PI;
-      if (angle >= Math.PI) angle -= Math.PI;
-      angles.push(angle);
-    }
-
-    if (angles.length === 0) return 0;
-
-    let sum = 0;
-    for (const a of angles) sum += a;
-    const avgAngle = sum / angles.length;
-
-    const MODEL_WALL_NORMAL_ANGLE = Math.PI / 2;
-    let rotation = avgAngle - MODEL_WALL_NORMAL_ANGLE;
-    while (rotation > Math.PI) rotation -= 2 * Math.PI;
-    while (rotation < -Math.PI) rotation += 2 * Math.PI;
-
-    return rotation;
-  }
-
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  //  Translation computation
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  private computeTranslation(
-    matches: WallMatch[],
-    floorY: number,
-    rotationY: number,
-  ): Vector3 {
-    if (matches.length >= 2) {
-      return this.computeTranslationFromWallPositions(
-        matches,
-        floorY,
-        rotationY,
-      );
-    }
-    if (matches.length === 1) {
-      return this.computeTranslationFromOneWall(matches[0], floorY, rotationY);
-    }
-    return this.computeTranslationFromFloorCentroid(floorY, rotationY);
-  }
-
-  private computeTranslationFromWallPositions(
-    matches: WallMatch[],
-    floorY: number,
-    rotationY: number,
-  ): Vector3 {
-    const cos = Math.cos(rotationY);
-    const sin = Math.sin(rotationY);
-
-    let sumTx = 0,
-      sumTz = 0;
-    let countTx = 0,
-      countTz = 0;
-
-    for (const match of matches) {
-      const mc = match.modelWall.center.clone().multiplyScalar(this.modelScale);
-      const rotatedX = mc.x * cos - mc.z * sin;
-      const rotatedZ = mc.x * sin + mc.z * cos;
-
-      const mn = match.modelWall.normal;
-      const rotatedNx = mn.x * cos - mn.z * sin;
-      const rotatedNz = mn.x * sin + mn.z * cos;
-
-      const xrPos = match.worldPosition;
-
-      if (Math.abs(rotatedNx) > Math.abs(rotatedNz)) {
-        const tx = xrPos.x - rotatedX;
-        sumTx += tx;
-        countTx++;
-      } else {
-        const tz = xrPos.z - rotatedZ;
-        sumTz += tz;
-        countTz++;
+      if (len > longestLen) {
+        longestLen = len;
+        // Edge direction angle in XZ plane
+        longestAngle = Math.atan2(dz, dx);
       }
     }
 
-    const tx = countTx > 0 ? sumTx / countTx : 0;
-    const tz = countTz > 0 ? sumTz / countTz : 0;
-
-    if (countTx === 0 || countTz === 0) {
-      const floorFallback = this.computeTranslationFromFloorCentroid(
-        floorY,
-        rotationY,
-      );
-      return new Vector3(
-        countTx > 0 ? tx : floorFallback.x,
-        floorY,
-        countTz > 0 ? tz : floorFallback.z,
-      );
+    if (longestLen < 0.5) {
+      console.log("[RoomAlignment] ⚠ Longest edge too short — unreliable");
+      scanSystem.addHUDLine("⚠ Corners too close together");
+      return false;
     }
 
-    return new Vector3(tx, floorY, tz);
-  }
+    // LabPlan has walls along cardinal axes.
+    // The scanned longest edge corresponds to one of LabPlan's walls.
+    // Find which cardinal direction (0°, 90°, 180°, -90°) is closest
+    // and compute the rotation needed.
+    const cardinals = [0, Math.PI / 2, Math.PI, -Math.PI / 2];
+    let bestCardinal = 0;
+    let bestDiff = Infinity;
 
-  private computeTranslationFromOneWall(
-    match: WallMatch,
-    floorY: number,
-    rotationY: number,
-  ): Vector3 {
-    const fallback = this.computeTranslationFromFloorCentroid(
-      floorY,
-      rotationY,
+    for (const c of cardinals) {
+      let diff = Math.abs(longestAngle - c);
+      if (diff > Math.PI) diff = 2 * Math.PI - diff;
+      if (diff < bestDiff) {
+        bestDiff = diff;
+        bestCardinal = c;
+      }
+    }
+
+    // Rotation needed to align LabPlan cardinal to scanned edge direction
+    const rotationY = longestAngle - bestCardinal;
+
+    // Only apply if the correction is meaningful (> 1°)
+    if (Math.abs(rotationY) < (1 * Math.PI) / 180) {
+      console.log(
+        "[RoomAlignment] ✅ Corners confirm LabPlan already aligned (< 1°)",
+      );
+      scanSystem.addHUDLine("✅ Corners: already aligned");
+      return true;
+    }
+
+    // Apply rotation around user position
+    this.rotateAroundPoint(roomModel, camPos, rotationY);
+
+    console.log(
+      `[RoomAlignment] ✅ Corner alignment: edge=${longestLen.toFixed(2)}m ` +
+        `angle=${((longestAngle * 180) / Math.PI).toFixed(1)}° ` +
+        `cardinal=${((bestCardinal * 180) / Math.PI).toFixed(0)}° ` +
+        `rotation=${((rotationY * 180) / Math.PI).toFixed(1)}°`,
     );
-    const cos = Math.cos(rotationY);
-    const sin = Math.sin(rotationY);
-
-    const mc = match.modelWall.center.clone().multiplyScalar(this.modelScale);
-    const rotatedX = mc.x * cos - mc.z * sin;
-    const rotatedZ = mc.x * sin + mc.z * cos;
-
-    const mn = match.modelWall.normal;
-    const rotatedNx = mn.x * cos - mn.z * sin;
-    const rotatedNz = mn.x * sin + mn.z * cos;
-
-    const xrPos = match.worldPosition;
-
-    if (Math.abs(rotatedNx) > Math.abs(rotatedNz)) {
-      return new Vector3(xrPos.x - rotatedX, floorY, fallback.z);
-    } else {
-      return new Vector3(fallback.x, floorY, xrPos.z - rotatedZ);
-    }
-  }
-
-  private computeTranslationFromFloorCentroid(
-    floorY: number,
-    rotationY: number,
-  ): Vector3 {
-    const cos = Math.cos(rotationY);
-    const sin = Math.sin(rotationY);
-
-    const sc = MODEL_FLOOR_CENTER.clone().multiplyScalar(this.modelScale);
-    const rx = sc.x * cos - sc.z * sin;
-    const rz = sc.x * sin + sc.z * cos;
-
-    // Combine plane floor vertices AND mesh floor positions
-    const xrCenter = new Vector3();
-    let count = 0;
-
-    for (const floor of this.detectedFloors) {
-      for (const v of floor.worldVertices) {
-        xrCenter.x += v.x;
-        xrCenter.z += v.z;
-        count++;
-      }
-    }
-
-    for (const meshFloor of this.meshFloors) {
-      xrCenter.x += meshFloor.worldPosition.x;
-      xrCenter.z += meshFloor.worldPosition.z;
-      count++;
-    }
-
-    if (count > 0) {
-      xrCenter.x /= count;
-      xrCenter.z /= count;
-    }
-
-    return new Vector3(xrCenter.x - rx, floorY, xrCenter.z - rz);
-  }
-
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  //  Confidence scoring
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  private computeConfidence(matches: WallMatch[]): AlignmentConfidence {
-    const hasPlaneFloor = this.detectedFloors.length >= 1;
-    const hasMeshFloor = this.meshFloors.length >= 1;
-    const hasCeiling = this.detectedCeilings.length >= 1;
-    const hasMeshWalls = this.meshWalls.length >= 1;
-    const wallMatches = matches.length;
-
-    const signals: string[] = [];
-    if (hasPlaneFloor) signals.push("plane-floor");
-    if (hasMeshFloor) signals.push("mesh-floor");
-    if (hasCeiling) signals.push("ceiling");
-    if (hasMeshWalls) signals.push("mesh-walls");
-    signals.push(`${wallMatches} wall-matches`);
-
-    console.log(`[RoomAlignment]   Signals: [${signals.join(", ")}]`);
-
-    // High: floor + ceiling + ≥2 wall matches + mesh data
-    if (
-      hasPlaneFloor &&
-      hasCeiling &&
-      wallMatches >= 2 &&
-      (hasMeshWalls || hasMeshFloor)
-    ) {
-      return "high";
-    }
-    // Medium: floor + ≥2 wall matches (plane-only is acceptable)
-    if ((hasPlaneFloor || hasMeshFloor) && wallMatches >= 2) {
-      return "medium";
-    }
-    // Low: anything less
-    return "low";
-  }
-
-  private confidenceRank(c: AlignmentConfidence): number {
-    switch (c) {
-      case "high":
-        return 3;
-      case "medium":
-        return 2;
-      case "low":
-        return 1;
-    }
-  }
-
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  //  XRAnchor persistence
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  private tryCreateAnchor(): void {
-    if (this.anchorCreated || !this.roomModel) return;
-
-    try {
-      const session = this.renderer.xr.getSession();
-      const frame = (this.renderer.xr as any).getFrame?.();
-      const refSpace = this.renderer.xr.getReferenceSpace();
-
-      if (!session || !frame || !refSpace) {
-        console.log(
-          "[RoomAlignment] ⚓ Cannot create anchor — no XR frame/session",
-        );
-        return;
-      }
-
-      // Create an XRRigidTransform at the model's current world position
-      const pos = this.roomModel.position;
-      const quat = this.roomModel.quaternion;
-
-      if (typeof frame.createAnchor === "function") {
-        const anchorPose = new XRRigidTransform(
-          { x: pos.x, y: pos.y, z: pos.z, w: 1 },
-          { x: quat.x, y: quat.y, z: quat.z, w: quat.w },
-        );
-
-        frame
-          .createAnchor(anchorPose, refSpace)
-          .then((anchor: any) => {
-            this.anchorCreated = true;
-            console.log(
-              "[RoomAlignment] ⚓ XRAnchor created — alignment is persistent!",
-            );
-
-            // Store anchor for potential future updates
-            (globalThis as any).__roomAlignmentAnchor = anchor;
-          })
-          .catch((err: any) => {
-            console.warn("[RoomAlignment] ⚓ Failed to create anchor:", err);
-          });
-      } else {
-        console.log(
-          "[RoomAlignment] ⚓ frame.createAnchor not available — anchor skipped",
-        );
-        this.anchorCreated = true; // Don't retry
-      }
-    } catch (err) {
-      console.warn("[RoomAlignment] ⚓ Anchor creation error:", err);
-    }
-  }
-
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  //  Utilities
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  private signalSummary(): string {
-    return (
-      `(${this.detectedFloors.length}F+${this.meshFloors.length}MF, ` +
-      `${this.detectedCeilings.length}C, ` +
-      `${this.detectedWalls.length}W+${this.meshWalls.length}MW)`
+    scanSystem.addHUDLine(
+      `✅ Corner: rot=${((rotationY * 180) / Math.PI).toFixed(0)}° edge=${longestLen.toFixed(1)}m`,
     );
+    return true;
+  }
+
+  private tryFitToRoom(
+    roomModel: Object3D,
+    camPos: Vector3,
+    scanSystem: RoomScanningSystem,
+  ): void {
+    // Estimate real room bounds from detected planes and meshes
+    const roomBounds = this.estimateRoomBounds();
+    if (!roomBounds) {
+      console.log(
+        "[RoomAlignment] ⚠ Cannot estimate room bounds — keeping model as-is",
+      );
+      scanSystem.addHUDLine("⚠ No room bounds for fit");
+      return;
+    }
+
+    const realWidth = roomBounds.max.x - roomBounds.min.x;
+    const realDepth = roomBounds.max.z - roomBounds.min.z;
+
+    console.log(
+      `[RoomAlignment] Estimated real room: ${realWidth.toFixed(1)}m × ${realDepth.toFixed(1)}m ` +
+        `(LabPlan: ${LAB_WIDTH}m × ${LAB_DEPTH}m)`,
+    );
+
+    // Only scale down if we need to — never scale up beyond 1:1
+    const scaleX = Math.min(1, realWidth / LAB_WIDTH);
+    const scaleZ = Math.min(1, realDepth / LAB_DEPTH);
+    const uniformScale = Math.min(scaleX, scaleZ);
+
+    if (uniformScale >= 0.95) {
+      console.log("[RoomAlignment] Room is large enough — no scaling needed");
+      scanSystem.addHUDLine("✅ Room fits at 1:1");
+      return;
+    }
+
+    if (uniformScale < 0.3) {
+      console.log(
+        "[RoomAlignment] ⚠ Scale too small (<0.3) — likely bad data, skipping",
+      );
+      scanSystem.addHUDLine("⚠ Scale too small, skipped");
+      return;
+    }
+
+    // Scale from user position so they stay inside
+    this.scaleAroundPoint(roomModel, camPos, uniformScale);
+
+    console.log(
+      `[RoomAlignment] ✅ Scaled to fit: ${(uniformScale * 100).toFixed(0)}%`,
+    );
+    scanSystem.addHUDLine(`✅ Fit: scale=${(uniformScale * 100).toFixed(0)}%`);
+  }
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  //  Helpers
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  /** Rotate model around a world-space point (in XZ, Y rotation) */
+  private rotateAroundPoint(
+    model: Object3D,
+    pivot: Vector3,
+    angle: number,
+  ): void {
+    // Translate model so pivot is at origin
+    const dx = model.position.x - pivot.x;
+    const dz = model.position.z - pivot.z;
+
+    // Rotate offset
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    const newDx = dx * cos - dz * sin;
+    const newDz = dx * sin + dz * cos;
+
+    model.position.x = pivot.x + newDx;
+    model.position.z = pivot.z + newDz;
+    model.rotation.y += angle;
+  }
+
+  /** Scale model around a world-space point so that point stays fixed */
+  private scaleAroundPoint(
+    model: Object3D,
+    pivot: Vector3,
+    scale: number,
+  ): void {
+    const oldScale = model.scale.x; // uniform
+    const newScale = oldScale * scale;
+
+    // Offset from pivot scales proportionally
+    model.position.x = pivot.x + (model.position.x - pivot.x) * scale;
+    model.position.z = pivot.z + (model.position.z - pivot.z) * scale;
+    model.position.y = model.position.y * scale; // floor also scales
+
+    model.scale.setScalar(newScale);
+  }
+
+  /** Estimate real-world room bounds from all detected planes and meshes */
+  private estimateRoomBounds(): { min: Vector3; max: Vector3 } | null {
+    const min = new Vector3(Infinity, Infinity, Infinity);
+    const max = new Vector3(-Infinity, -Infinity, -Infinity);
+    let found = false;
+
+    // From planes
+    for (const entity of this.queries.planes.entities) {
+      if (entity.object3D) {
+        const pos = new Vector3();
+        entity.object3D.getWorldPosition(pos as any);
+        min.min(pos);
+        max.max(pos);
+        found = true;
+      }
+    }
+
+    // From meshes
+    for (const entity of this.queries.meshes.entities) {
+      if (entity.object3D) {
+        const pos = new Vector3();
+        entity.object3D.getWorldPosition(pos as any);
+        min.min(pos);
+        max.max(pos);
+        found = true;
+      }
+    }
+
+    if (!found) return null;
+
+    // Sanity check: room should be at least 1m in each direction
+    if (max.x - min.x < 1 || max.z - min.z < 1) {
+      return null;
+    }
+
+    return { min, max };
   }
 }

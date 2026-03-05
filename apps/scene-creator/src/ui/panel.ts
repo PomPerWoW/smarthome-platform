@@ -57,7 +57,7 @@ export class PanelSystem extends createSystem({
               text: `${count} devices | ${active} active`,
             });
           }
-        }
+        },
       );
 
       // XR Button
@@ -84,12 +84,41 @@ export class PanelSystem extends createSystem({
 
       // Refresh Button
       const refreshButton = document.getElementById(
-        "refresh-button"
+        "refresh-button",
       ) as UIKit.Text;
       if (refreshButton) {
         refreshButton.addEventListener("click", async () => {
           console.log("[Panel] Refreshing devices...");
           await store.refreshDevices();
+        });
+      }
+
+      // Devices Button → toggle placement panel
+      const devicesButton = document.getElementById(
+        "devices-button",
+      ) as UIKit.Text;
+      if (devicesButton) {
+        devicesButton.addEventListener("click", () => {
+          console.log("[Panel] Toggling placement panel");
+          const placementEntity = (globalThis as any).__placementPanelEntity;
+          if (placementEntity?.object3D) {
+            placementEntity.object3D.visible =
+              !placementEntity.object3D.visible;
+          }
+        });
+      }
+
+      // Align Room Button → toggle alignment panel
+      const alignButton = document.getElementById(
+        "align-room-button",
+      ) as UIKit.Text;
+      if (alignButton) {
+        alignButton.addEventListener("click", () => {
+          console.log("[Panel] Toggling room alignment panel");
+          const alignEntity = (globalThis as any).__alignmentPanelEntity;
+          if (alignEntity?.object3D) {
+            alignEntity.object3D.visible = !alignEntity.object3D.visible;
+          }
         });
       }
     });

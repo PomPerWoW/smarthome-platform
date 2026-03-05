@@ -183,7 +183,7 @@ export class DeviceService {
 
   // === Helpers ===
 
-  private getTypeEndpoint(type: DeviceType): string {
+  private getTypeEndpoint(type: DeviceType | string): string {
     switch (type) {
       case DeviceType.Lightbulb:
         return "lightbulbs";
@@ -193,6 +193,8 @@ export class DeviceService {
         return "fans";
       case DeviceType.AirConditioner:
         return "acs";
+      default:
+        return "devices"; // Fallback for GenericDevice (e.g., Chair) deletion and positioning
     }
   }
 

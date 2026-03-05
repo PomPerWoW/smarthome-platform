@@ -40,13 +40,14 @@ export class AuthService {
     await this.api.post("/api/auth/logout/");
   }
 
-  async whoami(): Promise<User | null> {
+  async whoami(): Promise<{ user: User; token: string } | null> {
     try {
       const response = await this.api.get<{
         user: UserType;
         authenticated: boolean;
+        token: string;
       }>("/api/auth/whoami/");
-      return User.fromApi(response.user);
+      return { user: User.fromApi(response.user), token: response.token };
     } catch {
       return null;
     }

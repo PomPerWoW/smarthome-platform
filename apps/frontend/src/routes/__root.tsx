@@ -31,15 +31,15 @@ const queryClient = new QueryClient({
 
 export const Route = createRootRoute({
   beforeLoad: async () => {
-    const user = await AuthService.getInstance().whoami();
+    const result = await AuthService.getInstance().whoami();
 
-    if (user) {
-      useAuthStore.getState().setUser(user);
+    if (result) {
+      useAuthStore.getState().setUser(result.user, result.token);
     } else {
       useAuthStore.getState().logout();
     }
 
-    return { user };
+    return { user: result?.user ?? null };
   },
   component: RootLayout,
   notFoundComponent: NotFound,
@@ -105,7 +105,7 @@ function RootLayout() {
                 <ThreeDWorldButton />
                 <ModeToggle />
               </header>
-              <main className="relative z-10 flex-1 p-4">
+              <main className="relative z-10 flex-1 overflow-y-auto p-4">
                 <Outlet />
               </main>
               {!isAnyModalOpen && <RobotAssistant />}

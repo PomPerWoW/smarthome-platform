@@ -17,6 +17,13 @@ class Room(models.Model):
     home = models.ForeignKey(Home, on_delete=models.CASCADE, related_name='rooms')
     room_name = models.CharField(max_length=255)
 
+    position_x = models.FloatField(default=0.0)
+    position_y = models.FloatField(default=0.0)
+    position_z = models.FloatField(default=0.0)
+    rotation_y = models.FloatField(default=0.0)
+    
+    anchor_uuid = models.CharField(max_length=255, null=True, blank=True, help_text="WebXR persistent anchor UUID for restoring room position")
+
     def __str__(self):
         return f"{self.room_name} ({self.home.home_name})"
 

@@ -1,0 +1,155 @@
+<style>
+  .panel-container {
+    align-items: flex-start;
+    padding: 2;
+    width: 45;
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    background-color: #09090b;
+    border-color: #27272a;
+    border-width: 0.15;
+    border-radius: 2;
+  }
+
+  .panel-header {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 1;
+    margin-bottom: 1.5;
+  }
+
+  .heading {
+    font-size: 2.5;
+    font-weight: bold;
+    color: #fafafa;
+  }
+
+  .section-label {
+    font-size: 1.6;
+    font-weight: bold;
+    color: #a1a1aa;
+    margin-top: 1.5;
+    margin-bottom: 0.5;
+  }
+
+  .item-grid {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 1;
+    width: 100%;
+  }
+
+  .item-btn {
+    width: 19;
+    padding: 1.2;
+    background-color: #18181b;
+    border-radius: 1.5;
+    border-width: 0.1;
+    border-color: #27272a;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5;
+    cursor: pointer;
+  }
+
+  .item-btn:hover {
+    background-color: #27272a;
+  }
+
+  .item-icon {
+    width: 4;
+    height: 4;
+    object-fit: contain;
+  }
+
+  .item-label {
+    font-size: 1.4;
+    color: #a1a1aa;
+    text-align: center;
+  }
+
+  .close-btn {
+    width: 100%;
+    padding: 1;
+    background-color: #27272a;
+    border-radius: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 2;
+    cursor: pointer;
+  }
+
+  .close-btn:hover {
+    background-color: #3f3f46;
+  }
+
+  .close-text {
+    font-size: 1.6;
+    color: #fafafa;
+  }
+</style>
+
+<div class="panel-container">
+  <div class="panel-header">
+    <PackageIcon class="heading" style="width: 3; height: 3; color: #3b82f6;" />
+    <span class="heading">Place Items</span>
+  </div>
+
+  <span class="section-label">Smart Devices</span>
+  <div class="item-grid">
+    <div class="item-btn" id="place-lightbulb">
+      <img class="item-icon" src="./ui/thumbnails/lightbulb.png"></img>
+      <span class="item-label">Light</span>
+    </div>
+    <div class="item-btn" id="place-television">
+      <img class="item-icon" src="./ui/thumbnails/television.png"></img>
+      <span class="item-label">TV</span>
+    </div>
+    <div class="item-btn" id="place-fan">
+      <img class="item-icon" src="./ui/thumbnails/fan.png"></img>
+      <span class="item-label">Fan</span>
+    </div>
+    <div class="item-btn" id="place-ac">
+      <img class="item-icon" src="./ui/thumbnails/ac.png"></img>
+      <span class="item-label">AC</span>
+    </div>
+  </div>
+
+  <span class="section-label">Furniture</span>
+  <div class="item-grid">
+    <div class="item-btn" id="place-chair">
+      <img class="item-icon" src="./ui/thumbnails/chair.png"></img>
+      <span class="item-label">Chair</span>
+    </div>
+    <div class="item-btn" id="place-chair2">
+      <img class="item-icon" src="./ui/thumbnails/chair.png"></img>
+      <span class="item-label">Chair 2</span>
+    </div>
+    <div class="item-btn" id="place-chair3">
+      <img class="item-icon" src="./ui/thumbnails/chair.png"></img>
+      <span class="item-label">Chair 3</span>
+    </div>
+    <div class="item-btn" id="place-chair4">
+      <img class="item-icon" src="./ui/thumbnails/chair.png"></img>
+      <span class="item-label">Chair 4</span>
+    </div>
+    <div class="item-btn" id="place-chair5">
+      <img class="item-icon" src="./ui/thumbnails/chair.png"></img>
+      <span class="item-label">Chair 5</span>
+    </div>
+    <div class="item-btn" id="place-chair6">
+      <img class="item-icon" src="./ui/thumbnails/chair.png"></img>
+      <span class="item-label">Chair 6</span>
+    </div>
+  </div>
+
+  <div class="close-btn" id="close-placement">
+    <span class="close-text">Close</span>
+  </div>
+</div>

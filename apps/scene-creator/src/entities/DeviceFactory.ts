@@ -4,6 +4,7 @@ import { Lightbulb } from "./Lightbulb";
 import { Television } from "./Television";
 import { Fan } from "./Fan";
 import { AirConditioner } from "./AirConditioner";
+import { Chair } from "./Chair";
 
 export class DeviceFactory {
   static create(data: Device): BaseDevice {
@@ -16,9 +17,19 @@ export class DeviceFactory {
         return new Fan(data);
       case DeviceType.AirConditioner:
         return new AirConditioner(data);
+      case DeviceType.Chair:
+      case DeviceType.Chair2:
+      case DeviceType.Chair3:
+      case DeviceType.Chair4:
+      case DeviceType.Chair5:
+      case DeviceType.Chair6:
+        return new Chair(data as any);
       default:
-        const _exhaustive: never = data;
-        throw new Error(`Unknown device type: ${(_exhaustive as Device).type}`);
+        // Fallback for unknown types
+        console.warn(
+          `Unknown device type: ${(data as Device).type}, using generic Chair`,
+        );
+        return new Chair(data as any);
     }
   }
 

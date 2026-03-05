@@ -12,7 +12,7 @@ import {
 export class BackendApiClient {
   private static instance: BackendApiClient;
 
-  private constructor() { }
+  private constructor() {}
 
   static getInstance(): BackendApiClient {
     if (!BackendApiClient.instance) {
@@ -33,15 +33,73 @@ export class BackendApiClient {
     return response.data;
   }
 
+  // ===== Room Management =====
+  async getRooms(): Promise<{ id: string; name: string }[]> {
+    const response =
+      await api.get<{ id: string; name: string }[]>("/api/homes/rooms/");
+    return response.data;
+  }
+
+  async setRoomAlignment(
+    roomId: string,
+    alignment: {
+      x: number;
+      y: number;
+      z: number;
+      rotation_y: number;
+      anchor_uuid?: string;
+    },
+  ): Promise<any> {
+    const response = await api.post<any>(
+      `/api/homes/rooms/${roomId}/set_alignment/`,
+      alignment,
+    );
+    return response.data;
+  }
+
   // ===== Device Management =====
   async getAllDevices(): Promise<Device[]> {
     const response = await api.get<any[]>("/api/homes/devices/");
     return mapRawDevicesToDevices(response.data);
   }
 
-  async createDevice(deviceData: Partial<Device>): Promise<Device> {
-    const response = await api.post<any>("/api/homes/devices/", deviceData);
-    return mapRawDeviceToDevice(response.data);
+  async createDevice(deviceData: {
+    type: string;
+    device_name: string;
+    room: string;
+    position?: [number, number, number];
+    rotation_y?: number;
+  }): Promise<Device> {
+    // Map device type to the correct backend endpoint
+    const typeToEndpoint: Record<string, string> = {
+      Lightbulb: "/api/homes/lightbulbs/",
+      Television: "/api/homes/tvs/",
+      Fan: "/api/homes/fans/",
+      AirConditioner: "/api/homes/acs/",
+    };
+
+    const endpoint = typeToEndpoint[deviceData.type] || "/api/homes/devices/";
+
+    // Build payload with only fields the backend serializer expects
+    const payload: any = {
+      device_name: deviceData.device_name,
+      room: deviceData.room,
+    };
+
+    const response = await api.post<any>(endpoint, payload);
+    const newDevice = mapRawDeviceToDevice(response.data);
+
+    // Set position separately if provided
+    if (deviceData.position) {
+      await this.setDevicePosition(newDevice.id, {
+        x: deviceData.position[0],
+        y: deviceData.position[1],
+        z: deviceData.position[2],
+        rotation_y: deviceData.rotation_y ?? 0,
+      });
+    }
+
+    return newDevice;
   }
 
   async getDevice(deviceId: string): Promise<Device> {
@@ -51,7 +109,7 @@ export class BackendApiClient {
 
   async setDeviceState(
     deviceId: string,
-    updates: Partial<Device>
+    updates: Partial<Device>,
   ): Promise<Device> {
     await api.patch<any>(`/api/homes/devices/${deviceId}/`, updates);
     const response = await api.get<any>(`/api/homes/devices/${deviceId}/`);
@@ -60,7 +118,7 @@ export class BackendApiClient {
 
   // ===== Device Position =====
   async getDevicePosition(
-    deviceId: string
+    deviceId: string,
   ): Promise<{ position: [number, number, number] | null }> {
     const response = await api.get<{
       position: [number, number, number] | null;
@@ -70,11 +128,11 @@ export class BackendApiClient {
 
   async setDevicePosition(
     deviceId: string,
-    position: { x: number; y: number; z: number; rotation_y?: number }
+    position: { x: number; y: number; z: number; rotation_y?: number },
   ): Promise<Device> {
     await api.post<any>(
       `/api/homes/devices/${deviceId}/set_position/`,
-      position
+      position,
     );
     const response = await api.get<any>(`/api/homes/devices/${deviceId}/`);
     return mapRawDeviceToDevice(response.data);
@@ -88,7 +146,7 @@ export class BackendApiClient {
 
   async setLightbulb(
     deviceId: string,
-    options: { brightness?: number; colour?: string }
+    options: { brightness?: number; colour?: string },
   ): Promise<Lightbulb> {
     if (options.brightness !== undefined) {
       await api.post<any>(`/api/homes/lightbulbs/${deviceId}/set_brightness/`, {

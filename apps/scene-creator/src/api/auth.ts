@@ -7,6 +7,7 @@ export class AuthService {
     user: null,
     isAuthenticated: false,
   };
+  private token: string | null = null;
 
   private constructor() {}
 
@@ -26,6 +27,7 @@ export class AuthService {
       console.log("[Auth] Response status:", response.status);
       this.state.user = response.data.user;
       this.state.isAuthenticated = true;
+      this.token = response.data.token || null;
       console.log(
         "[Auth] ✓ Authenticated via cookie! User:",
         response.data.user.email,
@@ -44,6 +46,10 @@ export class AuthService {
 
   isAuthenticated(): boolean {
     return this.state.isAuthenticated;
+  }
+
+  getToken(): string | null {
+    return this.token;
   }
 }
 

@@ -85,6 +85,47 @@ class RoomViewSet(viewsets.ModelViewSet):
         devices = Device.objects.filter(room=room)
         return Response(DeviceSerializer(devices, many=True).data)
 
+    @action(detail=True, methods=['post'])
+    def set_alignment(self, request, pk=None):
+        """
+        Custom Action: Manually align and save the room's base transform and optional XR anchor.
+        
+        Body Parameters:
+            x (float): Required.
+            y (float): Required.
+            z (float): Required.
+            rotation_y (float): Required.
+            anchor_uuid (string): Optional.
+            
+        Returns:
+            JSON: The updated room alignment data.
+        """
+        room = self.get_object() 
+        
+        x = request.data.get('x')
+        y = request.data.get('y')
+        z = request.data.get('z')
+        rotation_y = request.data.get('rotation_y')
+        anchor_uuid = request.data.get('anchor_uuid')
+
+        if x is None or y is None or z is None or rotation_y is None:
+            return Response({"error": "x, y, z, and rotation_y are required"}, status=400)
+
+        room.position_x = float(x)
+        room.position_y = float(y)
+        room.position_z = float(z)
+        room.rotation_y = float(rotation_y)
+        if anchor_uuid is not None:
+             room.anchor_uuid = anchor_uuid
+        room.save()
+
+        return Response({
+            "status": "alignment_updated", 
+            "position": {"x": room.position_x, "y": room.position_y, "z": room.position_z},
+            "rotation": {"y": room.rotation_y},
+            "anchor_uuid": room.anchor_uuid
+        })
+
 
 # --- Base Device ViewSet (Position Logic) ---
 class BaseDeviceViewSet(viewsets.ModelViewSet):

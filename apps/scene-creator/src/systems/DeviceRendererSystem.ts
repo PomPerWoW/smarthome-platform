@@ -155,9 +155,20 @@ export class DeviceRendererSystem extends createSystem({
       );
     }
 
-    this.world.scene.add(model);
+    const labModel = (globalThis as any).__labRoomModel as Object3D | undefined;
+    if (labModel) {
+      labModel.add(model);
+    } else {
+      this.world.scene.add(model);
+    }
 
     const entity = this.world.createTransformEntity(model);
+
+    // Re-ensure the device is a child of labRoomModel because createTransformEntity
+    // might have reparented it to the root scene.
+    if (labModel && model.parent !== labModel) {
+      labModel.add(model);
+    }
 
     entity.addComponent(DeviceComponent, {
       deviceId: data.id,
@@ -268,11 +279,17 @@ export class DeviceRendererSystem extends createSystem({
   }
 
   private getPanelConfig(deviceType: DeviceType): string | null {
-    const panelConfigs: Record<DeviceType, string> = {
+    const panelConfigs: Record<DeviceType, string | null> = {
       [DeviceType.Lightbulb]: "./ui/lightbulb-panel.json",
       [DeviceType.Television]: "./ui/television-panel.json",
       [DeviceType.Fan]: "./ui/fan-panel.json",
       [DeviceType.AirConditioner]: "./ui/ac-panel.json",
+      [DeviceType.Chair]: null,
+      [DeviceType.Chair2]: null,
+      [DeviceType.Chair3]: null,
+      [DeviceType.Chair4]: null,
+      [DeviceType.Chair5]: null,
+      [DeviceType.Chair6]: null,
     };
     return panelConfigs[deviceType] ?? null;
   }
@@ -550,16 +567,27 @@ export class DeviceRendererSystem extends createSystem({
     const record = this.deviceRecords.get(deviceId);
     if (!record?.entity.object3D) return;
 
+    // The position and rotation are already local to LabPlan if it's a child.
     const pos = record.entity.object3D.position;
+    const rotationYDeg = (record.entity.object3D.rotation.y * 180) / Math.PI;
     console.log(
-      `[DeviceRenderer] Saving position for ${deviceId}:`,
+      `[DeviceRenderer] Saving local position for ${deviceId}:`,
       pos.toArray(),
+      `local rotation_y: ${rotationYDeg.toFixed(1)}°`,
     );
 
-    await getStore().updateDevicePosition(deviceId, pos.x, pos.y, pos.z);
+    await getStore().updateDevicePosition(
+      deviceId,
+      pos.x,
+      pos.y,
+      pos.z,
+      rotationYDeg,
+    );
   }
 
   update(dt: number): void {
+    const labModel = (globalThis as any).__labRoomModel as Object3D | undefined;
+
     // Update panel positions to follow their devices and update animation mixers
     for (const [deviceId, record] of this.deviceRecords) {
       if (record.mixer) {
@@ -580,33 +608,67 @@ export class DeviceRendererSystem extends createSystem({
         const lastValid = this.lastValidPositions.get(deviceId);
         if (lastValid) {
           // XZ collision constraint (walls, desk edges, furniture)
-          const constrained = constrainMovement(
+          // The collision checker expects world coordinates
+          const worldPos = new Vector3(pos.x, pos.y, pos.z);
+          const lastWorldPos = new Vector3(
             lastValid.x,
+            lastValid.y,
             lastValid.z,
-            pos.x,
-            pos.z,
-            pos.y,
+          );
+
+          if (labModel) {
+            labModel.localToWorld(worldPos);
+            labModel.localToWorld(lastWorldPos);
+          }
+
+          const constrainedWorld = constrainMovement(
+            lastWorldPos.x,
+            lastWorldPos.z,
+            worldPos.x,
+            worldPos.z,
+            worldPos.y,
             DEVICE_COLLISION_RADIUS,
           );
-          if (pos.x !== lastValid.x || pos.z !== lastValid.z) {
-            pos.x = constrained.x;
-            pos.z = constrained.z;
+
+          let xzAdjusted = false;
+          if (
+            worldPos.x !== constrainedWorld.x ||
+            worldPos.z !== constrainedWorld.z
+          ) {
+            worldPos.x = constrainedWorld.x;
+            worldPos.z = constrainedWorld.z;
+            xzAdjusted = true;
           }
+
+          if (xzAdjusted) {
+            if (labModel) {
+              labModel.worldToLocal(worldPos);
+            }
+            pos.x = worldPos.x;
+            pos.z = worldPos.z;
+          }
+
           // Y collision constraint (floor and ceiling)
-          pos.y = clampDeviceY(pos.y);
+          // Note: using local Y here since clampDeviceY was made with floor assuming Y=0.
+          const localClampY = clampDeviceY(pos.y);
+          if (pos.y !== localClampY) {
+            pos.y = localClampY;
+          }
         }
-        // Store current position as last valid
+        // Store current local position as last valid
         this.lastValidPositions.set(deviceId, { x: pos.x, y: pos.y, z: pos.z });
       }
 
       if (record.panelEntity?.object3D && record.entity.object3D) {
-        const devicePos = record.entity.object3D.position;
         const yOffset = 0;
-        // Position panel to the right of device
+        const worldPos = new Vector3();
+        record.entity.object3D.getWorldPosition(worldPos);
+
+        // Position panel to the right of device (in world space)
         record.panelEntity.object3D.position.set(
-          devicePos.x + 0.5,
-          devicePos.y + yOffset,
-          devicePos.z,
+          worldPos.x + 0.5,
+          worldPos.y + yOffset,
+          worldPos.z,
         );
 
         // Make panel face the camera
@@ -618,9 +680,9 @@ export class DeviceRendererSystem extends createSystem({
         // Position graph panel to the right of the control panel
         if (record.graphPanelEntity?.object3D && record.graphPanelVisible) {
           record.graphPanelEntity.object3D.position.set(
-            devicePos.x + 1.0, // Further right than the control panel
-            devicePos.y,
-            devicePos.z,
+            worldPos.x + 1.0, // Further right than the control panel
+            worldPos.y,
+            worldPos.z,
           );
 
           // Make graph panel face the camera

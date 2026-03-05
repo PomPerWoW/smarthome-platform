@@ -210,6 +210,14 @@
           <span class="btn-text">Refresh</span>
         </div>
       </button>
+      <button class="secondary-btn" id="align-room-button">
+        <div class="button-content">
+          <div>
+            <MoveIcon class="btn-icon" />
+          </div>
+          <span class="btn-text">Align Room</span>
+        </div>
+      </button>
     </div>
   </div>
 

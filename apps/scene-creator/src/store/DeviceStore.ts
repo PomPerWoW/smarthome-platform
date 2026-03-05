@@ -26,11 +26,11 @@ interface DeviceState {
   refreshDevices: () => Promise<void>;
   refreshSingleDevice: (deviceId: string) => Promise<void>;
 
-
   createDevice: (
     type: DeviceType,
+    name: string,
     position: [number, number, number],
-    rotation: [number, number, number, number]
+    rotationY: number,
   ) => Promise<void>;
   handleDeviceUpdate: (rawDevice: any) => void;
   toggleDevice: (deviceId: string, on?: boolean) => Promise<void>;
@@ -40,6 +40,14 @@ interface DeviceState {
     y: number,
     z: number,
     rotationY?: number,
+  ) => Promise<void>;
+  updateRoomAlignment: (
+    roomId: string,
+    x: number,
+    y: number,
+    z: number,
+    rotationY: number,
+    anchorUuid?: string,
   ) => Promise<void>;
   updateLightbulb: (
     deviceId: string,
@@ -143,8 +151,8 @@ export const deviceStore = createStore<DeviceState>()(
               ...updatedDevice,
               position:
                 updatedDevice.position[0] !== 0 ||
-                  updatedDevice.position[1] !== 0 ||
-                  updatedDevice.position[2] !== 0
+                updatedDevice.position[1] !== 0 ||
+                updatedDevice.position[2] !== 0
                   ? updatedDevice.position
                   : existingDevice.position,
             };
@@ -164,35 +172,40 @@ export const deviceStore = createStore<DeviceState>()(
       }
     },
 
-
-
-    createDevice: async (type, position, rotation) => {
+    createDevice: async (type, name, position, rotationY) => {
       try {
-        console.log(`[Store] Creating device of type ${type}`);
-        // simplistic: pick first home, first room
-        // In real app, we need context.
-        const homes = get().homes;
+        console.log(`[Store] Creating device of type ${type} named "${name}"`);
+
+        // Fetch available rooms to assign the device to
         let roomId = "";
-        if (homes.length > 0 && homes[0].floors.length > 0 && homes[0].floors[0].rooms.length > 0) {
-          roomId = homes[0].floors[0].rooms[0].id;
+        try {
+          const params = new URLSearchParams(window.location.search);
+          const urlRoomId = params.get("roomId");
+
+          if (urlRoomId) {
+            roomId = urlRoomId;
+          } else {
+            const rooms = await api.getRooms();
+            if (rooms && rooms.length > 0) {
+              roomId = rooms[0].id;
+            }
+          }
+        } catch (roomErr) {
+          console.error(
+            "[Store] Could not fetch valid rooms. Using default.",
+            roomErr,
+          );
         }
 
-        // Convert rotation quaternion to Euler Y if needed, or just store defaults.
-        // Backend currently supports rotation_y.
-        // We might need to convert quat to euler Y.
-        // For now, simplify.
-
-        const payload: any = {
+        const newDevice = await api.createDevice({
           type: type,
-          name: `New ${type}`,
-          room_id: roomId,
+          device_name: name,
+          room: roomId,
           position: position,
-          // rotation...
-        };
-
-        const newDevice = await api.createDevice(payload);
+          rotation_y: rotationY,
+        });
         set((state) => ({ devices: [...state.devices, newDevice] }));
-        console.log(`[Store] Created device ${newDevice.id}`);
+        console.log(`[Store] Created device ${newDevice.id} "${name}"`);
       } catch (err) {
         console.error("[Store] Failed to create device:", err);
       }
@@ -217,8 +230,8 @@ export const deviceStore = createStore<DeviceState>()(
               // Preserve position if the update doesn't include it
               position:
                 updatedDevice.position[0] !== 0 ||
-                  updatedDevice.position[1] !== 0 ||
-                  updatedDevice.position[2] !== 0
+                updatedDevice.position[1] !== 0 ||
+                updatedDevice.position[2] !== 0
                   ? updatedDevice.position
                   : existingDevice.position,
             };
@@ -283,6 +296,35 @@ export const deviceStore = createStore<DeviceState>()(
         }));
       } catch (err) {
         console.error("[Store] Failed to update position:", err);
+        throw err;
+      }
+    },
+
+    updateRoomAlignment: async (roomId, x, y, z, rotationY, anchorUuid) => {
+      try {
+        console.log(`[Store] Updating alignment for room ${roomId}:`, {
+          x,
+          y,
+          z,
+          rotationY,
+          anchorUuid,
+        });
+
+        await api.setRoomAlignment(roomId, {
+          x,
+          y,
+          z,
+          rotation_y: rotationY,
+          anchor_uuid: anchorUuid,
+        });
+
+        // Updating homes in store to reflect the new room alignment is generally
+        // a good idea, but getting the updated room state or full homes refresh
+        // might be needed. Let's do a full reload of homes to be safe and simple:
+        const homes = await api.getFullHomeData();
+        set({ homes });
+      } catch (err) {
+        console.error("[Store] Failed to update room alignment:", err);
         throw err;
       }
     },
@@ -371,6 +413,12 @@ export const deviceStore = createStore<DeviceState>()(
         [DeviceType.Television]: [],
         [DeviceType.Fan]: [],
         [DeviceType.AirConditioner]: [],
+        [DeviceType.Chair]: [],
+        [DeviceType.Chair2]: [],
+        [DeviceType.Chair3]: [],
+        [DeviceType.Chair4]: [],
+        [DeviceType.Chair5]: [],
+        [DeviceType.Chair6]: [],
       };
       for (const device of get().devices) {
         grouped[device.type].push(device);

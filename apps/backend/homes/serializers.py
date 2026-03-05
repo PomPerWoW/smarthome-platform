@@ -35,9 +35,18 @@ class HomeSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class RoomSerializer(serializers.ModelSerializer):
+    position = serializers.SerializerMethodField()
+    rotation = serializers.SerializerMethodField()
+
     class Meta:
         model = Room
-        fields = '__all__'
+        fields = ['id', 'home', 'room_name', 'position', 'rotation']
+
+    def get_position(self, obj):
+        return {"x": obj.position_x, "y": obj.position_y, "z": obj.position_z}
+
+    def get_rotation(self, obj):
+        return {"y": obj.rotation_y}
 
 class PositionHistorySerializer(serializers.ModelSerializer):
     device_name = serializers.CharField(source='device.device_name', read_only=True)

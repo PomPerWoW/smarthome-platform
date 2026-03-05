@@ -24,6 +24,12 @@ const DEFAULT_POSITIONS: Record<DeviceType, [number, number, number]> = {
   [DeviceType.Television]: [1.5, 1, -2],
   [DeviceType.Fan]: [-1.5, 1, -2],
   [DeviceType.AirConditioner]: [0, 2, -2.5],
+  [DeviceType.Chair]: [0, 0, -1.5],
+  [DeviceType.Chair2]: [0, 0, -1.5],
+  [DeviceType.Chair3]: [0, 0, -1.5],
+  [DeviceType.Chair4]: [0, 0, -1.5],
+  [DeviceType.Chair5]: [0, 0, -1.5],
+  [DeviceType.Chair6]: [0, 0, -1.5],
 };
 
 export function mapRawDeviceToDevice(raw: RawDeviceResponse): Device {
@@ -80,14 +86,17 @@ export function mapRawDeviceToDevice(raw: RawDeviceResponse): Device {
         type: DeviceType.AirConditioner,
         temperature: raw.temperature ?? 24,
       };
+    case DeviceType.Chair:
+      return {
+        ...base,
+        type: DeviceType.Chair,
+      };
     default:
-      // Fallback for unknown types - treat as lightbulb
+      // Fallback for unknown types — treat as Chair (generic)
       console.warn(`[DeviceMapper] Unknown device type: ${raw.type}`);
       return {
         ...base,
-        type: DeviceType.Lightbulb,
-        brightness: 100,
-        colour: "#FFFFFF",
+        type: DeviceType.Chair,
       };
   }
 }

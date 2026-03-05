@@ -181,4 +181,5 @@ apps/*/certs/
 # ===== Scene Creator =====
 apps/scene-creator/scripts/
 apps/scene-creator/room-scans/
-chairs-etc/
+webxr-showcases-main/
+python-talk-main/

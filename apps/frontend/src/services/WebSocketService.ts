@@ -1,11 +1,14 @@
 type MessageHandler = (data: any) => void;
 
+import { useAuthStore } from "@/stores/auth";
+
 export class WebSocketService {
   private static instance: WebSocketService;
   private socket: WebSocket | null = null;
   private listeners: Set<MessageHandler> = new Set();
   private reconnectInterval: number = 3000;
   private shouldReconnect: boolean = true;
+  private pingInterval: any = null;
 
   private constructor() {}
 
@@ -26,7 +29,13 @@ export class WebSocketService {
     this.shouldReconnect = true;
     const backendUrl =
       import.meta.env.VITE_BACKEND_URL || "https://localhost:5500";
-    const wsUrl = backendUrl.replace(/^http/, "ws") + "/ws/homes/";
+    let wsUrl = backendUrl.replace(/^http/, "ws") + "/ws/homes/";
+
+    // Append token as query parameter for reliable cross-origin auth
+    const token = useAuthStore.getState().token;
+    if (token) {
+      wsUrl += `?token=${token}`;
+    }
 
     console.log("[WebSocket] Connecting to:", wsUrl);
 
@@ -34,6 +43,7 @@ export class WebSocketService {
 
     this.socket.onopen = () => {
       console.log("[WebSocket] Connected");
+      this.startHeartbeat();
     };
 
     this.socket.onmessage = (event) => {
@@ -48,6 +58,7 @@ export class WebSocketService {
 
     this.socket.onclose = () => {
       console.log("[WebSocket] Disconnected");
+      this.stopHeartbeat();
       this.socket = null;
       if (this.shouldReconnect) {
         setTimeout(() => this.connect(), this.reconnectInterval);
@@ -62,6 +73,7 @@ export class WebSocketService {
 
   disconnect() {
     this.shouldReconnect = false;
+    this.stopHeartbeat();
     this.socket?.close();
     this.socket = null;
   }
@@ -73,5 +85,18 @@ export class WebSocketService {
 
   private notifyListeners(data: any) {
     this.listeners.forEach((handler) => handler(data));
+  }
+
+  private startHeartbeat() {
+    this.stopHeartbeat();
+    this.pingInterval = setInterval(() => {
+      if (this.socket?.readyState === WebSocket.OPEN) {
+        this.socket.send(JSON.stringify({ action: "ping" }));
+      }
+    }, 30000); // 30 seconds
+  }
+
+  private stopHeartbeat() {
+    if (this.pingInterval) clearInterval(this.pingInterval);
   }
 }
