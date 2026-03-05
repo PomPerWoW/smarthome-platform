@@ -1,5 +1,8 @@
 import { BackendApiClient } from "../api/BackendApiClient";
-import { speakGreeting } from "../utils/VoiceTextToSpeech";
+import {
+  speakGreeting,
+  speakSeeYouAgain,
+} from "../utils/VoiceTextToSpeech";
 
 class PythonTalkMainBridge {
   static async analyze(input: any) {
@@ -47,15 +50,21 @@ export class VoiceControlSystem {
 
   private recognition: SpeechRecognition | null = null;
   private isListening: boolean = false;
+  private stopRequestedByUser: boolean = false;
   private useFallback: boolean = false;
   private mediaRecorder: MediaRecorder | null = null;
   private audioChunks: Blob[] = [];
-  private onStatusChange:
-    | ((
-        status: "listening" | "processing" | "idle",
-        payload?: VoiceIdlePayload,
-      ) => void)
-    | null = null;
+  private onStatusListeners: Array<(
+    status: "listening" | "processing" | "idle",
+    payload?: VoiceIdlePayload,
+  ) => void> = [];
+
+  private notifyStatus(
+    status: "listening" | "processing" | "idle",
+    payload?: VoiceIdlePayload,
+  ): void {
+    this.onStatusListeners.forEach((cb) => cb(status, payload));
+  }
 
   // New: Transcript callback
   private onTranscript: ((text: string) => void) | null = null;
@@ -104,13 +113,14 @@ export class VoiceControlSystem {
     return VoiceControlSystem.instance;
   }
 
-  public setStatusListener(
+  /** Add a status listener (does not replace existing ones). Both panel and robot can listen. */
+  public addStatusListener(
     callback: (
       status: "listening" | "processing" | "idle",
       payload?: VoiceIdlePayload,
     ) => void,
   ) {
-    this.onStatusChange = callback;
+    this.onStatusListeners.push(callback);
   }
 
   public setTranscriptListener(callback: (text: string) => void) {
@@ -177,7 +187,7 @@ export class VoiceControlSystem {
               } catch (e) {
                 console.error("[VoiceControl] Retry failed:", e);
                 this.isListening = false;
-                if (this.onStatusChange) this.onStatusChange("idle");
+                this.notifyStatus("idle");
               }
             }
           }, 300);
@@ -199,7 +209,7 @@ export class VoiceControlSystem {
       }
 
       this.retryCount = 0;
-      if (this.onStatusChange) this.onStatusChange("idle");
+      this.notifyStatus("idle");
       this.isListening = false;
     };
 
@@ -208,7 +218,7 @@ export class VoiceControlSystem {
       if (this.isListening && !bestTranscript) {
         this.isListening = false;
         this.retryCount = 0;
-        if (this.onStatusChange) this.onStatusChange("idle");
+        this.notifyStatus("idle");
       }
     };
   }
@@ -217,11 +227,11 @@ export class VoiceControlSystem {
   private async processTranscript(transcript: string): Promise<void> {
     if (!transcript.trim()) {
       console.warn("[VoiceControl] Empty transcript — ignoring");
-      if (this.onStatusChange) this.onStatusChange("idle");
+      this.notifyStatus("idle");
       return;
     }
 
-    if (this.onStatusChange) this.onStatusChange("processing");
+    this.notifyStatus("processing");
 
     try {
       await PythonTalkMainBridge.analyze(transcript);
@@ -243,26 +253,22 @@ export class VoiceControlSystem {
           action = firstAction.action;
           device = firstAction.device;
         } else {
-          if (this.onStatusChange) {
-            this.onStatusChange("idle", { success: false });
-          }
+          this.notifyStatus("idle", { success: false });
           return;
         }
       } else {
         noMatch = true;
       }
 
-      if (this.onStatusChange) {
-        this.onStatusChange("idle", {
-          success: !noMatch,
-          action,
-          device,
-          noMatch,
-        });
-      }
+      this.notifyStatus("idle", {
+        success: !noMatch,
+        action,
+        device,
+        noMatch,
+      });
     } catch (error) {
       console.error("[VoiceControl] Failed to execute voice command:", error);
-      if (this.onStatusChange) this.onStatusChange("idle", { success: false });
+      this.notifyStatus("idle", { success: false });
     }
   }
 
@@ -299,13 +305,14 @@ export class VoiceControlSystem {
         const audioBlob = new Blob(this.audioChunks, { type: mimeType });
         if (audioBlob.size === 0) {
           console.warn("[VoiceControl] Empty recording — ignoring");
-          if (this.onStatusChange) this.onStatusChange("idle");
+          this.notifyStatus("idle");
           this.isListening = false;
           return;
         }
 
-        if (this.onStatusChange) this.onStatusChange("processing");
+        this.notifyStatus("processing");
 
+        let idlePayload: VoiceIdlePayload | undefined;
         try {
           await PythonTalkMainBridge.analyze("audio_blob_received");
           // Optimized: Transcribe AND Execute in one call
@@ -322,7 +329,19 @@ export class VoiceControlSystem {
             this.onTranscript(transcript);
           }
 
-          if (command_result) {
+          if (command_result?.actions?.length > 0) {
+            const first = command_result.actions[0];
+            if (
+              first.status === "success" &&
+              first.action &&
+              first.device
+            ) {
+              idlePayload = {
+                success: true,
+                action: first.action,
+                device: first.device,
+              };
+            }
             console.log("[VoiceControl] Command Executed:", command_result);
           } else if (!transcript || !transcript.trim()) {
             console.warn("[VoiceControl] Empty transcript — ignoring");
@@ -330,7 +349,12 @@ export class VoiceControlSystem {
         } catch (error) {
           console.error("[VoiceControl] Fallback voice command failed:", error);
         } finally {
-          if (this.onStatusChange) this.onStatusChange("idle");
+          if (this.stopRequestedByUser) {
+            this.notifyStatus("idle", { cancelled: true });
+          } else {
+            this.notifyStatus("idle", idlePayload);
+          }
+          this.stopRequestedByUser = false;
           this.isListening = false;
         }
       };
@@ -339,13 +363,13 @@ export class VoiceControlSystem {
         console.error("[VoiceControl] MediaRecorder error:", event);
         stream.getTracks().forEach((t) => t.stop());
         this.stopSilenceDetection();
-        if (this.onStatusChange) this.onStatusChange("idle");
+        this.notifyStatus("idle");
         this.isListening = false;
       };
 
       this.mediaRecorder.start();
       this.isListening = true;
-      if (this.onStatusChange) this.onStatusChange("listening");
+      this.notifyStatus("listening");
 
       // Set explicit safety timeout
       this.safetyTimeout = setTimeout(() => {
@@ -359,7 +383,7 @@ export class VoiceControlSystem {
       this.setupSilenceDetection(stream);
     } catch (err) {
       console.error("[VoiceControl] Failed to start MediaRecorder:", err);
-      if (this.onStatusChange) this.onStatusChange("idle");
+      this.notifyStatus("idle");
       this.isListening = false;
     }
   }
@@ -441,20 +465,21 @@ export class VoiceControlSystem {
 
   public async toggleListening() {
     if (this.isListening) {
-      // User clicked again: stop listening manually
+      // User toggled off: say goodbye (like 2D dashboard) then stop
+      speakSeeYouAgain();
       if (this.useFallback) {
+        this.stopRequestedByUser = true;
         this.stopFallbackRecording();
       } else if (this.recognition) {
         this.recognition.stop();
         this.isListening = false;
-        if (this.onStatusChange)
-          this.onStatusChange("idle", { cancelled: true });
+        this.notifyStatus("idle", { cancelled: true });
       }
       return;
     }
 
     this.isListening = true;
-    if (this.onStatusChange) this.onStatusChange("listening");
+    this.notifyStatus("listening");
 
     // Await greeting so the mic doesn't capture the robot's voice
     await speakGreeting();

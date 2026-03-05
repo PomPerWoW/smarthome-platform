@@ -61,7 +61,7 @@ export class VoicePanel {
       this.system.toggleListening();
     });
 
-    this.system.setStatusListener((status, payload) => {
+    this.system.addStatusListener((status, payload) => {
       if (status === "listening") {
         this.button.style.backgroundColor = "#ef4444";
         this.button.style.transform = "scale(1.1)";

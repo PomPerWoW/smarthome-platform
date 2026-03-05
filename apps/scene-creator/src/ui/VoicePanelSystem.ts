@@ -61,7 +61,7 @@ export class VoicePanelSystem extends createSystem({
         }
       });
 
-      this.voiceSystem.setStatusListener((status) => {
+      this.voiceSystem.addStatusListener((status, _payload) => {
         this.currentStatus = status;
 
         if (micButton && statusText) {

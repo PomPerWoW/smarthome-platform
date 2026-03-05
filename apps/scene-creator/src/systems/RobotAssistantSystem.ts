@@ -12,6 +12,7 @@ import { Quaternion, SkinnedMesh, Vector3 } from "three";
 import { SkeletonUtils } from "three-stdlib";
 import { RobotAssistantComponent } from "../components/RobotAssistantComponent";
 import { clampToWalkableArea, getRoomBounds } from "../config/navmesh";
+import { VoiceControlSystem } from "./VoiceControlSystem";
 import {
   constrainMovement,
   AVATAR_COLLISION_RADIUS,
@@ -72,6 +73,35 @@ export class RobotAssistantSystem extends createSystem({
     console.log(
       "[RobotAssistant] System initialized (autonomous behavior with pre-baked animations)",
     );
+    // Listen to voice control status (addStatusListener so panel can also listen)
+    VoiceControlSystem.getInstance().addStatusListener((status, payload) => {
+      if (status === "listening" || status === "processing") {
+        // Toggle ON: robot stands until user toggles off or command succeeds
+        this.setVoiceListening(true);
+        return;
+      }
+      if (status === "idle") {
+        if (payload?.success && payload.action && payload.device) {
+          // Success: say "Finished ..." and play Yes then ThumbsUp (like 2D dashboard)
+          import("../utils/VoiceTextToSpeech").then((module) => {
+            module.speakCompletion(payload.action!, payload.device!);
+          });
+          this.playEmoteSequence(["Yes", "ThumbsUp"], () => {
+            this.setVoiceListening(false);
+          });
+          return;
+        }
+        if (payload?.cancelled) {
+          // Toggle OFF: robot waves (with "See you again" from VoiceControlSystem)
+          this.playEmoteSequence(["Wave"], () => {
+            this.setVoiceListening(false);
+          });
+          return;
+        }
+        // Failed or no payload - just resume walking
+        this.setVoiceListening(false);
+      }
+    });
   }
 
   async createRobotAssistant(
@@ -284,8 +314,10 @@ export class RobotAssistantSystem extends createSystem({
 
   // Turn voice-listening mode on or off
   setVoiceListening(active: boolean): void {
-    this.voiceActive = active;
     if (active) {
+      // Already in voice mode (e.g. "listening" then "processing") — avoid playing Standing twice
+      if (this.voiceActive) return;
+      this.voiceActive = true;
       for (const record of this.robotRecords.values()) {
         this.fadeToAction(record, "Standing", FADE_DURATION);
         record.entity.setValue(
@@ -296,6 +328,7 @@ export class RobotAssistantSystem extends createSystem({
       }
       console.log("[RobotAssistant] 🎤 Voice listening ON — Standing");
     } else {
+      this.voiceActive = false;
       this.voiceEmoteSequence = null;
       for (const record of this.robotRecords.values()) {
         this.fadeToAction(record, "Walking", FADE_DURATION);
@@ -423,7 +456,12 @@ export class RobotAssistantSystem extends createSystem({
 
       // Voice-driven mode: stay Standing (or let emote sequence run), skip movement and random transitions
       if (this.voiceActive) {
-        if (!this.voiceEmoteSequence && record.currentAction !== "Standing") {
+        // Only force Standing when still Walking/Idle — never re-apply Standing when already Standing
+        // or when about to play Wave/Yes/ThumbsUp (avoids extra Standing before scenario animations)
+        const needStanding =
+          !this.voiceEmoteSequence &&
+          (record.currentAction === "Walking" || record.currentAction === "Idle");
+        if (needStanding) {
           this.fadeToAction(record, "Standing", FADE_DURATION);
           record.entity.setValue(
             RobotAssistantComponent,
@@ -473,14 +511,6 @@ export class RobotAssistantSystem extends createSystem({
       const nextWaypointTime = entity.getValue(
         RobotAssistantComponent,
         "nextWaypointTime",
-      ) as number;
-      const moveSpeed = entity.getValue(
-        RobotAssistantComponent,
-        "moveSpeed",
-      ) as number;
-      const nextTransitionTime = entity.getValue(
-        RobotAssistantComponent,
-        "nextTransitionTime",
       ) as number;
       let collisionCooldown = entity.getValue(
         RobotAssistantComponent,
@@ -729,61 +759,8 @@ export class RobotAssistantSystem extends createSystem({
       }
       // ────────────────────────────────────────────────────────────────
 
-      // Check if it's time for a random transition
-      if (this.timeElapsed >= nextTransitionTime) {
-        // Decide: state change or emote
-        const doEmote = Math.random() < 0.3;
-
-        if (doEmote) {
-          // Pick random emote
-          const emote = EMOTES[Math.floor(Math.random() * EMOTES.length)];
-          console.log(`[RobotAssistant] 🎭 Playing emote: ${emote}`);
-          this.fadeToAction(record, emote, FADE_DURATION);
-
-          // Listen for emote finish, then return to previous state
-          const onFinished = () => {
-            record.mixer.removeEventListener("finished", onFinished);
-            console.log(
-              `[RobotAssistant] 🔄 Returning to state: ${currentState}`,
-            );
-            this.fadeToAction(record, currentState, FADE_DURATION);
-          };
-          record.mixer.addEventListener("finished", onFinished);
-        } else {
-          // Change state (bias towards Walking)
-          const rand = Math.random();
-          let newState: string;
-
-          if (rand < 0.6) {
-            newState = "Walking";
-          } else if (rand < 0.8) {
-            newState = "Idle";
-          } else {
-            const otherStates = STATES.filter(
-              (s) => s !== currentState && s !== "Walking" && s !== "Death",
-            );
-            newState =
-              otherStates[Math.floor(Math.random() * otherStates.length)] ||
-              "Walking";
-          }
-
-          if (newState !== currentState) {
-            console.log(
-              `[RobotAssistant] 🤖 Changing state: ${currentState} → ${newState}`,
-            );
-            this.fadeToAction(record, newState, FADE_DURATION);
-            entity.setValue(RobotAssistantComponent, "currentState", newState);
-          }
-        }
-
-        // Set next transition time
-        const nextInterval = 5.0 + Math.random() * 5.0;
-        entity.setValue(
-          RobotAssistantComponent,
-          "nextTransitionTime",
-          this.timeElapsed + nextInterval,
-        );
-      }
+      // No random state transition: robot only switches Idle ↔ Walking based on
+      // waypoints (Idle when stopped at waypoint, Walking when moving to next).
 
       // Ensure expressions stay at 0.0
       if (record.headMesh) {
