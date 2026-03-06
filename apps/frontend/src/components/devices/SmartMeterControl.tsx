@@ -26,11 +26,20 @@ function AnalogGauge({ value, configKey }: { value?: number, configKey: string }
     const percentage = Math.max(0, Math.min(100, ((safeValue - min) / (max - min)) * 100));
 
     // Half circle SVG variables
-    const radius = 40;
+    const cx = 50, cy = 50, radius = 40;
     const circumference = Math.PI * radius;
-    // Stroke offset goes backwards (from circumference to 0) to fill the bar.
-    // If value is missing, keep it empty.
+    // Stroke offset for the filled arc
     const dashoffset = value !== undefined ? circumference - (percentage / 100) * circumference : circumference;
+
+    // Needle angle: 180° (left, 0%) to 0° (right, 100%)
+    const needleAngleDeg = 180 - (percentage / 100) * 180;
+    const needleAngleRad = (needleAngleDeg * Math.PI) / 180;
+    const needleLength = 32;
+    const needleTipX = cx + needleLength * Math.cos(needleAngleRad);
+    const needleTipY = cy - needleLength * Math.sin(needleAngleRad);
+
+    // Unique gradient ID per gauge instance
+    const gradId = `gauge-grad-${configKey}`;
 
     return (
         <div className="flex flex-col items-center justify-start p-3 bg-background/40 border rounded-xl shadow-sm relative overflow-hidden group">
@@ -39,6 +48,15 @@ function AnalogGauge({ value, configKey }: { value?: number, configKey: string }
             </h4>
             <div className="flex flex-col items-center justify-start w-full relative z-10 pt-1">
                 <svg className="w-[110px] h-[60px] drop-shadow-sm transition-transform group-hover:scale-105 mb-1" viewBox="0 0 100 60">
+                    <defs>
+                        {/* Gradient along the arc path */}
+                        <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stopColor={color} stopOpacity="0.15" />
+                            <stop offset="100%" stopColor={color} stopOpacity="0.9" />
+                        </linearGradient>
+                    </defs>
+
+                    {/* Background track */}
                     <path
                         d="M 10 50 A 40 40 0 0 1 90 50"
                         fill="none"
@@ -47,16 +65,50 @@ function AnalogGauge({ value, configKey }: { value?: number, configKey: string }
                         strokeWidth="9"
                         strokeLinecap="round"
                     />
+
+                    {/* Gradient-filled arc (from start to needle) */}
                     <path
                         d="M 10 50 A 40 40 0 0 1 90 50"
                         fill="none"
-                        stroke={color}
+                        stroke={`url(#${gradId})`}
                         strokeWidth="9"
                         strokeLinecap="round"
                         strokeDasharray={circumference}
                         strokeDashoffset={dashoffset}
                         className="transition-all duration-1000 ease-out"
                     />
+
+                    {/* Needle */}
+                    {value !== undefined && (
+                        <>
+                            {/* Sharp triangular needle */}
+                            {(() => {
+                                // Perpendicular offset for the wide base of the needle
+                                const perpX = Math.sin(needleAngleRad) * 3;
+                                const perpY = Math.cos(needleAngleRad) * 3;
+                                const baseX1 = cx + perpX;
+                                const baseY1 = cy + perpY;
+                                const baseX2 = cx - perpX;
+                                const baseY2 = cy - perpY;
+                                return (
+                                    <polygon
+                                        points={`${baseX1},${baseY1} ${needleTipX},${needleTipY} ${baseX2},${baseY2}`}
+                                        fill={color}
+                                        className="transition-all duration-1000 ease-out"
+                                        style={{ filter: `drop-shadow(0 0 3px ${color}50)` }}
+                                    />
+                                );
+                            })()}
+                            {/* Needle pivot dot */}
+                            <circle
+                                cx={cx}
+                                cy={cy}
+                                r="4"
+                                fill={color}
+                                className="transition-all duration-1000 ease-out"
+                            />
+                        </>
+                    )}
                 </svg>
                 <div className="flex flex-col items-center leading-none mt-[-10px]">
                     <span className="text-xl font-mono font-bold tracking-tight">
