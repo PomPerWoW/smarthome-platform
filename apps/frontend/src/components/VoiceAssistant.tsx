@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Mic, MicOff, Loader2 } from "lucide-react";
 import { voiceService } from "@/services/VoiceService";
 import { cn } from "@/lib/utils";
@@ -9,6 +10,7 @@ export const VoiceAssistant: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const setAvatarListening = useUIStore((s) => s.set_avatar_listening);
   const setVoiceStatus = useUIStore((s) => s.set_voice_status);
+  const queryClient = useQueryClient();
 
   const handleToggle = () => {
     if (isListening) {
@@ -33,7 +35,14 @@ export const VoiceAssistant: React.FC = () => {
         (status, payload) => {
           if (status === "listening") setVoiceStatus("listening");
           else if (status === "processing") setVoiceStatus("processing");
-          else setVoiceStatus("idle", payload);
+          else {
+            setVoiceStatus("idle", payload);
+            // Device action success: refresh device lists so UI updates without manual reload
+            if (status === "idle" && payload?.success && !payload?.instructionTopic) {
+              queryClient.invalidateQueries({ queryKey: ["home-devices"] });
+              queryClient.invalidateQueries({ queryKey: ["devices"] });
+            }
+          }
         },
       );
     }

@@ -75,6 +75,7 @@ function RootLayout() {
         if (data.type === "device_update") {
           console.log("Device update received, refreshing data...");
           queryClient.invalidateQueries({ queryKey: ["home-devices"] });
+          queryClient.invalidateQueries({ queryKey: ["devices"] });
         }
       });
 
