@@ -103,6 +103,27 @@ export const deviceStore = createStore<DeviceState>()(
           "[Store] Raw devices data:",
           JSON.stringify(devices, null, 2),
         );
+        // Ensure at least 1 SmartMeter exists for the Scene Creator Showcase
+        const hasSmartMeter = devices.some(d => d.type === DeviceType.SmartMeter);
+        if (!hasSmartMeter) {
+          console.log("[Store] Injecting missing SmartMeter for AR showcase...");
+          devices.push({
+            id: "local-smartmeter-mock-01",
+            name: "Smart Meter Demo",
+            type: DeviceType.SmartMeter,
+            is_on: true,
+            position: [0.6, 2.0, -0.8],
+            rotation_y: 0,
+            tag: "smartmeter-raspi.meter-1phase-01",
+            home_id: "local_home",
+            home_name: "Local Home",
+            floor_id: "local_floor",
+            floor_name: "Local Floor",
+            room_id: "local_room",
+            room_name: "Lab Room",
+          });
+        }
+
         set({ homes, devices, loading: false });
         console.log(
           `[Store] Loaded ${homes.length} homes, ${devices.length} devices`,
@@ -371,6 +392,7 @@ export const deviceStore = createStore<DeviceState>()(
         [DeviceType.Television]: [],
         [DeviceType.Fan]: [],
         [DeviceType.AirConditioner]: [],
+        [DeviceType.SmartMeter]: [],
       };
       for (const device of get().devices) {
         grouped[device.type].push(device);

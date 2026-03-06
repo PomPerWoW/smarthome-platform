@@ -10,6 +10,7 @@ export interface DeviceBase {
   id: string;
   name: string;
   type: DeviceType;
+  tag?: string;
   is_on: boolean;
   position: [number, number, number];
   rotation_y: number;

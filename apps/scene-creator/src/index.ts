@@ -26,6 +26,7 @@ import { TelevisionPanelSystem } from "./ui/TelevisionPanelSystem";
 import { FanPanelSystem } from "./ui/FanPanelSystem";
 import { AirConditionerPanelSystem } from "./ui/AirConditionerPanelSystem";
 import { GraphPanelSystem } from "./ui/GraphPanelSystem";
+import { SmartMeterPanelSystem } from "./ui/SmartMeterPanelSystem";
 import { VoiceControlSystem } from "./systems/VoiceControlSystem";
 import { VoicePanelSystem } from "./ui/VoicePanelSystem";
 // import { VoicePanel } from "./ui/VoicePanel"; // Legacy DOM panel
@@ -249,6 +250,7 @@ async function main(): Promise<void> {
     .registerSystem(TelevisionPanelSystem)
     .registerSystem(FanPanelSystem)
     .registerSystem(AirConditionerPanelSystem)
+    .registerSystem(SmartMeterPanelSystem)
     .registerSystem(GraphPanelSystem)
     .registerSystem(RoomScanningSystem)
     .registerSystem(PhysicsSystem)

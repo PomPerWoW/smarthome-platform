@@ -19,6 +19,11 @@ export function SmartMeterModel({ isOn }: SmartMeterModelProps) {
                 const material = child.material as THREE.MeshStandardMaterial;
                 if (material.isMeshStandardMaterial) {
                     const newMaterial = material.clone();
+                    // Fix intrinsic model transparency issues
+                    newMaterial.transparent = false;
+                    newMaterial.depthWrite = true;
+                    newMaterial.opacity = 1;
+
                     if (isOn) {
                         // Example: A blueish/green glow when active
                         // newMaterial.emissive = new THREE.Color(0x00ff88);

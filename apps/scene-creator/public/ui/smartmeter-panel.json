@@ -1,0 +1,626 @@
+{
+  "element": {
+    "type": "container",
+    "sourceTag": "div",
+    "children": [
+      {
+        "type": "container",
+        "sourceTag": "div",
+        "children": [
+          {
+            "type": "container",
+            "sourceTag": "div",
+            "children": [
+              {
+                "type": "container",
+                "sourceTag": "div",
+                "children": [
+                  {
+                    "sourceTag": "activityicon",
+                    "type": "custom",
+                    "children": [],
+                    "properties": {
+                      "class": "device-icon",
+                      "id": "header-icon"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "container",
+                "sourceTag": "div",
+                "children": [
+                  {
+                    "sourceTag": "span",
+                    "type": "custom",
+                    "children": [
+                      "Smart Meter"
+                    ],
+                    "properties": {
+                      "class": "device-name",
+                      "id": "device-name"
+                    }
+                  },
+                  {
+                    "sourceTag": "span",
+                    "type": "custom",
+                    "children": [
+                      "Loading..."
+                    ],
+                    "properties": {
+                      "class": "device-location",
+                      "id": "device-location"
+                    }
+                  }
+                ],
+                "properties": {
+                  "class": "header-text"
+                }
+              }
+            ],
+            "properties": {
+              "class": "header-section"
+            }
+          },
+          {
+            "type": "container",
+            "sourceTag": "div",
+            "children": [],
+            "properties": {
+              "class": "divider"
+            }
+          },
+          {
+            "type": "container",
+            "sourceTag": "div",
+            "children": [
+              {
+                "type": "container",
+                "sourceTag": "div",
+                "children": [
+                  {
+                    "sourceTag": "powericon",
+                    "type": "custom",
+                    "children": [],
+                    "properties": {
+                      "class": "control-icon"
+                    }
+                  },
+                  {
+                    "sourceTag": "span",
+                    "type": "custom",
+                    "children": [
+                      "Power"
+                    ],
+                    "properties": {
+                      "class": "control-label"
+                    }
+                  },
+                  {
+                    "sourceTag": "button",
+                    "type": "custom",
+                    "children": [
+                      {
+                        "type": "container",
+                        "sourceTag": "div",
+                        "children": [
+                          {
+                            "sourceTag": "powericon",
+                            "type": "custom",
+                            "children": [],
+                            "properties": {
+                              "class": "power-icon"
+                            }
+                          }
+                        ]
+                      }
+                    ],
+                    "properties": {
+                      "class": "power-btn-on",
+                      "id": "power-btn"
+                    }
+                  }
+                ],
+                "properties": {
+                  "class": "control-row"
+                }
+              },
+              {
+                "type": "container",
+                "sourceTag": "div",
+                "children": [
+                  {
+                    "sourceTag": "activityicon",
+                    "type": "custom",
+                    "children": [],
+                    "properties": {
+                      "class": "control-icon"
+                    }
+                  },
+                  {
+                    "sourceTag": "span",
+                    "type": "custom",
+                    "children": [
+                      "Voltage: "
+                    ],
+                    "properties": {
+                      "class": "metric-label"
+                    }
+                  },
+                  {
+                    "sourceTag": "span",
+                    "type": "custom",
+                    "children": [
+                      "-- V"
+                    ],
+                    "properties": {
+                      "class": "metric-value",
+                      "id": "metric-v"
+                    }
+                  }
+                ],
+                "properties": {
+                  "class": "control-row"
+                }
+              },
+              {
+                "type": "container",
+                "sourceTag": "div",
+                "children": [
+                  {
+                    "sourceTag": "activityicon",
+                    "type": "custom",
+                    "children": [],
+                    "properties": {
+                      "class": "control-icon"
+                    }
+                  },
+                  {
+                    "sourceTag": "span",
+                    "type": "custom",
+                    "children": [
+                      "Current: "
+                    ],
+                    "properties": {
+                      "class": "metric-label"
+                    }
+                  },
+                  {
+                    "sourceTag": "span",
+                    "type": "custom",
+                    "children": [
+                      "-- A"
+                    ],
+                    "properties": {
+                      "class": "metric-value",
+                      "id": "metric-i"
+                    }
+                  }
+                ],
+                "properties": {
+                  "class": "control-row"
+                }
+              },
+              {
+                "type": "container",
+                "sourceTag": "div",
+                "children": [
+                  {
+                    "sourceTag": "activityicon",
+                    "type": "custom",
+                    "children": [],
+                    "properties": {
+                      "class": "control-icon"
+                    }
+                  },
+                  {
+                    "sourceTag": "span",
+                    "type": "custom",
+                    "children": [
+                      "Active Power: "
+                    ],
+                    "properties": {
+                      "class": "metric-label"
+                    }
+                  },
+                  {
+                    "sourceTag": "span",
+                    "type": "custom",
+                    "children": [
+                      "-- kW"
+                    ],
+                    "properties": {
+                      "class": "metric-value",
+                      "id": "metric-P"
+                    }
+                  }
+                ],
+                "properties": {
+                  "class": "control-row"
+                }
+              },
+              {
+                "type": "container",
+                "sourceTag": "div",
+                "children": [
+                  {
+                    "sourceTag": "activityicon",
+                    "type": "custom",
+                    "children": [],
+                    "properties": {
+                      "class": "control-icon"
+                    }
+                  },
+                  {
+                    "sourceTag": "span",
+                    "type": "custom",
+                    "children": [
+                      "Reactive Power: "
+                    ],
+                    "properties": {
+                      "class": "metric-label"
+                    }
+                  },
+                  {
+                    "sourceTag": "span",
+                    "type": "custom",
+                    "children": [
+                      "-- kVAR"
+                    ],
+                    "properties": {
+                      "class": "metric-value",
+                      "id": "metric-Q"
+                    }
+                  }
+                ],
+                "properties": {
+                  "class": "control-row"
+                }
+              },
+              {
+                "type": "container",
+                "sourceTag": "div",
+                "children": [
+                  {
+                    "sourceTag": "activityicon",
+                    "type": "custom",
+                    "children": [],
+                    "properties": {
+                      "class": "control-icon"
+                    }
+                  },
+                  {
+                    "sourceTag": "span",
+                    "type": "custom",
+                    "children": [
+                      "Apparent Power: "
+                    ],
+                    "properties": {
+                      "class": "metric-label"
+                    }
+                  },
+                  {
+                    "sourceTag": "span",
+                    "type": "custom",
+                    "children": [
+                      "-- kVA"
+                    ],
+                    "properties": {
+                      "class": "metric-value",
+                      "id": "metric-S"
+                    }
+                  }
+                ],
+                "properties": {
+                  "class": "control-row"
+                }
+              },
+              {
+                "type": "container",
+                "sourceTag": "div",
+                "children": [
+                  {
+                    "sourceTag": "activityicon",
+                    "type": "custom",
+                    "children": [],
+                    "properties": {
+                      "class": "control-icon"
+                    }
+                  },
+                  {
+                    "sourceTag": "span",
+                    "type": "custom",
+                    "children": [
+                      "Power Factor: "
+                    ],
+                    "properties": {
+                      "class": "metric-label"
+                    }
+                  },
+                  {
+                    "sourceTag": "span",
+                    "type": "custom",
+                    "children": [
+                      "--"
+                    ],
+                    "properties": {
+                      "class": "metric-value",
+                      "id": "metric-PF"
+                    }
+                  }
+                ],
+                "properties": {
+                  "class": "control-row"
+                }
+              },
+              {
+                "type": "container",
+                "sourceTag": "div",
+                "children": [
+                  {
+                    "sourceTag": "activityicon",
+                    "type": "custom",
+                    "children": [],
+                    "properties": {
+                      "class": "control-icon"
+                    }
+                  },
+                  {
+                    "sourceTag": "span",
+                    "type": "custom",
+                    "children": [
+                      "Active Energy: "
+                    ],
+                    "properties": {
+                      "class": "metric-label"
+                    }
+                  },
+                  {
+                    "sourceTag": "span",
+                    "type": "custom",
+                    "children": [
+                      "-- kWh"
+                    ],
+                    "properties": {
+                      "class": "metric-value",
+                      "id": "metric-KWH"
+                    }
+                  }
+                ],
+                "properties": {
+                  "class": "control-row"
+                }
+              },
+              {
+                "type": "container",
+                "sourceTag": "div",
+                "children": [
+                  {
+                    "sourceTag": "activityicon",
+                    "type": "custom",
+                    "children": [],
+                    "properties": {
+                      "class": "control-icon"
+                    }
+                  },
+                  {
+                    "sourceTag": "span",
+                    "type": "custom",
+                    "children": [
+                      "Reactive Energy: "
+                    ],
+                    "properties": {
+                      "class": "metric-label"
+                    }
+                  },
+                  {
+                    "sourceTag": "span",
+                    "type": "custom",
+                    "children": [
+                      "-- kVARh"
+                    ],
+                    "properties": {
+                      "class": "metric-value",
+                      "id": "metric-KVARH"
+                    }
+                  }
+                ],
+                "properties": {
+                  "class": "control-row"
+                }
+              }
+            ],
+            "properties": {
+              "class": "control-section"
+            }
+          }
+        ],
+        "properties": {
+          "class": "panel-container"
+        }
+      },
+      {
+        "type": "container",
+        "sourceTag": "div",
+        "children": [
+          {
+            "type": "container",
+            "sourceTag": "div",
+            "children": [],
+            "properties": {
+              "class": "status-dot",
+              "id": "status-dot"
+            }
+          },
+          {
+            "sourceTag": "span",
+            "type": "custom",
+            "children": [
+              "On"
+            ],
+            "properties": {
+              "class": "status-text",
+              "id": "status-text"
+            }
+          }
+        ],
+        "properties": {
+          "class": "status-section"
+        }
+      }
+    ],
+    "properties": {}
+  },
+  "classes": {
+    "panel-container": {
+      "content": {
+        "alignItems": "flex-start",
+        "padding": "2",
+        "width": "40",
+        "height": "auto",
+        "display": "flex",
+        "flexDirection": "column",
+        "backgroundColor": "#09090b",
+        "borderColor": "#27272a",
+        "borderWidth": "0.15",
+        "borderRadius": 2
+      }
+    },
+    "header-section": {
+      "content": {
+        "display": "flex",
+        "flexDirection": "row",
+        "alignItems": "center",
+        "gap": "1.5",
+        "marginBottom": "1.5",
+        "width": "100%"
+      }
+    },
+    "device-icon": {
+      "content": {
+        "width": "4",
+        "height": "4",
+        "color": "#3b82f6"
+      }
+    },
+    "header-text": {
+      "content": {
+        "display": "flex",
+        "flexDirection": "column",
+        "flex": "1"
+      }
+    },
+    "device-name": {
+      "content": {
+        "fontSize": "2.5",
+        "fontWeight": "bold",
+        "color": "#fafafa"
+      }
+    },
+    "device-location": {
+      "content": {
+        "fontSize": "1.6",
+        "color": "#71717a"
+      }
+    },
+    "divider": {
+      "content": {
+        "height": "0.1",
+        "width": "100%",
+        "backgroundColor": "#27272a",
+        "margin": "1.5 0"
+      }
+    },
+    "control-section": {
+      "content": {
+        "display": "flex",
+        "flexDirection": "column",
+        "gap": "2",
+        "width": "100%"
+      }
+    },
+    "control-row": {
+      "content": {
+        "display": "flex",
+        "flexDirection": "row",
+        "alignItems": "center",
+        "gap": "1.5",
+        "width": "100%"
+      }
+    },
+    "control-icon": {
+      "content": {
+        "width": "2.5",
+        "height": "2.5",
+        "color": "#a1a1aa"
+      }
+    },
+    "control-label": {
+      "content": {
+        "fontSize": "1.8",
+        "color": "#a1a1aa",
+        "width": "12"
+      }
+    },
+    "metric-label": {
+      "content": {
+        "fontSize": "1.8",
+        "color": "#a1a1aa",
+        "width": "18"
+      }
+    },
+    "metric-value": {
+      "content": {
+        "fontSize": "1.8",
+        "color": "#fafafa",
+        "fontWeight": "bold",
+        "flex": "1",
+        "textAlign": "left"
+      }
+    },
+    "power-btn-on": {
+      "content": {
+        "width": "5",
+        "height": "5",
+        "borderRadius": 2.5,
+        "backgroundColor": "#22c55e",
+        "display": "flex",
+        "alignItems": "center",
+        "justifyContent": "center",
+        "cursor": "pointer"
+      }
+    },
+    "power-icon": {
+      "content": {
+        "width": "2.5",
+        "height": "2.5",
+        "color": "#ffffff"
+      }
+    },
+    "status-section": {
+      "content": {
+        "display": "flex",
+        "flexDirection": "row",
+        "alignItems": "center",
+        "gap": "1",
+        "marginTop": "2",
+        "width": "100%",
+        "justifyContent": "center"
+      }
+    },
+    "status-dot": {
+      "content": {
+        "width": "1.5",
+        "height": "1.5",
+        "borderRadius": 0.75,
+        "backgroundColor": "#22c55e"
+      }
+    },
+    "status-text": {
+      "content": {
+        "fontSize": "1.6",
+        "color": "#a1a1aa"
+      }
+    }
+  }
+}

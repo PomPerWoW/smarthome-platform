@@ -5,7 +5,7 @@ export const DEVICE_SCALES: Record<DeviceType, number> = {
   [DeviceType.Television]: 0.4,
   [DeviceType.Fan]: 0.25,
   [DeviceType.AirConditioner]: 0.2,
-  [DeviceType.SmartMeter]: 1.5,
+  [DeviceType.SmartMeter]: 0.0005,
 };
 
 export const DEVICE_ICONS: Record<DeviceType, string> = {

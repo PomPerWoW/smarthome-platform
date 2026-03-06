@@ -24,7 +24,7 @@ const DEFAULT_POSITIONS: Record<DeviceType, [number, number, number]> = {
   [DeviceType.Television]: [1.5, 1, -2],
   [DeviceType.Fan]: [-1.5, 1, -2],
   [DeviceType.AirConditioner]: [0, 2, -2.5],
-  [DeviceType.SmartMeter]: [-2, 1, -2],
+  [DeviceType.SmartMeter]: [0.6, 2.0, -0.8],
 };
 
 export function mapRawDeviceToDevice(raw: RawDeviceResponse): Device {
@@ -41,6 +41,7 @@ export function mapRawDeviceToDevice(raw: RawDeviceResponse): Device {
     id: raw.id,
     name: raw.device_name || "Unnamed Device",
     type: deviceType,
+    tag: raw.tag || "",
     is_on: raw.is_on ?? true,
     position,
     rotation_y: raw.device_rotation?.y ?? 0,
