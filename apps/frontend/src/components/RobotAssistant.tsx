@@ -144,12 +144,15 @@ function RobotAssistantScene() {
       return;
     }
 
-    // 2) Finished: success → Yes then ThumbsUp
+    // 2) Finished: instruction → Standing once then Idle; device success → Yes then ThumbsUp
     // 3) Cancel (toggle off) → Wave
     if (voiceStatus === "idle" && voicePayload) {
       if (voicePayload.cancelled) {
         clearVoicePayload();
         playEmoteSequence([EMOTE_WAVE]);
+      } else if (voicePayload.success === true && voicePayload.instructionTopic) {
+        clearVoicePayload();
+        playEmoteSequence([VOICE_STANDING]);
       } else if (voicePayload.success === true) {
         clearVoicePayload();
         playEmoteSequence([EMOTE_YES, EMOTE_THUMBS_UP]);
