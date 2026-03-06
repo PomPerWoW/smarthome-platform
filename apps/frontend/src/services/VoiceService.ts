@@ -4,6 +4,7 @@ import {
   speakSeeYouAgain,
   speakCompletion,
   speakNoMatch,
+  speakInstruction,
 } from "./VoiceTextToSpeech";
 import { toast } from "sonner";
 
@@ -104,7 +105,7 @@ export class VoiceService {
     onEnd: () => void,
     onStatusChange?: (
       status: "listening" | "processing" | "idle",
-      payload?: { success?: boolean; cancelled?: boolean },
+      payload?: { success?: boolean; cancelled?: boolean; instructionTopic?: string },
     ) => void,
   ): Promise<void> {
     if (this.isListening) return;
@@ -124,7 +125,7 @@ export class VoiceService {
     }
 
     if (this.useFallback) {
-      this.startFallbackRecording(onResult, onEnd);
+      this.startFallbackRecording(onResult, onEnd, onStatusChange);
       return;
     }
 
@@ -145,7 +146,18 @@ export class VoiceService {
         await PythonTalkMainBridge.analyze(transcript);
         const response = await this.sendVoiceCommand(transcript);
 
-        // Check if we got any actions
+        // Debug: see what the backend actually returned (remove after confirming instruction_topic works)
+        console.log("[VoiceService] Voice command response:", response);
+
+        // Instruction / how-to: predefined TTS then robot Standing once → Idle
+        if (response?.instruction_topic) {
+          toast.success(`Instruction: "${transcript}"`);
+          speakInstruction(response.instruction_topic);
+          onStatusChange?.("idle", { success: true, instructionTopic: response.instruction_topic });
+          return;
+        }
+
+        // Device actions
         if (response?.actions && response.actions.length > 0) {
           const firstAction = response.actions[0];
           if (
@@ -157,12 +169,10 @@ export class VoiceService {
             speakCompletion(firstAction.action, firstAction.device);
             onStatusChange?.("idle", { success: true });
           } else {
-            // Action failed
             toast.error("Failed to process command.");
             onStatusChange?.("idle", { success: false });
           }
         } else {
-          // No actions found - out of scope or weird input
           toast.info("Command not recognized.");
           speakNoMatch();
           onStatusChange?.("idle", { success: false });
@@ -208,6 +218,10 @@ export class VoiceService {
   private async startFallbackRecording(
     onResult: (text: string) => void,
     onEnd: () => void,
+    onStatusChange?: (
+      status: "listening" | "processing" | "idle",
+      payload?: { success?: boolean; cancelled?: boolean; instructionTopic?: string },
+    ) => void,
   ): Promise<void> {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -245,7 +259,6 @@ export class VoiceService {
 
         try {
           await PythonTalkMainBridge.analyze("audio_blob_received");
-          // Optimized: Transcribe AND Execute
           const { transcript, command_result } = await this.sendVoiceAudio(
             audioBlob,
             true,
@@ -253,14 +266,37 @@ export class VoiceService {
           console.log("[VoiceService] Transcribed:", transcript);
           onResult(transcript);
 
-          if (command_result) {
+          if (command_result?.instruction_topic) {
+            toast.success(`Instruction: "${transcript}"`);
+            speakInstruction(command_result.instruction_topic);
+            onStatusChange?.("idle", { success: true, instructionTopic: command_result.instruction_topic });
+          } else if (
+            command_result?.actions?.length > 0 &&
+            command_result.actions[0].status === "success" &&
+            command_result.actions[0].action &&
+            command_result.actions[0].device
+          ) {
             toast.success(`Executed: "${transcript}"`);
+            speakCompletion(
+              command_result.actions[0].action,
+              command_result.actions[0].device,
+            );
+            onStatusChange?.("idle", { success: true });
+          } else if (command_result?.actions?.length > 0) {
+            toast.error("Failed to process command.");
+            onStatusChange?.("idle", { success: false });
           } else if (!transcript || !transcript.trim()) {
             toast.error("No speech detected.");
+            onStatusChange?.("idle", { success: false });
+          } else {
+            toast.info("Command not recognized.");
+            speakNoMatch();
+            onStatusChange?.("idle", { success: false });
           }
         } catch (error) {
           console.error("[VoiceService] Fallback failed:", error);
           toast.error("Failed to process voice command.");
+          onStatusChange?.("idle", { success: false });
         } finally {
           this.isListening = false;
           onEnd();
@@ -380,6 +416,7 @@ export class VoiceService {
       action?: string;
       device?: string;
     }>;
+    instruction_topic?: string;
   }> {
     type VoiceCommandResponse = {
       actions?: Array<{
@@ -387,6 +424,7 @@ export class VoiceService {
         action?: string;
         device?: string;
       }>;
+      instruction_topic?: string;
     };
     const data = await ApiService.getInstance().post<VoiceCommandResponse>(
       "/api/homes/voice/command/",

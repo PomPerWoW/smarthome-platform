@@ -1,4 +1,4 @@
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from .llm_interfaces import LLMProvider, CommandIntent
 from .llm_providers import LLMFactory
 from .models import Device, Lightbulb, Television, Fan, AirConditioner
@@ -10,10 +10,162 @@ class VoiceAssistantService:
     def __init__(self, provider: LLMProvider = None):
         self.provider = provider or LLMFactory.get_provider()
 
+    def _detect_instruction_topic(self, command_text: str) -> Optional[str]:
+        """Detect if the command is an instruction/how-to question; return topic key or None."""
+        if not command_text or not isinstance(command_text, str):
+            return None
+        t = command_text.strip().lower()
+        # Guardrails to prevent overlap with device-action commands.
+        # - Instruction-like: questions / help / explanations (predefined scripts).
+        # - Command-like: actions to execute (turn on/off, set values, etc.).
+        instruction_triggers = (
+            "how do i",
+            "how to",
+            "what is",
+            "what's",
+            "explain",
+            "tell me about",
+            "help me",
+            "can you help",
+            "i need help",
+            "show me how",
+            "guide me",
+            "can you explain",
+        )
+        command_triggers = (
+            "turn on",
+            "turn off",
+            "switch on",
+            "switch off",
+            "set ",
+            "change ",
+            "increase ",
+            "decrease ",
+            "mute",
+            "unmute",
+        )
+
+        is_instruction_like = any(x in t for x in instruction_triggers) or t.endswith("?")
+        is_command_like = any(x in t for x in command_triggers)
+
+        # If it's clearly a device command and not a how-to question, don't treat it as instruction.
+        if is_command_like and not is_instruction_like:
+            return None
+
+        # Word-boundary helper (avoids matching "highlight" as "light", "account" as "ac", etc.)
+        import re
+
+        def has_word(word: str) -> bool:
+            return re.search(rf"\b{re.escape(word)}\b", t) is not None
+
+        # control – how do I control / how can I control
+        if is_instruction_like and any(
+            x in t
+            for x in (
+                "how do i control",
+                "how can i control",
+                "how to control",
+                "what can i use to control",
+                "how do i control the system",
+                "how do i control the appliances",
+            )
+        ):
+            return "control"
+        # panel – general panel usage
+        if is_instruction_like and any(
+            x in t
+            for x in (
+                "how do i use this panel",
+                "how do i use the panel",
+                "how to use this panel",
+                "how to use the panel",
+                "what is this panel",
+                "what is the panel for",
+                "how many panels",
+                "tell me about the panel",
+                "explain the panel",
+            )
+        ):
+            return "panel"
+        # voice – mic, voice commands
+        if is_instruction_like and any(
+            x in t
+            for x in (
+                "how do i use voice",
+                "how to use voice",
+                "how do i use the microphone",
+                "how do i give voice commands",
+                "what can i say",
+                "what should i say",
+                "what's the mic",
+                "what is the mic",
+                "tell me about voice",
+                "explain voice",
+            )
+        ):
+            return "voice"
+        # on_off
+        if is_instruction_like and any(
+            x in t
+            for x in (
+                "how do i turn on",
+                "how do i turn off",
+                "how to turn on",
+                "how to turn off",
+                "how do i switch on",
+                "how do i switch off",
+                "how do i turn something on",
+                "how do i turn something off",
+            )
+        ):
+            return "on_off"
+        # usage_graph
+        if is_instruction_like and any(
+            x in t
+            for x in (
+                "usage graph",
+                "usage view",
+                "3d graph",
+                "how do i see usage",
+                "how to see usage",
+                "how do i check usage",
+                "explain usage",
+                "check consumption",
+            )
+        ):
+            return "usage_graph"
+        # device-specific instructions: only when the user is asking for help/explanation
+        if is_instruction_like and has_word("fan"):
+            return "fan"
+        if is_instruction_like and (has_word("light") or has_word("lightbulb") or has_word("bulb")):
+            return "light"
+        if is_instruction_like and (has_word("tv") or "television" in t):
+            return "television"
+        if is_instruction_like and (
+            has_word("ac") or "air conditioner" in t or "air conditioning" in t
+        ):
+            return "ac"
+        # generic "how to use" without device
+        if is_instruction_like and any(
+            x in t for x in ("how do i use", "how to use", "what does this do", "explain")
+        ):
+            return "fallback"
+        return None
+
     def process_voice_command(self, user, command_text: str) -> Dict[str, Any]:
         """
         Main entry point for voice commands.
         """
+        # 0. Instruction / how-to: return topic for predefined TTS (no device actions)
+        instruction_topic = self._detect_instruction_topic(command_text)
+        if instruction_topic:
+            return {
+                "command": command_text,
+                "code": None,
+                "actions": [],
+                "instruction_topic": instruction_topic,
+            }
+
         # 1. Fetch devices context
         devices = self._get_user_devices(user)
         devices_context = [

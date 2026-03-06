@@ -82,11 +82,18 @@ export class RobotAssistantSystem extends createSystem({
       }
       if (status === "idle") {
         if (payload?.success && payload.action && payload.device) {
-          // Success: say "Finished ..." and play Yes then ThumbsUp (like 2D dashboard)
+          // Device command success: say "Finished ..." and play Yes then ThumbsUp
           import("../utils/VoiceTextToSpeech").then((module) => {
             module.speakCompletion(payload.action!, payload.device!);
           });
           this.playEmoteSequence(["Yes", "ThumbsUp"], () => {
+            this.setVoiceListening(false);
+          });
+          return;
+        }
+        if (payload?.success && payload.instructionTopic) {
+          // Instruction / how-to: TTS already spoken; robot Standing once then → walk/idle
+          this.playEmoteSequence(["Standing"], () => {
             this.setVoiceListening(false);
           });
           return;

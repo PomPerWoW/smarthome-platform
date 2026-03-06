@@ -2,7 +2,11 @@ import { create } from "zustand";
 import { toast } from "sonner";
 
 export type VoiceStatus = "idle" | "listening" | "processing";
-export type VoiceIdlePayload = { success?: boolean; cancelled?: boolean };
+export type VoiceIdlePayload = {
+  success?: boolean;
+  cancelled?: boolean;
+  instructionTopic?: string;
+};
 
 interface UIState {
 

@@ -2,6 +2,7 @@ import { BackendApiClient } from "../api/BackendApiClient";
 import {
   speakGreeting,
   speakSeeYouAgain,
+  speakInstruction,
 } from "../utils/VoiceTextToSpeech";
 
 class PythonTalkMainBridge {
@@ -43,6 +44,7 @@ export type VoiceIdlePayload = {
   action?: string;
   device?: string;
   noMatch?: boolean;
+  instructionTopic?: string;
 };
 
 export class VoiceControlSystem {
@@ -239,6 +241,16 @@ export class VoiceControlSystem {
         await BackendApiClient.getInstance().sendVoiceCommand(transcript);
       console.log("[VoiceControl] Command executed successfully.");
 
+      // Instruction / how-to: speak predefined answer then robot Yes+ThumbsUp → walk/idle
+      if (response?.instruction_topic) {
+        speakInstruction(response.instruction_topic);
+        this.notifyStatus("idle", {
+          success: true,
+          instructionTopic: response.instruction_topic,
+        });
+        return;
+      }
+
       let action: string | undefined;
       let device: string | undefined;
       let noMatch = false;
@@ -329,7 +341,13 @@ export class VoiceControlSystem {
             this.onTranscript(transcript);
           }
 
-          if (command_result?.actions?.length > 0) {
+          if (command_result?.instruction_topic) {
+            speakInstruction(command_result.instruction_topic);
+            idlePayload = {
+              success: true,
+              instructionTopic: command_result.instruction_topic,
+            };
+          } else if (command_result?.actions?.length > 0) {
             const first = command_result.actions[0];
             if (
               first.status === "success" &&
@@ -343,7 +361,8 @@ export class VoiceControlSystem {
               };
             }
             console.log("[VoiceControl] Command Executed:", command_result);
-          } else if (!transcript || !transcript.trim()) {
+          }
+          if (!transcript || !transcript.trim()) {
             console.warn("[VoiceControl] Empty transcript — ignoring");
           }
         } catch (error) {
