@@ -21,6 +21,8 @@ function getSamanthaOrFirst(): SpeechSynthesisVoice | null {
   );
 }
 
+const SPEECH_RESET_DELAY_MS = 60;
+
 function speakText(text: string): Promise<void> {
   return new Promise((resolve) => {
     if (typeof window === "undefined" || !window.speechSynthesis) {
@@ -34,9 +36,12 @@ function speakText(text: string): Promise<void> {
       const u = new SpeechSynthesisUtterance(text);
       u.lang = "en-US";
       if (voice) u.voice = voice;
+      u.volume = 1;
+      u.rate = 1;
+      u.pitch = 1;
       u.onend = () => resolve();
       u.onerror = () => resolve();
-      synth.speak(u);
+      setTimeout(() => synth.speak(u), SPEECH_RESET_DELAY_MS);
     };
     if (synth.getVoices().length > 0) {
       doSpeak();

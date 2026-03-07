@@ -12,6 +12,7 @@ class VoiceAssistantService:
 
     def _detect_instruction_topic(self, command_text: str) -> Optional[str]:
         """Detect if the command is an instruction/how-to question; return topic key or None."""
+        import re
         if not command_text or not isinstance(command_text, str):
             return None
         t = command_text.strip().lower()
@@ -53,12 +54,50 @@ class VoiceAssistantService:
             return None
 
         # Word-boundary helper (avoids matching "highlight" as "light", "account" as "ac", etc.)
-        import re
-
         def has_word(word: str) -> bool:
             return re.search(rf"\b{re.escape(word)}\b", t) is not None
 
-        # control – how do I control / how can I control
+        # End of instruction session: "no thank you" / "that's all" → goodbye (3D follow-up flow)
+        # Normalize punctuation so "no, thanks" / "no, thank you" match
+        t_normalized = re.sub(r"[,.]", " ", t)
+        t_normalized = " ".join(t_normalized.split())
+        if any(
+            x in t_normalized or x in t
+            for x in (
+                "no thank you",
+                "no thanks",
+                "no thank",
+                "that's all",
+                "that is all",
+                "nothing else",
+                "i'm good",
+                "im good",
+                "all good",
+            )
+        ):
+            return "goodbye"
+
+        # Follow-up: short agreement or "another question" → client plays "What would you like to know?"
+        t_short = t.strip().lower().rstrip(".,!?")
+        if t_short in ("yes", "yeah", "yep", "yup", "sure", "ok", "okay"):
+            return "yes_more"
+        if any(
+            x in t for x in ("another question", "one more", "more questions")
+        ) and len(t.split()) <= 5:
+            return "yes_more"
+
+        # "How to control the fan/light/tv/ac" → device topic (must run BEFORE generic "control" below)
+        if is_instruction_like and ("control" in t):
+            if has_word("fan"):
+                return "fan"
+            if has_word("light") or has_word("lightbulb") or has_word("bulb"):
+                return "light"
+            if has_word("tv") or "television" in t:
+                return "television"
+            if has_word("ac") or "air conditioner" in t or "air conditioning" in t:
+                return "ac"
+
+        # control – general how do I control (no specific appliance)
         if is_instruction_like and any(
             x in t
             for x in (
@@ -134,7 +173,7 @@ class VoiceAssistantService:
             )
         ):
             return "usage_graph"
-        # device-specific instructions: only when the user is asking for help/explanation
+        # device-specific instructions (e.g. "how do I use the fan") when no "control" phrase
         if is_instruction_like and has_word("fan"):
             return "fan"
         if is_instruction_like and (has_word("light") or has_word("lightbulb") or has_word("bulb")):

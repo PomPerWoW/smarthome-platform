@@ -3,6 +3,7 @@ import {
   speakGreeting,
   speakSeeYouAgain,
   speakInstruction,
+  speakFollowUpWhatQuestion,
 } from "../utils/VoiceTextToSpeech";
 
 class PythonTalkMainBridge {
@@ -45,6 +46,7 @@ export type VoiceIdlePayload = {
   device?: string;
   noMatch?: boolean;
   instructionTopic?: string;
+  endSession?: boolean;
 };
 
 export class VoiceControlSystem {
@@ -61,10 +63,20 @@ export class VoiceControlSystem {
     payload?: VoiceIdlePayload,
   ) => void> = [];
 
+  /** When true, skip "How can I help you?" on next toggle on (e.g. already in instruction session). */
+  private skipGreetingChecker: (() => boolean) | null = null;
+  /** When true, check transcript for "no thanks" / "yes" before calling backend (instruction follow-up). */
+  private instructionSessionChecker: (() => boolean) | null = null;
+  /** When true, fallback onstop will skip notifying idle (yes_more → restart listening). */
+  private restartingListening = false;
+
   private notifyStatus(
     status: "listening" | "processing" | "idle",
     payload?: VoiceIdlePayload,
   ): void {
+    if (status === "idle") {
+      console.log("[VoiceControl] 🔔 notifyStatus IDLE", JSON.stringify(payload), new Error().stack?.split("\n").slice(1, 4).join(" | "));
+    }
     this.onStatusListeners.forEach((cb) => cb(status, payload));
   }
 
@@ -77,9 +89,10 @@ export class VoiceControlSystem {
   private silenceCheckInterval: any = null;
   private safetyTimeout: any = null;
   private silenceStart: number = 0;
-  private readonly SILENCE_DURATION = 2000; // 2s of silence before auto-stop (was 1s)
-  private readonly MAX_RECORDING_DURATION = 15000; // 15s max recording (was 8s)
+  private readonly SILENCE_DURATION = 3500; // 3.5s of silence before auto-stop
+  private readonly MAX_RECORDING_DURATION = 16000; // 16s max recording
   private readonly SOUND_THRESHOLD = 5; // Lower threshold for Quest mic sensitivity (was 10)
+  private readonly LISTEN_START_DELAY_MS = 700; // Delay after TTS before starting mic (avoid capturing robot voice)
 
   // Retry logic for native SpeechRecognition
   private retryCount = 0;
@@ -123,6 +136,46 @@ export class VoiceControlSystem {
     ) => void,
   ) {
     this.onStatusListeners.push(callback);
+  }
+
+  /** Register checker: when true, skip speaking "How can I help you?" on voice toggle on. */
+  public registerSkipGreetingChecker(fn: () => boolean): void {
+    this.skipGreetingChecker = fn;
+  }
+
+  /** Register checker: when true, handle "no thanks" / "yes" locally before calling backend. */
+  public registerInstructionSessionChecker(fn: () => boolean): void {
+    this.instructionSessionChecker = fn;
+  }
+
+  /** Start listening without greeting (used after "What would you like to know?" in instruction session). */
+  public startListeningWithoutGreeting(): void {
+    this.isListening = true;
+    this.notifyStatus("listening");
+    if (this.useFallback) {
+      this.startFallbackRecording();
+      return;
+    }
+    if (this.recognition) {
+      try {
+        this.retryCount = 0;
+        this.recognition.start();
+      } catch (e) {
+        console.error("[VoiceControl] startListeningWithoutGreeting failed:", e);
+      }
+    }
+  }
+
+  private static matchNoThanks(t: string): boolean {
+    const lower = t.trim().toLowerCase().replace(/,/g, " ");
+    return /no,?\s*thank(s| you)|that'?s?\s*all|nothing\s*else|i'?m\s*good|all\s*good/.test(lower);
+  }
+
+  private static matchYesMore(t: string): boolean {
+    const lower = t.trim().toLowerCase().replace(/[.,!?]+$/, "");
+    if (["yes", "yeah", "yep", "yup", "sure", "ok", "okay"].includes(lower)) return true;
+    if (/^(yes|yeah|yep|yup|sure|ok|okay)\s+/.test(lower)) return true;
+    return /(another|more)\s*(question|one|please)/.test(lower);
   }
 
   public setTranscriptListener(callback: (text: string) => void) {
@@ -233,6 +286,26 @@ export class VoiceControlSystem {
       return;
     }
 
+    // Instruction session follow-up: handle "no thanks" / "yes" locally (3D flow)
+    if (this.instructionSessionChecker?.()) {
+      if (VoiceControlSystem.matchNoThanks(transcript)) {
+        this.notifyStatus("idle", {
+          success: true,
+          instructionTopic: "goodbye",
+          endSession: true,
+        });
+        return;
+      }
+      if (VoiceControlSystem.matchYesMore(transcript)) {
+        await speakFollowUpWhatQuestion();
+        setTimeout(
+          () => this.startListeningWithoutGreeting(),
+          this.LISTEN_START_DELAY_MS,
+        );
+        return;
+      }
+    }
+
     this.notifyStatus("processing");
 
     try {
@@ -241,9 +314,16 @@ export class VoiceControlSystem {
         await BackendApiClient.getInstance().sendVoiceCommand(transcript);
       console.log("[VoiceControl] Command executed successfully.");
 
-      // Instruction / how-to: speak predefined answer then robot Yes+ThumbsUp → walk/idle
+      // Instruction / how-to: 3D robot handles TTS (walk to user, then speak); just notify
       if (response?.instruction_topic) {
-        speakInstruction(response.instruction_topic);
+        if (response.instruction_topic === "yes_more") {
+          await speakFollowUpWhatQuestion();
+          setTimeout(
+            () => this.startListeningWithoutGreeting(),
+            this.LISTEN_START_DELAY_MS,
+          );
+          return;
+        }
         this.notifyStatus("idle", {
           success: true,
           instructionTopic: response.instruction_topic,
@@ -342,7 +422,16 @@ export class VoiceControlSystem {
           }
 
           if (command_result?.instruction_topic) {
-            speakInstruction(command_result.instruction_topic);
+            if (command_result.instruction_topic === "yes_more") {
+              this.restartingListening = true;
+              await speakFollowUpWhatQuestion();
+              setTimeout(
+                () => this.startListeningWithoutGreeting(),
+                this.LISTEN_START_DELAY_MS,
+              );
+              return;
+            }
+            // 3D: RobotAssistantSystem handles all instruction TTS (walk to user, then speak); just set payload
             idlePayload = {
               success: true,
               instructionTopic: command_result.instruction_topic,
@@ -368,6 +457,10 @@ export class VoiceControlSystem {
         } catch (error) {
           console.error("[VoiceControl] Fallback voice command failed:", error);
         } finally {
+          if (this.restartingListening) {
+            this.restartingListening = false;
+            return;
+          }
           if (this.stopRequestedByUser) {
             this.notifyStatus("idle", { cancelled: true });
           } else {
@@ -467,7 +560,7 @@ export class VoiceControlSystem {
       this.safetyTimeout = null;
     }
     if (this.audioContext && this.audioContext.state !== "closed") {
-      this.audioContext.close().catch(() => {});
+      this.audioContext.close().catch(() => { });
     }
     this.audioContext = null;
     this.analyser = null;
@@ -500,8 +593,10 @@ export class VoiceControlSystem {
     this.isListening = true;
     this.notifyStatus("listening");
 
-    // Await greeting so the mic doesn't capture the robot's voice
-    await speakGreeting();
+    // Await greeting so the mic doesn't capture the robot's voice (skip if already in instruction session)
+    if (!this.skipGreetingChecker?.()) {
+      await speakGreeting();
+    }
 
     if (!this.isListening) return; // In case user toggled off while speaking
 
