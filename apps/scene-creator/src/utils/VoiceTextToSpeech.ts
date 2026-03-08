@@ -2,6 +2,11 @@ const PREFERRED_VOICE_NAME = "Samantha";
 const GREETING = "How can I help you?";
 const GOODBYE = "See you again.";
 const NO_MATCH = "Sorry, that's out of my scope.";
+// Instruction flow (3D): robot walking to user
+const INSTRUCTION_WAIT_ME = "Ok, I will explain that for you. Wait for me.";
+const FOLLOW_UP_ANYTHING_ELSE = "Do you want me to do anything else?";
+const FOLLOW_UP_WHAT_QUESTION = "What would you like to know?";
+const SORRY_DIDNT_CATCH = "Sorry, I didn't catch that. Do you want me to do anything else?";
 
 function getEnUsLocalVoices(): SpeechSynthesisVoice[] {
   if (typeof window === "undefined" || !window.speechSynthesis) return [];
@@ -21,6 +26,9 @@ function getSamanthaOrFirst(): SpeechSynthesisVoice | null {
   );
 }
 
+// Short delay after cancel() before speak() to reduce glitches and volume jumps on some systems (e.g. Mac)
+const SPEECH_RESET_DELAY_MS = 60;
+
 function speakText(text: string): Promise<void> {
   return new Promise((resolve) => {
     if (typeof window === "undefined" || !window.speechSynthesis) {
@@ -34,9 +42,14 @@ function speakText(text: string): Promise<void> {
       const u = new SpeechSynthesisUtterance(text);
       u.lang = "en-US";
       if (voice) u.voice = voice;
+      u.volume = 1;
+      u.rate = 1;
+      u.pitch = 1;
       u.onend = () => resolve();
       u.onerror = () => resolve();
-      synth.speak(u);
+      setTimeout(() => {
+        synth.speak(u);
+      }, SPEECH_RESET_DELAY_MS);
     };
     if (synth.getVoices().length > 0) {
       doSpeak();
@@ -103,9 +116,27 @@ const INSTRUCTION_TEXTS: Record<string, string> = {
     "You can turn the air conditioner on or off from the panel or by voice. Use the temperature control on the panel, or say 'set temperature to twenty-four'. You can also view usage for the AC.",
   fallback:
     "I can explain the panel, voice commands, and devices like the fan, light, TV, and AC. You can ask 'how do I control?' for an overview, or name a device or the panel. Which one do you mean?",
+  goodbye: GOODBYE,
 };
 
-export function speakInstruction(topic: string): void {
+export function speakInstruction(topic: string): Promise<void> {
   const text = INSTRUCTION_TEXTS[topic] ?? INSTRUCTION_TEXTS.fallback;
-  speakText(text);
+  return speakText(text);
+}
+
+export function speakInstructionWaitMe(): Promise<void> {
+  return speakText(INSTRUCTION_WAIT_ME);
+}
+
+export function speakFollowUpAnythingElse(): Promise<void> {
+  console.log("[TTS] 🔔 speakFollowUpAnythingElse CALLED from:", new Error().stack?.split("\n").slice(1, 4).join(" | "));
+  return speakText(FOLLOW_UP_ANYTHING_ELSE);
+}
+
+export function speakFollowUpWhatQuestion(): Promise<void> {
+  return speakText(FOLLOW_UP_WHAT_QUESTION);
+}
+
+export function speakSorryDidntCatch(): Promise<void> {
+  return speakText(SORRY_DIDNT_CATCH);
 }
