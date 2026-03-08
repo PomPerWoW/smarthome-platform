@@ -8,15 +8,20 @@ import {
   LoopOnce,
 } from "@iwsdk/core";
 
-import { Quaternion, SkinnedMesh, Vector3 } from "three";
+import { Quaternion, Raycaster, SkinnedMesh, Vector3 } from "three";
 import { SkeletonUtils } from "three-stdlib";
 import { RobotAssistantComponent } from "../components/RobotAssistantComponent";
-import { clampToWalkableArea, getRoomBounds } from "../config/navmesh";
-import { VoiceControlSystem } from "./VoiceControlSystem";
+import {
+  clampToWalkableArea,
+  getRoomBounds,
+  isPositionWalkable,
+} from "../config/navmesh";
 import {
   constrainMovement,
-  AVATAR_COLLISION_RADIUS,
+  ROBOT_RADIUS,
+  ROBOT_HEIGHTS,
 } from "../config/collision";
+import { VoiceControlSystem } from "./VoiceControlSystem";
 
 // ============================================================================
 // CONFIG
@@ -27,6 +32,25 @@ const WALK_VELOCITY = 0.5; // Slower than user-controlled avatars
 const ROTATE_SPEED = 0.15; // Rotation speed for turning
 const WAYPOINT_REACH_DISTANCE = 0.5; // How close to get to waypoint before picking new one
 const WAYPOINT_INTERVAL = 8.0; // Pick new waypoint every 8-12 seconds
+
+// ── Stuck / repath constants ──
+/** Seconds without meaningful movement before triggering a repath. */
+const STUCK_THRESHOLD_SEC = 1.5;
+/** Minimum seconds between consecutive repaths. */
+const REPATH_COOLDOWN_SEC = 3.0;
+/** After this many consecutive repaths the robot pauses in Idle. */
+const MAX_REPATHS_BEFORE_IDLE = 4;
+/** Seconds the robot stays in Idle after too many repaths. */
+const IDLE_PAUSE_SEC = 6.0;
+/** Number of candidate directions to evaluate when repathing. */
+const REPATH_CANDIDATES = 12;
+
+/** Number of random positions to try when finding a collision-free spawn. */
+const SPAWN_CANDIDATES = 50; // Increased for better randomness
+/** Margin from room walls for spawn candidates (metres). */
+const SPAWN_MARGIN = 0.5;
+/** Probe distance for spawn collision check (metres). */
+const SPAWN_PROBE_DIST = 0.4;
 
 const STATES = ["Idle", "Walking", "Standing"];
 const EMOTES = ["Jump", "Yes", "No", "Wave", "ThumbsUp"];
@@ -69,6 +93,16 @@ export class RobotAssistantSystem extends createSystem({
   private voiceActive = false;
   private voiceEmoteSequence: VoiceEmoteSequence | null = null;
 
+  // ── Repath / stuck recovery state ──
+  /** Timestamp of the last repath action. */
+  private lastRepathTime = -999;
+  /** How many repaths in a row without the robot making real progress. */
+  private consecutiveRepaths = 0;
+  /** When >0 the robot is forced-idling after too many repaths. Counts down. */
+  private idlePauseRemaining = 0;
+  /** Ring buffer of recently blocked unit-directions (room-local). */
+  private recentBlockedDirs: { x: number; z: number }[] = [];
+
   init() {
     console.log(
       "[RobotAssistant] System initialized (autonomous behavior with pre-baked animations)",
@@ -109,13 +143,210 @@ export class RobotAssistantSystem extends createSystem({
         this.setVoiceListening(false);
       }
     });
+
+    this.renderer.xr.addEventListener("sessionstart", () => {
+      console.log(
+        "[RobotAssistant] XR session started — repositioning robot to random spawn point",
+      );
+      // Wait a short moment for room bounds to be iitialized (if needed)
+      // Then reposition all existing robots to new random spawn points
+      setTimeout(() => {
+        const bounds = getRoomBounds();
+        if (bounds || this.robotRecords.size > 0) {
+          this.repositionAllRobots();
+        } else {
+          console.warn(
+            "[RobotAssistant] Room bounds not available yet, will retry repositioning",
+          );
+          // Retry after a longer delay
+          setTimeout(() => {
+            this.repositionAllRobots();
+          }, 1000);
+        }
+      }, 100);
+    });
+  }
+
+  /**
+   * Find a random spawn position inside the room that doesn't collide
+   * with room geometry (walls, built-in furniture in the model).
+   *
+   * All coordinates are room-local.
+   */
+  private findRandomSpawnPosition(): { x: number; y: number; z: number } {
+    const bounds = getRoomBounds();
+    if (!bounds) {
+      // No room bounds — return origin
+      return { x: 0, y: 0, z: 0 };
+    }
+
+    const floorY = bounds.floorY;
+    const centerX = (bounds.minX + bounds.maxX) * 0.5;
+    const centerZ = (bounds.minZ + bounds.maxZ) * 0.5;
+
+    const roomModel = (globalThis as any).__labRoomModel as
+      | Object3D
+      | undefined;
+
+    for (let i = 0; i < SPAWN_CANDIDATES; i++) {
+      // Random position with margin from walls
+      const candX =
+        bounds.minX +
+        SPAWN_MARGIN +
+        Math.random() * (bounds.maxX - bounds.minX - 2 * SPAWN_MARGIN);
+      const candZ =
+        bounds.minZ +
+        SPAWN_MARGIN +
+        Math.random() * (bounds.maxZ - bounds.minZ - 2 * SPAWN_MARGIN);
+
+      // First check: must be inside walkable area (room bounds)
+      if (!isPositionWalkable(candX, candZ)) {
+        continue;
+      }
+
+      // Second check: verify it's not too close to room geometry (walls/furniture)
+      // Convert to world space for raycasting (room model may be transformed)
+      const worldPos = this.roomLocalToWorld(candX, floorY, candZ);
+      let tooCloseToWall = false;
+
+      if (roomModel) {
+        const raycaster = new Raycaster();
+
+        // Check at multiple heights to catch thin surfaces at different levels
+        const checkHeights = [0.05, 0.1, 0.15, 0.2, 0.25];
+
+        // Probe in horizontal and diagonal directions to check for nearby walls/furniture
+        const probeDirs = [
+          new Vector3(1, 0, 0), // East
+          new Vector3(-1, 0, 0), // West
+          new Vector3(0, 0, 1), // North
+          new Vector3(0, 0, -1), // South
+          new Vector3(0.707, 0, 0.707), // Northeast
+          new Vector3(-0.707, 0, 0.707), // Northwest
+          new Vector3(0.707, 0, -0.707), // Southeast
+          new Vector3(-0.707, 0, -0.707), // Southwest
+        ];
+
+        for (const height of checkHeights) {
+          const origin = new Vector3(
+            worldPos.x,
+            worldPos.y + height,
+            worldPos.z,
+          );
+
+          for (const dir of probeDirs) {
+            raycaster.set(origin, dir);
+            raycaster.far = SPAWN_PROBE_DIST;
+            raycaster.near = 0;
+
+            const hits = raycaster.intersectObject(roomModel as any, true);
+            // If we hit something very close, this position is too close to a wall/furniture
+            if (hits.length > 0 && hits[0].distance < SPAWN_PROBE_DIST) {
+              tooCloseToWall = true;
+              break;
+            }
+          }
+
+          if (tooCloseToWall) break;
+        }
+      }
+
+      if (!tooCloseToWall) {
+        console.log(
+          `[RobotAssistant] 🎲 Found clear spawn at room-local (${candX.toFixed(2)}, ${candZ.toFixed(2)}) after ${i + 1} attempt(s)`,
+        );
+        return { x: candX, y: floorY, z: candZ };
+      }
+    }
+
+    // Fallback: Try a few more random positions with relaxed collision checks
+    // This ensures we don't always fall back to center
+    for (let i = 0; i < 10; i++) {
+      const fallbackX =
+        bounds.minX +
+        SPAWN_MARGIN * 0.5 +
+        Math.random() * (bounds.maxX - bounds.minX - SPAWN_MARGIN);
+      const fallbackZ =
+        bounds.minZ +
+        SPAWN_MARGIN * 0.5 +
+        Math.random() * (bounds.maxZ - bounds.minZ - SPAWN_MARGIN);
+
+      if (isPositionWalkable(fallbackX, fallbackZ)) {
+        console.warn(
+          `[RobotAssistant] ⚠️ Using fallback random spawn at (${fallbackX.toFixed(2)}, ${fallbackZ.toFixed(2)}) after ${SPAWN_CANDIDATES} tries`,
+        );
+        return { x: fallbackX, y: floorY, z: fallbackZ };
+      }
+    }
+
+    // Last resort: room center (clamped to walkable area)
+    const clampedX = Math.max(
+      bounds.minX + SPAWN_MARGIN,
+      Math.min(bounds.maxX - SPAWN_MARGIN, centerX),
+    );
+    const clampedZ = Math.max(
+      bounds.minZ + SPAWN_MARGIN,
+      Math.min(bounds.maxZ - SPAWN_MARGIN, centerZ),
+    );
+    console.warn(
+      `[RobotAssistant] ⚠️ No collision-free spawn found; using room center as last resort`,
+    );
+    return { x: clampedX, y: floorY, z: clampedZ };
+  }
+
+  /**
+   * Reposition all existing robots to new random spawn points.
+   * Called when XR session starts to ensure robots spawn randomly each time.
+   */
+  private repositionAllRobots(): void {
+    if (this.robotRecords.size === 0) {
+      console.log("[RobotAssistant] No robots to reposition");
+      return;
+    }
+
+    for (const [robotId, record] of this.robotRecords) {
+      // Find a new random spawn position (in room-local space)
+      const spawn = this.findRandomSpawnPosition();
+
+      // Convert to world space for positioning (update loop expects world coords)
+      const worldPos = this.roomLocalToWorld(spawn.x, spawn.y, spawn.z);
+
+      // Update robot position in world space (update loop will convert to room-local on next frame)
+      record.model.position.set(worldPos.x, worldPos.y, worldPos.z);
+
+      // Update component with new position and reset waypoint
+      const bounds = getRoomBounds();
+      const targetX = bounds
+        ? bounds.minX + Math.random() * (bounds.maxX - bounds.minX)
+        : spawn.x + (Math.random() - 0.5) * 4;
+      const targetZ = bounds
+        ? bounds.minZ + Math.random() * (bounds.maxZ - bounds.minZ)
+        : spawn.z + (Math.random() - 0.5) * 4;
+
+      record.entity.setValue(RobotAssistantComponent, "targetX", targetX);
+      record.entity.setValue(RobotAssistantComponent, "targetZ", targetZ);
+      record.entity.setValue(RobotAssistantComponent, "hasReachedTarget", false);
+      record.entity.setValue(
+        RobotAssistantComponent,
+        "nextWaypointTime",
+        this.timeElapsed + WAYPOINT_INTERVAL + Math.random() * 4.0,
+      );
+      record.entity.setValue(RobotAssistantComponent, "baseY", spawn.y);
+      record.entity.setValue(RobotAssistantComponent, "stuckTime", 0);
+      // Reset last position for stuck detection
+      record.entity.setValue(RobotAssistantComponent, "lastX", spawn.x);
+      record.entity.setValue(RobotAssistantComponent, "lastZ", spawn.z);
+
+      console.log(
+        `[RobotAssistant] 🔄 Repositioned ${robotId} to random spawn at room-local (${spawn.x.toFixed(2)}, ${spawn.y.toFixed(2)}, ${spawn.z.toFixed(2)})`,
+      );
+    }
   }
 
   async createRobotAssistant(
     robotId: string,
     robotName: string,
     modelKey: string,
-    position: [number, number, number],
   ): Promise<Entity | null> {
     try {
       const gltf = AssetManager.getGLTF(modelKey);
@@ -124,32 +355,23 @@ export class RobotAssistantSystem extends createSystem({
         return null;
       }
 
-      // Align the robot to the lab room instead of world origin
+      // Pick a random collision-free spawn inside the room
+      const spawn = this.findRandomSpawnPosition();
+      let finalX = spawn.x;
+      let finalY = spawn.y;
+      let finalZ = spawn.z;
+
       const roomBounds = getRoomBounds();
-      let finalX = position[0];
-      let finalY = position[1];
-      let finalZ = position[2];
-
       if (roomBounds) {
-        const centerX = (roomBounds.minX + roomBounds.maxX) * 0.5;
-        const centerZ = (roomBounds.minZ + roomBounds.maxZ) * 0.5;
-
-        finalX = centerX + position[0];
-        finalZ = centerZ + position[2];
-        finalY = roomBounds.floorY + position[1];
-
         console.log(
           "[RobotAssistant] 📍 Spawning inside lab room at",
           { finalX, finalY, finalZ },
-          "with local offset",
-          position,
-          "and room bounds",
+          "room bounds",
           roomBounds,
         );
       } else {
         console.warn(
-          "[RobotAssistant] ⚠️ Room bounds not initialized; using raw world position",
-          position,
+          "[RobotAssistant] ⚠️ Room bounds not initialized; spawning at origin",
         );
       }
 
@@ -286,7 +508,7 @@ export class RobotAssistantSystem extends createSystem({
       this.robotRecords.set(robotId, record);
 
       console.log(
-        `[RobotAssistant] ✅ Created: ${robotName} at position (${position.join(", ")})`,
+        `[RobotAssistant] ✅ Created: ${robotName} at (${finalX.toFixed(2)}, ${finalY.toFixed(2)}, ${finalZ.toFixed(2)})`,
       );
       return entity;
     } catch (error) {
@@ -406,9 +628,107 @@ export class RobotAssistantSystem extends createSystem({
     playNext();
   }
 
+  // ── Smart waypoint selection ──────────────────────────────────────
+
+  /** Remember a blocked direction so future waypoints avoid it. */
+  private recordBlockedDir(dx: number, dz: number): void {
+    const len = Math.sqrt(dx * dx + dz * dz);
+    if (len < 0.001) return;
+    this.recentBlockedDirs.push({ x: dx / len, z: dz / len });
+    // Keep at most 6 entries
+    if (this.recentBlockedDirs.length > 6) this.recentBlockedDirs.shift();
+  }
+
+  /**
+   * Pick a nearby waypoint that avoids ALL recently-blocked directions.
+   *
+   * Strategy:
+   *  1. Generate `REPATH_CANDIDATES` randomly-jittered directions.
+   *  2. Try each at **two different distances** (short + long).
+   *  3. Score: penalise alignment with ANY recent blocked dir,
+   *     require the candidate to be inside room bounds,
+   *     favour room centre, add heavy random jitter.
+   *  4. Return the best candidate.
+   *
+   * All coordinates are **room-local**.
+   */
+  private pickSmartWaypoint(
+    fromX: number,
+    fromZ: number,
+  ): { x: number; z: number } {
+    const bounds = getRoomBounds();
+    let bestX = fromX;
+    let bestZ = fromZ;
+    let bestScore = -Infinity;
+
+    const distances = [0.6, 1.2, 2.0, 3.0]; // try multiple radii
+
+    for (let i = 0; i < REPATH_CANDIDATES; i++) {
+      // Random angle instead of evenly spaced — breaks deterministic loops
+      const angle = Math.random() * Math.PI * 2;
+      const dirX = Math.sin(angle);
+      const dirZ = Math.cos(angle);
+
+      for (const dist of distances) {
+        const candX = fromX + dirX * dist;
+        const candZ = fromZ + dirZ * dist;
+
+        let score = 0;
+
+        // 1. Penalise alignment with ALL recently blocked directions
+        for (const bd of this.recentBlockedDirs) {
+          const dot = dirX * bd.x + dirZ * bd.z;
+          // dot > 0 means same direction as blocked → bad
+          score -= Math.max(0, dot) * 8;
+        }
+
+        // 2. Must be inside room bounds
+        if (bounds) {
+          const margin = 0.3;
+          const inside =
+            candX >= bounds.minX + margin &&
+            candX <= bounds.maxX - margin &&
+            candZ >= bounds.minZ + margin &&
+            candZ <= bounds.maxZ - margin;
+          if (!inside) {
+            score -= 50; // hard penalty — almost never pick out-of-bounds
+          }
+
+          // Slight preference toward room centre
+          const cx = (bounds.minX + bounds.maxX) * 0.5;
+          const cz = (bounds.minZ + bounds.maxZ) * 0.5;
+          const distToCenter = Math.sqrt((candX - cx) ** 2 + (candZ - cz) ** 2);
+          score -= distToCenter * 0.3;
+        }
+
+        // 3. Heavy random jitter so repeated calls give different results
+        score += Math.random() * 6;
+
+        // 4. Slight bonus for mid-range distances (not too short, not too long)
+        if (dist >= 1.0 && dist <= 2.5) score += 2;
+
+        if (score > bestScore) {
+          bestScore = score;
+          bestX = candX;
+          bestZ = candZ;
+        }
+      }
+    }
+
+    // Clamp to room bounds
+    if (bounds) {
+      bestX = Math.max(bounds.minX + 0.3, Math.min(bounds.maxX - 0.3, bestX));
+      bestZ = Math.max(bounds.minZ + 0.3, Math.min(bounds.maxZ - 0.3, bestZ));
+    }
+
+    return { x: bestX, z: bestZ };
+  }
+
   // ── Helper: convert room-local position to world position ──
   private roomLocalToWorld(
-    lx: number, ly: number, lz: number,
+    lx: number,
+    ly: number,
+    lz: number,
   ): { x: number; y: number; z: number } {
     const roomModel = (globalThis as any).__labRoomModel;
     if (!roomModel) return { x: lx, y: ly, z: lz };
@@ -424,7 +744,9 @@ export class RobotAssistantSystem extends createSystem({
 
   // ── Helper: convert world position to room-local position ──
   private worldToRoomLocal(
-    wx: number, wy: number, wz: number,
+    wx: number,
+    wy: number,
+    wz: number,
   ): { x: number; y: number; z: number } {
     const roomModel = (globalThis as any).__labRoomModel;
     if (!roomModel) return { x: wx, y: wy, z: wz };
@@ -448,7 +770,7 @@ export class RobotAssistantSystem extends createSystem({
       record.mixer.update(dt);
 
       // ── START OF FRAME: Convert world position → room-local ──
-      // Movement code (waypoints, clamping, collision) all work in
+      // Movement code (waypoints, clamping) all works in
       // room-local coords that match roomBounds. After movement,
       // we convert back to world at end-of-frame.
       const roomLocal = this.worldToRoomLocal(
@@ -460,6 +782,8 @@ export class RobotAssistantSystem extends createSystem({
       // Also undo room rotation from the model's visual rotation
       const roomModel = (globalThis as any).__labRoomModel;
       const roomRotY = roomModel ? roomModel.rotation.y : 0;
+      // Undo room rotation so all rotation math is in room-local space
+      record.model.rotation.y -= roomRotY;
 
       // Voice-driven mode: stay Standing (or let emote sequence run), skip movement and random transitions
       if (this.voiceActive) {
@@ -467,7 +791,8 @@ export class RobotAssistantSystem extends createSystem({
         // or when about to play Wave/Yes/ThumbsUp (avoids extra Standing before scenario animations)
         const needStanding =
           !this.voiceEmoteSequence &&
-          (record.currentAction === "Walking" || record.currentAction === "Idle");
+          (record.currentAction === "Walking" ||
+            record.currentAction === "Idle");
         if (needStanding) {
           this.fadeToAction(record, "Standing", FADE_DURATION);
           record.entity.setValue(
@@ -476,6 +801,7 @@ export class RobotAssistantSystem extends createSystem({
             "Standing",
           );
         }
+
         // Still update head expressions below, then skip the rest
         if (record.headMesh) {
           const dict = (record.headMesh as any).morphTargetDictionary;
@@ -493,7 +819,11 @@ export class RobotAssistantSystem extends createSystem({
           record.model.position.y,
           record.model.position.z,
         );
-        record.model.position.set(voiceWorldPos.x, voiceWorldPos.y, voiceWorldPos.z);
+        record.model.position.set(
+          voiceWorldPos.x,
+          voiceWorldPos.y,
+          voiceWorldPos.z,
+        );
         record.model.rotation.y += roomRotY;
         continue;
       }
@@ -519,20 +849,6 @@ export class RobotAssistantSystem extends createSystem({
         RobotAssistantComponent,
         "nextWaypointTime",
       ) as number;
-      let collisionCooldown = entity.getValue(
-        RobotAssistantComponent,
-        "collisionCooldown",
-      ) as number;
-
-      if (collisionCooldown > 0) {
-        collisionCooldown = Math.max(0, collisionCooldown - dt);
-        entity.setValue(
-          RobotAssistantComponent,
-          "collisionCooldown",
-          collisionCooldown,
-        );
-      }
-
       // Calculate movement intention
       let shouldMove = false;
       let distanceToTarget = 0;
@@ -578,6 +894,8 @@ export class RobotAssistantSystem extends createSystem({
             0,
             dz / currentDistanceToTarget,
           );
+
+          // Normal waypoint navigation - face the waypoint
           const targetAngle = Math.atan2(dx, dz);
           record.rotateQuaternion.setFromAxisAngle(
             record.rotateAngle,
@@ -593,59 +911,48 @@ export class RobotAssistantSystem extends createSystem({
             entity.getValue(RobotAssistantComponent, "currentState") ===
             "Walking"
           ) {
-            const moveX = record.walkDirection.x * WALK_VELOCITY * dt;
-            const moveZ = record.walkDirection.z * WALK_VELOCITY * dt;
+            const velocity = WALK_VELOCITY;
+            const moveX = record.walkDirection.x * velocity * dt;
+            const moveZ = record.walkDirection.z * velocity * dt;
 
-            const oldX = record.model.position.x;
-            const oldZ = record.model.position.z;
-            const nextX = oldX + moveX;
-            const nextZ = oldZ + moveZ;
+            const oldLocalX = record.model.position.x;
+            const oldLocalZ = record.model.position.z;
+            const newLocalX = oldLocalX + moveX;
+            const newLocalZ = oldLocalZ + moveZ;
 
-            // Collision check against lab model meshes
-            const constrained = constrainMovement(
-              oldX,
-              oldZ,
-              nextX,
-              nextZ,
+            // Collision check in world space (raycaster needs world matrices)
+            const oldW = this.roomLocalToWorld(
+              oldLocalX,
               record.model.position.y,
-              AVATAR_COLLISION_RADIUS,
+              oldLocalZ,
             );
+            const newW = this.roomLocalToWorld(
+              newLocalX,
+              record.model.position.y,
+              newLocalZ,
+            );
+            const constrained = constrainMovement(
+              new Vector3(oldW.x, oldW.y, oldW.z),
+              new Vector3(newW.x, newW.y, newW.z),
+              ROBOT_RADIUS,
+              ROBOT_HEIGHTS,
+            );
+            const cLocal = this.worldToRoomLocal(
+              constrained.x,
+              constrained.y,
+              constrained.z,
+            );
+            record.model.position.x = cLocal.x;
+            record.model.position.z = cLocal.z;
 
-            // 💥 IMMEDIATE COLLISION RESPONSE
-            if (
-              collisionCooldown <= 0 &&
-              (Math.abs(constrained.x - nextX) > 0.001 ||
-                Math.abs(constrained.z - nextZ) > 0.001)
-            ) {
-              console.log(
-                `[RobotAssistant] 💥 Hit wall at (${constrained.x.toFixed(2)}, ${constrained.z.toFixed(2)}) - turning immediately`,
-              );
-
-              const bounds = getRoomBounds();
-              const newTargetX = bounds
-                ? bounds.minX + Math.random() * (bounds.maxX - bounds.minX)
-                : record.model.position.x + (Math.random() - 0.5) * 4;
-              const newTargetZ = bounds
-                ? bounds.minZ + Math.random() * (bounds.maxZ - bounds.minZ)
-                : record.model.position.z + (Math.random() - 0.5) * 4;
-
-              entity.setValue(RobotAssistantComponent, "targetX", newTargetX);
-              entity.setValue(RobotAssistantComponent, "targetZ", newTargetZ);
-              entity.setValue(
-                RobotAssistantComponent,
-                "hasReachedTarget",
-                false,
-              );
-              entity.setValue(
-                RobotAssistantComponent,
-                "collisionCooldown",
-                1.5,
-              ); // Add cooldown
-              entity.setValue(RobotAssistantComponent, "stuckTime", 0);
+            // Track blocked direction (no immediate repath — let stuck detection handle it)
+            const movedDist = Math.sqrt(
+              (cLocal.x - oldLocalX) ** 2 + (cLocal.z - oldLocalZ) ** 2,
+            );
+            if (movedDist < 0.003) {
+              // Fully blocked → remember this direction
+              this.recordBlockedDir(moveX, moveZ);
             }
-
-            record.model.position.x = constrained.x;
-            record.model.position.z = constrained.z;
 
             // Clamp to walkable area
             const [clampedX, clampedZ] = clampToWalkableArea(
@@ -689,11 +996,41 @@ export class RobotAssistantSystem extends createSystem({
         );
       }
 
-      // ── Stuck Detection & Collision Response ────────────────────────
-      // If we are in "Walking" state:
-      // 1. Check if we hit a wall (constrained movement differs from intended)
-      // 2. Check if we are physically stuck (position not changing)
-      if (currentState === "Walking") {
+      // ── Stuck Detection & Recovery ────────────────────────
+      // Count up "stuckTime" while position barely changes.
+      // When threshold exceeded & cooldown allows → smart repath.
+      // After too many repaths → forced Idle pause.
+      if (this.idlePauseRemaining > 0) {
+        // Forced idle — count down and skip movement
+        this.idlePauseRemaining -= dt;
+        if (this.idlePauseRemaining <= 0) {
+          this.idlePauseRemaining = 0;
+          this.consecutiveRepaths = 0;
+          this.recentBlockedDirs.length = 0; // fresh start
+          // Pick a brand-new random waypoint (centre-biased)
+          const bounds = getRoomBounds();
+          if (bounds) {
+            const cx = (bounds.minX + bounds.maxX) * 0.5;
+            const cz = (bounds.minZ + bounds.maxZ) * 0.5;
+            const rx = (bounds.maxX - bounds.minX) * 0.3;
+            const rz = (bounds.maxZ - bounds.minZ) * 0.3;
+            entity.setValue(
+              RobotAssistantComponent,
+              "targetX",
+              cx + (Math.random() - 0.5) * rx,
+            );
+            entity.setValue(
+              RobotAssistantComponent,
+              "targetZ",
+              cz + (Math.random() - 0.5) * rz,
+            );
+          }
+          entity.setValue(RobotAssistantComponent, "hasReachedTarget", false);
+          this.fadeToAction(record, "Walking", FADE_DURATION);
+          entity.setValue(RobotAssistantComponent, "currentState", "Walking");
+          console.log("[RobotAssistant] 💤 Idle pause over — resuming walk");
+        }
+      } else if (currentState === "Walking") {
         const currentX = record.model.position.x;
         const currentZ = record.model.position.z;
         const lastX = entity.getValue(
@@ -709,14 +1046,6 @@ export class RobotAssistantSystem extends createSystem({
           "stuckTime",
         ) as number;
 
-        // collisionCooldown is updated at top of loop
-
-        // 1. Immediate Collision Check (Wall Hit)
-        // If constrained position differs significantly from intended next position, we hit something.
-        // We check this *after* movement calculation in the loop below, but we need the flag here.
-        // Actually, let's do this check *inside* the movement block where we have `constrained` result.
-
-        // 2. Stuck Check (No Progress)
         const distMoved = Math.sqrt(
           (currentX - lastX) ** 2 + (currentZ - lastZ) ** 2,
         );
@@ -724,42 +1053,42 @@ export class RobotAssistantSystem extends createSystem({
           stuckTime += dt;
         } else {
           stuckTime = Math.max(0, stuckTime - dt * 2);
-        }
-
-        // Trigger repathing if stuck OR if collision detected (set via local flag below)
-        let triggerRepath = false;
-
-        if (stuckTime > 1.0) {
-          // Reduced from 2.0s for faster response
-          console.log(
-            `[RobotAssistant] ⚠️ Stuck detected (${stuckTime.toFixed(1)}s) - picking new path`,
-          );
-          triggerRepath = true;
+          // Making progress → reset consecutive repaths
+          if (distMoved > 0.02) this.consecutiveRepaths = 0;
         }
 
         entity.setValue(RobotAssistantComponent, "stuckTime", stuckTime);
         entity.setValue(RobotAssistantComponent, "lastX", currentX);
         entity.setValue(RobotAssistantComponent, "lastZ", currentZ);
-        entity.setValue(
-          RobotAssistantComponent,
-          "collisionCooldown",
-          collisionCooldown,
-        );
 
-        if (triggerRepath) {
-          const bounds = getRoomBounds();
-          const newTargetX = bounds
-            ? bounds.minX + Math.random() * (bounds.maxX - bounds.minX)
-            : record.model.position.x + (Math.random() - 0.5) * 4;
-          const newTargetZ = bounds
-            ? bounds.minZ + Math.random() * (bounds.maxZ - bounds.minZ)
-            : record.model.position.z + (Math.random() - 0.5) * 4;
+        // Only repath if stuck long enough AND cooldown has elapsed
+        const canRepath =
+          stuckTime > STUCK_THRESHOLD_SEC &&
+          this.timeElapsed - this.lastRepathTime > REPATH_COOLDOWN_SEC;
 
-          entity.setValue(RobotAssistantComponent, "targetX", newTargetX);
-          entity.setValue(RobotAssistantComponent, "targetZ", newTargetZ);
-          entity.setValue(RobotAssistantComponent, "hasReachedTarget", false);
-          entity.setValue(RobotAssistantComponent, "stuckTime", 0);
-          entity.setValue(RobotAssistantComponent, "collisionCooldown", 1.5); // Add cooldown
+        if (canRepath) {
+          this.consecutiveRepaths++;
+          this.lastRepathTime = this.timeElapsed;
+
+          if (this.consecutiveRepaths >= MAX_REPATHS_BEFORE_IDLE) {
+            // Too many failed repaths — pause in Idle
+            this.idlePauseRemaining = IDLE_PAUSE_SEC;
+            this.fadeToAction(record, "Idle", FADE_DURATION);
+            entity.setValue(RobotAssistantComponent, "currentState", "Idle");
+            entity.setValue(RobotAssistantComponent, "stuckTime", 0);
+            console.log(
+              `[RobotAssistant] 💤 Stuck after ${this.consecutiveRepaths} repaths — idling for ${IDLE_PAUSE_SEC}s`,
+            );
+          } else {
+            const newTarget = this.pickSmartWaypoint(currentX, currentZ);
+            entity.setValue(RobotAssistantComponent, "targetX", newTarget.x);
+            entity.setValue(RobotAssistantComponent, "targetZ", newTarget.z);
+            entity.setValue(RobotAssistantComponent, "hasReachedTarget", false);
+            entity.setValue(RobotAssistantComponent, "stuckTime", 0);
+            console.log(
+              `[RobotAssistant] 🔀 Repath #${this.consecutiveRepaths} → (${newTarget.x.toFixed(2)}, ${newTarget.z.toFixed(2)})`,
+            );
+          }
         }
       } else {
         entity.setValue(RobotAssistantComponent, "stuckTime", 0);
