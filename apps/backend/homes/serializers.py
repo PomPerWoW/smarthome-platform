@@ -40,7 +40,7 @@ class RoomSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Room
-        fields = ['id', 'home', 'room_name', 'position', 'rotation']
+        fields = ['id', 'home', 'room_name', 'room_model', 'position', 'rotation']
 
     def get_position(self, obj):
         return {"x": obj.position_x, "y": obj.position_y, "z": obj.position_z}
@@ -111,3 +111,28 @@ class DeviceSerializer(DeviceBaseSerializer):
             return TelevisionSerializer(instance.television).data
             
         return super().to_representation(instance)
+
+
+# --- 5. Furniture Serializer ---
+
+class FurnitureSerializer(serializers.ModelSerializer):
+    device_pos = serializers.SerializerMethodField()
+    device_rotation = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Furniture
+        fields = '__all__'
+
+    def get_device_pos(self, obj):
+        if obj.device_pos:
+            return {"x": obj.device_pos.x, "y": obj.device_pos.y, "z": obj.device_pos.z}
+        return {"x": None, "y": None, "z": None}
+
+    def get_device_rotation(self, obj):
+        return {"x": obj.rotation_x, "y": obj.rotation_y, "z": obj.rotation_z}
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if instance.room:
+            data['room'] = instance.room.room_name
+        return data

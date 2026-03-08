@@ -10,8 +10,9 @@
  */
 import { createSystem, XRPlane, XRMesh } from "@iwsdk/core";
 import { Vector3, Quaternion, Box3, Object3D } from "three";
-import { getStore } from "../store/DeviceStore";
 import { RoomScanningSystem } from "./RoomScanningSystem";
+import { setRoomTransform } from "../config/navmesh";
+import { updateCollisionTransform } from "../config/collision";
 
 // LabPlan model native dimensions (at 1:1 scale, Y-up)
 const LAB_WIDTH = 9.0; // X extent
@@ -42,121 +43,10 @@ export class RoomAlignmentSystem extends createSystem({
       console.log(
         "[RoomAlignment] XR session started — alignment will run when confidence is high enough",
       );
-      this.tryLoadSavedAlignment();
+      // Removed saved alignment restoration - user must rely on auto-align or manual alignment
     });
   }
 
-  private async tryLoadSavedAlignment() {
-    const state = getStore();
-    const homes = state.homes;
-    if (
-      homes &&
-      homes.length > 0 &&
-      homes[0].floors &&
-      homes[0].floors.length > 0 &&
-      homes[0].floors[0].rooms &&
-      homes[0].floors[0].rooms.length > 0
-    ) {
-      const room: any = homes[0].floors[0].rooms[0];
-      const roomModel = (globalThis as any).__labRoomModel as
-        | Object3D
-        | undefined;
-      const scanSystem = this.world.getSystem(RoomScanningSystem);
-
-      if (!roomModel) return;
-
-      // 1. Try restoring via XRAnchor if available
-      const session = this.renderer.xr.getSession();
-      if (room.anchor_uuid && session && "restorePersistentAnchor" in session) {
-        try {
-          console.log(
-            `[RoomAlignment] ⚓ Attempting to restore persistent anchor: ${room.anchor_uuid}`,
-          );
-          const restoredAnchor = await (session as any).restorePersistentAnchor(
-            room.anchor_uuid,
-          );
-
-          if (restoredAnchor && restoredAnchor.anchorSpace) {
-            // Convert anchorSpace to world coordinates
-            const referenceSpace = this.renderer.xr.getReferenceSpace();
-            if (referenceSpace) {
-              // Since we can't cleanly project WebXR spaces synchronously in Three.js without the frame,
-              // We'll hook into the next frame to apply the anchor pose.
-              const onFrame = (time: number, frame: XRFrame) => {
-                session.removeEventListener(
-                  "requestAnimationFrame",
-                  onFrame as any,
-                );
-                const pose = frame.getPose(
-                  restoredAnchor.anchorSpace,
-                  referenceSpace,
-                );
-                if (pose) {
-                  roomModel.position.set(
-                    pose.transform.position.x,
-                    pose.transform.position.y,
-                    pose.transform.position.z,
-                  );
-                  roomModel.quaternion.set(
-                    pose.transform.orientation.x,
-                    pose.transform.orientation.y,
-                    pose.transform.orientation.z,
-                    pose.transform.orientation.w,
-                  );
-                  this.aligned = true;
-                  console.log(
-                    "[RoomAlignment] ✅ Restored exactly via XRAnchor!",
-                  );
-                  scanSystem?.addHUDLine("✅ Restored XRAnchor");
-                } else {
-                  this.fallbackToManualCoordinates(room, roomModel, scanSystem);
-                }
-              };
-              session.requestAnimationFrame(onFrame);
-              return;
-            }
-          }
-        } catch (e) {
-          console.warn(
-            "[RoomAlignment] ⚠ Failed to restore XRAnchor, falling back to manual coords:",
-            e,
-          );
-        }
-      }
-
-      // 2. Fallback to manual coordinates
-      this.fallbackToManualCoordinates(room, roomModel, scanSystem);
-    }
-  }
-
-  private fallbackToManualCoordinates(
-    room: any,
-    roomModel: Object3D,
-    scanSystem: RoomScanningSystem | undefined,
-  ) {
-    if (room.position && room.rotation) {
-      if (
-        room.position.x !== 0 ||
-        room.position.y !== 0 ||
-        room.position.z !== 0 ||
-        room.rotation.y !== 0
-      ) {
-        roomModel.position.set(
-          room.position.x,
-          room.position.y,
-          room.position.z,
-        );
-        roomModel.rotation.set(0, room.rotation.y, 0);
-        this.aligned = true;
-        console.log(
-          "[RoomAlignment] ✅ Loaded PREVIOUSLY SAVED manual alignment from backend!",
-        );
-        if (scanSystem) {
-          scanSystem.addHUDLine("✅ Loaded Saved Room Alignment");
-        }
-      }
-    }
-  }
 
   update(dt: number): void {
     if (!this.sessionReady || this.aligned) return;
@@ -266,6 +156,15 @@ export class RoomAlignmentSystem extends createSystem({
       roomModel.position.z += dz;
     }
 
+    // ── Sync navmesh and collision with the final room transform ──
+    setRoomTransform(
+      roomModel.position.x,
+      roomModel.position.y,
+      roomModel.position.z,
+      roomModel.rotation.y,
+    );
+    updateCollisionTransform();
+
     // ── Step 5: Persistent XRAnchor Creation ──
     const session = this.renderer.xr.getSession();
     if (session && "requestPersistentHandle" in XRAnchor.prototype) {
@@ -283,21 +182,7 @@ export class RoomAlignmentSystem extends createSystem({
               `[RoomAlignment] ⚓ Anchor Created and persisted UUID: ${anchorUuid}`,
             );
             scanSystem.addHUDLine(`✅ Room Pinned (${anchorUuid.slice(0, 8)})`);
-
-            // Notify backend
-            const store = getStore();
-            if (store.homes.length > 0 && store.homes[0].floors.length > 0) {
-              const activeRoomId = store.homes[0].floors[0].rooms[0].id;
-              await store.updateRoomAlignment(
-                activeRoomId,
-                roomModel.position.x,
-                roomModel.position.y,
-                roomModel.position.z,
-                roomModel.rotation.y,
-                anchorUuid,
-              );
-              console.log("[RoomAlignment] Backend synchronized with anchor");
-            }
+            // Removed backend save - alignment is not persisted
           }
         }
       } catch (err) {
@@ -310,17 +195,7 @@ export class RoomAlignmentSystem extends createSystem({
       console.warn(
         "[RoomAlignment] ⚠ XR Anchor persistence not supported by this browser.",
       );
-      const store = getStore();
-      if (store.homes.length > 0 && store.homes[0].floors.length > 0) {
-        const activeRoomId = store.homes[0].floors[0].rooms[0].id;
-        await store.updateRoomAlignment(
-          activeRoomId,
-          roomModel.position.x,
-          roomModel.position.y,
-          roomModel.position.z,
-          roomModel.rotation.y,
-        );
-      }
+      // Removed backend save - alignment is not persisted
     }
   }
 
@@ -506,8 +381,8 @@ export class RoomAlignmentSystem extends createSystem({
 
     console.log(
       `[RoomAlignment] fitRectangle: ${bestW.toFixed(1)}×${bestD.toFixed(1)}m ` +
-        `angle=${((bestAngle * 180) / Math.PI).toFixed(1)}° ` +
-        `center=(${bestCenter.x.toFixed(2)}, ${bestCenter.z.toFixed(2)})`,
+      `angle=${((bestAngle * 180) / Math.PI).toFixed(1)}° ` +
+      `center=(${bestCenter.x.toFixed(2)}, ${bestCenter.z.toFixed(2)})`,
     );
     return { center: bestCenter, angle: bestAngle, width: bestW, depth: bestD };
   }
@@ -603,9 +478,9 @@ export class RoomAlignmentSystem extends createSystem({
 
     console.log(
       `[RoomAlignment] ✅ Wall matched: wall angle=${((wallAngle * 180) / Math.PI).toFixed(1)}° ` +
-        `cardinal=${((bestCardinal * 180) / Math.PI).toFixed(0)}° ` +
-        `rotation=${((rotationY * 180) / Math.PI).toFixed(1)}° ` +
-        `(longest wall: ${bestWall.length.toFixed(2)}m)`,
+      `cardinal=${((bestCardinal * 180) / Math.PI).toFixed(0)}° ` +
+      `rotation=${((rotationY * 180) / Math.PI).toFixed(1)}° ` +
+      `(longest wall: ${bestWall.length.toFixed(2)}m)`,
     );
     scanSystem.addHUDLine(
       `✅ Wall: rot=${((rotationY * 180) / Math.PI).toFixed(0)}°`,
@@ -698,9 +573,9 @@ export class RoomAlignmentSystem extends createSystem({
 
     console.log(
       `[RoomAlignment] ✅ Corner alignment: edge=${longestLen.toFixed(2)}m ` +
-        `angle=${((longestAngle * 180) / Math.PI).toFixed(1)}° ` +
-        `cardinal=${((bestCardinal * 180) / Math.PI).toFixed(0)}° ` +
-        `rotation=${((rotationY * 180) / Math.PI).toFixed(1)}°`,
+      `angle=${((longestAngle * 180) / Math.PI).toFixed(1)}° ` +
+      `cardinal=${((bestCardinal * 180) / Math.PI).toFixed(0)}° ` +
+      `rotation=${((rotationY * 180) / Math.PI).toFixed(1)}°`,
     );
     scanSystem.addHUDLine(
       `✅ Corner: rot=${((rotationY * 180) / Math.PI).toFixed(0)}° edge=${longestLen.toFixed(1)}m`,
@@ -728,7 +603,7 @@ export class RoomAlignmentSystem extends createSystem({
 
     console.log(
       `[RoomAlignment] Estimated real room: ${realWidth.toFixed(1)}m × ${realDepth.toFixed(1)}m ` +
-        `(LabPlan: ${LAB_WIDTH}m × ${LAB_DEPTH}m)`,
+      `(LabPlan: ${LAB_WIDTH}m × ${LAB_DEPTH}m)`,
     );
 
     // Only scale down if we need to — never scale up beyond 1:1

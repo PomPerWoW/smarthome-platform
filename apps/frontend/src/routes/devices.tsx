@@ -57,8 +57,7 @@ function DevicesPage() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    const open =
-      !!deviceToDelete || !!deviceToRename || isDrawerOpen;
+    const open = !!deviceToDelete || !!deviceToRename || isDrawerOpen;
     setModalOpen(open);
     return () => setModalOpen(false);
   }, [deviceToDelete, deviceToRename, isDrawerOpen, setModalOpen]);

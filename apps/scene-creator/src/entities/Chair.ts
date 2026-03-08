@@ -3,10 +3,11 @@ import { DeviceType, DeviceBase } from "../types";
 import { BaseDevice } from "./BaseDevice";
 
 export class Chair extends BaseDevice {
-  readonly type = DeviceType.Chair;
+  readonly type: DeviceType;
 
   constructor(data: DeviceBase) {
     super(data);
+    this.type = data.type || DeviceType.Chair;
   }
 
   getProperties(): Record<string, unknown> {

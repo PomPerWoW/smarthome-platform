@@ -64,6 +64,10 @@ export function ThreeDWorldButton() {
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Enter 3D World</DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            Select a home and room to enter the 3D scene creator with the room's
+            devices and furniture.
+          </p>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid grid-cols-4 items-center gap-4">

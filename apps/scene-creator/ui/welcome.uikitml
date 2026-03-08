@@ -105,6 +105,35 @@
     cursor: pointer;
   }
 
+  .mode-row {
+    display: flex;
+    flex-direction: row;
+    gap: 0.8;
+    width: 100%;
+  }
+
+  .mode-btn-active {
+    flex: 1;
+    padding: 1.2;
+    background-color: #7c3aed;
+    border-radius: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  .mode-btn-inactive {
+    flex: 1;
+    padding: 1.2;
+    background-color: #27272a;
+    border-radius: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
   .secondary-btn {
     flex: 1;
     padding: 1.2;
@@ -192,6 +221,19 @@
         <span class="btn-text">Enter AR</span>
       </div>
     </button>
+    
+    <div class="mode-row">
+      <button class="mode-btn-active" id="vr-mode-btn">
+        <div class="button-content">
+          <span class="btn-text">VR Mode</span>
+        </div>
+      </button>
+      <button class="mode-btn-inactive" id="ar-mode-btn">
+        <div class="button-content">
+          <span class="btn-text">AR Mode</span>
+        </div>
+      </button>
+    </div>
     
     <div class="button-row">
       <button class="secondary-btn" id="devices-button">

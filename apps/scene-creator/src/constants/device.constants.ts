@@ -5,12 +5,12 @@ export const DEVICE_SCALES: Record<DeviceType, number> = {
   [DeviceType.Television]: 0.4,
   [DeviceType.Fan]: 0.25,
   [DeviceType.AirConditioner]: 0.2,
-  [DeviceType.Chair]: 1.0,
-  [DeviceType.Chair2]: 1.0,
-  [DeviceType.Chair3]: 1.0,
-  [DeviceType.Chair4]: 1.0,
-  [DeviceType.Chair5]: 1.0,
-  [DeviceType.Chair6]: 1.0,
+  [DeviceType.Chair]: 0.85,
+  [DeviceType.Chair2]: 0.85,
+  [DeviceType.Chair3]: 0.85,
+  [DeviceType.Chair4]: 0.85,
+  [DeviceType.Chair5]: 0.85,
+  [DeviceType.Chair6]: 0.85,
 };
 
 export const DEVICE_ICONS: Record<DeviceType, string> = {

@@ -14,17 +14,19 @@ import {
   LoopRepeat,
 } from "@iwsdk/core";
 
-import { deviceStore, getStore } from "../store/DeviceStore";
+import { Vector3 as TV3 } from "three";
+import {
+  deviceStore,
+  getStore,
+  FurnitureItem,
+  isFurnitureType,
+} from "../store/DeviceStore";
 import { Device, DeviceType, DeviceRecord, Fan } from "../types";
 import { DeviceComponent } from "../components/DeviceComponent";
 import { BaseDevice, DeviceFactory } from "../entities";
 import { DEVICE_ASSET_KEYS } from "../constants";
-import {
-  constrainMovement,
-  DEVICE_COLLISION_RADIUS,
-  clampDeviceY,
-} from "../config/collision";
 import { chart3D, ChartType } from "../components/Chart3D";
+import { constrainDeviceMovement, DEVICE_RADIUS } from "../config/collision";
 
 export class DeviceRendererSystem extends createSystem({
   devices: {
@@ -34,43 +36,69 @@ export class DeviceRendererSystem extends createSystem({
   private deviceRecords: Map<string, DeviceRecord> = new Map();
   private modelCache: Map<DeviceType, Object3D> = new Map();
   private animationCache: Map<DeviceType, AnimationClip[]> = new Map();
-  // Track last valid position per device for collision detection during grab
-  private lastValidPositions: Map<string, { x: number; y: number; z: number }> =
-    new Map();
   private initialized = false;
   private unsubscribe?: () => void;
+
+  /** Track each device's last valid world-space position for collision. */
+  private lastValidWorldPos: Map<string, TV3> = new Map();
 
   init() {
     console.log("[DeviceRenderer] System initialized");
 
     this.unsubscribe = deviceStore.subscribe(
-      (state) => state.devices,
-      (devices) => {
+      (state) => [state.devices, state.furniture] as const,
+      ([devices, furniture]) => {
         if (this.initialized) {
-          this.syncDevicesWithScene(devices);
+          // Merge furniture into device format for rendering
+          const furnitureAsDevices = furniture.map(this.furnitureToDevice);
+          this.syncDevicesWithScene([...devices, ...furnitureAsDevices]);
         }
       },
     );
   }
 
-  async initializeDevices(): Promise<void> {
-    const devices = getStore().devices;
+  private furnitureToDevice(f: FurnitureItem): Device {
+    return {
+      id: f.id,
+      name: f.furniture_name,
+      type: f.furniture_type as DeviceType,
+      is_on: true,
+      position: f.position,
+      rotation_y: f.rotation_y,
+      home_id: "",
+      home_name: "",
+      floor_id: "",
+      floor_name: "",
+      room_id: "",
+      room_name: f.room,
+    } as any;
+  }
 
-    if (devices.length === 0) {
-      console.log("[DeviceRenderer] No devices to render");
+  async initializeDevices(): Promise<void> {
+    const store = getStore();
+    const devices = store.devices;
+    const furniture = store.furniture;
+
+    const furnitureAsDevices = furniture.map(this.furnitureToDevice);
+    const allItems = [...devices, ...furnitureAsDevices];
+
+    if (allItems.length === 0) {
+      console.log("[DeviceRenderer] No devices or furniture to render");
       return;
     }
 
-    console.log(`[DeviceRenderer] Initializing ${devices.length} devices...`);
+    console.log(
+      `[DeviceRenderer] Initializing ${devices.length} devices + ${furniture.length} furniture...`,
+    );
     console.log("[DeviceRenderer] Using preloaded models from AssetManager");
 
-    for (const device of devices) {
-      this.createDeviceEntity(device);
+    for (const item of allItems) {
+      this.createDeviceEntity(item);
     }
 
     this.initialized = true;
     console.log(
-      `[DeviceRenderer] Initialized ${this.deviceRecords.size} device entities`,
+      `[DeviceRenderer] Initialized ${this.deviceRecords.size} entities`,
     );
   }
 
@@ -481,6 +509,7 @@ export class DeviceRendererSystem extends createSystem({
         }
         record.entity.destroy();
         this.deviceRecords.delete(id);
+        this.lastValidWorldPos.delete(id);
       }
     }
 
@@ -576,13 +605,24 @@ export class DeviceRendererSystem extends createSystem({
       `local rotation_y: ${rotationYDeg.toFixed(1)}°`,
     );
 
-    await getStore().updateDevicePosition(
-      deviceId,
-      pos.x,
-      pos.y,
-      pos.z,
-      rotationYDeg,
-    );
+    // Check if this is a furniture item by looking at its device type
+    if (isFurnitureType(record.device.type)) {
+      await getStore().updateFurniturePosition(
+        deviceId,
+        pos.x,
+        pos.y,
+        pos.z,
+        rotationYDeg,
+      );
+    } else {
+      await getStore().updateDevicePosition(
+        deviceId,
+        pos.x,
+        pos.y,
+        pos.z,
+        rotationYDeg,
+      );
+    }
   }
 
   update(dt: number): void {
@@ -602,61 +642,46 @@ export class DeviceRendererSystem extends createSystem({
           rot.x = 0;
           rot.z = 0;
         }
+      }
 
-        // Collision check for grabbed/moved devices
-        const pos = record.entity.object3D.position;
-        const lastValid = this.lastValidPositions.get(deviceId);
-        if (lastValid) {
-          // XZ collision constraint (walls, desk edges, furniture)
-          // The collision checker expects world coordinates
-          const worldPos = new Vector3(pos.x, pos.y, pos.z);
-          const lastWorldPos = new Vector3(
-            lastValid.x,
-            lastValid.y,
-            lastValid.z,
-          );
+      // ── Collision constraint for grabbed / moved devices ────────────
+      if (record.entity.object3D) {
+        const obj = record.entity.object3D;
+        const worldPos = new TV3();
+        (obj as any).getWorldPosition(worldPos);
 
-          if (labModel) {
-            labModel.localToWorld(worldPos);
-            labModel.localToWorld(lastWorldPos);
-          }
+        let lastPos = this.lastValidWorldPos.get(deviceId);
+        if (!lastPos) {
+          // First frame — initialise and skip constraint
+          lastPos = worldPos.clone();
+          this.lastValidWorldPos.set(deviceId, lastPos);
+        } else {
+          // Check if the device actually moved (> 0.5mm)
+          const movedDist = worldPos.distanceTo(lastPos);
+          if (movedDist > 0.0005) {
+            const constrained = constrainDeviceMovement(
+              lastPos,
+              worldPos,
+              DEVICE_RADIUS,
+            );
 
-          const constrainedWorld = constrainMovement(
-            lastWorldPos.x,
-            lastWorldPos.z,
-            worldPos.x,
-            worldPos.z,
-            worldPos.y,
-            DEVICE_COLLISION_RADIUS,
-          );
-
-          let xzAdjusted = false;
-          if (
-            worldPos.x !== constrainedWorld.x ||
-            worldPos.z !== constrainedWorld.z
-          ) {
-            worldPos.x = constrainedWorld.x;
-            worldPos.z = constrainedWorld.z;
-            xzAdjusted = true;
-          }
-
-          if (xzAdjusted) {
-            if (labModel) {
-              labModel.worldToLocal(worldPos);
+            // If constrained position differs from the current world pos,
+            // convert it back to local space and apply.
+            const constrainedDist = constrained.distanceTo(worldPos);
+            if (constrainedDist > 0.001) {
+              // Convert constrained world pos → local pos relative to parent
+              if (obj.parent) {
+                (obj.parent as any).worldToLocal(constrained);
+              }
+              obj.position.set(constrained.x, constrained.y, constrained.z);
+              // Re-read the world position after correction
+              (obj as any).getWorldPosition(worldPos);
             }
-            pos.x = worldPos.x;
-            pos.z = worldPos.z;
-          }
 
-          // Y collision constraint (floor and ceiling)
-          // Note: using local Y here since clampDeviceY was made with floor assuming Y=0.
-          const localClampY = clampDeviceY(pos.y);
-          if (pos.y !== localClampY) {
-            pos.y = localClampY;
+            // Update the last valid position
+            lastPos.copy(worldPos);
           }
         }
-        // Store current local position as last valid
-        this.lastValidPositions.set(deviceId, { x: pos.x, y: pos.y, z: pos.z });
       }
 
       if (record.panelEntity?.object3D && record.entity.object3D) {
@@ -709,6 +734,7 @@ export class DeviceRendererSystem extends createSystem({
     this.deviceRecords.clear();
     this.modelCache.clear();
     this.animationCache.clear();
+    this.lastValidWorldPos.clear();
     console.log("[DeviceRenderer] System destroyed");
   }
 }

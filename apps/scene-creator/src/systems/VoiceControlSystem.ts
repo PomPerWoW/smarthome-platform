@@ -319,34 +319,34 @@ export class VoiceControlSystem {
 
     if (!trimmedTranscript || trimmedTranscript.length < this.MIN_TRANSCRIPT_LENGTH) {
       console.warn("[VoiceControl] Transcript too short or empty — ignoring:", trimmedTranscript);
-    this.notifyStatus("idle", { noMatch: true });
-    return;
-  }
-
-  // Log the transcript for debugging
-  console.log("[VoiceControl] Processing transcript:", trimmedTranscript);
-
-  // Instruction session follow-up: handle "no thanks" / "yes" locally (3D flow)
-  if (this.instructionSessionChecker?.()) {
-    if (VoiceControlSystem.matchNoThanks(transcript)) {
-      this.notifyStatus("idle", {
-        success: true,
-        instructionTopic: "goodbye",
-        endSession: true,
-      });
+      this.notifyStatus("idle", { noMatch: true });
       return;
     }
-    if (VoiceControlSystem.matchYesMore(transcript)) {
-      await speakFollowUpWhatQuestion();
-      setTimeout(
-        () => this.startListeningWithoutGreeting(),
-        this.LISTEN_START_DELAY_MS,
-      );
-      return;
-    }
-  }
 
-  this.notifyStatus("processing");
+    // Log the transcript for debugging
+    console.log("[VoiceControl] Processing transcript:", trimmedTranscript);
+
+    // Instruction session follow-up: handle "no thanks" / "yes" locally (3D flow)
+    if (this.instructionSessionChecker?.()) {
+      if (VoiceControlSystem.matchNoThanks(transcript)) {
+        this.notifyStatus("idle", {
+          success: true,
+          instructionTopic: "goodbye",
+          endSession: true,
+        });
+        return;
+      }
+      if (VoiceControlSystem.matchYesMore(transcript)) {
+        await speakFollowUpWhatQuestion();
+        setTimeout(
+          () => this.startListeningWithoutGreeting(),
+          this.LISTEN_START_DELAY_MS,
+        );
+        return;
+      }
+    }
+
+    this.notifyStatus("processing");
 
     try {
       const response =

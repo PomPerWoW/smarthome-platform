@@ -85,6 +85,17 @@ class RoomViewSet(viewsets.ModelViewSet):
         devices = Device.objects.filter(room=room)
         return Response(DeviceSerializer(devices, many=True).data)
 
+    @action(detail=True, methods=['get'])
+    def get_furniture(self, request, pk=None):
+        """
+        Custom Action: Retrieve all furniture items in a specific Room.
+        
+        URL: GET /api/homes/rooms/{pk}/get_furniture/
+        """
+        room = self.get_object()
+        furniture = Furniture.objects.filter(room=room)
+        return Response(FurnitureSerializer(furniture, many=True).data)
+
     @action(detail=True, methods=['post'])
     def set_alignment(self, request, pk=None):
         """
@@ -784,6 +795,78 @@ class TelevisionViewSet(BaseDeviceViewSet):
             "device_name": device_name,
             "data": sorted_data
         })
+
+
+# --- Furniture ViewSet ---
+
+class FurnitureViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for Furniture items (chairs, tables, etc.).
+    These are separate from smart devices and only track position/rotation.
+    """
+    serializer_class = FurnitureSerializer
+    permission_classes = [permissions.IsAuthenticated, IsHomeOwner]
+
+    def get_queryset(self):
+        return Furniture.objects.filter(room__home__user=self.request.user)
+
+    def perform_create(self, serializer):
+        room = serializer.validated_data.get('room')
+        if room and room.home.user != self.request.user:
+            raise PermissionDenied("You do not own this room.")
+        serializer.save()
+
+    @action(detail=True, methods=['post'])
+    def set_position(self, request, pk=None):
+        """
+        Updates the 3D position and rotation of a furniture item.
+
+        Body Parameters:
+            x (float): Required.
+            y (float): Required.
+            z (float): Optional (default 0).
+            rotation_y (float): Optional (default 0).
+        """
+        obj = self.get_object()
+
+        x = request.data.get('x')
+        y = request.data.get('y')
+        z = request.data.get('z', 0)
+        rotation_y = request.data.get('rotation_y', 0)
+
+        if x is None or y is None:
+            return Response({"error": "x and y required"}, status=400)
+
+        obj.device_pos = Point(float(x), float(y), float(z), srid=4326)
+        obj.rotation_y = float(rotation_y)
+        obj.save()
+
+        return Response({
+            "status": "updated",
+            "location": {"x": x, "y": y, "z": z},
+            "rotation": {"y": rotation_y}
+        })
+
+    @action(detail=True, methods=['get'])
+    def get_position(self, request, pk=None):
+        """
+        Retrieves the current position and rotation of a furniture item.
+        """
+        obj = self.get_object()
+
+        if obj.device_pos:
+            return Response({
+                "x": obj.device_pos.x,
+                "y": obj.device_pos.y,
+                "z": obj.device_pos.z,
+                "rotation": {"y": obj.rotation_y}
+            })
+
+        return Response({
+            "x": None, "y": None, "z": None,
+            "rotation": {"y": obj.rotation_y}
+        })
+
 
 class VoiceCommandViewSet(viewsets.ViewSet):
     permission_classes = [permissions.IsAuthenticated]

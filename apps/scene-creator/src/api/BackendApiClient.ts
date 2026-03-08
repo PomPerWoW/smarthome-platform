@@ -40,6 +40,32 @@ export class BackendApiClient {
     return response.data;
   }
 
+  async getRoom(roomId: string): Promise<{
+    id: string;
+    room_name: string;
+    room_model: string;
+    home: string;
+    position: { x: number; y: number; z: number };
+    rotation: { y: number };
+  }> {
+    const response = await api.get<any>(`/api/homes/rooms/${roomId}/`);
+    return response.data;
+  }
+
+  async getRoomDevices(roomId: string): Promise<Device[]> {
+    const response = await api.get<any[]>(
+      `/api/homes/rooms/${roomId}/get_devices/`,
+    );
+    return mapRawDevicesToDevices(response.data);
+  }
+
+  async getRoomFurniture(roomId: string): Promise<any[]> {
+    const response = await api.get<any[]>(
+      `/api/homes/rooms/${roomId}/get_furniture/`,
+    );
+    return response.data;
+  }
+
   async setRoomAlignment(
     roomId: string,
     alignment: {
@@ -231,6 +257,52 @@ export class BackendApiClient {
       temp: options.temperature,
     });
     return this.getAirConditioner(deviceId);
+  }
+
+  // ===== Furniture Management =====
+  async getAllFurniture(): Promise<any[]> {
+    const response = await api.get<any[]>("/api/homes/furniture/");
+    return response.data;
+  }
+
+  async createFurniture(data: {
+    furniture_name: string;
+    furniture_type: string;
+    room: string;
+    position?: [number, number, number];
+    rotation_y?: number;
+  }): Promise<any> {
+    const payload: any = {
+      furniture_name: data.furniture_name,
+      furniture_type: data.furniture_type,
+      room: data.room,
+    };
+
+    const response = await api.post<any>("/api/homes/furniture/", payload);
+    const newFurniture = response.data;
+
+    // Set position separately if provided
+    if (data.position) {
+      await this.setFurniturePosition(newFurniture.id, {
+        x: data.position[0],
+        y: data.position[1],
+        z: data.position[2],
+        rotation_y: data.rotation_y ?? 0,
+      });
+    }
+
+    return newFurniture;
+  }
+
+  async setFurniturePosition(
+    furnitureId: string,
+    position: { x: number; y: number; z: number; rotation_y?: number },
+  ): Promise<any> {
+    const response = await api.post<any>(
+      `/api/homes/furniture/${furnitureId}/set_position/`,
+      position,
+    );
+    return response.data;
   }
 
   // ===== Voice Control =====

@@ -13,6 +13,15 @@ interface RoomBounds {
 let roomBounds: RoomBounds | null = null;
 let navMesh: NavMesh | null = null;
 
+// ── Room transform (updated after room alignment) ──────────────────────────
+// roomBounds is always in room-local space. These transform helpers convert
+// between room-local ↔ world space so callers like user avatars (which work
+// in world space) can clamp / query correctly after alignment.
+let _roomPosX = 0;
+let _roomPosY = 0;
+let _roomPosZ = 0;
+let _roomRotY = 0;
+
 export function initializeNavMesh(roomModel: any, padding: number = 0.5): NavMesh {
   const bbox = new Box3().setFromObject(roomModel);
   const min = bbox.min;
@@ -113,4 +122,65 @@ export function getRandomWalkablePosition(): [number, number] {
 export function setRoomBounds(bounds: RoomBounds): void {
   roomBounds = bounds;
   console.log(`🗺️ [NavMesh] Custom room bounds set:`, bounds);
+}
+
+// ============================================================================
+// Room transform — call after room alignment to keep navmesh in sync
+// ============================================================================
+
+/**
+ * Notify the navmesh module of the room model's world transform.
+ * Must be called whenever the room model is repositioned / rotated
+ * (e.g. after RoomAlignmentSystem finishes).
+ */
+export function setRoomTransform(
+  posX: number,
+  posY: number,
+  posZ: number,
+  rotationY: number,
+): void {
+  _roomPosX = posX;
+  _roomPosY = posY;
+  _roomPosZ = posZ;
+  _roomRotY = rotationY;
+  console.log(
+    `🗺️ [NavMesh] Room transform updated: pos=(${posX.toFixed(2)}, ${posY.toFixed(2)}, ${posZ.toFixed(2)}) rotY=${((rotationY * 180) / Math.PI).toFixed(1)}°`,
+  );
+}
+
+/** Convert a room-local XZ position to world XZ. */
+export function roomLocalToWorld(lx: number, lz: number): [number, number] {
+  const cos = Math.cos(_roomRotY);
+  const sin = Math.sin(_roomRotY);
+  return [
+    _roomPosX + lx * cos - lz * sin,
+    _roomPosZ + lx * sin + lz * cos,
+  ];
+}
+
+/** Convert a world XZ position to room-local XZ. */
+export function worldToRoomLocal(wx: number, wz: number): [number, number] {
+  const dx = wx - _roomPosX;
+  const dz = wz - _roomPosZ;
+  const cos = Math.cos(-_roomRotY);
+  const sin = Math.sin(-_roomRotY);
+  return [dx * cos - dz * sin, dx * sin + dz * cos];
+}
+
+/**
+ * Clamp a **world-space** XZ position to the walkable area.
+ * Internally converts world → room-local, clamps, then converts back.
+ */
+export function clampToWalkableAreaWorld(
+  wx: number,
+  wz: number,
+): [number, number] {
+  const [lx, lz] = worldToRoomLocal(wx, wz);
+  const [cx, cz] = clampToWalkableArea(lx, lz);
+  return roomLocalToWorld(cx, cz);
+}
+
+/** Get room-local floor Y in world space. */
+export function getWorldFloorY(): number {
+  return (roomBounds?.floorY ?? 0) + _roomPosY;
 }

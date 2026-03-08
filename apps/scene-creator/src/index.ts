@@ -31,11 +31,11 @@ import { VoicePanelSystem } from "./ui/VoicePanelSystem";
 // import { VoicePanel } from "./ui/VoicePanel"; // Legacy DOM panel
 import { RoomScanningSystem } from "./systems/RoomScanningSystem";
 import { RoomAlignmentSystem } from "./systems/RoomAlignmentSystem";
-import { PhysicsSystem } from "./systems/PhysicsSystem";
-import { RoomColliderSystem } from "./systems/RoomColliderSystem";
+
 import { DevicePlacementSystem } from "./systems/DevicePlacementSystem";
 import { PlacementPanelSystem } from "./ui/PlacementPanelSystem";
 import { RoomAlignmentPanelSystem } from "./ui/RoomAlignmentPanelSystem";
+import { WelcomePanelGestureSystem } from "./systems/WelcomePanelGestureSystem";
 
 import { initializeNavMesh, getRoomBounds } from "./config/navmesh";
 import { initializeCollision } from "./config/collision";
@@ -200,57 +200,48 @@ async function main(): Promise<void> {
 
   camera.position.set(0, 1.6, 0.5);
 
-  const roomGltf = AssetManager.getGLTF("room_scene");
-  if (roomGltf) {
-    const roomModel = roomGltf.scene;
-    // No scaling — LabPlan renders at real-world size (9m × 10.5m × 2.78m)
-    roomModel.position.set(0, 0, 0);
-    world.scene.add(roomModel as any);
-    console.log("✅ Room scene loaded (1:1 scale)");
+  // Room model loading — always uses room_scene asset (LabPlan).
+  // The store's roomModel will be checked after data loads.
+  // For now, LabPlan is the only supported room model (others can be added to the asset manifest).
+  const ROOM_MODEL_ASSET_MAP: Record<string, string> = {
+    LabPlan: "room_scene",
+  };
 
-    initializeNavMesh(roomModel as any, 1.0);
-    console.log("✅ NavMesh initialized for lab room");
+  const loadRoomScene = (modelName: string) => {
+    const assetKey =
+      ROOM_MODEL_ASSET_MAP[modelName] || ROOM_MODEL_ASSET_MAP["LabPlan"];
+    const roomGltf = AssetManager.getGLTF(assetKey);
+    if (roomGltf) {
+      const roomModel = roomGltf.scene;
+      roomModel.position.set(0, 0, 0);
 
-    initializeCollision(roomModel as any);
-    console.log("✅ Collision meshes initialized for lab room");
+      // Disable raycasting on all room model meshes so they don't block
+      // device grab/move interactions. The room is visual-only.
+      roomModel.traverse((child: any) => {
+        if (child.isMesh) {
+          child.raycast = () => {};
+        }
+      });
 
-    (globalThis as any).__labRoomModel = roomModel;
-  } else {
-    console.warn("⚠️ Room scene not available");
-  }
+      world.scene.add(roomModel as any);
+      console.log(
+        `✅ Room scene loaded: ${modelName} (1:1 scale, raycast disabled)`,
+      );
 
-  // Chair on lab room floor: no scaling, real-world size
-  // LabPlan floor Y=0 at 1:1 scale
-  const labFloorY = 0;
-  const chairGltf = AssetManager.getGLTF("chair");
-  if (chairGltf) {
-    const bounds = getRoomBounds();
-    const chairModel = chairGltf.scene.clone();
-    // No scaling — chairs at real-world size
-    chairModel.rotation.set(0, Math.PI, 0);
-    let x: number, z: number;
-    if (bounds) {
-      x = (bounds.minX + bounds.maxX) * 0.5 - 1.0;
-      z = (bounds.minZ + bounds.maxZ) * 0.5 - 0.6;
+      initializeNavMesh(roomModel as any, 1.0);
+      console.log("✅ NavMesh initialized for room");
+
+      initializeCollision(roomModel as any);
+      console.log("✅ Collision initialized from room model meshes");
+
+      (globalThis as any).__labRoomModel = roomModel;
     } else {
-      x = 3.5;
-      z = -5.0;
+      console.warn(`⚠️ Room scene not available for model: ${modelName}`);
     }
-    chairModel.position.set(x, labFloorY, z);
-    world.scene.add(chairModel);
-    console.log("✅ Chair placed inside room (floor-aligned)");
+  };
 
-    // Second chair
-    const chairModel2 = chairGltf.scene.clone();
-    chairModel2.rotation.set(0, 0, 0);
-    const x2 = 5.0;
-    const z2 = -5.0;
-    chairModel2.position.set(x2, labFloorY, z2);
-    world.scene.add(chairModel2);
-    console.log("✅ Second chair placed inside room (floor-aligned)");
-  } else {
-    console.warn("⚠️ Chair model not available");
-  }
+  // Load room scene with default model (LabPlan) — will be confirmed after store loads
+  loadRoomScene("LabPlan");
 
   world
     .registerComponent(DeviceComponent)
@@ -270,11 +261,10 @@ async function main(): Promise<void> {
     .registerSystem(RoomScanningSystem)
     .registerSystem(RoomAlignmentSystem)
     .registerSystem(RoomAlignmentPanelSystem)
-    .registerSystem(PhysicsSystem)
-    .registerSystem(RoomColliderSystem)
     .registerSystem(DevicePlacementSystem)
     .registerSystem(VoicePanelSystem)
-    .registerSystem(PlacementPanelSystem);
+    .registerSystem(PlacementPanelSystem)
+    .registerSystem(WelcomePanelGestureSystem);
 
   console.log("✅ Systems registered");
 
@@ -293,6 +283,9 @@ async function main(): Promise<void> {
     });
 
   welcomePanel.object3D!.position.set(0, 1.5, -0.8);
+
+  // Store welcome panel reference globally for gesture system
+  (globalThis as any).__welcomePanelEntity = welcomePanel;
 
   console.log("✅ Welcome panel created");
 
@@ -328,8 +321,8 @@ async function main(): Promise<void> {
     .createTransformEntity()
     .addComponent(PanelUI, {
       config: "./ui/room-alignment-panel.json",
-      maxHeight: 0.6,
-      maxWidth: 0.5,
+      maxHeight: 0.45,
+      maxWidth: 0.45,
     })
     .addComponent(Interactable);
 
@@ -340,13 +333,28 @@ async function main(): Promise<void> {
 
   const store = getStore();
 
-  console.log(" Fetching devices from backend...");
-  await store.loadAllData();
+  // Check URL params for room-specific loading
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlRoomId = urlParams.get("roomId");
+  const urlHomeId = urlParams.get("homeId");
+
+  console.log(" Fetching data from backend...");
+  if (urlRoomId) {
+    console.log(
+      `📦 Loading room-specific data: roomId=${urlRoomId}, homeId=${urlHomeId}`,
+    );
+    await store.loadRoomData(urlRoomId);
+  } else {
+    console.log("📦 No room specified, loading all data...");
+    await store.loadAllData();
+  }
 
   if (store.error) {
-    console.error("❌ Failed to load devices:", store.error);
+    console.error("❌ Failed to load data:", store.error);
   } else {
-    console.log(`✅ Loaded ${store.getDeviceCount()} devices`);
+    console.log(
+      `✅ Loaded ${store.getDeviceCount()} devices, room model: ${store.roomModel}`,
+    );
   }
 
   const renderer = world.getSystem(DeviceRendererSystem);
@@ -435,7 +443,6 @@ async function main(): Promise<void> {
       "robot1",
       "Robot Assistant",
       "robot_assistant",
-      [0.6, 0, -1.5],
     );
     console.log(
       "✅ Robot Assistant (robot_3D_scene.glb) - autonomous behavior",

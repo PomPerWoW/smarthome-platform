@@ -16,6 +16,7 @@ class Room(models.Model):
     
     home = models.ForeignKey(Home, on_delete=models.CASCADE, related_name='rooms')
     room_name = models.CharField(max_length=255)
+    room_model = models.CharField(max_length=255, default='LabPlan', help_text="3D model identifier for the room scene (e.g. LabPlan)")
 
     position_x = models.FloatField(default=0.0)
     position_y = models.FloatField(default=0.0)
@@ -75,3 +76,17 @@ class Television(Device):
     volume = models.IntegerField(default=20)
     channel = models.IntegerField(default=1)
     is_mute = models.BooleanField(default=False)
+
+class Furniture(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    furniture_name = models.CharField(max_length=255)
+    furniture_type = models.CharField(max_length=50, default='Chair')
+    room = models.ForeignKey(Room, on_delete=models.SET_NULL, null=True, blank=True, related_name='furniture')
+    device_pos = models.PointField(dim=3, srid=4326, null=True, blank=True)
+    rotation_x = models.FloatField(default=0.0)
+    rotation_y = models.FloatField(default=0.0)
+    rotation_z = models.FloatField(default=0.0)
+
+    def __str__(self):
+        return self.furniture_name

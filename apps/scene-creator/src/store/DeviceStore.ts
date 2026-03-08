@@ -12,10 +12,36 @@ import {
   AirConditioner,
 } from "../types";
 
+export interface FurnitureItem {
+  id: string;
+  furniture_name: string;
+  furniture_type: string;
+  position: [number, number, number];
+  rotation_y: number;
+  room: string;
+}
+
+export const FURNITURE_TYPES: Set<DeviceType> = new Set([
+  DeviceType.Chair,
+  DeviceType.Chair2,
+  DeviceType.Chair3,
+  DeviceType.Chair4,
+  DeviceType.Chair5,
+  DeviceType.Chair6,
+]);
+
+export function isFurnitureType(type: DeviceType): boolean {
+  return FURNITURE_TYPES.has(type);
+}
+
 interface DeviceState {
   // State
   devices: Device[];
+  furniture: FurnitureItem[];
   homes: Home[];
+  roomModel: string;
+  roomId: string | null;
+  homeId: string | null;
   loading: boolean;
   error: string | null;
   selectedDeviceId: string | null;
@@ -23,6 +49,7 @@ interface DeviceState {
 
   // Actions
   loadAllData: () => Promise<void>;
+  loadRoomData: (roomId: string) => Promise<void>;
   refreshDevices: () => Promise<void>;
   refreshSingleDevice: (deviceId: string) => Promise<void>;
 
@@ -31,6 +58,19 @@ interface DeviceState {
     name: string,
     position: [number, number, number],
     rotationY: number,
+  ) => Promise<void>;
+  createFurniture: (
+    type: DeviceType,
+    name: string,
+    position: [number, number, number],
+    rotationY: number,
+  ) => Promise<void>;
+  updateFurniturePosition: (
+    furnitureId: string,
+    x: number,
+    y: number,
+    z: number,
+    rotationY?: number,
   ) => Promise<void>;
   handleDeviceUpdate: (rawDevice: any) => void;
   toggleDevice: (deviceId: string, on?: boolean) => Promise<void>;
@@ -92,7 +132,11 @@ export const deviceStore = createStore<DeviceState>()(
   subscribeWithSelector((set, get) => ({
     // Initial state
     devices: [],
+    furniture: [],
     homes: [],
+    roomModel: "LabPlan",
+    roomId: null,
+    homeId: null,
     loading: false,
     error: null,
     selectedDeviceId: null,
@@ -103,17 +147,30 @@ export const deviceStore = createStore<DeviceState>()(
       set({ loading: true, error: null });
       try {
         console.log("[Store] Loading all data from backend...");
-        const [homes, devices] = await Promise.all([
+        const [homes, devices, rawFurniture] = await Promise.all([
           api.getFullHomeData(),
           api.getAllDevices(),
+          api.getAllFurniture(),
         ]);
         console.log(
           "[Store] Raw devices data:",
           JSON.stringify(devices, null, 2),
         );
-        set({ homes, devices, loading: false });
+        const furniture: FurnitureItem[] = rawFurniture.map((f: any) => ({
+          id: f.id,
+          furniture_name: f.furniture_name,
+          furniture_type: f.furniture_type,
+          position: [
+            f.device_pos?.x ?? 0,
+            f.device_pos?.y ?? 0,
+            f.device_pos?.z ?? 0,
+          ] as [number, number, number],
+          rotation_y: f.device_rotation?.y ?? 0,
+          room: f.room || "",
+        }));
+        set({ homes, devices, furniture, loading: false });
         console.log(
-          `[Store] Loaded ${homes.length} homes, ${devices.length} devices`,
+          `[Store] Loaded ${homes.length} homes, ${devices.length} devices, ${furniture.length} furniture`,
         );
       } catch (err) {
         const message =
@@ -123,10 +180,66 @@ export const deviceStore = createStore<DeviceState>()(
       }
     },
 
+    loadRoomData: async (roomId: string) => {
+      set({ loading: true, error: null });
+      try {
+        console.log(`[Store] Loading data for room ${roomId}...`);
+
+        // Fetch room details to get room_model
+        const roomData = await api.getRoom(roomId);
+        const roomModel = roomData.room_model || "LabPlan";
+        const homeId = roomData.home;
+
+        // Fetch room-specific devices and furniture in parallel
+        const [devices, rawFurniture] = await Promise.all([
+          api.getRoomDevices(roomId),
+          api.getRoomFurniture(roomId),
+        ]);
+
+        const furniture: FurnitureItem[] = rawFurniture.map((f: any) => ({
+          id: f.id,
+          furniture_name: f.furniture_name,
+          furniture_type: f.furniture_type,
+          position: [
+            f.device_pos?.x ?? 0,
+            f.device_pos?.y ?? 0,
+            f.device_pos?.z ?? 0,
+          ] as [number, number, number],
+          rotation_y: f.device_rotation?.y ?? 0,
+          room: f.room || "",
+        }));
+
+        set({
+          devices,
+          furniture,
+          roomModel,
+          roomId,
+          homeId,
+          loading: false,
+        });
+
+        console.log(
+          `[Store] Loaded room "${roomData.room_name}": model=${roomModel}, ${devices.length} devices, ${furniture.length} furniture`,
+        );
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Failed to load room data";
+        set({ error: message, loading: false });
+        console.error("[Store] Failed to load room data:", err);
+      }
+    },
+
     refreshDevices: async () => {
       try {
         console.log("[Store] Refreshing devices...");
-        const devices = await api.getAllDevices();
+        // If we have a roomId, refresh only that room's devices
+        const { roomId } = get();
+        let devices: Device[];
+        if (roomId) {
+          devices = await api.getRoomDevices(roomId);
+        } else {
+          devices = await api.getAllDevices();
+        }
         set({ devices });
         console.log(`[Store] Refreshed ${devices.length} devices`);
       } catch (err) {
@@ -208,6 +321,86 @@ export const deviceStore = createStore<DeviceState>()(
         console.log(`[Store] Created device ${newDevice.id} "${name}"`);
       } catch (err) {
         console.error("[Store] Failed to create device:", err);
+      }
+    },
+
+    createFurniture: async (type, name, position, rotationY) => {
+      try {
+        console.log(
+          `[Store] Creating furniture of type ${type} named "${name}"`,
+        );
+
+        let roomId = "";
+        try {
+          const params = new URLSearchParams(window.location.search);
+          const urlRoomId = params.get("roomId");
+
+          if (urlRoomId) {
+            roomId = urlRoomId;
+          } else {
+            const rooms = await api.getRooms();
+            if (rooms && rooms.length > 0) {
+              roomId = rooms[0].id;
+            }
+          }
+        } catch (roomErr) {
+          console.error(
+            "[Store] Could not fetch valid rooms. Using default.",
+            roomErr,
+          );
+        }
+
+        const newFurniture = await api.createFurniture({
+          furniture_name: name,
+          furniture_type: type,
+          room: roomId,
+          position: position,
+          rotation_y: rotationY,
+        });
+
+        const item: FurnitureItem = {
+          id: newFurniture.id,
+          furniture_name: name,
+          furniture_type: type,
+          position: position,
+          rotation_y: rotationY,
+          room: newFurniture.room || "",
+        };
+        set((state) => ({ furniture: [...state.furniture, item] }));
+        console.log(`[Store] Created furniture ${newFurniture.id} "${name}"`);
+      } catch (err) {
+        console.error("[Store] Failed to create furniture:", err);
+      }
+    },
+
+    updateFurniturePosition: async (furnitureId, x, y, z, rotationY) => {
+      try {
+        console.log(`[Store] Updating position for furniture ${furnitureId}:`, {
+          x,
+          y,
+          z,
+          rotationY,
+        });
+        await api.setFurniturePosition(furnitureId, {
+          x,
+          y,
+          z,
+          rotation_y: rotationY,
+        });
+        set((state) => ({
+          furniture: state.furniture.map((f) =>
+            f.id === furnitureId
+              ? {
+                  ...f,
+                  position: [x, y, z] as [number, number, number],
+                  rotation_y: rotationY ?? f.rotation_y,
+                }
+              : f,
+          ),
+        }));
+      } catch (err) {
+        console.error("[Store] Failed to update furniture position:", err);
+        throw err;
       }
     },
 

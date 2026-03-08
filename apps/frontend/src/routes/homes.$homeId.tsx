@@ -1,10 +1,27 @@
 import { useState, useEffect } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, ArrowLeft, Loader2, DoorOpen, Lightbulb } from "lucide-react";
+import {
+  Plus,
+  ArrowLeft,
+  Loader2,
+  DoorOpen,
+  Lightbulb,
+  Armchair,
+  Pencil,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -34,8 +51,13 @@ import {
 import { HomeService } from "@/services/HomeService";
 import { DeviceService } from "@/services/DeviceService";
 import type { Room, BaseDevice } from "@/models";
+import type { FurnitureItem } from "@/models/Room";
 import { DeviceType } from "@/types/device.types";
 import { useUIStore } from "@/stores/ui_store";
+
+const ROOM_MODELS = [
+  { value: "LabPlan", label: "Lab Plan (Default)" },
+] as const;
 
 export const Route = createFileRoute("/homes/$homeId")({
   component: HomeDetailPage,
@@ -46,6 +68,7 @@ function HomeDetailPage() {
   const setModalOpen = useUIStore((s) => s.set_modal_open);
   const [isCreateRoomOpen, setIsCreateRoomOpen] = useState(false);
   const [newRoomName, setNewRoomName] = useState("");
+  const [newRoomModel, setNewRoomModel] = useState("LabPlan");
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [roomToRename, setRoomToRename] = useState<Room | null>(null);
   const [roomToDelete, setRoomToDelete] = useState<Room | null>(null);
@@ -55,6 +78,8 @@ function HomeDetailPage() {
   const [isDeviceDrawerOpen, setIsDeviceDrawerOpen] = useState(false);
   const [isAddDeviceOpen, setIsAddDeviceOpen] = useState(false);
   const [addDeviceRoomId, setAddDeviceRoomId] = useState<string | null>(null);
+  const [furnitureToRename, setFurnitureToRename] = useState<FurnitureItem | null>(null);
+  const [furnitureToDelete, setFurnitureToDelete] = useState<FurnitureItem | null>(null);
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -64,6 +89,8 @@ function HomeDetailPage() {
       !!roomToDelete ||
       !!deviceToRename ||
       !!deviceToDelete ||
+      !!furnitureToRename ||
+      !!furnitureToDelete ||
       isAddDeviceOpen ||
       isDeviceDrawerOpen;
     setModalOpen(open);
@@ -74,6 +101,8 @@ function HomeDetailPage() {
     roomToDelete,
     deviceToRename,
     deviceToDelete,
+    furnitureToRename,
+    furnitureToDelete,
     isAddDeviceOpen,
     isDeviceDrawerOpen,
     setModalOpen,
@@ -96,6 +125,21 @@ function HomeDetailPage() {
     select: (data) => [...data].sort((a, b) => a.id.localeCompare(b.id)),
   });
 
+  const { data: furniture = [], isLoading: isLoadingFurniture } = useQuery({
+    queryKey: ["home-furniture", homeId],
+    queryFn: async () => {
+      // Fetch furniture for all rooms of this home
+      const homeRooms = allRooms.filter((r) => r.homeId === homeId);
+      const results: FurnitureItem[] = [];
+      for (const room of homeRooms) {
+        const roomFurniture = await HomeService.getInstance().getRoomFurniture(room.id);
+        results.push(...roomFurniture);
+      }
+      return results;
+    },
+    enabled: allRooms.length > 0,
+  });
+
   // Derive selectedDevice from fresh query data instead of stale state
   const selectedDevice = selectedDeviceId
     ? (devices.find((d) => d.id === selectedDeviceId) ?? null)
@@ -107,16 +151,19 @@ function HomeDetailPage() {
     .map((room) => {
       // Assign devices that belong to this room (match by room name)
       room.devices = devices.filter((d) => d.roomName === room.name);
+      // Assign furniture that belong to this room
+      room.furniture = furniture.filter((f) => f.roomName === room.name);
       return room;
     });
 
   const createRoomMutation = useMutation({
-    mutationFn: (name: string) =>
-      HomeService.getInstance().createRoom(name, homeId),
+    mutationFn: ({ name, roomModel }: { name: string; roomModel: string }) =>
+      HomeService.getInstance().createRoom(name, homeId, roomModel),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["rooms"] });
       setIsCreateRoomOpen(false);
       setNewRoomName("");
+      setNewRoomModel("LabPlan");
       toast.success("Room created successfully");
     },
     onError: (error) => {
@@ -139,7 +186,7 @@ function HomeDetailPage() {
 
   const handleCreateRoom = () => {
     if (newRoomName.trim()) {
-      createRoomMutation.mutate(newRoomName.trim());
+      createRoomMutation.mutate({ name: newRoomName.trim(), roomModel: newRoomModel });
     }
   };
 
@@ -196,6 +243,31 @@ function HomeDetailPage() {
     },
   });
 
+  const renameFurnitureMutation = useMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) =>
+      HomeService.getInstance().renameFurniture(id, name),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["home-furniture", homeId] });
+      setFurnitureToRename(null);
+      toast.success("Furniture renamed successfully");
+    },
+    onError: (error) => {
+      toast.error(`Failed to rename furniture: ${error.message}`);
+    },
+  });
+
+  const deleteFurnitureMutation = useMutation({
+    mutationFn: (id: string) => HomeService.getInstance().deleteFurniture(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["home-furniture", homeId] });
+      setFurnitureToDelete(null);
+      toast.success("Furniture deleted successfully");
+    },
+    onError: (error) => {
+      toast.error(`Failed to delete furniture: ${error.message}`);
+    },
+  });
+
   const isLoading = isLoadingHome || isLoadingRooms;
 
   return (
@@ -232,13 +304,35 @@ function HomeDetailPage() {
                 Create a new room in this home.
               </DialogDescription>
             </DialogHeader>
-            <div className="py-4">
-              <Input
-                placeholder="Room name"
-                value={newRoomName}
-                onChange={(e) => setNewRoomName(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleCreateRoom()}
-              />
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="room-name">Room Name</Label>
+                <Input
+                  id="room-name"
+                  placeholder="e.g., Living Room"
+                  value={newRoomName}
+                  onChange={(e) => setNewRoomName(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleCreateRoom()}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="room-model">3D Room Model</Label>
+                <Select value={newRoomModel} onValueChange={setNewRoomModel}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a room model" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ROOM_MODELS.map((model) => (
+                      <SelectItem key={model.value} value={model.value}>
+                        {model.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Choose the 3D model for the room in the scene creator. Defaults to Lab Plan.
+                </p>
+              </div>
             </div>
             <DialogFooter>
               <Button
@@ -329,6 +423,68 @@ function HomeDetailPage() {
                   onRename={() => setDeviceToRename(device)}
                   onDelete={() => setDeviceToDelete(device)}
                 />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Furniture section */}
+      {!isLoadingFurniture && (
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <Armchair className="h-5 w-5" />
+            Furniture
+          </h2>
+
+          {furniture.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Armchair className="h-12 w-12 mx-auto mb-3 opacity-50" />
+              <p>No furniture yet. Place furniture in the 3D World!</p>
+            </div>
+          ) : (
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {furniture.map((item) => (
+                <div
+                  key={item.id}
+                  className="group relative p-4 rounded-xl border bg-gradient-to-br from-orange-500/10 to-amber-500/10 border-orange-500/20 transition-all duration-300 hover:shadow-lg hover:scale-[1.02]"
+                >
+                  {/* Action buttons */}
+                  <div className="absolute top-2 right-2 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200">
+                    <Button
+                      variant="secondary"
+                      size="icon"
+                      className="h-7 w-7 shadow-md bg-background/80 backdrop-blur-sm hover:bg-background hover:scale-110 transition-all duration-200"
+                      onClick={() => setFurnitureToRename(item)}
+                      title="Rename"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      className="h-7 w-7 shadow-md opacity-90 hover:opacity-100 hover:scale-110 transition-all duration-200"
+                      onClick={() => setFurnitureToDelete(item)}
+                      title="Delete"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+
+                  {/* Icon */}
+                  <div className="w-12 h-12 rounded-lg bg-orange-500/20 flex items-center justify-center mb-3">
+                    <Armchair className="h-6 w-6 text-orange-500" />
+                  </div>
+
+                  {/* Info */}
+                  <div className="space-y-1">
+                    <h4 className="font-semibold text-sm truncate">{item.name}</h4>
+                    <p className="text-xs text-muted-foreground">{item.type}</p>
+                    {item.roomName && (
+                      <p className="text-xs text-muted-foreground/70">{item.roomName}</p>
+                    )}
+                  </div>
+                </div>
               ))}
             </div>
           )}
@@ -451,6 +607,49 @@ function HomeDetailPage() {
               disabled={deleteDeviceMutation.isPending}
             >
               {deleteDeviceMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Rename Furniture Dialog */}
+      <RenameDialog
+        open={!!furnitureToRename}
+        onOpenChange={(open) => !open && setFurnitureToRename(null)}
+        currentName={furnitureToRename?.name || ""}
+        title="Rename Furniture"
+        description="Enter a new name for this furniture."
+        onSave={(newName) =>
+          furnitureToRename &&
+          renameFurnitureMutation.mutate({ id: furnitureToRename.id, name: newName })
+        }
+        isPending={renameFurnitureMutation.isPending}
+      />
+
+      {/* Delete Furniture Confirmation */}
+      <AlertDialog
+        open={!!furnitureToDelete}
+        onOpenChange={(open) => !open && setFurnitureToDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Furniture?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete "{furnitureToDelete?.name}". This
+              action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() =>
+                furnitureToDelete &&
+                deleteFurnitureMutation.mutate(furnitureToDelete.id)
+              }
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteFurnitureMutation.isPending}
+            >
+              {deleteFurnitureMutation.isPending ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

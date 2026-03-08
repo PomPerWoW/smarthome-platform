@@ -3,6 +3,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     HomeViewSet, RoomViewSet, DeviceViewSet, 
     AirConditionerViewSet, FanViewSet, LightbulbViewSet, TelevisionViewSet,
+    FurnitureViewSet,
     VoiceCommandViewSet
 )
 
@@ -14,6 +15,7 @@ router.register(r'acs', AirConditionerViewSet, basename='airconditioner')
 router.register(r'fans', FanViewSet, basename='fan')
 router.register(r'lightbulbs', LightbulbViewSet, basename='lightbulb')
 router.register(r'tvs', TelevisionViewSet, basename='television')
+router.register(r'furniture', FurnitureViewSet, basename='furniture')
 router.register(r'voice', VoiceCommandViewSet, basename='voice')
 
 urlpatterns = [

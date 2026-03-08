@@ -243,6 +243,7 @@ export class RoomScanningSystem extends createSystem({
 
     const mesh = new Mesh(geometry, material);
     mesh.name = `plane-overlay-${orientation}`;
+    mesh.raycast = () => {}; // Prevent scan visuals from blocking grab rays
 
     // Also add wireframe edges for clarity
     const wireGeom = new WireframeGeometry(geometry);
@@ -327,6 +328,8 @@ export class RoomScanningSystem extends createSystem({
   ): Object3D | null {
     const group = new Object3D();
     group.name = `mesh-group-${semanticLabel}`;
+    // Prevent scan visuals from blocking grab rays
+    group.raycast = () => {};
     const color = isBounded
       ? getMeshColor(semanticLabel)
       : MESH_COLORS.global_mesh;
@@ -397,6 +400,7 @@ export class RoomScanningSystem extends createSystem({
     });
     const fillMesh = new Mesh(geometry, fillMat);
     fillMesh.name = "mesh-fill";
+    fillMesh.raycast = () => {}; // Prevent blocking grab rays
     group.add(fillMesh);
 
     // Wireframe edge overlay
@@ -459,9 +463,11 @@ export class RoomScanningSystem extends createSystem({
     });
     const fill = new Mesh(boxGeom, fillMat);
     fill.name = `mesh-fill-${label}`;
+    fill.raycast = () => {}; // Prevent blocking grab rays
 
     const bboxGroup = new Object3D();
     bboxGroup.name = `mesh-bbox-group-${label}`;
+    bboxGroup.raycast = () => {};
     bboxGroup.add(edges);
     bboxGroup.add(fill);
     return bboxGroup;
@@ -608,21 +614,13 @@ export class RoomScanningSystem extends createSystem({
       const blob = new Blob([glb as ArrayBuffer], {
         type: "application/octet-stream",
       });
-      const url = URL.createObjectURL(blob);
       const timestamp = new Date()
         .toISOString()
         .replace(/[:.]/g, "-")
         .slice(0, 19);
       const filename = `room-scan-${timestamp}.glb`;
 
-      // Browser download
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = filename;
-      link.click();
-      URL.revokeObjectURL(url);
-
-      // Also POST to dev server to save in room-scans/
+      // POST to dev server to save in room-scans/
       try {
         const serverUrl = `${window.location.protocol}//${window.location.host}/api/save-room-scan`;
         const formData = new FormData();

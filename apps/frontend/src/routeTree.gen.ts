@@ -13,6 +13,7 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as HomesRouteImport } from './routes/homes'
+import { Route as FurnitureRouteImport } from './routes/furniture'
 import { Route as EnergyRouteImport } from './routes/energy'
 import { Route as DevicesRouteImport } from './routes/devices'
 import { Route as AutomationRouteImport } from './routes/automation'
@@ -38,6 +39,11 @@ const LoginRoute = LoginRouteImport.update({
 const HomesRoute = HomesRouteImport.update({
   id: '/homes',
   path: '/homes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FurnitureRoute = FurnitureRouteImport.update({
+  id: '/furniture',
+  path: '/furniture',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EnergyRoute = EnergyRouteImport.update({
@@ -77,6 +83,7 @@ export interface FileRoutesByFullPath {
   '/automation': typeof AutomationRoute
   '/devices': typeof DevicesRoute
   '/energy': typeof EnergyRoute
+  '/furniture': typeof FurnitureRoute
   '/homes': typeof HomesRouteWithChildren
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
@@ -89,6 +96,7 @@ export interface FileRoutesByTo {
   '/automation': typeof AutomationRoute
   '/devices': typeof DevicesRoute
   '/energy': typeof EnergyRoute
+  '/furniture': typeof FurnitureRoute
   '/homes': typeof HomesRouteWithChildren
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
@@ -102,6 +110,7 @@ export interface FileRoutesById {
   '/automation': typeof AutomationRoute
   '/devices': typeof DevicesRoute
   '/energy': typeof EnergyRoute
+  '/furniture': typeof FurnitureRoute
   '/homes': typeof HomesRouteWithChildren
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
@@ -116,6 +125,7 @@ export interface FileRouteTypes {
     | '/automation'
     | '/devices'
     | '/energy'
+    | '/furniture'
     | '/homes'
     | '/login'
     | '/register'
@@ -128,6 +138,7 @@ export interface FileRouteTypes {
     | '/automation'
     | '/devices'
     | '/energy'
+    | '/furniture'
     | '/homes'
     | '/login'
     | '/register'
@@ -140,6 +151,7 @@ export interface FileRouteTypes {
     | '/automation'
     | '/devices'
     | '/energy'
+    | '/furniture'
     | '/homes'
     | '/login'
     | '/register'
@@ -153,6 +165,7 @@ export interface RootRouteChildren {
   AutomationRoute: typeof AutomationRoute
   DevicesRoute: typeof DevicesRoute
   EnergyRoute: typeof EnergyRoute
+  FurnitureRoute: typeof FurnitureRoute
   HomesRoute: typeof HomesRouteWithChildren
   LoginRoute: typeof LoginRoute
   RegisterRoute: typeof RegisterRoute
@@ -187,6 +200,13 @@ declare module '@tanstack/react-router' {
       path: '/homes'
       fullPath: '/homes'
       preLoaderRoute: typeof HomesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/furniture': {
+      id: '/furniture'
+      path: '/furniture'
+      fullPath: '/furniture'
+      preLoaderRoute: typeof FurnitureRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/energy': {
@@ -250,6 +270,7 @@ const rootRouteChildren: RootRouteChildren = {
   AutomationRoute: AutomationRoute,
   DevicesRoute: DevicesRoute,
   EnergyRoute: EnergyRoute,
+  FurnitureRoute: FurnitureRoute,
   HomesRoute: HomesRouteWithChildren,
   LoginRoute: LoginRoute,
   RegisterRoute: RegisterRoute,

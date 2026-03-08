@@ -6,9 +6,9 @@ import {
   UIKitDocument,
   Entity,
 } from "@iwsdk/core";
-import { RoomScanningSystem } from "../systems/RoomScanningSystem";
 import { DeviceRendererSystem } from "../systems/DeviceRendererSystem";
-import { getStore } from "../store/DeviceStore";
+import { setRoomTransform } from "../config/navmesh";
+import { updateCollisionTransform } from "../config/collision";
 
 export class RoomAlignmentPanelSystem extends createSystem({
   panels: {
@@ -48,6 +48,15 @@ export class RoomAlignmentPanelSystem extends createSystem({
         labModel.position.z += dz;
         this.updateDisplayText(document, labModel);
 
+        // Sync navmesh and collision with updated transform
+        setRoomTransform(
+          labModel.position.x,
+          labModel.position.y,
+          labModel.position.z,
+          labModel.rotation.y,
+        );
+        updateCollisionTransform();
+
         // Also translation devices
         const deviceRenderer = this.world.getSystem(DeviceRendererSystem);
         if (deviceRenderer) {
@@ -68,6 +77,15 @@ export class RoomAlignmentPanelSystem extends createSystem({
         const pivot = labModel.position.clone();
         labModel.rotation.y += dRotY;
         this.updateDisplayText(document, labModel);
+
+        // Sync navmesh and collision with updated transform
+        setRoomTransform(
+          labModel.position.x,
+          labModel.position.y,
+          labModel.position.z,
+          labModel.rotation.y,
+        );
+        updateCollisionTransform();
 
         // Also rotate devices around labModel's position
         const deviceRenderer = this.world.getSystem(DeviceRendererSystem);
@@ -114,9 +132,7 @@ export class RoomAlignmentPanelSystem extends createSystem({
       .getElementById("btn-rot-right")
       ?.addEventListener("click", () => rotateRoom(-ROT_STEP));
 
-    document
-      .getElementById("btn-save-alignment")
-      ?.addEventListener("click", () => this.saveAlignment(document));
+    // Removed save alignment button - alignment is not persisted
 
     // Initial text update
     if ((globalThis as any).__labRoomModel) {
@@ -131,58 +147,8 @@ export class RoomAlignmentPanelSystem extends createSystem({
     if (textEl) {
       const rY = ((labModel.rotation.y * 180) / Math.PI).toFixed(1);
       (textEl as any).setProperties({
-        text: `P: (${labModel.position.x.toFixed(2)}, ${labModel.position.y.toFixed(2)}, ${labModel.position.z.toFixed(2)}) R: ${rY}°`,
+        text: `P: (${labModel.position.x.toFixed(2)}, ${labModel.position.y.toFixed(2)}, ${labModel.position.z.toFixed(2)}) R: ${rY}deg`,
       });
-    }
-  }
-
-  private async saveAlignment(document: UIKitDocument) {
-    const labModel = (globalThis as any).__labRoomModel;
-    if (!labModel) return;
-
-    const btn = document.getElementById("btn-save-alignment");
-    if (btn) (btn as any).setProperties({ text: "Saving..." });
-
-    const state = getStore();
-    const homes = state.homes;
-    if (
-      homes &&
-      homes.length > 0 &&
-      homes[0].floors &&
-      homes[0].floors.length > 0 &&
-      homes[0].floors[0].rooms &&
-      homes[0].floors[0].rooms.length > 0
-    ) {
-      const roomId = homes[0].floors[0].rooms[0].id;
-      try {
-        await state.updateRoomAlignment(
-          roomId,
-          labModel.position.x,
-          labModel.position.y,
-          labModel.position.z,
-          labModel.rotation.y,
-        );
-        if (btn) (btn as any).setProperties({ text: "Saved ✓" });
-        setTimeout(() => {
-          if (btn) (btn as any).setProperties({ text: "Save Room Alignment" });
-        }, 2000);
-
-        const scanSystem = this.world.getSystem(RoomScanningSystem);
-        if (scanSystem)
-          (scanSystem as any).addHUDLine("Floppy save: Alignment persistent");
-      } catch (e) {
-        console.error("Failed to save room alignment", e);
-        if (btn) (btn as any).setProperties({ text: "Error!" });
-        setTimeout(() => {
-          if (btn) (btn as any).setProperties({ text: "Save Room Alignment" });
-        }, 2000);
-      }
-    } else {
-      console.warn("No room found in store to save to");
-      if (btn) (btn as any).setProperties({ text: "Error: No Room" });
-      setTimeout(() => {
-        if (btn) (btn as any).setProperties({ text: "Save Room Alignment" });
-      }, 2000);
     }
   }
 }

@@ -60,7 +60,57 @@ export class PanelSystem extends createSystem({
         },
       );
 
-      // XR Button
+      // ── AR / VR Mode Toggle ────────────────────────────────────────
+      let isARMode = false; // Default: VR mode (room model visible)
+      (globalThis as any).__sceneMode = "vr";
+
+      const vrModeBtn = document.getElementById("vr-mode-btn");
+      const arModeBtn = document.getElementById("ar-mode-btn");
+
+      const applyMode = (ar: boolean) => {
+        isARMode = ar;
+        (globalThis as any).__sceneMode = ar ? "ar" : "vr";
+
+        // Toggle room model visibility
+        const roomModel = (globalThis as any).__labRoomModel;
+        if (roomModel) {
+          roomModel.visible = !ar;
+        }
+
+        // Update mode button styling via backgroundColor
+        if (vrModeBtn) {
+          vrModeBtn.setProperties({
+            backgroundColor: ar ? "#27272a" : "#7c3aed",
+          });
+        }
+        if (arModeBtn) {
+          arModeBtn.setProperties({
+            backgroundColor: ar ? "#7c3aed" : "#27272a",
+          });
+        }
+
+        // Update XR button text when not in XR
+        const xrBtn = document.getElementById("xr-button") as UIKit.Text;
+        if (
+          xrBtn &&
+          this.world.visibilityState.value === VisibilityState.NonImmersive
+        ) {
+          xrBtn.setProperties({
+            text: ar ? "Enter AR" : "Enter VR",
+          });
+        }
+
+        console.log(`[Panel] Mode switched to: ${ar ? "AR" : "VR"}`);
+      };
+
+      if (vrModeBtn) {
+        vrModeBtn.addEventListener("click", () => applyMode(false));
+      }
+      if (arModeBtn) {
+        arModeBtn.addEventListener("click", () => applyMode(true));
+      }
+
+      // ── XR Button ────────────────────────────────────────────────────
       const xrButton = document.getElementById("xr-button") as UIKit.Text;
       if (xrButton) {
         xrButton.addEventListener("click", () => {
@@ -73,9 +123,16 @@ export class PanelSystem extends createSystem({
           }
         });
 
+        // Set initial text based on default mode (VR)
+        xrButton.setProperties({
+          text: isARMode ? "Enter AR" : "Enter VR",
+        });
+
         this.world.visibilityState.subscribe((visibilityState) => {
           if (visibilityState === VisibilityState.NonImmersive) {
-            xrButton.setProperties({ text: "Enter AR" });
+            xrButton.setProperties({
+              text: isARMode ? "Enter AR" : "Enter VR",
+            });
           } else {
             xrButton.setProperties({ text: "Exit to Browser" });
           }
