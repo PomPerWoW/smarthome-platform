@@ -5,39 +5,6 @@ import {
   speakInstruction,
 } from "../utils/VoiceTextToSpeech";
 
-class PythonTalkMainBridge {
-  static async analyze(input: any) {
-    console.log("[python-talk-main] Analyzing phrase:", input);
-    try {
-      // Functional integration with python-talk-main local daemon
-      const response = await fetch(
-        "http://127.0.0.1:8000/api/analyze_command",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ conversation_id: Date.now(), command: input }),
-        },
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log(
-          "[python-talk-main] Natural Language parsing complete:",
-          data,
-        );
-        return data;
-      } else {
-        throw new Error("Local daemon unavailable");
-      }
-    } catch (e) {
-      // If the local python daemon isn't running, we fallback silently to standard LLM
-      console.warn(
-        "[python-talk-main] daemon unreachable. Falling back to core NLP engine.",
-      );
-    }
-  }
-}
-
 export type VoiceIdlePayload = {
   success?: boolean;
   cancelled?: boolean;
@@ -77,13 +44,17 @@ export class VoiceControlSystem {
   private silenceCheckInterval: any = null;
   private safetyTimeout: any = null;
   private silenceStart: number = 0;
-  private readonly SILENCE_DURATION = 2000; // 2s of silence before auto-stop (was 1s)
-  private readonly MAX_RECORDING_DURATION = 15000; // 15s max recording (was 8s)
-  private readonly SOUND_THRESHOLD = 5; // Lower threshold for Quest mic sensitivity (was 10)
+  private readonly SILENCE_DURATION = 3000; // 3s of silence before auto-stop (increased for better capture)
+  private readonly MAX_RECORDING_DURATION = 20000; // 20s max recording (increased for longer commands)
+  private readonly SOUND_THRESHOLD = 3; // Lower threshold for better sensitivity
 
   // Retry logic for native SpeechRecognition
   private retryCount = 0;
   private readonly MAX_RETRIES = 2;
+
+  // Improved transcript handling
+  private readonly RESULT_WAIT_TIMEOUT = 1500; // 1.5s wait after final result (increased from 500ms)
+  private readonly MIN_TRANSCRIPT_LENGTH = 2; // Minimum characters to consider valid
 
   private constructor() {
     const isQuest = /Quest|Oculus/i.test(navigator.userAgent);
@@ -133,43 +104,93 @@ export class VoiceControlSystem {
     if (!this.recognition) return;
 
     // Track the best final transcript across multiple result events
-    let bestTranscript = "";
+    let accumulatedFinalTranscript = "";
+    let lastInterimTranscript = "";
     let resultTimeout: any = null;
+    let hasReceivedFinal = false;
 
     this.recognition.onresult = async (event: any) => {
-      // Collect the best transcript from all results
+      // Collect transcripts from all results, including alternatives
       let interim = "";
       let final = "";
+      let bestConfidence = 0;
 
       for (let i = 0; i < event.results.length; i++) {
         const result = event.results[i];
+
         if (result.isFinal) {
-          final += result[0].transcript;
+          // Try all alternatives (up to maxAlternatives) and pick the best one
+          let bestTranscript = "";
+          let bestConf = 0;
+
+          // SpeechRecognition API provides alternatives as result[0], result[1], etc.
+          for (let alt = 0; alt < 3; alt++) {
+            const altResult = result[alt];
+            if (!altResult) break;
+
+            const transcript = altResult.transcript || "";
+            const confidence = altResult.confidence || 0;
+
+            if (transcript && confidence > bestConf) {
+              bestTranscript = transcript;
+              bestConf = confidence;
+            }
+          }
+
+          // If no alternatives with confidence, use first result
+          if (!bestTranscript && result[0]?.transcript) {
+            bestTranscript = result[0].transcript;
+          }
+
+          // Accumulate final results (speech recognition may split long utterances)
+          if (bestTranscript) {
+            final = bestTranscript;
+            accumulatedFinalTranscript += (accumulatedFinalTranscript ? " " : "") + final.trim();
+            hasReceivedFinal = true;
+            console.log("[VoiceControl] Final transcript segment:", final, "(confidence:", bestConf, ")");
+          }
         } else {
-          interim += result[0].transcript;
+          // Collect interim results for real-time feedback
+          if (result[0]?.transcript) {
+            interim += result[0].transcript;
+          }
         }
       }
 
       // Show interim results for user feedback
       if (interim && this.onTranscript) {
+        lastInterimTranscript = interim;
         this.onTranscript(interim + "...");
       }
 
-      if (final) {
-        bestTranscript = final;
-        console.log("[VoiceControl] Final transcript:", final);
-        if (this.onTranscript) this.onTranscript(final);
+      // When we have final results, wait a bit longer to ensure we get the complete utterance
+      if (hasReceivedFinal) {
+        if (this.onTranscript && accumulatedFinalTranscript) {
+          this.onTranscript(accumulatedFinalTranscript);
+        }
 
-        // Stop recognition and process after receiving final result
-        // Small delay to allow any follow-up results
+        // Reset timeout - wait longer to allow for complete speech
         if (resultTimeout) clearTimeout(resultTimeout);
         resultTimeout = setTimeout(async () => {
-          this.recognition?.stop();
-          this.isListening = false;
-          this.retryCount = 0;
-          await this.processTranscript(bestTranscript);
-          bestTranscript = "";
-        }, 500);
+          // Use accumulated final transcript, or fallback to interim if no final yet
+          const transcriptToProcess = accumulatedFinalTranscript.trim() || lastInterimTranscript.trim();
+
+          if (transcriptToProcess.length >= this.MIN_TRANSCRIPT_LENGTH) {
+            console.log("[VoiceControl] Processing complete transcript:", transcriptToProcess);
+            this.recognition?.stop();
+            this.isListening = false;
+            this.retryCount = 0;
+            await this.processTranscript(transcriptToProcess);
+          } else {
+            console.warn("[VoiceControl] Transcript too short, ignoring:", transcriptToProcess);
+            this.notifyStatus("idle");
+          }
+
+          // Reset state
+          accumulatedFinalTranscript = "";
+          lastInterimTranscript = "";
+          hasReceivedFinal = false;
+        }, this.RESULT_WAIT_TIMEOUT);
       }
     };
 
@@ -216,30 +237,48 @@ export class VoiceControlSystem {
     };
 
     this.recognition.onend = () => {
-      // Don't reset if we're in the middle of processing a result
-      if (this.isListening && !bestTranscript) {
-        this.isListening = false;
-        this.retryCount = 0;
-        this.notifyStatus("idle");
+      // If recognition ended but we're still listening, it might have stopped prematurely
+      // Only reset if we haven't received any final results
+      if (this.isListening && !hasReceivedFinal) {
+        // If we have interim results, try processing them as a fallback
+        if (lastInterimTranscript.trim().length >= this.MIN_TRANSCRIPT_LENGTH) {
+          console.log("[VoiceControl] Recognition ended, processing interim transcript:", lastInterimTranscript);
+          this.isListening = false;
+          this.retryCount = 0;
+          this.processTranscript(lastInterimTranscript.trim());
+        } else {
+          this.isListening = false;
+          this.retryCount = 0;
+          this.notifyStatus("idle");
+        }
       }
+
+      // Reset accumulated state
+      accumulatedFinalTranscript = "";
+      lastInterimTranscript = "";
+      hasReceivedFinal = false;
     };
   }
 
   /** Process a finalized transcript — shared between native and fallback */
   private async processTranscript(transcript: string): Promise<void> {
-    if (!transcript.trim()) {
-      console.warn("[VoiceControl] Empty transcript — ignoring");
-      this.notifyStatus("idle");
+    const trimmedTranscript = transcript.trim();
+
+    if (!trimmedTranscript || trimmedTranscript.length < this.MIN_TRANSCRIPT_LENGTH) {
+      console.warn("[VoiceControl] Transcript too short or empty — ignoring:", trimmedTranscript);
+      this.notifyStatus("idle", { noMatch: true });
       return;
     }
+
+    // Log the transcript for debugging
+    console.log("[VoiceControl] Processing transcript:", trimmedTranscript);
 
     this.notifyStatus("processing");
 
     try {
-      await PythonTalkMainBridge.analyze(transcript);
       const response =
-        await BackendApiClient.getInstance().sendVoiceCommand(transcript);
-      console.log("[VoiceControl] Command executed successfully.");
+        await BackendApiClient.getInstance().sendVoiceCommand(trimmedTranscript);
+      console.log("[VoiceControl] Backend response:", response);
 
       // Instruction / how-to: speak predefined answer then robot Yes+ThumbsUp → walk/idle
       if (response?.instruction_topic) {
@@ -256,20 +295,23 @@ export class VoiceControlSystem {
       let noMatch = false;
 
       if (response?.actions && response.actions.length > 0) {
-        const firstAction = response.actions[0];
-        if (
-          firstAction.status === "success" &&
-          firstAction.action &&
-          firstAction.device
-        ) {
-          action = firstAction.action;
-          device = firstAction.device;
+        // Try to find a successful action
+        const successfulAction = response.actions.find(
+          (a: any) => a.status === "success" && a.action && a.device
+        );
+
+        if (successfulAction) {
+          action = successfulAction.action;
+          device = successfulAction.device;
+          console.log("[VoiceControl] Command executed successfully:", { action, device });
         } else {
-          this.notifyStatus("idle", { success: false });
+          console.warn("[VoiceControl] No successful action found in response");
+          this.notifyStatus("idle", { success: false, noMatch: true });
           return;
         }
       } else {
         noMatch = true;
+        console.warn("[VoiceControl] No actions in response — command not recognized");
       }
 
       this.notifyStatus("idle", {
@@ -280,7 +322,7 @@ export class VoiceControlSystem {
       });
     } catch (error) {
       console.error("[VoiceControl] Failed to execute voice command:", error);
-      this.notifyStatus("idle", { success: false });
+      this.notifyStatus("idle", { success: false, noMatch: true });
     }
   }
 
@@ -288,15 +330,42 @@ export class VoiceControlSystem {
 
   private async startFallbackRecording() {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Request better audio quality settings
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 44100, // Higher sample rate for better quality
+          channelCount: 1, // Mono is sufficient for speech
+        },
+      });
       this.audioChunks = [];
 
-      // Pick a supported MIME type
-      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-        ? "audio/webm;codecs=opus"
-        : "audio/webm";
+      // Pick the best supported MIME type for quality
+      let mimeType = "audio/webm";
+      const preferredTypes = [
+        "audio/webm;codecs=opus",
+        "audio/webm;codecs=pcm",
+        "audio/webm",
+        "audio/mp4",
+      ];
 
-      this.mediaRecorder = new MediaRecorder(stream, { mimeType });
+      for (const type of preferredTypes) {
+        if (MediaRecorder.isTypeSupported(type)) {
+          mimeType = type;
+          break;
+        }
+      }
+
+      // Use higher bitrate if supported
+      const options: MediaRecorderOptions = { mimeType };
+      if (mimeType.includes("opus")) {
+        // Opus codec supports bitrate setting
+        (options as any).audioBitsPerSecond = 64000; // 64kbps for good quality speech
+      }
+
+      this.mediaRecorder = new MediaRecorder(stream, options);
 
       this.mediaRecorder.ondataavailable = (event: BlobEvent) => {
         if (event.data.size > 0) {
@@ -326,8 +395,7 @@ export class VoiceControlSystem {
 
         let idlePayload: VoiceIdlePayload | undefined;
         try {
-          await PythonTalkMainBridge.analyze("audio_blob_received");
-          // Optimized: Transcribe AND Execute in one call
+          // Transcribe AND Execute in one call
           const { transcript, command_result } =
             await BackendApiClient.getInstance().sendVoiceAudio(
               audioBlob,
@@ -341,29 +409,35 @@ export class VoiceControlSystem {
             this.onTranscript(transcript);
           }
 
-          if (command_result?.instruction_topic) {
+          if (!transcript || transcript.trim().length < this.MIN_TRANSCRIPT_LENGTH) {
+            console.warn("[VoiceControl] Empty or too short transcript — ignoring:", transcript);
+            idlePayload = { success: false, noMatch: true };
+          } else if (command_result?.instruction_topic) {
             speakInstruction(command_result.instruction_topic);
             idlePayload = {
               success: true,
               instructionTopic: command_result.instruction_topic,
             };
           } else if (command_result?.actions?.length > 0) {
-            const first = command_result.actions[0];
-            if (
-              first.status === "success" &&
-              first.action &&
-              first.device
-            ) {
+            // Try to find a successful action
+            const successfulAction = command_result.actions.find(
+              (a: any) => a.status === "success" && a.action && a.device
+            );
+
+            if (successfulAction) {
               idlePayload = {
                 success: true,
-                action: first.action,
-                device: first.device,
+                action: successfulAction.action,
+                device: successfulAction.device,
               };
+              console.log("[VoiceControl] Command Executed:", idlePayload);
+            } else {
+              console.warn("[VoiceControl] No successful action found");
+              idlePayload = { success: false, noMatch: true };
             }
-            console.log("[VoiceControl] Command Executed:", command_result);
-          }
-          if (!transcript || !transcript.trim()) {
-            console.warn("[VoiceControl] Empty transcript — ignoring");
+          } else {
+            console.warn("[VoiceControl] Command not recognized");
+            idlePayload = { success: false, noMatch: true };
           }
         } catch (error) {
           console.error("[VoiceControl] Fallback voice command failed:", error);
@@ -425,29 +499,50 @@ export class VoiceControlSystem {
 
       const source = this.audioContext.createMediaStreamSource(stream);
       this.analyser = this.audioContext.createAnalyser();
-      this.analyser.fftSize = 256;
+      this.analyser.fftSize = 2048; // Higher FFT size for better frequency analysis
+      this.analyser.smoothingTimeConstant = 0.8; // Smoothing to reduce false positives
       source.connect(this.analyser);
 
       const bufferLength = this.analyser.frequencyBinCount;
       const dataArray = new Uint8Array(bufferLength);
+      const frequencyData = new Uint8Array(bufferLength);
 
       this.silenceStart = Date.now();
+      let consecutiveSilenceChecks = 0;
+      const REQUIRED_SILENCE_CHECKS = Math.ceil(this.SILENCE_DURATION / 100); // Number of checks needed
 
       this.silenceCheckInterval = setInterval(() => {
         if (!this.analyser) return;
-        this.analyser.getByteTimeDomainData(dataArray);
 
+        // Use both time domain and frequency domain for better detection
+        this.analyser.getByteTimeDomainData(dataArray);
+        this.analyser.getByteFrequencyData(frequencyData);
+
+        // Calculate average amplitude
         let sum = 0;
         for (let i = 0; i < bufferLength; i++) {
           sum += Math.abs(dataArray[i] - 128); // 128 = silence center point
         }
-        const avg = sum / bufferLength;
+        const avgAmplitude = sum / bufferLength;
 
-        if (avg > this.SOUND_THRESHOLD) {
+        // Calculate average frequency energy (for better speech detection)
+        let freqSum = 0;
+        for (let i = 0; i < bufferLength; i++) {
+          freqSum += frequencyData[i];
+        }
+        const avgFrequency = freqSum / bufferLength;
+
+        // Consider both amplitude and frequency - speech has both
+        const isSoundDetected = avgAmplitude > this.SOUND_THRESHOLD || avgFrequency > 10;
+
+        if (isSoundDetected) {
           this.silenceStart = Date.now();
+          consecutiveSilenceChecks = 0;
         } else {
-          if (Date.now() - this.silenceStart > this.SILENCE_DURATION) {
-            console.log("[VoiceControl] Silence detected, stopping.");
+          consecutiveSilenceChecks++;
+          // Require consistent silence over the duration
+          if (consecutiveSilenceChecks >= REQUIRED_SILENCE_CHECKS) {
+            console.log("[VoiceControl] Consistent silence detected, stopping.");
             this.stopFallbackRecording();
           }
         }
@@ -467,7 +562,7 @@ export class VoiceControlSystem {
       this.safetyTimeout = null;
     }
     if (this.audioContext && this.audioContext.state !== "closed") {
-      this.audioContext.close().catch(() => {});
+      this.audioContext.close().catch(() => { });
     }
     this.audioContext = null;
     this.analyser = null;
