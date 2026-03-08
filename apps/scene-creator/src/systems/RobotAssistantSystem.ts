@@ -124,6 +124,8 @@ export class RobotAssistantSystem extends createSystem({
   walkingToUser = false;
   /** Topic to speak when robot reaches user (e.g. "panel", "fan"). */
   private pendingInstructionTopic: string | null = null;
+  /** Callback to invoke when robot reaches user (for external systems like VoicePanelSystem). */
+  private onReachedUserCallback: (() => void) | null = null;
   /** Debounce: avoid speaking "Do you want anything else?" twice when two idles arrive in quick succession. */
   private lastDeviceSuccessHandledAt = 0;
   private static readonly DEVICE_SUCCESS_DEBOUNCE_MS = 3000;
@@ -518,6 +520,64 @@ export class RobotAssistantSystem extends createSystem({
     this.setVoiceListening(false);
     this.fadeToAction(record, "Walking", FADE_DURATION);
     record.entity.setValue(RobotAssistantComponent, "currentState", "Walking");
+  }
+
+  /** Public method: Walk robot to user position (camera). Calls callback when robot arrives. */
+  public walkToUser(camera: Object3D, onArrived?: () => void): void {
+    const record = this.robotRecords.values().next().value as
+      | RobotAssistantRecord
+      | undefined;
+    if (!record || !camera) {
+      console.warn("[RobotAssistant] walkToUser: No robot or camera available");
+      onArrived?.();
+      return;
+    }
+
+    // Store callback
+    this.onReachedUserCallback = onArrived || null;
+
+    // Set target to camera position
+    const cam = camera as { position: { x: number; y: number; z: number } };
+    const userLocal = this.worldToRoomLocal(
+      cam.position.x,
+      cam.position.y,
+      cam.position.z,
+    );
+    record.entity.setValue(RobotAssistantComponent, "targetX", userLocal.x);
+    record.entity.setValue(RobotAssistantComponent, "targetZ", userLocal.z);
+    record.entity.setValue(RobotAssistantComponent, "hasReachedTarget", false);
+    this.walkingToUser = true;
+    this.fadeToAction(record, "Walking", FADE_DURATION);
+    record.entity.setValue(RobotAssistantComponent, "currentState", "Walking");
+
+    console.log("[RobotAssistant] 🚶 Starting walk to user");
+  }
+
+  /** Public method: Stop walking to user and return to normal patrol behavior. */
+  public returnToPatrol(): void {
+    if (!this.walkingToUser) return;
+
+    this.walkingToUser = false;
+    this.onReachedUserCallback = null;
+    this.pendingInstructionTopic = null;
+    this.stepAsideTarget = null;
+
+    const record = this.robotRecords.values().next().value as
+      | RobotAssistantRecord
+      | undefined;
+    if (record) {
+      // Pick a random waypoint to resume patrol
+      const bounds = getRoomBounds();
+      if (bounds) {
+        const newTargetX = bounds.minX + Math.random() * (bounds.maxX - bounds.minX);
+        const newTargetZ = bounds.minZ + Math.random() * (bounds.maxZ - bounds.minZ);
+        record.entity.setValue(RobotAssistantComponent, "targetX", newTargetX);
+        record.entity.setValue(RobotAssistantComponent, "targetZ", newTargetZ);
+        record.entity.setValue(RobotAssistantComponent, "hasReachedTarget", false);
+      }
+    }
+
+    console.log("[RobotAssistant] 🔄 Returning to patrol");
   }
 
   async createRobotAssistant(
@@ -1039,7 +1099,8 @@ export class RobotAssistantSystem extends createSystem({
       }
 
       // Explicit "reached user" / "reached step-aside" check
-      if (this.walkingToUser && this.pendingInstructionTopic) {
+      // Check if walking to user with either a pending instruction topic OR an external callback
+      if (this.walkingToUser && (this.pendingInstructionTopic || this.onReachedUserCallback)) {
         if (this.stepAsideTarget) {
           // If we are currently stepping aside to avoid an obstacle
           const dxAside = targetX - record.model.position.x;
@@ -1058,36 +1119,66 @@ export class RobotAssistantSystem extends createSystem({
           const distToUser = Math.sqrt(dxUser * dxUser + dzUser * dzUser);
           if (distToUser <= REACH_USER_DISTANCE) {
             const topic = this.pendingInstructionTopic;
+            const callback = this.onReachedUserCallback;
             this.walkingToUser = false;
             this.pendingInstructionTopic = null;
-            this.inInstructionSession = true;
-            this.setVoiceListening(true);
-            this.fadeToAction(record, "Standing", FADE_DURATION);
-            record.entity.setValue(
-              RobotAssistantComponent,
-              "currentState",
-              "Standing",
-            );
-            record.entity.setValue(RobotAssistantComponent, "hasReachedTarget", true);
-            console.log(
-              `[RobotAssistant] 👋 Reached user (dist=${distToUser.toFixed(2)}m), speaking instruction: ${topic}`,
-            );
-            speakInstruction(topic).then(() =>
-              speakFollowUpAnythingElse().then(() => {
-                setTimeout(() => {
-                  VoiceControlSystem.getInstance().startListeningWithoutGreeting();
-                }, LISTEN_START_DELAY_MS);
-              }),
-            );
-            // Apply room transform and skip rest of movement for this frame
-            const worldPos = this.roomLocalToWorld(
-              record.model.position.x,
-              record.model.position.y,
-              record.model.position.z,
-            );
-            record.model.position.set(worldPos.x, worldPos.y, worldPos.z);
-            record.model.rotation.y += roomRotY;
-            continue;
+            this.onReachedUserCallback = null;
+
+            // If there's an external callback (e.g., from VoicePanelSystem), call it
+            if (callback) {
+              console.log(
+                `[RobotAssistant] 👋 Reached user (dist=${distToUser.toFixed(2)}m), calling external callback`,
+              );
+              this.fadeToAction(record, "Standing", FADE_DURATION);
+              record.entity.setValue(
+                RobotAssistantComponent,
+                "currentState",
+                "Standing",
+              );
+              record.entity.setValue(RobotAssistantComponent, "hasReachedTarget", true);
+              callback();
+              // Apply room transform and skip rest of movement for this frame
+              const worldPos = this.roomLocalToWorld(
+                record.model.position.x,
+                record.model.position.y,
+                record.model.position.z,
+              );
+              record.model.position.set(worldPos.x, worldPos.y, worldPos.z);
+              record.model.rotation.y += roomRotY;
+              continue;
+            }
+
+            // Otherwise, handle instruction topic flow (existing behavior)
+            if (topic) {
+              this.inInstructionSession = true;
+              this.setVoiceListening(true);
+              this.fadeToAction(record, "Standing", FADE_DURATION);
+              record.entity.setValue(
+                RobotAssistantComponent,
+                "currentState",
+                "Standing",
+              );
+              record.entity.setValue(RobotAssistantComponent, "hasReachedTarget", true);
+              console.log(
+                `[RobotAssistant] 👋 Reached user (dist=${distToUser.toFixed(2)}m), speaking instruction: ${topic}`,
+              );
+              speakInstruction(topic).then(() =>
+                speakFollowUpAnythingElse().then(() => {
+                  setTimeout(() => {
+                    VoiceControlSystem.getInstance().startListeningWithoutGreeting();
+                  }, LISTEN_START_DELAY_MS);
+                }),
+              );
+              // Apply room transform and skip rest of movement for this frame
+              const worldPos = this.roomLocalToWorld(
+                record.model.position.x,
+                record.model.position.y,
+                record.model.position.z,
+              );
+              record.model.position.set(worldPos.x, worldPos.y, worldPos.z);
+              record.model.rotation.y += roomRotY;
+              continue;
+            }
           }
         }
       }

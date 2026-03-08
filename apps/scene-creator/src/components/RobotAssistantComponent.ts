@@ -31,4 +31,7 @@ export const RobotAssistantComponent = createComponent("RobotAssistantComponent"
     stuckTime: { type: Types.Float32, default: 0 },
     lastX: { type: Types.Float32, default: 0 },
     lastZ: { type: Types.Float32, default: 0 },
+    
+    // Collision cooldown to prevent too frequent repathing
+    collisionCooldown: { type: Types.Float32, default: 0 },
 });
