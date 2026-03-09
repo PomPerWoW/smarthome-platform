@@ -18,6 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useHomeStore } from "@/stores/home_store";
+import { useUIStore } from "@/stores/ui_store";
 
 export function ThreeDWorldButton() {
   const [open, setOpen] = useState(false);
@@ -25,12 +26,19 @@ export function ThreeDWorldButton() {
   const [selectedRoomId, setSelectedRoomId] = useState<string>("");
 
   const { homes, fetchHomes, isLoadingHomes } = useHomeStore();
+  const setModalOpen = useUIStore((s) => s.set_modal_open);
 
   useEffect(() => {
     if (open && homes.length === 0) {
       fetchHomes();
     }
   }, [open, homes.length, fetchHomes]);
+
+  // Sync dialog visibility with global modal flag (hides robot assistant)
+  useEffect(() => {
+    setModalOpen(open);
+    return () => setModalOpen(false);
+  }, [open, setModalOpen]);
 
   // Reset room selection when home changes
   useEffect(() => {
