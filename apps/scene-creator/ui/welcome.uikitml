@@ -180,12 +180,45 @@
 
   .footer-text {
     font-size: 1.4;
-    color: #52525b;
+    color: #fafafa;
     text-align: center;
+  }
+
+  .close-btn {
+    position: absolute;
+    top: 1;
+    right: 1;
+    width: 3;
+    height: 3;
+    padding: 0.5;
+    background-color: #27272a;
+    border-radius: 0.5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border: none;
+  }
+
+  .close-btn:hover {
+    background-color: #3f3f46;
+  }
+
+  .close-icon {
+    width: 1.5;
+    height: 1.5;
+    color: #a1a1aa;
+  }
+
+  .panel-container {
+    position: relative;
   }
 </style>
 
 <div class="panel-container">
+  <button class="close-btn" id="close-welcome-panel" title="Close (Press U)">
+    <XIcon class="close-icon" />
+  </button>
   <div class="logo-section">
     <div>
       <HouseIcon class="logo-icon" />
@@ -265,15 +298,9 @@
 
   <div class="footer">
     <div class="footer-row">
-      <div>
-        <MousePointerClickIcon class="footer-icon" />
-      </div>
-      <span class="footer-text">Click to control</span>
+      <span class="footer-text">Press U to toggle</span>
       <span class="footer-text">|</span>
-      <div>
-        <GripIcon class="footer-icon" />
-      </div>
-      <span class="footer-text">Grab to move</span>
+      <span class="footer-text">Press Y to summon</span>
     </div>
   </div>
 </div>

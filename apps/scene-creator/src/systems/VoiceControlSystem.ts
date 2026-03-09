@@ -13,6 +13,7 @@ export type VoiceIdlePayload = {
   device?: string;
   noMatch?: boolean;
   instructionTopic?: string;
+  instructionText?: string; // Dynamic instruction text from backend (e.g., for device_info)
   endSession?: boolean;
 };
 
@@ -151,9 +152,11 @@ export class VoiceControlSystem {
 
   private static matchNoThanks(t: string): boolean {
     const lower = t.trim().toLowerCase().replace(/[,.]/g, " ").replace(/\s+/g, " ");
-    // Match various forms of "no thank you", "that's all", "nothing else", "I'm good", etc.
+    // Match various forms of "no thank you", "that's all", "nothing else", "I'm good", "goodbye", etc.
     const patterns = [
       /^no,?\s*thank(s| you)/,           // "no thank you", "no thanks", "no, thank you"
+      /thank(s| you),?\s*(goodbye|bye)/,  // "thank you goodbye", "thanks goodbye", "thank you bye"
+      /goodbye|bye\s*(now|then)?/,       // "goodbye", "bye", "goodbye now"
       /^that'?s?\s*all/,                  // "that's all", "thats all"
       /^nothing\s*else/,                  // "nothing else"
       /^i'?m\s*good/,                     // "I'm good", "im good"
@@ -162,6 +165,8 @@ export class VoiceControlSystem {
       /^that'?s?\s*it/,                   // "that's it", "thats it"
       /^i'?m\s*done/,                    // "I'm done", "im done"
       /^we'?re\s*good/,                   // "we're good", "were good"
+      /^that'?s?\s*enough/,               // "that's enough"
+      /^i'?m\s*fine/,                     // "I'm fine"
     ];
     return patterns.some(pattern => pattern.test(lower));
   }
@@ -498,6 +503,7 @@ export class VoiceControlSystem {
         this.notifyStatus("idle", {
           success: true,
           instructionTopic: response.instruction_topic,
+          instructionText: response.instruction_text, // Pass dynamic text if available
         });
         return;
       }

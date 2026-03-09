@@ -155,7 +155,11 @@ export class VoiceService {
         if (response?.instruction_topic) {
           toast.success(`Instruction: "${transcript}"`);
           speakInstruction(response.instruction_topic);
-          onStatusChange?.("idle", { success: true, instructionTopic: response.instruction_topic });
+          onStatusChange?.("idle", { 
+            success: true, 
+            instructionTopic: response.instruction_topic,
+            instructionText: response.instruction_text 
+          });
           return;
         }
 
@@ -169,7 +173,9 @@ export class VoiceService {
           ) {
             toast.success(`Executed: "${transcript}"`);
             speakCompletion(firstAction.action, firstAction.device);
-            onStatusChange?.("idle", { success: true });
+            // Stop listening after successful device action
+            this.stopListening();
+            onStatusChange?.("idle", { success: true, action: firstAction.action, device: firstAction.device });
           } else {
             toast.error("Failed to process command.");
             onStatusChange?.("idle", { success: false });

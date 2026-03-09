@@ -31,6 +31,7 @@ import {
   speakFollowUpAnythingElse,
   speakSeeYouAgain,
   speakSorryDidntCatch,
+  speakText,
 } from "../utils/VoiceTextToSpeech";
 
 /** Delay (ms) before starting mic after TTS so we don't capture the robot's voice. */
@@ -63,11 +64,13 @@ const IDLE_PAUSE_SEC = 6.0;
 const REPATH_CANDIDATES = 12;
 
 /** Number of random positions to try when finding a collision-free spawn. */
-const SPAWN_CANDIDATES = 50; // Increased for better randomness
+const SPAWN_CANDIDATES = 100; // Increased for better collision avoidance
 /** Margin from room walls for spawn candidates (metres). */
 const SPAWN_MARGIN = 0.5;
-/** Probe distance for spawn collision check (metres). */
-const SPAWN_PROBE_DIST = 0.4;
+/** Probe distance for spawn collision check (metres). Increased to ensure robot doesn't overlap. */
+const SPAWN_PROBE_DIST = 0.6; // Increased from 0.4 to 0.6 for better clearance
+/** Minimum safe distance from room geometry (metres). */
+const SPAWN_MIN_SAFE_DIST = ROBOT_RADIUS + 0.2; // Robot radius + extra buffer
 
 const STATES = ["Idle", "Walking", "Standing"];
 const EMOTES = ["Jump", "Yes", "No", "Wave", "ThumbsUp"];
@@ -128,6 +131,8 @@ export class RobotAssistantSystem extends createSystem({
   walkingToUser = false;
   /** Topic to speak when robot reaches user (e.g. "panel", "fan"). */
   private pendingInstructionTopic: string | null = null;
+  /** Dynamic instruction text from backend (if available, overrides topic-based text). */
+  private pendingInstructionText: string | null = null;
   /** Callback to invoke when robot reaches user (for external systems like VoicePanelSystem). */
   private onReachedUserCallback: (() => void) | null = null;
   /** Debounce: avoid speaking "Do you want anything else?" twice when two idles arrive in quick succession. */
@@ -153,6 +158,8 @@ export class RobotAssistantSystem extends createSystem({
     console.log(
       "[RobotAssistant] System initialized (autonomous behavior with pre-baked animations)",
     );
+    // Register on globalThis so VoicePanelSystem can access it
+    (globalThis as any).__robotAssistantSystem = this;
     const voiceSystem = VoiceControlSystem.getInstance();
     voiceSystem.registerSkipGreetingChecker(() => this.inInstructionSession);
     voiceSystem.registerInstructionSessionChecker(
@@ -166,65 +173,29 @@ export class RobotAssistantSystem extends createSystem({
           return;
         }
         if (status === "idle") {
+          // Device actions: always close dialogue and stop listening (don't continue conversation)
           if (payload?.success && payload.action && payload.device) {
             if (this.rePromptTimeoutId !== null) {
               clearTimeout(this.rePromptTimeoutId);
               this.rePromptTimeoutId = null;
             }
-            if (this.inInstructionSession) {
-              if (this.handlingDeviceSuccessInSession) return;
-              const now = Date.now();
-              if (
-                now - this.lastDeviceSuccessHandledAt <
-                RobotAssistantSystem.DEVICE_SUCCESS_DEBOUNCE_MS
-              ) {
-                return;
-              }
-              this.lastDeviceSuccessHandledAt = now;
-              this.handlingDeviceSuccessInSession = true;
-            }
+            console.log("[RobotAssistant] Device action succeeded - closing dialogue and stopping listening");
             import("../utils/VoiceTextToSpeech").then((module) => {
               module.speakCompletion(payload.action!, payload.device!);
             });
-            if (this.inInstructionSession) {
-              const skipFollowUp =
-                Date.now() - this.lastRepromptSpokenAt <
-                RobotAssistantSystem.SKIP_FOLLOW_UP_AFTER_REPROMPT_MS;
-              console.log("[RobotAssistant] device success in session", {
-                skipFollowUp,
-                lastRepromptSpokenAt: this.lastRepromptSpokenAt,
-                msSinceReprompt: Date.now() - this.lastRepromptSpokenAt,
-              });
-              this.faceFirstRobotTowardUser();
-              this.playEmoteSequence(["Yes", "ThumbsUp"], () => {
-                const clearGuard = () => {
-                  this.handlingDeviceSuccessInSession = false;
-                };
-                if (skipFollowUp) {
-                  console.log("[RobotAssistant] 🗣️ SKIP follow-up, just restart listening");
-                  setTimeout(() => {
-                    clearGuard();
-                    VoiceControlSystem.getInstance().startListeningWithoutGreeting();
-                  }, LISTEN_START_DELAY_MS);
-                } else {
-                  console.log("[RobotAssistant] 🗣️ SPEAKING follow-up: 'Do you want me to do anything else?'");
-                  this.notifyDialogueMessage("Do you want me to do anything else?");
-                  speakFollowUpAnythingElse().then(() => {
-                    console.log("[RobotAssistant] 🗣️ Follow-up DONE, starting listening");
-                    setTimeout(() => {
-                      clearGuard();
-                      VoiceControlSystem.getInstance().startListeningWithoutGreeting();
-                    }, LISTEN_START_DELAY_MS);
-                  });
-                }
-              });
-            } else {
-              // Normal: face user (UX), then Yes+ThumbsUp and back to walk/idle
-              this.faceFirstRobotTowardUser();
-              this.playEmoteSequence(["Yes", "ThumbsUp"], () => {
-                this.setVoiceListening(false);
-              });
-            }
+            // Always end session and close dialogue for device actions
+            this.inInstructionSession = false;
+            this.walkingToUser = false;
+            this.pendingInstructionTopic = null;
+            this.faceFirstRobotTowardUser();
+            this.playEmoteSequence(["Yes", "ThumbsUp"], () => {
+              this.setVoiceListening(false);
+              // Notify VoicePanelSystem to close dialogue
+              const voicePanelSystem = (globalThis as any).__voicePanelSystem;
+              if (voicePanelSystem && typeof voicePanelSystem.beginClosing === "function") {
+                voicePanelSystem.beginClosing();
+              }
+            });
             return;
           }
           // Handle endSession flag first - this prevents further prompts after "no thank you"
@@ -240,7 +211,7 @@ export class RobotAssistantSystem extends createSystem({
             this.setVoiceListening(false);
             return;
           }
-          
+
           if (payload?.success && payload.instructionTopic) {
             if (this.rePromptTimeoutId !== null) {
               clearTimeout(this.rePromptTimeoutId);
@@ -250,6 +221,7 @@ export class RobotAssistantSystem extends createSystem({
             if (topic === "goodbye") {
               this.walkingToUser = false;
               this.pendingInstructionTopic = null;
+              this.pendingInstructionText = null;
               this.inInstructionSession = false;
               speakSeeYouAgain();
               this.playEmoteSequence(["Wave"], () => {
@@ -258,27 +230,63 @@ export class RobotAssistantSystem extends createSystem({
               return;
             }
             if (this.inInstructionSession) {
-              // Robot already at user: speak instruction and follow-up, then keep listening
-              const instructionText = this.getInstructionText(topic);
+              // Robot already at user: speak instruction
+              // Use dynamic text from backend if available, otherwise use predefined text
+              const instructionText = payload.instructionText || this.getInstructionText(topic);
               if (instructionText) {
                 this.notifyDialogueMessage(instructionText);
+                // If we have dynamic text (from LLM), speak it directly
+                if (payload.instructionText) {
+                  speakText(instructionText).then(() => {
+                    // For device_info and other informational queries, don't ask follow-up - just close
+                    if (topic === "device_info" || topic === "goodbye") {
+                      this.inInstructionSession = false;
+                      this.setVoiceListening(false);
+                      const voicePanelSystem = (globalThis as any).__voicePanelSystem;
+                      if (voicePanelSystem && typeof voicePanelSystem.beginClosing === "function") {
+                        voicePanelSystem.beginClosing();
+                      }
+                    } else {
+                      // For other instructions, ask follow-up
+                      this.notifyDialogueMessage("Do you want me to do anything else?");
+                      speakFollowUpAnythingElse().then(() => {
+                        setTimeout(() => {
+                          VoiceControlSystem.getInstance().startListeningWithoutGreeting();
+                        }, LISTEN_START_DELAY_MS);
+                      });
+                    }
+                  });
+                } else {
+                  speakInstruction(topic).then(() => {
+                    // For device_info, don't ask follow-up
+                    if (topic === "device_info" || topic === "goodbye") {
+                      this.inInstructionSession = false;
+                      this.setVoiceListening(false);
+                      const voicePanelSystem = (globalThis as any).__voicePanelSystem;
+                      if (voicePanelSystem && typeof voicePanelSystem.beginClosing === "function") {
+                        voicePanelSystem.beginClosing();
+                      }
+                    } else {
+                      this.notifyDialogueMessage("Do you want me to do anything else?");
+                      speakFollowUpAnythingElse().then(() => {
+                        setTimeout(() => {
+                          VoiceControlSystem.getInstance().startListeningWithoutGreeting();
+                        }, LISTEN_START_DELAY_MS);
+                      });
+                    }
+                  });
+                }
               }
-              speakInstruction(topic).then(() => {
-                this.notifyDialogueMessage("Do you want me to do anything else?");
-                speakFollowUpAnythingElse().then(() => {
-                  setTimeout(() => {
-                    VoiceControlSystem.getInstance().startListeningWithoutGreeting();
-                  }, LISTEN_START_DELAY_MS);
-                });
-              });
               return;
             }
             if (this.walkingToUser) {
               this.pendingInstructionTopic = topic;
+              this.pendingInstructionText = payload.instructionText || null;
               return;
             }
             // First instruction: say "wait for me" and walk to user
             this.pendingInstructionTopic = topic;
+            this.pendingInstructionText = payload.instructionText || null;
             this.notifyDialogueMessage("Ok, I will explain that for you. Wait for me.");
             speakInstructionWaitMe().then(() => {
               this.startWalkingToUser();
@@ -288,6 +296,7 @@ export class RobotAssistantSystem extends createSystem({
           if (payload?.cancelled) {
             this.walkingToUser = false;
             this.pendingInstructionTopic = null;
+            this.pendingInstructionText = null;
             this.inInstructionSession = false;
             this.playEmoteSequence(["Wave"], () => {
               this.setVoiceListening(false);
@@ -347,6 +356,83 @@ export class RobotAssistantSystem extends createSystem({
   }
 
   /**
+   * Check if a position is safe to spawn at (no collision with room geometry).
+   * Uses comprehensive collision detection similar to the movement system.
+   *
+   * @param worldPos World-space position to check
+   * @param roomModel Room model to check against
+   * @returns true if position is safe, false if it collides with room geometry
+   */
+  private isSpawnPositionSafe(
+    worldPos: Vector3,
+    roomModel: Object3D | undefined,
+  ): boolean {
+    if (!roomModel) return true;
+
+    const raycaster = new Raycaster();
+    
+    // Use the same heights as the robot collision system for consistency
+    const checkHeights = ROBOT_HEIGHTS;
+
+    // More comprehensive probe directions - check in a full circle plus diagonals
+    // This ensures we catch walls/furniture from all angles
+    const numDirections = 16; // Increased from 8 to 16 for better coverage
+    const probeDirs: Vector3[] = [];
+    for (let i = 0; i < numDirections; i++) {
+      const angle = (i / numDirections) * Math.PI * 2;
+      probeDirs.push(new Vector3(Math.sin(angle), 0, Math.cos(angle)));
+    }
+    
+    // Also add diagonal directions for better coverage
+    probeDirs.push(
+      new Vector3(0.707, 0, 0.707),   // Northeast
+      new Vector3(-0.707, 0, 0.707),  // Northwest
+      new Vector3(0.707, 0, -0.707),   // Southeast
+      new Vector3(-0.707, 0, -0.707), // Southwest
+    );
+
+    // Check at multiple heights to catch thin surfaces at different levels
+    for (const height of checkHeights) {
+      const origin = new Vector3(
+        worldPos.x,
+        worldPos.y + height,
+        worldPos.z,
+      );
+
+      for (const dir of probeDirs) {
+        raycaster.set(origin, dir);
+        raycaster.far = SPAWN_PROBE_DIST;
+        raycaster.near = 0;
+
+        const hits = raycaster.intersectObject(roomModel as any, true);
+        
+        // If we hit something within the safe distance, this position is not safe
+        if (hits.length > 0 && hits[0].distance < SPAWN_MIN_SAFE_DIST) {
+          return false;
+        }
+      }
+    }
+
+    // Additional check: probe outward in all directions from the center
+    // This catches cases where the robot center might be inside geometry
+    const centerOrigin = new Vector3(worldPos.x, worldPos.y + 0.1, worldPos.z);
+    for (const dir of probeDirs) {
+      raycaster.set(centerOrigin, dir);
+      raycaster.far = SPAWN_MIN_SAFE_DIST;
+      raycaster.near = 0;
+
+      const hits = raycaster.intersectObject(roomModel as any, true);
+      
+      // If we hit something immediately (very close), the position is inside geometry
+      if (hits.length > 0 && hits[0].distance < SPAWN_MIN_SAFE_DIST * 0.5) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  /**
    * Find a random spawn position inside the room that doesn't collide
    * with room geometry (walls, built-in furniture in the model).
    *
@@ -367,6 +453,7 @@ export class RobotAssistantSystem extends createSystem({
       | Object3D
       | undefined;
 
+    // Try more candidates with better collision detection
     for (let i = 0; i < SPAWN_CANDIDATES; i++) {
       // Random position with margin from walls
       const candX =
@@ -383,54 +470,12 @@ export class RobotAssistantSystem extends createSystem({
         continue;
       }
 
-      // Second check: verify it's not too close to room geometry (walls/furniture)
-      // Convert to world space for raycasting (room model may be transformed)
+      // Second check: verify it's safe from room geometry using comprehensive collision detection
+      // Convert to world space for collision checking (room model may be transformed)
       const worldPos = this.roomLocalToWorld(candX, floorY, candZ);
-      let tooCloseToWall = false;
+      const worldPosVec = new Vector3(worldPos.x, worldPos.y, worldPos.z);
 
-      if (roomModel) {
-        const raycaster = new Raycaster();
-
-        // Check at multiple heights to catch thin surfaces at different levels
-        const checkHeights = [0.05, 0.1, 0.15, 0.2, 0.25];
-
-        // Probe in horizontal and diagonal directions to check for nearby walls/furniture
-        const probeDirs = [
-          new Vector3(1, 0, 0), // East
-          new Vector3(-1, 0, 0), // West
-          new Vector3(0, 0, 1), // North
-          new Vector3(0, 0, -1), // South
-          new Vector3(0.707, 0, 0.707), // Northeast
-          new Vector3(-0.707, 0, 0.707), // Northwest
-          new Vector3(0.707, 0, -0.707), // Southeast
-          new Vector3(-0.707, 0, -0.707), // Southwest
-        ];
-
-        for (const height of checkHeights) {
-          const origin = new Vector3(
-            worldPos.x,
-            worldPos.y + height,
-            worldPos.z,
-          );
-
-          for (const dir of probeDirs) {
-            raycaster.set(origin, dir);
-            raycaster.far = SPAWN_PROBE_DIST;
-            raycaster.near = 0;
-
-            const hits = raycaster.intersectObject(roomModel as any, true);
-            // If we hit something very close, this position is too close to a wall/furniture
-            if (hits.length > 0 && hits[0].distance < SPAWN_PROBE_DIST) {
-              tooCloseToWall = true;
-              break;
-            }
-          }
-
-          if (tooCloseToWall) break;
-        }
-      }
-
-      if (!tooCloseToWall) {
+      if (this.isSpawnPositionSafe(worldPosVec, roomModel)) {
         console.log(
           `[RobotAssistant] 🎲 Found clear spawn at room-local (${candX.toFixed(2)}, ${candZ.toFixed(2)}) after ${i + 1} attempt(s)`,
         );
@@ -438,27 +483,33 @@ export class RobotAssistantSystem extends createSystem({
       }
     }
 
-    // Fallback: Try a few more random positions with relaxed collision checks
-    // This ensures we don't always fall back to center
-    for (let i = 0; i < 10; i++) {
+    // Fallback: Try more positions with slightly relaxed margin but still check collision
+    for (let i = 0; i < 20; i++) {
       const fallbackX =
         bounds.minX +
-        SPAWN_MARGIN * 0.5 +
-        Math.random() * (bounds.maxX - bounds.minX - SPAWN_MARGIN);
+        SPAWN_MARGIN * 0.3 +
+        Math.random() * (bounds.maxX - bounds.minX - SPAWN_MARGIN * 0.6);
       const fallbackZ =
         bounds.minZ +
-        SPAWN_MARGIN * 0.5 +
-        Math.random() * (bounds.maxZ - bounds.minZ - SPAWN_MARGIN);
+        SPAWN_MARGIN * 0.3 +
+        Math.random() * (bounds.maxZ - bounds.minZ - SPAWN_MARGIN * 0.6);
 
-      if (isPositionWalkable(fallbackX, fallbackZ)) {
+      if (!isPositionWalkable(fallbackX, fallbackZ)) {
+        continue;
+      }
+
+      const worldPos = this.roomLocalToWorld(fallbackX, floorY, fallbackZ);
+      const worldPosVec = new Vector3(worldPos.x, worldPos.y, worldPos.z);
+
+      if (this.isSpawnPositionSafe(worldPosVec, roomModel)) {
         console.warn(
-          `[RobotAssistant] ⚠️ Using fallback random spawn at (${fallbackX.toFixed(2)}, ${fallbackZ.toFixed(2)}) after ${SPAWN_CANDIDATES} tries`,
+          `[RobotAssistant] ⚠️ Using fallback spawn at (${fallbackX.toFixed(2)}, ${fallbackZ.toFixed(2)}) after ${SPAWN_CANDIDATES} tries`,
         );
         return { x: fallbackX, y: floorY, z: fallbackZ };
       }
     }
 
-    // Last resort: room center (clamped to walkable area)
+    // Last resort: room center (clamped to walkable area) - but still check collision
     const clampedX = Math.max(
       bounds.minX + SPAWN_MARGIN,
       Math.min(bounds.maxX - SPAWN_MARGIN, centerX),
@@ -467,6 +518,17 @@ export class RobotAssistantSystem extends createSystem({
       bounds.minZ + SPAWN_MARGIN,
       Math.min(bounds.maxZ - SPAWN_MARGIN, centerZ),
     );
+    
+    // Even for last resort, check if it's safe
+    const worldPos = this.roomLocalToWorld(clampedX, floorY, clampedZ);
+    const worldPosVec = new Vector3(worldPos.x, worldPos.y, worldPos.z);
+    
+    if (!this.isSpawnPositionSafe(worldPosVec, roomModel)) {
+      console.error(
+        `[RobotAssistant] ❌ Even room center position has collision! This may indicate a room model issue.`,
+      );
+    }
+    
     console.warn(
       `[RobotAssistant] ⚠️ No collision-free spawn found; using room center as last resort`,
     );
@@ -492,7 +554,7 @@ export class RobotAssistantSystem extends createSystem({
 
       // Update robot position in world space (update loop will convert to room-local on next frame)
       record.model.position.set(worldPos.x, worldPos.y, worldPos.z);
-      
+
       // Reset position tracking to prevent false warp detection after repositioning
       record.lastRoomLocalPos = null;
 
@@ -610,6 +672,7 @@ export class RobotAssistantSystem extends createSystem({
     this.walkingToUser = false;
     this.onReachedUserCallback = null;
     this.pendingInstructionTopic = null;
+    this.pendingInstructionText = null;
     this.stepAsideTarget = null;
     this.walkToUserStartTime = -1;
     this.stepAsideAttempts = 0;
@@ -1063,7 +1126,7 @@ export class RobotAssistantSystem extends createSystem({
       // we convert back to world at end-of-frame.
       const roomModel = (globalThis as any).__labRoomModel;
       const roomRotY = roomModel ? roomModel.rotation.y : 0;
-      
+
       // Get current world position and convert to room-local
       const currentWorldPos = {
         x: record.model.position.x,
@@ -1075,7 +1138,7 @@ export class RobotAssistantSystem extends createSystem({
         currentWorldPos.y,
         currentWorldPos.z,
       );
-      
+
       // Prevent warping by checking if the position change is reasonable
       // If we have a previous position, ensure the change is not too large
       if (record.lastRoomLocalPos !== null) {
@@ -1083,12 +1146,12 @@ export class RobotAssistantSystem extends createSystem({
           (roomLocal.x - record.lastRoomLocalPos.x) ** 2 +
           (roomLocal.z - record.lastRoomLocalPos.z) ** 2
         );
-        
+
         // Maximum reasonable movement per frame (based on max velocity + safety margin)
         // WALK_VELOCITY is 0.5 m/s, so at 60fps (dt ~0.016s), max movement is ~0.008m per frame
         // Add safety margin: allow up to 0.1m per frame (much more than possible)
         const maxReasonableMovement = 0.1;
-        
+
         if (posDiff > maxReasonableMovement) {
           // Large jump detected - this is likely a coordinate conversion error
           // Keep the previous position and log a warning
@@ -1111,7 +1174,7 @@ export class RobotAssistantSystem extends createSystem({
         record.model.position.set(roomLocal.x, roomLocal.y, roomLocal.z);
         record.lastRoomLocalPos = { ...roomLocal };
       }
-      
+
       // Undo room rotation so all rotation math is in room-local space
       record.model.rotation.y -= roomRotY;
 
@@ -1206,6 +1269,7 @@ export class RobotAssistantSystem extends createSystem({
           const callback = this.onReachedUserCallback;
           this.walkingToUser = false;
           this.pendingInstructionTopic = null;
+          this.pendingInstructionText = null;
           this.onReachedUserCallback = null;
           this.walkToUserStartTime = -1;
           this.stepAsideAttempts = 0;
@@ -1226,13 +1290,13 @@ export class RobotAssistantSystem extends createSystem({
             cam.position.y,
             cam.position.z,
           );
-          
+
           // Smoothly update target position (lerp) to prevent sudden jumps
           const targetUpdateSpeed = 2.0; // How fast to update target (units per second)
           const dxTarget = currentUserLocal.x - targetX;
           const dzTarget = currentUserLocal.z - targetZ;
           const distToTarget = Math.sqrt(dxTarget * dxTarget + dzTarget * dzTarget);
-          
+
           if (distToTarget > 0.1) {
             // Only update if user moved significantly (prevents micro-adjustments)
             const maxUpdate = targetUpdateSpeed * dt;
@@ -1273,17 +1337,18 @@ export class RobotAssistantSystem extends createSystem({
           const dxUser = currentTargetX - record.model.position.x;
           const dzUser = currentTargetZ - record.model.position.z;
           const distToUser = Math.sqrt(dxUser * dxUser + dzUser * dzUser);
-          
+
           // Ensure robot has actually moved close enough and is not warping
           // Check that robot has been walking for at least a short time to prevent immediate callback
           const minWalkTime = 0.3; // Minimum 0.3 seconds of walking before reaching user
           const hasWalkedEnough = walkDuration >= minWalkTime;
-          
+
           if (distToUser <= REACH_USER_DISTANCE && hasWalkedEnough) {
             const topic = this.pendingInstructionTopic;
             const callback = this.onReachedUserCallback;
             this.walkingToUser = false;
             this.pendingInstructionTopic = null;
+            this.pendingInstructionText = null;
             this.onReachedUserCallback = null;
             this.walkToUserStartTime = -1;
             this.stepAsideAttempts = 0;
@@ -1327,18 +1392,52 @@ export class RobotAssistantSystem extends createSystem({
               console.log(
                 `[RobotAssistant] 👋 Reached user (dist=${distToUser.toFixed(2)}m), speaking instruction: ${topic}`,
               );
-              const instructionText = this.getInstructionText(topic);
+              // Use dynamic text if available, otherwise use predefined text
+              const instructionText = this.pendingInstructionText || this.getInstructionText(topic);
               if (instructionText) {
                 this.notifyDialogueMessage(instructionText);
+                // If we have dynamic text, speak it directly; otherwise use speakInstruction
+                if (this.pendingInstructionText) {
+                  speakText(instructionText).then(() => {
+                    // For device_info and other informational queries, don't ask follow-up - just close
+                    if (topic === "device_info" || topic === "goodbye") {
+                      this.inInstructionSession = false;
+                      this.setVoiceListening(false);
+                      const voicePanelSystem = (globalThis as any).__voicePanelSystem;
+                      if (voicePanelSystem && typeof voicePanelSystem.beginClosing === "function") {
+                        voicePanelSystem.beginClosing();
+                      }
+                    } else {
+                      this.notifyDialogueMessage("Do you want me to do anything else?");
+                      speakFollowUpAnythingElse().then(() => {
+                        setTimeout(() => {
+                          VoiceControlSystem.getInstance().startListeningWithoutGreeting();
+                        }, LISTEN_START_DELAY_MS);
+                      });
+                    }
+                  });
+                } else {
+                  speakInstruction(topic).then(() => {
+                    // For device_info, don't ask follow-up
+                    if (topic === "device_info" || topic === "goodbye") {
+                      this.inInstructionSession = false;
+                      this.setVoiceListening(false);
+                      const voicePanelSystem = (globalThis as any).__voicePanelSystem;
+                      if (voicePanelSystem && typeof voicePanelSystem.beginClosing === "function") {
+                        voicePanelSystem.beginClosing();
+                      }
+                    } else {
+                      this.notifyDialogueMessage("Do you want me to do anything else?");
+                      speakFollowUpAnythingElse().then(() => {
+                        setTimeout(() => {
+                          VoiceControlSystem.getInstance().startListeningWithoutGreeting();
+                        }, LISTEN_START_DELAY_MS);
+                      });
+                    }
+                  });
+                }
               }
-              speakInstruction(topic).then(() => {
-                this.notifyDialogueMessage("Do you want me to do anything else?");
-                speakFollowUpAnythingElse().then(() => {
-                  setTimeout(() => {
-                    VoiceControlSystem.getInstance().startListeningWithoutGreeting();
-                  }, LISTEN_START_DELAY_MS);
-                });
-              });
+              this.pendingInstructionText = null; // Clear after use
               // Apply room transform and skip rest of movement for this frame
               const worldPos = this.roomLocalToWorld(
                 record.model.position.x,
@@ -1698,7 +1797,7 @@ export class RobotAssistantSystem extends createSystem({
       record.model.position.set(worldPos.x, worldPos.y, worldPos.z);
       // Add room rotation to the robot's facing direction
       record.model.rotation.y += roomRotY;
-      
+
       // Update last known room-local position for next frame's warp prevention
       record.lastRoomLocalPos = { ...finalRoomLocal };
     }
@@ -1732,157 +1831,6 @@ export class RobotAssistantSystem extends createSystem({
     entity.setValue(RobotAssistantComponent, "stuckTime", 0);
   }
 
-  // ── Helper: Teleport robot to a safe position in front of user ──
-  private teleportRobotInFrontOfUser(
-    record: RobotAssistantRecord,
-    entity: Entity
-  ): void {
-    const camera = this.world.camera;
-    if (!camera) {
-      console.warn("[RobotAssistant] Cannot teleport: no camera");
-      return;
-    }
-
-    const cam = camera as {
-      position: { x: number; y: number; z: number };
-      getWorldDirection: (dir: Vector3) => Vector3;
-    };
-
-    // Get camera forward direction (flattened to XZ plane)
-    const forward = new Vector3();
-    cam.getWorldDirection(forward);
-    forward.y = 0;
-    forward.normalize();
-
-    // Try multiple distances in front of user
-    const distances = [1.5, 1.8, 2.0, 1.2, 2.2];
-    const bounds = getRoomBounds();
-    const floorY = bounds ? bounds.floorY : record.model.position.y;
-
-    let safePosition: { x: number; y: number; z: number } | null = null;
-
-    // Try each distance
-    for (const dist of distances) {
-      // Calculate world position in front of camera
-      const worldTarget = new Vector3(
-        cam.position.x + forward.x * dist,
-        floorY,
-        cam.position.z + forward.z * dist
-      );
-
-      // Convert to room-local
-      const localTarget = this.worldToRoomLocal(
-        worldTarget.x,
-        worldTarget.y,
-        worldTarget.z
-      );
-
-      // Clamp to walkable area
-      let [clampedX, clampedZ] = clampToWalkableArea(localTarget.x, localTarget.z);
-
-      // Check if position is collision-free
-      const worldCheck = this.roomLocalToWorld(clampedX, floorY, clampedZ);
-      const fromPos = new Vector3(worldCheck.x, worldCheck.y, worldCheck.z);
-      const toPos = new Vector3(worldCheck.x, worldCheck.y, worldCheck.z);
-
-      // Use constrainMovement to check if position is safe (if it returns same position, it's safe)
-      const constrained = constrainMovement(fromPos, toPos, ROBOT_RADIUS * 1.2, ROBOT_HEIGHTS);
-
-      // Check if constrained position is very close to original (meaning no collision)
-      const distCheck = Math.sqrt(
-        (constrained.x - worldCheck.x) ** 2 +
-        (constrained.z - worldCheck.z) ** 2
-      );
-
-      if (distCheck < 0.1) {
-        // Position is safe - use it
-        safePosition = { x: clampedX, y: floorY, z: clampedZ };
-        break;
-      }
-    }
-
-    // If no safe position found at primary distances, try slightly offset positions
-    if (!safePosition) {
-      for (const dist of [1.5, 1.8, 2.0]) {
-        // Try left and right offsets
-        for (const offset of [-0.3, 0.3, -0.5, 0.5]) {
-          const right = new Vector3(-forward.z, 0, forward.x); // Perpendicular to forward
-          const worldTarget = new Vector3(
-            cam.position.x + forward.x * dist + right.x * offset,
-            floorY,
-            cam.position.z + forward.z * dist + right.z * offset
-          );
-
-          const localTarget = this.worldToRoomLocal(
-            worldTarget.x,
-            worldTarget.y,
-            worldTarget.z
-          );
-
-          let [clampedX, clampedZ] = clampToWalkableArea(localTarget.x, localTarget.z);
-          const worldCheck = this.roomLocalToWorld(clampedX, floorY, clampedZ);
-          const fromPos = new Vector3(worldCheck.x, worldCheck.y, worldCheck.z);
-          const toPos = new Vector3(worldCheck.x, worldCheck.y, worldCheck.z);
-          const constrained = constrainMovement(fromPos, toPos, ROBOT_RADIUS * 1.2, ROBOT_HEIGHTS);
-
-          const distCheck = Math.sqrt(
-            (constrained.x - worldCheck.x) ** 2 +
-            (constrained.z - worldCheck.z) ** 2
-          );
-
-          if (distCheck < 0.1) {
-            safePosition = { x: clampedX, y: floorY, z: clampedZ };
-            break;
-          }
-        }
-        if (safePosition) break;
-      }
-    }
-
-    // Fallback: use closest walkable position to user
-    if (!safePosition) {
-      const userLocal = this.worldToRoomLocal(
-        cam.position.x,
-        floorY,
-        cam.position.z
-      );
-      const [clampedX, clampedZ] = clampToWalkableArea(userLocal.x, userLocal.z);
-      safePosition = { x: clampedX, y: floorY, z: clampedZ };
-      console.warn("[RobotAssistant] Using fallback position for teleport");
-    }
-
-    // Teleport robot to safe position
-    if (safePosition) {
-      // Set position in room-local space (will be converted to world in update loop)
-      record.model.position.set(safePosition.x, safePosition.y, safePosition.z);
-
-      // Update target to user position (so robot faces user)
-      const userLocal = this.worldToRoomLocal(
-        cam.position.x,
-        cam.position.y,
-        cam.position.z
-      );
-      entity.setValue(RobotAssistantComponent, "targetX", userLocal.x);
-      entity.setValue(RobotAssistantComponent, "targetZ", userLocal.z);
-
-      // Face robot toward user
-      const dx = userLocal.x - safePosition.x;
-      const dz = userLocal.z - safePosition.z;
-      if (Math.abs(dx) > 0.001 || Math.abs(dz) > 0.001) {
-        const angle = Math.atan2(dx, dz);
-        record.model.rotation.y = angle;
-      }
-
-      // Switch to Standing animation
-      this.fadeToAction(record, "Standing", FADE_DURATION);
-      entity.setValue(RobotAssistantComponent, "currentState", "Standing");
-      entity.setValue(RobotAssistantComponent, "hasReachedTarget", true);
-
-      console.log(
-        `[RobotAssistant] ⚡ Teleported to (${safePosition.x.toFixed(2)}, ${safePosition.y.toFixed(2)}, ${safePosition.z.toFixed(2)}) in front of user`
-      );
-    }
-  }
 
   // ── Helper: Step aside maneuver to bypass obstacles while walking to user ──
   private triggerStepAside(
@@ -1908,7 +1856,7 @@ export class RobotAssistantSystem extends createSystem({
       userTargetX = userLocal.x;
       userTargetZ = userLocal.z;
     }
-    
+
     // Calculate distance to user from current position
     const currentDistToUser = Math.sqrt(
       (userTargetX - currentX) ** 2 + (userTargetZ - currentZ) ** 2
@@ -1961,12 +1909,12 @@ export class RobotAssistantSystem extends createSystem({
           // Score this candidate: balance obstacle avoidance with progress toward user
           // When blocked, we need to prioritize clearing the obstacle first, then moving toward user
           let score = 0;
-          
+
           // Base score: prefer paths that move us away from the obstacle (perpendicular movement)
           // This is important - we need to clear the obstacle first
           const perpComponent = Math.abs((clampedX - currentX) * (-dirZ) + (clampedZ - currentZ) * dirX);
           score += perpComponent * 3; // Strong preference for perpendicular movement (around obstacle)
-          
+
           // Bonus for making progress toward user (preferred when possible)
           if (progressTowardUser > 0) {
             score += progressTowardUser * 8; // Good bonus for getting closer
@@ -1977,16 +1925,16 @@ export class RobotAssistantSystem extends createSystem({
             // Larger penalty for moving significantly away from user
             score -= Math.abs(progressTowardUser) * 3;
           }
-          
+
           // Bonus for moving in a direction that's somewhat toward user (even if perpendicular)
           const towardUser = (clampedX - currentX) * dirX + (clampedZ - currentZ) * dirZ;
           if (towardUser > 0) {
             score += towardUser * 2; // Bonus for forward component
           }
-          
+
           // Bonus for distance moved (helps clear obstacle)
           score += distToTarget * 1.0;
-          
+
           // Small randomness to break ties
           score += Math.random() * 0.3;
 
@@ -2009,7 +1957,7 @@ export class RobotAssistantSystem extends createSystem({
       const fallbackDist = 2.0;
       let bestFallback: { x: number; z: number } | null = null;
       let bestFallbackScore = -Infinity;
-      
+
       // Try both left and right perpendicular
       for (const sign of [-1, 1]) {
         const perpX = -dirZ * sign;
@@ -2017,13 +1965,13 @@ export class RobotAssistantSystem extends createSystem({
         let newTargetX = currentX + perpX * fallbackDist;
         let newTargetZ = currentZ + perpZ * fallbackDist;
         let [clampedX, clampedZ] = clampToWalkableArea(newTargetX, newTargetZ);
-        
+
         // Calculate progress toward user
         const fallbackDistToUser = Math.sqrt(
           (userTargetX - clampedX) ** 2 + (userTargetZ - clampedZ) ** 2
         );
         const fallbackProgress = currentDistToUser - fallbackDistToUser;
-        
+
         // Score: balance perpendicular movement (obstacle clearing) with progress toward user
         let score = 2.0; // Base score for perpendicular movement (clearing obstacle)
         if (fallbackProgress > 0) {
@@ -2034,13 +1982,13 @@ export class RobotAssistantSystem extends createSystem({
           score -= Math.abs(fallbackProgress) * 2; // Larger penalty for moving away
         }
         score += Math.random() * 0.1;
-        
+
         if (score > bestFallbackScore) {
           bestFallbackScore = score;
           bestFallback = { x: clampedX, z: clampedZ };
         }
       }
-      
+
       if (bestFallback) {
         this.stepAsideTarget = bestFallback;
         entity.setValue(RobotAssistantComponent, "targetX", bestFallback.x);
@@ -2060,7 +2008,7 @@ export class RobotAssistantSystem extends createSystem({
         console.log(`[RobotAssistant] ⚠️ Last resort step-aside: (${clampedX.toFixed(2)}, ${clampedZ.toFixed(2)})`);
       }
     }
-    
+
     console.log(`[RobotAssistant] 🔀 Step aside target: (${this.stepAsideTarget.x.toFixed(2)}, ${this.stepAsideTarget.z.toFixed(2)}) [Attempt ${this.stepAsideAttempts}]`);
 
     entity.setValue(RobotAssistantComponent, "hasReachedTarget", false);
@@ -2082,25 +2030,37 @@ export class RobotAssistantSystem extends createSystem({
   private getInstructionText(topic: string): string | null {
     const INSTRUCTION_TEXTS: Record<string, string> = {
       control:
-        "You can control your devices in two ways: by voice or from the panel. Say 'how do I use voice?' for the microphone, or 'how do I use the panel?' for the on-screen controls.",
+        "You can control your devices in two simple ways: by voice or from the panel. Say 'how do I use voice?' for the microphone, or 'how do I use the panel?' for the on-screen controls. Don't worry, I'm here to help you every step of the way.",
       panel:
-        "This is your control panel. It shows your smart home devices. You can tap a device to open its controls, or use the microphone for voice commands. The status text shows what the system is doing. You have one main panel.",
+        "This is your control panel. It shows all your smart home devices in one place. You can tap any device to open its controls, or use the microphone for voice commands. The status text at the bottom shows what the system is doing. You have one main panel that's easy to use.",
       voice:
-        "Tap the microphone button and wait for 'How can I help you?'. Then say things like 'turn on the fan', 'turn off the light', or 'set the temperature to twenty-four'. Tap again to stop listening and hear 'See you again'.",
+        "Using voice is simple. Tap the microphone button and wait for me to say 'How can I help you?'. Then you can say things like 'turn on the fan', 'turn off the light', or 'set the temperature to twenty-four'. When you're done, tap the microphone again to stop listening. It's that easy!",
       on_off:
-        "You can turn any device on or off in two ways: tap the device on the panel and use the on/off control, or say 'turn on the fan' or 'turn off the light' using the microphone.",
+        "Turning devices on or off is very simple. You have two ways: first, tap the device on the panel and use the on/off switch you'll see. Or second, just say 'turn on the fan' or 'turn off the light' using the microphone. Both ways work great!",
       usage_graph:
-        "Use the usage or 3D graph view to see how a device is used over time. Open a device on the panel and select the usage or graph option to see its data.",
+        "You can see how your devices are being used over time. Just open a device on the panel and look for the usage or graph option. This shows you helpful information about when and how much you use each device.",
       fan:
-        "You can turn the fan on or off from the panel or by saying 'turn on the fan' or 'turn off the fan'. Use the speed and swing controls on the panel, or say 'set fan speed to two' or 'turn on swing'. You can also check the usage view for the fan.",
+        "The fan is easy to control. You can turn it on or off from the panel or by saying 'turn on the fan' or 'turn off the fan'. On the panel, you'll see speed and swing controls. You can also say 'set fan speed to two' or 'turn on swing'. If you want to see how much you've used the fan, check the usage view.",
       light:
-        "You can turn the light on or off from the panel or by voice. Use the brightness and colour controls on the panel, or say 'set brightness to fifty' or 'set colour to red'. You can also view usage for the light.",
+        "The light is simple to use. You can turn it on or off from the panel or by voice. On the panel, you'll find brightness and colour controls. You can also say 'set brightness to fifty' or 'set colour to red'. The usage view shows you how much you've used the light.",
       television:
-        "You can turn the TV on or off from the panel or by voice. Use the volume, channel, and mute controls on the panel, or say 'set volume to fifty', 'set channel to five', or 'mute the TV'. You can also check the usage view.",
+        "The TV is straightforward to control. You can turn it on or off from the panel or by voice. On the panel, you'll see volume, channel, and mute controls. You can also say 'set volume to fifty', 'set channel to five', or 'mute the TV'. Check the usage view to see your TV watching habits.",
       ac:
-        "You can turn the air conditioner on or off from the panel or by voice. Use the temperature control on the panel, or say 'set temperature to twenty-four'. You can also view usage for the AC.",
+        "The air conditioner is easy to manage. You can turn it on or off from the panel or by voice. On the panel, you'll find the temperature control. You can also say 'set temperature to twenty-four'. The usage view shows you how much energy the AC has used.",
+      getting_started:
+        "Welcome! Let's get you started. First, you can see your devices on the main panel. To control them, you can either tap on them or use the microphone button to give voice commands. Try saying 'how do I use voice?' to learn about voice commands, or 'how do I use the panel?' to learn about the on-screen controls. I'm here to help, so feel free to ask me anything!",
+      what_can_you_do:
+        "I'm your friendly robot assistant, and I'm here to help you with your smart home! I can explain how to use the panel, how to give voice commands, and how to control all your devices like the fan, light, TV, and air conditioner. I can walk you through step-by-step instructions, help you troubleshoot problems, and answer any questions you have. Just ask me anything, and I'll do my best to help you. What would you like to know?",
+      navigation:
+        "Let me help you find your way around. The main panel shows all your devices - you'll see it on your screen. To access the welcome panel with all the main controls, press the W key on your keyboard or click the house icon button in the top right corner. The microphone button is usually at the bottom of the screen. If you're ever lost, just ask me 'what can you do?' and I'll guide you. Don't worry, it's simpler than it sounds!",
+      welcome_panel:
+        "The welcome panel is your main control center. To open it, press the W key on your keyboard, or click the small house icon button in the top right corner of your screen. This panel shows your user information, device statistics, and important buttons like entering AR mode, switching between VR and AR, accessing devices, refreshing, and aligning the room. You can close it anytime by clicking the X button on the panel or pressing W again.",
+      troubleshooting:
+        "I'm sorry you're having trouble. Let me help you fix it. First, try refreshing the page or saying 'refresh devices'. If a device isn't responding, make sure it's turned on from the panel. If voice commands aren't working, check that the microphone button is active and you're speaking clearly. If the panel isn't showing, press W to open the welcome panel. If nothing works, try closing and reopening the application. Don't worry, we'll figure this out together. What specific problem are you having?",
+      device_info:
+        "I can tell you about your devices. You can ask me 'how many devices do I have?' to get a count, or 'what devices do I have?' to see a list. I can also help you control them or explain how to use each one.",
       fallback:
-        "I can explain the panel, voice commands, and devices like the fan, light, TV, and AC. You can ask 'how do I control?' for an overview, or name a device or the panel. Which one do you mean?",
+        "I'm here to help you! I can explain the panel, voice commands, and all your devices like the fan, light, TV, and air conditioner. You can ask me 'how do I control?' for an overview, or ask about a specific device like 'how do I use the fan?'. You can also ask 'what can you do?' to see all the ways I can help you, or 'how many devices do I have?' to learn about your devices. What would you like to know about?",
     };
     return INSTRUCTION_TEXTS[topic] || null;
   }

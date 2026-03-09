@@ -185,11 +185,14 @@ export class VoicePanelSystem extends createSystem({
                 }
                 setTimeout(() => this.beginClosing(), 1000);
               } else {
-                this.dialogue.addAssistantMessage(
-                  `Here's some info about "${payload.instructionTopic}".`,
-                );
-                // Robot will ask follow-up after instruction
-                this.inActiveConversation = true;
+                // Don't add generic message - the actual instruction text will be added by RobotAssistantSystem
+                // Only mark as active conversation if it's not device_info (which should close)
+                if (payload.instructionTopic !== "device_info") {
+                  this.inActiveConversation = true;
+                } else {
+                  // device_info should close after answering
+                  this.inActiveConversation = false;
+                }
               }
             } else if (payload?.cancelled) {
               this.dialogue.addAssistantMessage("See you again! 👋");
@@ -249,6 +252,14 @@ export class VoicePanelSystem extends createSystem({
     if (this.currentStatus === "listening" || this.currentStatus === "processing") {
       console.log("[VoicePanel] Stopping active listening/processing");
       this.voiceSystem.toggleListening();
+      // Clear instruction session state in RobotAssistantSystem
+      const robotSystem = (globalThis as any).__robotAssistantSystem;
+      if (robotSystem) {
+        robotSystem.inInstructionSession = false;
+        robotSystem.walkingToUser = false;
+        robotSystem.pendingInstructionTopic = null;
+        robotSystem.pendingInstructionText = null;
+      }
       // Always close the dialogue when user stops
       if (this.dialogueState === DialogueState.ACTIVE || this.dialogueState === DialogueState.APPROACHING) {
         this.beginClosing();
@@ -259,6 +270,14 @@ export class VoicePanelSystem extends createSystem({
     // If already in active dialogue (including when robot is waiting for response), close the dialogue
     if (this.dialogueState === DialogueState.ACTIVE) {
       console.log("[VoicePanel] Closing dialogue (ACTIVE → closing)");
+      // Clear instruction session state in RobotAssistantSystem
+      const robotSystem = (globalThis as any).__robotAssistantSystem;
+      if (robotSystem) {
+        robotSystem.inInstructionSession = false;
+        robotSystem.walkingToUser = false;
+        robotSystem.pendingInstructionTopic = null;
+        robotSystem.pendingInstructionText = null;
+      }
       this.beginClosing(); // beginClosing() already handles stopping listening
       return;
     }
@@ -330,6 +349,15 @@ export class VoicePanelSystem extends createSystem({
     this.dialogueState = DialogueState.CLOSING;
     this.closingTimer = 0;
     this.inActiveConversation = false;
+
+    // Clear instruction session state in RobotAssistantSystem
+    const robotSystem = (globalThis as any).__robotAssistantSystem;
+    if (robotSystem) {
+      robotSystem.inInstructionSession = false;
+      robotSystem.walkingToUser = false;
+      robotSystem.pendingInstructionTopic = null;
+      robotSystem.pendingInstructionText = null;
+    }
 
     // Stop listening when closing
     if (this.currentStatus === "listening" || this.currentStatus === "processing") {

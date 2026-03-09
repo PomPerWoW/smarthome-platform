@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { createFileRoute } from "@tanstack/react-router";
-import { Plus, Home as HomeIcon, Loader2 } from "lucide-react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { Plus, Home as HomeIcon, Loader2, DoorOpen } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -25,27 +25,60 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { RenameDialog } from "@/components/ui/rename-dialog";
-import { HomeBlock } from "@/components/devices";
+import { HomeBlock, RoomBlock } from "@/components/devices";
 import { useHomeStore } from "@/stores/home_store";
 import { useUIStore } from "@/stores/ui_store";
 import { HomeService } from "@/services/HomeService";
-import type { Home } from "@/models";
+import type { Home, Room } from "@/models";
 
 export const Route = createFileRoute("/")({
   component: DashboardPage,
 });
 
 function DashboardPage() {
-  const { homes, isLoadingHomes, error, fetchHomes } = useHomeStore();
+  const { homes, isLoadingHomes, error, fetchHomes, rooms, isLoadingRooms, fetchRooms } = useHomeStore();
   const setModalOpen = useUIStore((s) => s.set_modal_open);
   const [homeToDelete, setHomeToDelete] = useState<Home | null>(null);
   const [homeToRename, setHomeToRename] = useState<Home | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [newHomeName, setNewHomeName] = useState("");
+  const [roomsWithDevices, setRoomsWithDevices] = useState<Room[]>([]);
+  const [isLoadingRoomDevices, setIsLoadingRoomDevices] = useState(false);
 
   useEffect(() => {
     fetchHomes();
-  }, [fetchHomes]);
+    fetchRooms();
+  }, [fetchHomes, fetchRooms]);
+
+  // Fetch devices for each room
+  useEffect(() => {
+    const loadRoomDevices = async () => {
+      if (rooms.length === 0) {
+        setRoomsWithDevices([]);
+        return;
+      }
+
+      setIsLoadingRoomDevices(true);
+      try {
+        const roomsWithDevicesData = await Promise.all(
+          rooms.map(async (room) => {
+            const devices = await HomeService.getInstance().getRoomDevices(room.id);
+            return { ...room, devices };
+          })
+        );
+        setRoomsWithDevices(roomsWithDevicesData);
+      } catch (err) {
+        console.error("Failed to fetch room devices:", err);
+        setRoomsWithDevices(rooms);
+      } finally {
+        setIsLoadingRoomDevices(false);
+      }
+    };
+
+    if (!isLoadingRooms) {
+      loadRoomDevices();
+    }
+  }, [rooms, isLoadingRooms]);
 
   useEffect(() => {
     const open = isCreateOpen || !!homeToDelete || !!homeToRename;
@@ -201,6 +234,28 @@ function DashboardPage() {
               <Plus className="h-6 w-6" />
               <span className="text-sm font-medium">Add Home</span>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rooms grid */}
+      {!isLoadingRooms && !isLoadingRoomDevices && roomsWithDevices.length > 0 && (
+        <div className="space-y-6">
+          <h2 className="text-xl font-semibold flex items-center gap-2">
+            <DoorOpen className="h-5 w-5" />
+            Your Rooms
+          </h2>
+          <div className="flex flex-wrap gap-4">
+            {roomsWithDevices.map((room) => (
+              <Link
+                key={room.id}
+                to="/homes/$homeId"
+                params={{ homeId: room.homeId }}
+                className="block"
+              >
+                <RoomBlock room={room} />
+              </Link>
+            ))}
           </div>
         </div>
       )}

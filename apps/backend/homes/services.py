@@ -1,10 +1,14 @@
 from typing import Dict, Any, List, Optional
+import json
+import logging
 from .llm_interfaces import LLMProvider, CommandIntent
 from .llm_providers import LLMFactory
 from .models import Device, Lightbulb, Television, Fan, AirConditioner
 from .scada import ScadaManager
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
+
+logger = logging.getLogger(__name__)
 
 class VoiceAssistantService:
     def __init__(self, provider: LLMProvider = None):
@@ -173,6 +177,113 @@ class VoiceAssistantService:
             )
         ):
             return "usage_graph"
+        # getting_started - for first-time users
+        if is_instruction_like and any(
+            x in t
+            for x in (
+                "how do i get started",
+                "how to get started",
+                "where do i start",
+                "what should i do first",
+                "i'm new",
+                "i am new",
+                "first time",
+                "getting started",
+                "begin",
+                "start here",
+            )
+        ):
+            return "getting_started"
+        # what_can_you_do - explain robot capabilities
+        if is_instruction_like and any(
+            x in t
+            for x in (
+                "what can you do",
+                "what can you help with",
+                "what do you do",
+                "what are you",
+                "what's your purpose",
+                "what is your purpose",
+                "tell me what you can do",
+                "what help can you give",
+                "what are your capabilities",
+            )
+        ):
+            return "what_can_you_do"
+        # navigation - how to navigate the interface
+        if is_instruction_like and any(
+            x in t
+            for x in (
+                "how do i navigate",
+                "how to navigate",
+                "where is everything",
+                "how do i find",
+                "where can i find",
+                "how do i access",
+                "where is the menu",
+                "how do i get to",
+                "navigation",
+            )
+        ):
+            return "navigation"
+        # welcome_panel - how to access welcome panel
+        if is_instruction_like and any(
+            x in t
+            for x in (
+                "welcome panel",
+                "how do i see the welcome panel",
+                "where is the welcome panel",
+                "how to open welcome panel",
+                "show welcome panel",
+                "access welcome panel",
+            )
+        ):
+            return "welcome_panel"
+        # troubleshooting - common issues
+        if is_instruction_like and any(
+            x in t
+            for x in (
+                "not working",
+                "doesn't work",
+                "not responding",
+                "what's wrong",
+                "what is wrong",
+                "something wrong",
+                "trouble",
+                "problem",
+                "issue",
+                "help it's not working",
+                "fix",
+                "broken",
+            )
+        ):
+            return "troubleshooting"
+        # device_info - informational queries about devices (count, list, etc.)
+        if any(
+            x in t
+            for x in (
+                "how many devices",
+                "how many device",
+                "what devices",
+                "what device",
+                "list devices",
+                "show me devices",
+                "tell me about devices",
+                "what devices do i have",
+                "what devices do i own",
+                "what device is in",
+                "what device is in my room",
+                "what device is in my",
+                "devices in my room",
+                "device in my room",
+                "my devices",
+                "devices in my home",
+                "devices in my house",
+                "count devices",
+                "number of devices",
+            )
+        ):
+            return "device_info"
         # device-specific instructions (e.g. "how do I use the fan") when no "control" phrase
         if is_instruction_like and has_word("fan"):
             return "fan"
@@ -198,6 +309,39 @@ class VoiceAssistantService:
         # 0. Instruction / how-to: return topic for predefined TTS (no device actions)
         instruction_topic = self._detect_instruction_topic(command_text)
         if instruction_topic:
+            # Special handling for device_info - generate dynamic response using LLM for better answers
+            if instruction_topic == "device_info":
+                devices = self._get_user_devices(user)
+                device_count = len(devices)
+                
+                # Use LLM to generate a natural response to the question
+                devices_context = [
+                    {
+                        "id": str(d.id),
+                        "name": d.device_name,
+                        "type": self._get_device_type(d),
+                        "room": d.room.room_name if d.room else "Unassigned",
+                        "state": self._get_device_state(d)
+                    }
+                    for d in devices
+                ]
+                
+                # Generate response using LLM for more natural answers
+                try:
+                    response_text = self._generate_device_info_response(command_text, devices_context, device_count)
+                except Exception as e:
+                    logger.error(f"Failed to generate LLM response for device_info: {e}")
+                    # Fallback to simple response
+                    response_text = self._generate_simple_device_info_response(devices, device_count)
+                
+                return {
+                    "command": command_text,
+                    "code": None,
+                    "actions": [],
+                    "instruction_topic": "device_info",
+                    "instruction_text": response_text,  # Include dynamic text
+                }
+            
             return {
                 "command": command_text,
                 "code": None,
@@ -401,6 +545,74 @@ class VoiceAssistantService:
         if hasattr(device, 'fan'): return device.fan
         if hasattr(device, 'airconditioner'): return device.airconditioner
         return device
+
+    def _generate_device_info_response(self, question: str, devices_context: List[Dict[str, Any]], device_count: int) -> str:
+        """Use LLM to generate a natural response to device information questions."""
+        if device_count == 0:
+            return "You don't have any devices set up yet. You can add devices from the panel or by using the device placement feature."
+        
+        devices_str = json.dumps(devices_context, indent=2)
+        prompt = f"""You are a smart home assistant. The user asked: "{question}"
+
+Available Devices:
+{devices_str}
+
+Answer the user's question naturally and concisely. If they ask about devices in a room, list the devices in that room. If they ask how many devices, give the count and a brief summary. Be direct and helpful.
+
+Your response (keep it under 100 words):"""
+        
+        try:
+            # Check if provider has a client (GroqProvider)
+            if hasattr(self.provider, 'client') and self.provider.client:
+                response = self.provider.client.chat.completions.create(
+                    model="llama-3.1-8b-instant",
+                    messages=[
+                        {"role": "system", "content": "You are a helpful smart home assistant. Answer questions about devices concisely and naturally."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=0.3,
+                    max_tokens=150
+                )
+                return response.choices[0].message.content.strip()
+            else:
+                # Fallback if LLM not available
+                raise Exception("LLM client not available")
+        except Exception as e:
+            logger.error(f"LLM error in device_info response: {e}")
+            # Fallback: get devices from context
+            device_ids = [d['id'] for d in devices_context]
+            devices = Device.objects.filter(id__in=device_ids)
+            return self._generate_simple_device_info_response(list(devices), device_count)
+
+    def _generate_simple_device_info_response(self, devices: List[Device], device_count: int) -> str:
+        """Fallback simple response generator."""
+        if device_count == 0:
+            return "You don't have any devices set up yet. You can add devices from the panel or by using the device placement feature."
+        
+        # Count devices by type
+        device_types = {}
+        for d in devices:
+            device_type = self._get_device_type(d)
+            device_types[device_type] = device_types.get(device_type, 0) + 1
+        
+        type_list = []
+        for dev_type, count in device_types.items():
+            if count == 1:
+                type_list.append(f"one {dev_type}")
+            else:
+                type_list.append(f"{count} {dev_type}s")
+        
+        if len(type_list) == 1:
+            devices_summary = type_list[0]
+        elif len(type_list) == 2:
+            devices_summary = f"{type_list[0]} and {type_list[1]}"
+        else:
+            devices_summary = ", ".join(type_list[:-1]) + f", and {type_list[-1]}"
+        
+        if device_count == 1:
+            return f"You have one device in your home: {devices_summary}."
+        else:
+            return f"You have {device_count} devices in your home. You have {devices_summary}."
 
 def update_automation_solar_time(automation):
     """

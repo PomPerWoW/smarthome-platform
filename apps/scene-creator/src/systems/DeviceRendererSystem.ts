@@ -28,6 +28,7 @@ import { DEVICE_ASSET_KEYS } from "../constants";
 import { chart3D, ChartType } from "../components/Chart3D";
 import { constrainDeviceMovement, DEVICE_RADIUS } from "../config/collision";
 import { Vector3 as ThreeVector3, Raycaster, Intersection } from "three";
+import { getRoomBounds, clampToWalkableArea, isPositionWalkable } from "../config/navmesh";
 
 export class DeviceRendererSystem extends createSystem({
   devices: {
@@ -167,7 +168,46 @@ export class DeviceRendererSystem extends createSystem({
     model.scale.setScalar(device.getScale());
 
     if (Array.isArray(data.position) && data.position.length >= 3) {
-      model.position.set(data.position[0], data.position[1], data.position[2]);
+      let posX = data.position[0];
+      let posY = data.position[1];
+      let posZ = data.position[2];
+
+      // For furniture, ensure position is within room bounds (defensive check)
+      if (isFurnitureType(data.type)) {
+        const roomBounds = getRoomBounds();
+        if (roomBounds) {
+          const MARGIN = 0.3;
+          const minX = roomBounds.minX + MARGIN;
+          const maxX = roomBounds.maxX - MARGIN;
+          const minZ = roomBounds.minZ + MARGIN;
+          const maxZ = roomBounds.maxZ - MARGIN;
+
+          // Clamp position to room bounds
+          const clampedX = Math.max(minX, Math.min(maxX, posX));
+          const clampedZ = Math.max(minZ, Math.min(maxZ, posZ));
+
+          // If position was outside bounds, log a warning and use clamped position
+          if (posX !== clampedX || posZ !== clampedZ) {
+            console.warn(
+              `[DeviceRenderer] Furniture "${data.name}" position was outside room bounds, clamping: ` +
+              `(${posX.toFixed(2)}, ${posZ.toFixed(2)}) -> (${clampedX.toFixed(2)}, ${clampedZ.toFixed(2)})`,
+            );
+            posX = clampedX;
+            posZ = clampedZ;
+          }
+
+          // Verify position is walkable - if not, use room center
+          if (!isPositionWalkable(posX, posZ)) {
+            console.warn(
+              `[DeviceRenderer] Furniture "${data.name}" position not walkable, using room center`,
+            );
+            posX = (minX + maxX) * 0.5;
+            posZ = (minZ + maxZ) * 0.5;
+          }
+        }
+      }
+
+      model.position.set(posX, posY, posZ);
     } else {
       console.warn(
         `[DeviceRenderer] Invalid or missing position for device ${data.id}, defaulting to 0,0,0`,

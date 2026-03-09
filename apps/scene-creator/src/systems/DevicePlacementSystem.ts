@@ -1,7 +1,7 @@
 import { createSystem, AssetManager } from "@iwsdk/core";
 import { DeviceType } from "../types";
 import { getStore, isFurnitureType } from "../store/DeviceStore";
-import { Vector3, Raycaster, Mesh, Intersection, Object3D } from "three";
+import { Vector3, Raycaster, Mesh, Intersection, Object3D, Box3 } from "three";
 import { getRoomBounds, clampToWalkableArea, isPositionWalkable } from "../config/navmesh";
 import { constrainDeviceMovement, DEVICE_RADIUS } from "../config/collision";
 
@@ -38,8 +38,9 @@ export class DevicePlacementSystem extends createSystem({}) {
     const labModel = (globalThis as any).__labRoomModel;
 
     const spawnPos = new Vector3();
+    const roomBounds = getRoomBounds();
 
-    if (labModel) {
+    if (labModel && roomBounds) {
       // 1. World-space target: 2 m in front of the camera (flat on XZ plane)
       const forward = new Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
       forward.y = 0;
@@ -52,37 +53,58 @@ export class DevicePlacementSystem extends createSystem({}) {
       // 2. Convert to room-local space
       spawnPos.copy(labModel.worldToLocal(worldTarget.clone()));
 
-      // 3. Clamp XZ to room walkable area (room-local bounds) and verify it's inside
-      const roomBounds = getRoomBounds();
-      if (roomBounds) {
-        // Apply a small inward margin so devices don't sit exactly on the wall
-        const MARGIN = 0.3;
-        const minX = roomBounds.minX + MARGIN;
-        const maxX = roomBounds.maxX - MARGIN;
-        const minZ = roomBounds.minZ + MARGIN;
-        const maxZ = roomBounds.maxZ - MARGIN;
+      // 3. Apply a small inward margin so devices don't sit exactly on the wall
+      const MARGIN = 0.3;
+      const minX = roomBounds.minX + MARGIN;
+      const maxX = roomBounds.maxX - MARGIN;
+      const minZ = roomBounds.minZ + MARGIN;
+      const maxZ = roomBounds.maxZ - MARGIN;
 
-        spawnPos.x = Math.max(minX, Math.min(maxX, spawnPos.x));
-        spawnPos.z = Math.max(minZ, Math.min(maxZ, spawnPos.z));
+      // 4. Clamp XZ to room walkable area (room-local bounds)
+      spawnPos.x = Math.max(minX, Math.min(maxX, spawnPos.x));
+      spawnPos.z = Math.max(minZ, Math.min(maxZ, spawnPos.z));
 
-        // Verify position is walkable (inside room bounds)
-        if (!isPositionWalkable(spawnPos.x, spawnPos.z)) {
-          console.warn(
-            `[DevicePlacement] Position (${spawnPos.x.toFixed(2)}, ${spawnPos.z.toFixed(2)}) is outside walkable area, finding safe position`,
-          );
-          const safePos = this.findSafeSpawnPosition(spawnPos, roomBounds);
-          spawnPos.x = safePos.x;
-          spawnPos.z = safePos.z;
-        }
+      // 5. Verify position is walkable (inside room bounds) - if not, use room center
+      if (!isPositionWalkable(spawnPos.x, spawnPos.z)) {
+        console.warn(
+          `[DevicePlacement] Position (${spawnPos.x.toFixed(2)}, ${spawnPos.z.toFixed(2)}) is outside walkable area, finding safe position`,
+        );
+        const safePos = this.findSafeSpawnPosition(spawnPos, roomBounds);
+        spawnPos.x = safePos.x;
+        spawnPos.z = safePos.z;
+      }
 
-        // 4. Check collision with room geometry and find a collision-free position
-        const worldSpawnPos = new Vector3();
-        worldSpawnPos.copy(labModel.localToWorld(spawnPos.clone()));
-        
-        // Check if initial position collides with room geometry
-        if (this.isPositionColliding(worldSpawnPos, spawnPos.y, labModel)) {
+      // 6. Check collision with room geometry and find a collision-free position
+      const worldSpawnPos = new Vector3();
+      worldSpawnPos.copy(labModel.localToWorld(spawnPos.clone()));
+      
+      // Check if initial position collides with room geometry
+      if (this.isPositionColliding(worldSpawnPos, spawnPos.y, labModel)) {
+        console.log(
+          `[DevicePlacement] Initial position collides with room geometry, finding collision-free position`,
+        );
+        const collisionFreePos = this.findCollisionFreePosition(
+          spawnPos,
+          roomBounds,
+          labModel,
+        );
+        spawnPos.x = collisionFreePos.x;
+        spawnPos.z = collisionFreePos.z;
+      } else {
+        // Double-check with constrainDeviceMovement
+        const constrainedWorldPos = constrainDeviceMovement(
+          worldSpawnPos,
+          worldSpawnPos,
+          DEVICE_RADIUS,
+        );
+
+        // If position was adjusted due to collision, find alternative
+        if (
+          Math.abs(constrainedWorldPos.x - worldSpawnPos.x) > 0.01 ||
+          Math.abs(constrainedWorldPos.z - worldSpawnPos.z) > 0.01
+        ) {
           console.log(
-            `[DevicePlacement] Initial position collides with room geometry, finding collision-free position`,
+            `[DevicePlacement] Position adjusted due to collision, finding alternative position`,
           );
           const collisionFreePos = this.findCollisionFreePosition(
             spawnPos,
@@ -91,50 +113,54 @@ export class DevicePlacementSystem extends createSystem({}) {
           );
           spawnPos.x = collisionFreePos.x;
           spawnPos.z = collisionFreePos.z;
-        } else {
-          // Double-check with constrainDeviceMovement
-          const constrainedWorldPos = constrainDeviceMovement(
-            worldSpawnPos,
-            worldSpawnPos,
-            DEVICE_RADIUS,
-          );
-
-          // If position was adjusted due to collision, find alternative
-          if (
-            Math.abs(constrainedWorldPos.x - worldSpawnPos.x) > 0.01 ||
-            Math.abs(constrainedWorldPos.z - worldSpawnPos.z) > 0.01
-          ) {
-            console.log(
-              `[DevicePlacement] Position adjusted due to collision, finding alternative position`,
-            );
-            const collisionFreePos = this.findCollisionFreePosition(
-              spawnPos,
-              roomBounds,
-              labModel,
-            );
-            spawnPos.x = collisionFreePos.x;
-            spawnPos.z = collisionFreePos.z;
-          }
         }
-
-        // Final verification: ensure position is still within bounds
-        spawnPos.x = Math.max(minX, Math.min(maxX, spawnPos.x));
-        spawnPos.z = Math.max(minZ, Math.min(maxZ, spawnPos.z));
-      } else {
-        // Fallback: use basic clamp
-        const [cx, cz] = clampToWalkableArea(spawnPos.x, spawnPos.z);
-        spawnPos.x = cx;
-        spawnPos.z = cz;
       }
+
+      // 7. Final verification: ensure position is still within bounds
+      spawnPos.x = Math.max(minX, Math.min(maxX, spawnPos.x));
+      spawnPos.z = Math.max(minZ, Math.min(maxZ, spawnPos.z));
+      
+      // 8. Double-check: if still outside bounds, use room center as fallback
+      if (!isPositionWalkable(spawnPos.x, spawnPos.z)) {
+        console.warn(
+          `[DevicePlacement] Position still outside bounds after clamping, using room center`,
+        );
+        const centerX = (minX + maxX) * 0.5;
+        const centerZ = (minZ + maxZ) * 0.5;
+        spawnPos.x = centerX;
+        spawnPos.z = centerZ;
+      }
+    } else if (labModel && !roomBounds) {
+      // labModel exists but roomBounds not initialized - use room center as fallback
+      console.warn(
+        `[DevicePlacement] Room bounds not initialized, using room center`,
+      );
+      const bbox = new Box3().setFromObject(labModel);
+      const center = bbox.getCenter(new Vector3());
+      spawnPos.copy(center);
+      spawnPos.y = 0; // Will be overridden by device-specific height
     } else {
-      // No labModel — spawn in world space in front of the camera
-      const forward = new Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
-      forward.y = 0;
-      forward.normalize();
-      spawnPos.copy(camera.position).addScaledVector(forward, 2.0);
+      // No labModel — try to use room center if bounds are available, otherwise use camera-relative position
+      if (roomBounds) {
+        console.warn(
+          `[DevicePlacement] No labModel but roomBounds available, using room center`,
+        );
+        const centerX = (roomBounds.minX + roomBounds.maxX) * 0.5;
+        const centerZ = (roomBounds.minZ + roomBounds.maxZ) * 0.5;
+        spawnPos.set(centerX, 0, centerZ);
+      } else {
+        // Last resort: spawn in world space in front of the camera
+        const forward = new Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+        forward.y = 0;
+        forward.normalize();
+        spawnPos.copy(camera.position).addScaledVector(forward, 2.0);
+        console.warn(
+          `[DevicePlacement] No labModel or roomBounds, spawning in world space`,
+        );
+      }
     }
 
-    // 5. Device-specific Y height (room-local space, floor = 0)
+    // 9. Device-specific Y height (room-local space, floor = 0)
     switch (type) {
       case DeviceType.Lightbulb:
         spawnPos.y = 2.5; // Ceiling lamp hangs high
