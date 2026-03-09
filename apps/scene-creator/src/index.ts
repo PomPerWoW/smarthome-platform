@@ -7,6 +7,8 @@ import {
   PanelUI,
   Interactable,
   ScreenSpace,
+  Follower,
+  FollowBehavior,
 } from "@iwsdk/core";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
@@ -31,8 +33,10 @@ import { VoiceControlSystem } from "./systems/VoiceControlSystem";
 import { VoicePanelSystem } from "./ui/VoicePanelSystem";
 // import { VoicePanel } from "./ui/VoicePanel"; // Legacy DOM panel
 import { RoomScanningSystem } from "./systems/RoomScanningSystem";
+import { LegPoseLoggerSystem } from "./systems/LegPoseLoggerSystem";
+import { setupPCLegPoseSimulator } from "./utils/pcLegPoseSimulator";
+import { LegPosePanelSystem } from "./ui/LegPosePanelSystem";
 import { RoomAlignmentSystem } from "./systems/RoomAlignmentSystem";
-
 import { DevicePlacementSystem } from "./systems/DevicePlacementSystem";
 import { PlacementPanelSystem } from "./ui/PlacementPanelSystem";
 import { RoomAlignmentPanelSystem } from "./ui/RoomAlignmentPanelSystem";
@@ -198,6 +202,10 @@ async function main(): Promise<void> {
 
   console.log("✅ World created");
 
+  // On desktop without WebXR (no navigator.xr), start a simple fake leg
+  // motion so logging + debug panels can be tested without a headset.
+  setupPCLegPoseSimulator();
+
   const { camera } = world;
 
   camera.position.set(0, 1.6, 0.5);
@@ -236,10 +244,10 @@ async function main(): Promise<void> {
           absoluteUrl = `${cleanBackendUrl}${cleanModelUrl}`;
           console.log(`🔗 Converted relative URL to absolute: ${absoluteUrl}`);
         }
-        
+
         // Log the URL we're trying to load
         console.log(`🔍 Attempting to load model from: ${absoluteUrl}`);
-        
+
         // Verify URL is accessible (optional check - will fail gracefully if not)
         try {
           const response = await fetch(absoluteUrl, { method: "HEAD" });
@@ -251,11 +259,11 @@ async function main(): Promise<void> {
         } catch (fetchError) {
           console.warn(`⚠️ Could not verify model file accessibility: ${fetchError}, but attempting to load anyway...`);
         }
-        
+
         const loader = new GLTFLoader();
         // Configure loader to handle CORS if needed
         loader.setCrossOrigin("anonymous");
-        
+
         const gltf = await loader.loadAsync(absoluteUrl);
         roomModel = gltf.scene;
         console.log(`✅ Room model loaded from URL: ${absoluteUrl}`);
@@ -288,7 +296,7 @@ async function main(): Promise<void> {
     // device grab/move interactions. The room is visual-only.
     roomModel.traverse((child: any) => {
       if (child.isMesh) {
-        child.raycast = () => {};
+        child.raycast = () => { };
       }
     });
 
@@ -321,6 +329,7 @@ async function main(): Promise<void> {
     .registerSystem(RPMUserControlledAvatarSystem)
     .registerSystem(RobotAssistantSystem)
     .registerSystem(PanelSystem)
+    .registerSystem(LegPosePanelSystem)
     .registerSystem(LightbulbPanelSystem)
     .registerSystem(TelevisionPanelSystem)
     .registerSystem(FanPanelSystem)
@@ -329,6 +338,7 @@ async function main(): Promise<void> {
     .registerSystem(RoomScanningSystem)
     .registerSystem(RoomAlignmentSystem)
     .registerSystem(RoomAlignmentPanelSystem)
+    .registerSystem(LegPoseLoggerSystem)
     .registerSystem(DevicePlacementSystem)
     .registerSystem(VoicePanelSystem)
     .registerSystem(PlacementPanelSystem)
@@ -370,6 +380,26 @@ async function main(): Promise<void> {
   placementPanel.object3D!.position.set(-0.6, 1.5, -0.8);
   placementPanel.object3D!.visible = false; // Hidden until "Devices" button pressed
   console.log("✅ Placement panel created (hidden)");
+
+  const legPosePanel = world
+    .createTransformEntity()
+    .addComponent(PanelUI, {
+      config: "./ui/legpose-logger.json",
+      maxHeight: 0.22,
+      maxWidth: 0.4,
+    })
+    .addComponent(Interactable)
+    .addComponent(Follower, {
+      // Follow the camera / HMD so the panel feels like a HUD
+      target: world.camera,
+      // Slightly below and to the left, in front of the view
+      offsetPosition: [-0.3, -0.25, -0.8],
+      behavior: FollowBehavior.PivotY,
+      speed: 5,
+      tolerance: 0.3,
+      maxAngle: 35,
+    });
+  console.log("✅ Leg pose logger panel created (camera-follow HUD)");
 
   // Voice Panel (3D)
   const voice3DPanel = world
@@ -436,7 +466,7 @@ async function main(): Promise<void> {
     console.log(
       `📋 Room model file URL: ${currentState.roomModelFileUrl || "none (using default)"}`,
     );
-    
+
     // Reload room scene with the correct model (uploaded file or default)
     if (currentState.roomModelFileUrl) {
       console.log(`🔄 Reloading room model from uploaded file: ${currentState.roomModelFileUrl}`);
@@ -475,20 +505,11 @@ async function main(): Promise<void> {
 
   // 1) RPM (Ready Player Me with clip-based) – lip sync available
   const rpmAvatarSystem = world.getSystem(RPMUserControlledAvatarSystem);
-  let setLipSyncEnabled: (enabled: boolean) => void = () => {};
+  // let setLipSyncEnabled: (enabled: boolean) => void = () => { };
   if (rpmAvatarSystem) {
-    await rpmAvatarSystem.createRPMUserControlledAvatar(
-      "player1",
-      "RPM Avatar",
-      "rpmClip_model",
-      [-0.6, 0, -1.5],
-    );
-    registerAvatar(
-      rpmAvatarSystem as ControllableAvatarSystem,
-      "player1",
-      "RPM Avatar",
-    );
-    setLipSyncEnabled = setupLipSyncControlPanel(rpmAvatarSystem);
+    await rpmAvatarSystem.createRPMUserControlledAvatar("player1", "RPM Avatar", "rpmClip_model1", [-0.6, 0, -1.5]);
+    registerAvatar(rpmAvatarSystem as ControllableAvatarSystem, "player1", "RPM Avatar");
+    //     setLipSyncEnabled = setupLipSyncControlPanel(rpmAvatarSystem);
     console.log("✅ RPM avatar (RPM_clip.glb)");
   }
 
@@ -540,13 +561,13 @@ async function main(): Promise<void> {
   }
 
   setupAvatarSwitcherPanel();
-  setOnAvatarSwitch((entry) => {
-    if (entry?.avatarId !== "player1" && rpmAvatarSystem) {
-      rpmAvatarSystem.setMicrophoneMode(false);
-      rpmAvatarSystem.stopSpeaking();
-    }
-    setLipSyncEnabled(entry?.avatarId === "player1");
-  });
+  // setOnAvatarSwitch((entry) => {
+  //   if (entry?.avatarId !== "player1" && rpmAvatarSystem) {
+  //     rpmAvatarSystem.setMicrophoneMode(false);
+  //     rpmAvatarSystem.stopSpeaking();
+  //   }
+  //   setLipSyncEnabled(entry?.avatarId === "player1");
+  // });
 
   console.log(
     "🎮 Controls: I/K/J/L = Move, Shift = Run, SPACE = Jump. O = switch avatar (when 2+ avatars).",
@@ -569,8 +590,8 @@ async function main(): Promise<void> {
   );
   console.log('🥽 Press "Enter AR" to start');
   console.log("───────────────────────────────────");
-  console.log("🎤 Lip Sync: 1 = Speak, 2 = Stop, 3 = Mic mode");
-  console.log("───────────────────────────────────");
+  // console.log("🎤 Lip Sync: 1 = Speak, 2 = Stop, 3 = Mic mode");
+  // console.log("───────────────────────────────────");
 }
 
 main().catch((error) => {

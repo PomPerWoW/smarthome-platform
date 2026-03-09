@@ -17,6 +17,13 @@ class HomesConfig(AppConfig):
         if is_runserver or is_gunicorn or is_uvicorn:
             from .scada import ScadaManager
             ScadaManager().start()
-
+            
+            from .scheduler import Scheduler
+            Scheduler().start()
+            
             from .smartmeter import SmartmeterManager
             SmartmeterManager().start()
+            
+        elif any('gunicorn' in arg for arg in sys.argv) or 'daphne' in sys.argv[0] or 'uvicorn' in sys.argv[0]:
+             from .scheduler import Scheduler
+             Scheduler().start()

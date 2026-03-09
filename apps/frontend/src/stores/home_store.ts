@@ -30,7 +30,7 @@ interface HomeState {
   clearError: () => void;
 }
 
-export const useHomeStore = create<HomeState>((set, get) => ({
+export const useHomeStore = create<HomeState>((set) => ({
   // Initial state
   homes: [],
   selectedHome: null,
