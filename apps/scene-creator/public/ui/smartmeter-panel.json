@@ -12,367 +12,56 @@
             "sourceTag": "div",
             "children": [
               {
-                "type": "container",
-                "sourceTag": "div",
-                "children": [
-                  {
-                    "sourceTag": "activityicon",
-                    "type": "custom",
-                    "children": [],
-                    "properties": {
-                      "class": "device-icon"
-                    }
-                  }
-                ]
-              },
-              {
-                "type": "container",
-                "sourceTag": "div",
-                "children": [
-                  {
-                    "sourceTag": "span",
-                    "type": "custom",
-                    "children": [
-                      "Smart Meter"
-                    ],
-                    "properties": {
-                      "class": "device-name",
-                      "id": "device-name"
-                    }
-                  },
-                  {
-                    "sourceTag": "span",
-                    "type": "custom",
-                    "children": [
-                      "Loading..."
-                    ],
-                    "properties": {
-                      "class": "device-location",
-                      "id": "device-location"
-                    }
-                  }
-                ],
+                "sourceTag": "activityicon",
+                "type": "custom",
+                "children": [],
                 "properties": {
-                  "class": "header-text"
-                }
-              },
-              {
-                "type": "container",
-                "sourceTag": "div",
-                "children": [
-                  {
-                    "sourceTag": "button",
-                    "type": "custom",
-                    "children": [
-                      {
-                        "type": "container",
-                        "sourceTag": "div",
-                        "children": [
-                          {
-                            "sourceTag": "powericon",
-                            "type": "custom",
-                            "children": [],
-                            "properties": {
-                              "class": "power-icon"
-                            }
-                          }
-                        ]
-                      }
-                    ],
-                    "properties": {
-                      "class": "power-btn",
-                      "id": "power-btn"
-                    }
-                  }
-                ],
-                "properties": {
-                  "class": "header-action"
-                }
+                  "class": "device-icon"
+                },
+                "dataUid": "uid-4"
               }
             ],
-            "properties": {
-              "class": "header-section"
-            }
-          },
-          {
-            "type": "container",
-            "sourceTag": "div",
-            "children": [],
-            "properties": {
-              "class": "divider"
-            }
+            "properties": {},
+            "dataUid": "uid-3"
           },
           {
             "type": "container",
             "sourceTag": "div",
             "children": [
               {
-                "type": "container",
-                "sourceTag": "div",
+                "sourceTag": "span",
+                "type": "custom",
                 "children": [
-                  {
-                    "sourceTag": "span",
-                    "type": "custom",
-                    "children": [
-                      "VOLTAGE"
-                    ],
-                    "properties": {
-                      "class": "gauge-label",
-                      "id": "label-v"
-                    }
-                  },
-                  {
-                    "type": "container",
-                    "sourceTag": "div",
-                    "children": [
-                      {
-                        "type": "container",
-                        "sourceTag": "div",
-                        "children": [],
-                        "properties": {
-                          "class": "gauge-fill",
-                          "id": "fill-v"
-                        }
-                      }
-                    ],
-                    "properties": {
-                      "class": "gauge-track"
-                    }
-                  },
-                  {
-                    "sourceTag": "span",
-                    "type": "custom",
-                    "children": [
-                      "--"
-                    ],
-                    "properties": {
-                      "class": "gauge-value",
-                      "id": "metric-v"
-                    }
-                  },
-                  {
-                    "sourceTag": "span",
-                    "type": "custom",
-                    "children": [
-                      "Volt"
-                    ],
-                    "properties": {
-                      "class": "gauge-unit"
-                    }
-                  }
+                  "Smart Meter"
                 ],
                 "properties": {
-                  "class": "gauge-card gauge-blue"
-                }
-              },
-              {
-                "type": "container",
-                "sourceTag": "div",
-                "children": [
-                  {
-                    "sourceTag": "span",
-                    "type": "custom",
-                    "children": [
-                      "CURRENT"
-                    ],
-                    "properties": {
-                      "class": "gauge-label"
-                    }
-                  },
-                  {
-                    "type": "container",
-                    "sourceTag": "div",
-                    "children": [
-                      {
-                        "type": "container",
-                        "sourceTag": "div",
-                        "children": [],
-                        "properties": {
-                          "class": "gauge-fill gauge-fill-red",
-                          "id": "fill-i"
-                        }
-                      }
-                    ],
-                    "properties": {
-                      "class": "gauge-track"
-                    }
-                  },
-                  {
-                    "sourceTag": "span",
-                    "type": "custom",
-                    "children": [
-                      "--"
-                    ],
-                    "properties": {
-                      "class": "gauge-value",
-                      "id": "metric-i"
-                    }
-                  },
-                  {
-                    "sourceTag": "span",
-                    "type": "custom",
-                    "children": [
-                      "Ampere"
-                    ],
-                    "properties": {
-                      "class": "gauge-unit"
-                    }
-                  }
-                ],
-                "properties": {
-                  "class": "gauge-card"
-                }
-              },
-              {
-                "type": "container",
-                "sourceTag": "div",
-                "children": [
-                  {
-                    "sourceTag": "span",
-                    "type": "custom",
-                    "children": [
-                      "ACTIVE POWER"
-                    ],
-                    "properties": {
-                      "class": "gauge-label"
-                    }
-                  },
-                  {
-                    "type": "container",
-                    "sourceTag": "div",
-                    "children": [
-                      {
-                        "type": "container",
-                        "sourceTag": "div",
-                        "children": [],
-                        "properties": {
-                          "class": "gauge-fill gauge-fill-green",
-                          "id": "fill-P"
-                        }
-                      }
-                    ],
-                    "properties": {
-                      "class": "gauge-track"
-                    }
-                  },
-                  {
-                    "sourceTag": "span",
-                    "type": "custom",
-                    "children": [
-                      "--"
-                    ],
-                    "properties": {
-                      "class": "gauge-value",
-                      "id": "metric-P"
-                    }
-                  },
-                  {
-                    "sourceTag": "span",
-                    "type": "custom",
-                    "children": [
-                      "kW"
-                    ],
-                    "properties": {
-                      "class": "gauge-unit"
-                    }
-                  }
-                ],
-                "properties": {
-                  "class": "gauge-card"
-                }
-              },
-              {
-                "type": "container",
-                "sourceTag": "div",
-                "children": [
-                  {
-                    "sourceTag": "span",
-                    "type": "custom",
-                    "children": [
-                      "ACTIVE ENERGY"
-                    ],
-                    "properties": {
-                      "class": "gauge-label"
-                    }
-                  },
-                  {
-                    "type": "container",
-                    "sourceTag": "div",
-                    "children": [
-                      {
-                        "type": "container",
-                        "sourceTag": "div",
-                        "children": [],
-                        "properties": {
-                          "class": "gauge-fill gauge-fill-yellow",
-                          "id": "fill-KWH"
-                        }
-                      }
-                    ],
-                    "properties": {
-                      "class": "gauge-track"
-                    }
-                  },
-                  {
-                    "sourceTag": "span",
-                    "type": "custom",
-                    "children": [
-                      "--"
-                    ],
-                    "properties": {
-                      "class": "gauge-value",
-                      "id": "metric-KWH"
-                    }
-                  },
-                  {
-                    "sourceTag": "span",
-                    "type": "custom",
-                    "children": [
-                      "kWh"
-                    ],
-                    "properties": {
-                      "class": "gauge-unit"
-                    }
-                  }
-                ],
-                "properties": {
-                  "class": "gauge-card"
-                }
-              }
-            ],
-            "properties": {
-              "class": "grid-section"
-            }
-          },
-          {
-            "type": "container",
-            "sourceTag": "div",
-            "children": [
-              {
-                "type": "container",
-                "sourceTag": "div",
-                "children": [
-                  {
-                    "sourceTag": "activityicon",
-                    "type": "custom",
-                    "children": [],
-                    "properties": {
-                      "class": "control-icon"
-                    }
-                  }
-                ],
-                "properties": {}
+                  "class": "device-name",
+                  "id": "device-name"
+                },
+                "dataUid": "uid-6"
               },
               {
                 "sourceTag": "span",
                 "type": "custom",
                 "children": [
-                  "More Details"
+                  "Loading..."
                 ],
                 "properties": {
-                  "class": "control-label"
-                }
-              },
+                  "class": "device-location",
+                  "id": "device-location"
+                },
+                "dataUid": "uid-7"
+              }
+            ],
+            "properties": {
+              "class": "header-text"
+            },
+            "dataUid": "uid-5"
+          },
+          {
+            "type": "container",
+            "sourceTag": "div",
+            "children": [
               {
                 "sourceTag": "button",
                 "type": "custom",
@@ -382,74 +71,411 @@
                     "sourceTag": "div",
                     "children": [
                       {
-                        "sourceTag": "activityicon",
+                        "sourceTag": "powericon",
                         "type": "custom",
                         "children": [],
                         "properties": {
                           "class": "power-icon"
-                        }
+                        },
+                        "dataUid": "uid-11"
                       }
                     ],
-                    "properties": {}
+                    "properties": {},
+                    "dataUid": "uid-10"
                   }
                 ],
                 "properties": {
                   "class": "power-btn",
-                  "style": {
-                    "backgroundColor": "#3f3f46"
-                  },
-                  "id": "show-gauge-btn"
-                }
+                  "id": "power-btn"
+                },
+                "dataUid": "uid-9"
               }
             ],
             "properties": {
-              "class": "control-row"
-            }
-          },
+              "class": "header-action"
+            },
+            "dataUid": "uid-8"
+          }
+        ],
+        "properties": {
+          "class": "header-section"
+        },
+        "dataUid": "uid-2"
+      },
+      {
+        "type": "container",
+        "sourceTag": "div",
+        "children": [],
+        "properties": {
+          "class": "divider"
+        },
+        "dataUid": "uid-12"
+      },
+      {
+        "type": "container",
+        "sourceTag": "div",
+        "children": [
           {
             "type": "container",
             "sourceTag": "div",
-            "children": [],
+            "children": [
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "VOLTAGE"
+                ],
+                "properties": {
+                  "class": "gauge-label",
+                  "id": "label-v"
+                },
+                "dataUid": "uid-15"
+              },
+              {
+                "type": "container",
+                "sourceTag": "div",
+                "children": [
+                  {
+                    "type": "container",
+                    "sourceTag": "div",
+                    "children": [],
+                    "properties": {
+                      "class": "gauge-fill",
+                      "id": "fill-v"
+                    },
+                    "dataUid": "uid-17"
+                  }
+                ],
+                "properties": {
+                  "class": "gauge-track"
+                },
+                "dataUid": "uid-16"
+              },
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "--"
+                ],
+                "properties": {
+                  "class": "gauge-value",
+                  "id": "metric-v"
+                },
+                "dataUid": "uid-18"
+              },
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "Volt"
+                ],
+                "properties": {
+                  "class": "gauge-unit"
+                },
+                "dataUid": "uid-19"
+              }
+            ],
             "properties": {
-              "class": "divider"
-            }
+              "class": "gauge-card gauge-blue"
+            },
+            "dataUid": "uid-14"
           },
           {
             "type": "container",
             "sourceTag": "div",
             "children": [
               {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "CURRENT"
+                ],
+                "properties": {
+                  "class": "gauge-label"
+                },
+                "dataUid": "uid-21"
+              },
+              {
                 "type": "container",
                 "sourceTag": "div",
-                "children": [],
+                "children": [
+                  {
+                    "type": "container",
+                    "sourceTag": "div",
+                    "children": [],
+                    "properties": {
+                      "class": "gauge-fill gauge-fill-red",
+                      "id": "fill-i"
+                    },
+                    "dataUid": "uid-23"
+                  }
+                ],
                 "properties": {
-                  "class": "status-dot",
-                  "id": "status-dot"
-                }
+                  "class": "gauge-track"
+                },
+                "dataUid": "uid-22"
               },
               {
                 "sourceTag": "span",
                 "type": "custom",
                 "children": [
-                  "On"
+                  "--"
                 ],
                 "properties": {
-                  "class": "status-text",
-                  "id": "status-text"
-                }
+                  "class": "gauge-value",
+                  "id": "metric-i"
+                },
+                "dataUid": "uid-24"
+              },
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "Ampere"
+                ],
+                "properties": {
+                  "class": "gauge-unit"
+                },
+                "dataUid": "uid-25"
               }
             ],
             "properties": {
-              "class": "status-section"
-            }
+              "class": "gauge-card"
+            },
+            "dataUid": "uid-20"
+          },
+          {
+            "type": "container",
+            "sourceTag": "div",
+            "children": [
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "ACTIVE POWER"
+                ],
+                "properties": {
+                  "class": "gauge-label"
+                },
+                "dataUid": "uid-27"
+              },
+              {
+                "type": "container",
+                "sourceTag": "div",
+                "children": [
+                  {
+                    "type": "container",
+                    "sourceTag": "div",
+                    "children": [],
+                    "properties": {
+                      "class": "gauge-fill gauge-fill-green",
+                      "id": "fill-P"
+                    },
+                    "dataUid": "uid-29"
+                  }
+                ],
+                "properties": {
+                  "class": "gauge-track"
+                },
+                "dataUid": "uid-28"
+              },
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "--"
+                ],
+                "properties": {
+                  "class": "gauge-value",
+                  "id": "metric-P"
+                },
+                "dataUid": "uid-30"
+              },
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "kW"
+                ],
+                "properties": {
+                  "class": "gauge-unit"
+                },
+                "dataUid": "uid-31"
+              }
+            ],
+            "properties": {
+              "class": "gauge-card"
+            },
+            "dataUid": "uid-26"
+          },
+          {
+            "type": "container",
+            "sourceTag": "div",
+            "children": [
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "ACTIVE ENERGY"
+                ],
+                "properties": {
+                  "class": "gauge-label"
+                },
+                "dataUid": "uid-33"
+              },
+              {
+                "type": "container",
+                "sourceTag": "div",
+                "children": [
+                  {
+                    "type": "container",
+                    "sourceTag": "div",
+                    "children": [],
+                    "properties": {
+                      "class": "gauge-fill gauge-fill-yellow",
+                      "id": "fill-KWH"
+                    },
+                    "dataUid": "uid-35"
+                  }
+                ],
+                "properties": {
+                  "class": "gauge-track"
+                },
+                "dataUid": "uid-34"
+              },
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "--"
+                ],
+                "properties": {
+                  "class": "gauge-value",
+                  "id": "metric-KWH"
+                },
+                "dataUid": "uid-36"
+              },
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "kWh"
+                ],
+                "properties": {
+                  "class": "gauge-unit"
+                },
+                "dataUid": "uid-37"
+              }
+            ],
+            "properties": {
+              "class": "gauge-card"
+            },
+            "dataUid": "uid-32"
           }
         ],
         "properties": {
-          "class": "panel-container"
-        }
+          "class": "grid-section"
+        },
+        "dataUid": "uid-13"
+      },
+      {
+        "type": "container",
+        "sourceTag": "div",
+        "children": [
+          {
+            "sourceTag": "span",
+            "type": "custom",
+            "children": [
+              "More Details"
+            ],
+            "properties": {
+              "class": "control-label"
+            },
+            "dataUid": "uid-39"
+          },
+          {
+            "sourceTag": "button",
+            "type": "custom",
+            "children": [
+              {
+                "type": "container",
+                "sourceTag": "div",
+                "children": [
+                  {
+                    "sourceTag": "ellipsisicon",
+                    "type": "custom",
+                    "children": [],
+                    "properties": {
+                      "class": "power-icon"
+                    },
+                    "dataUid": "uid-42"
+                  }
+                ],
+                "properties": {},
+                "dataUid": "uid-41"
+              }
+            ],
+            "properties": {
+              "class": "power-btn",
+              "id": "show-gauge-btn",
+              "style": {
+                "backgroundColor": "#3f3f46"
+              }
+            },
+            "dataUid": "uid-40"
+          }
+        ],
+        "properties": {
+          "class": "control-row"
+        },
+        "dataUid": "uid-38"
+      },
+      {
+        "type": "container",
+        "sourceTag": "div",
+        "children": [],
+        "properties": {
+          "class": "divider"
+        },
+        "dataUid": "uid-43"
+      },
+      {
+        "type": "container",
+        "sourceTag": "div",
+        "children": [
+          {
+            "type": "container",
+            "sourceTag": "div",
+            "children": [],
+            "properties": {
+              "class": "status-dot",
+              "id": "status-dot"
+            },
+            "dataUid": "uid-45"
+          },
+          {
+            "sourceTag": "span",
+            "type": "custom",
+            "children": [
+              "On"
+            ],
+            "properties": {
+              "class": "status-text",
+              "id": "status-text"
+            },
+            "dataUid": "uid-46"
+          }
+        ],
+        "properties": {
+          "class": "status-section"
+        },
+        "dataUid": "uid-44"
       }
     ],
-    "properties": {}
+    "properties": {
+      "class": "panel-container"
+    },
+    "dataUid": "uid-1"
   },
   "classes": {
     "panel-container": {
@@ -517,7 +543,8 @@
         "display": "flex",
         "alignItems": "center",
         "justifyContent": "center",
-        "cursor": "pointer"
+        "cursor": "pointer",
+        "flexShrink": "0"
       }
     },
     "power-icon": {
@@ -550,8 +577,8 @@
         "flexDirection": "column",
         "alignItems": "flex-start",
         "backgroundColor": "#18181b",
-        "borderRadius": 1.0,
-        "padding": "1.0 1.2",
+        "borderRadius": 1,
+        "padding": "1 1.2",
         "width": "100%",
         "borderColor": "#27272a",
         "borderWidth": "0.1",
@@ -563,7 +590,7 @@
         "color": "#71717a",
         "fontSize": "1.4",
         "fontWeight": "bold",
-        "letterSpacing": 0.5,
+        "letterSpacing": "0.5",
         "flex": "1"
       }
     },
@@ -574,7 +601,7 @@
         "backgroundColor": "#3f3f46",
         "borderRadius": 0.3,
         "overflow": "hidden",
-        "position": "relative",
+        "positionType": "relative",
         "marginTop": "0.2"
       }
     },
@@ -626,7 +653,7 @@
         "color": "#fafafa",
         "fontSize": "1.8",
         "fontWeight": "bold",
-        "lineHeight": 1,
+        "lineHeight": "1",
         "marginRight": "0.5"
       }
     },
@@ -643,7 +670,8 @@
         "alignItems": "center",
         "gap": "1.5",
         "width": "100%",
-        "padding": "0 1.5"
+        "padding": "0 1.5",
+        "marginTop": "2.5"
       }
     },
     "control-icon": {
@@ -682,6 +710,768 @@
       "content": {
         "fontSize": "1.6",
         "color": "#a1a1aa"
+      }
+    }
+  },
+  "ranges": {
+    "panel-container": {
+      "start": {
+        "line": 1,
+        "column": 2
+      },
+      "end": {
+        "line": 1,
+        "column": 18
+      }
+    },
+    "header-section": {
+      "start": {
+        "line": 14,
+        "column": 2
+      },
+      "end": {
+        "line": 14,
+        "column": 17
+      }
+    },
+    "header-action": {
+      "start": {
+        "line": 23,
+        "column": 2
+      },
+      "end": {
+        "line": 23,
+        "column": 16
+      }
+    },
+    "device-icon": {
+      "start": {
+        "line": 27,
+        "column": 2
+      },
+      "end": {
+        "line": 27,
+        "column": 14
+      }
+    },
+    "header-text": {
+      "start": {
+        "line": 33,
+        "column": 2
+      },
+      "end": {
+        "line": 33,
+        "column": 14
+      }
+    },
+    "device-name": {
+      "start": {
+        "line": 39,
+        "column": 2
+      },
+      "end": {
+        "line": 39,
+        "column": 14
+      }
+    },
+    "device-location": {
+      "start": {
+        "line": 45,
+        "column": 2
+      },
+      "end": {
+        "line": 45,
+        "column": 18
+      }
+    },
+    "power-btn": {
+      "start": {
+        "line": 50,
+        "column": 2
+      },
+      "end": {
+        "line": 50,
+        "column": 12
+      }
+    },
+    "power-icon": {
+      "start": {
+        "line": 62,
+        "column": 2
+      },
+      "end": {
+        "line": 62,
+        "column": 13
+      }
+    },
+    "divider": {
+      "start": {
+        "line": 68,
+        "column": 2
+      },
+      "end": {
+        "line": 68,
+        "column": 10
+      }
+    },
+    "grid-section": {
+      "start": {
+        "line": 75,
+        "column": 2
+      },
+      "end": {
+        "line": 75,
+        "column": 15
+      }
+    },
+    "gauge-card": {
+      "start": {
+        "line": 83,
+        "column": 2
+      },
+      "end": {
+        "line": 83,
+        "column": 13
+      }
+    },
+    "gauge-label": {
+      "start": {
+        "line": 96,
+        "column": 2
+      },
+      "end": {
+        "line": 96,
+        "column": 14
+      }
+    },
+    "gauge-track": {
+      "start": {
+        "line": 104,
+        "column": 2
+      },
+      "end": {
+        "line": 104,
+        "column": 14
+      }
+    },
+    "gauge-fill": {
+      "start": {
+        "line": 114,
+        "column": 2
+      },
+      "end": {
+        "line": 114,
+        "column": 13
+      }
+    },
+    "gauge-fill-red": {
+      "start": {
+        "line": 121,
+        "column": 2
+      },
+      "end": {
+        "line": 121,
+        "column": 17
+      }
+    },
+    "gauge-fill-green": {
+      "start": {
+        "line": 125,
+        "column": 2
+      },
+      "end": {
+        "line": 125,
+        "column": 19
+      }
+    },
+    "gauge-fill-orange": {
+      "start": {
+        "line": 129,
+        "column": 2
+      },
+      "end": {
+        "line": 129,
+        "column": 20
+      }
+    },
+    "gauge-fill-purple": {
+      "start": {
+        "line": 133,
+        "column": 2
+      },
+      "end": {
+        "line": 133,
+        "column": 20
+      }
+    },
+    "gauge-fill-cyan": {
+      "start": {
+        "line": 137,
+        "column": 2
+      },
+      "end": {
+        "line": 137,
+        "column": 18
+      }
+    },
+    "gauge-fill-yellow": {
+      "start": {
+        "line": 141,
+        "column": 2
+      },
+      "end": {
+        "line": 141,
+        "column": 20
+      }
+    },
+    "gauge-fill-pink": {
+      "start": {
+        "line": 145,
+        "column": 2
+      },
+      "end": {
+        "line": 145,
+        "column": 18
+      }
+    },
+    "gauge-value": {
+      "start": {
+        "line": 149,
+        "column": 2
+      },
+      "end": {
+        "line": 149,
+        "column": 14
+      }
+    },
+    "gauge-unit": {
+      "start": {
+        "line": 157,
+        "column": 2
+      },
+      "end": {
+        "line": 157,
+        "column": 13
+      }
+    },
+    "control-row": {
+      "start": {
+        "line": 162,
+        "column": 2
+      },
+      "end": {
+        "line": 162,
+        "column": 14
+      }
+    },
+    "control-icon": {
+      "start": {
+        "line": 172,
+        "column": 2
+      },
+      "end": {
+        "line": 172,
+        "column": 15
+      }
+    },
+    "control-label": {
+      "start": {
+        "line": 178,
+        "column": 2
+      },
+      "end": {
+        "line": 178,
+        "column": 16
+      }
+    },
+    "status-section": {
+      "start": {
+        "line": 184,
+        "column": 2
+      },
+      "end": {
+        "line": 184,
+        "column": 17
+      }
+    },
+    "status-dot": {
+      "start": {
+        "line": 193,
+        "column": 2
+      },
+      "end": {
+        "line": 193,
+        "column": 13
+      }
+    },
+    "status-text": {
+      "start": {
+        "line": 200,
+        "column": 2
+      },
+      "end": {
+        "line": 200,
+        "column": 14
+      }
+    },
+    "uid-1": {
+      "start": {
+        "line": 206,
+        "column": 0
+      },
+      "end": {
+        "line": 287,
+        "column": 6
+      }
+    },
+    "uid-2": {
+      "start": {
+        "line": 208,
+        "column": 2
+      },
+      "end": {
+        "line": 223,
+        "column": 8
+      }
+    },
+    "uid-3": {
+      "start": {
+        "line": 209,
+        "column": 4
+      },
+      "end": {
+        "line": 211,
+        "column": 10
+      }
+    },
+    "uid-4": {
+      "start": {
+        "line": 210,
+        "column": 6
+      },
+      "end": {
+        "line": 211,
+        "column": 4
+      }
+    },
+    "uid-5": {
+      "start": {
+        "line": 212,
+        "column": 4
+      },
+      "end": {
+        "line": 215,
+        "column": 10
+      }
+    },
+    "uid-6": {
+      "start": {
+        "line": 213,
+        "column": 6
+      },
+      "end": {
+        "line": 213,
+        "column": 67
+      }
+    },
+    "uid-7": {
+      "start": {
+        "line": 214,
+        "column": 6
+      },
+      "end": {
+        "line": 214,
+        "column": 74
+      }
+    },
+    "uid-8": {
+      "start": {
+        "line": 216,
+        "column": 4
+      },
+      "end": {
+        "line": 222,
+        "column": 10
+      }
+    },
+    "uid-9": {
+      "start": {
+        "line": 217,
+        "column": 6
+      },
+      "end": {
+        "line": 221,
+        "column": 15
+      }
+    },
+    "uid-10": {
+      "start": {
+        "line": 218,
+        "column": 8
+      },
+      "end": {
+        "line": 220,
+        "column": 14
+      }
+    },
+    "uid-11": {
+      "start": {
+        "line": 219,
+        "column": 10
+      },
+      "end": {
+        "line": 220,
+        "column": 8
+      }
+    },
+    "uid-12": {
+      "start": {
+        "line": 225,
+        "column": 2
+      },
+      "end": {
+        "line": 225,
+        "column": 29
+      }
+    },
+    "uid-13": {
+      "start": {
+        "line": 228,
+        "column": 2
+      },
+      "end": {
+        "line": 268,
+        "column": 8
+      }
+    },
+    "uid-14": {
+      "start": {
+        "line": 230,
+        "column": 4
+      },
+      "end": {
+        "line": 237,
+        "column": 10
+      }
+    },
+    "uid-15": {
+      "start": {
+        "line": 231,
+        "column": 6
+      },
+      "end": {
+        "line": 231,
+        "column": 59
+      }
+    },
+    "uid-16": {
+      "start": {
+        "line": 232,
+        "column": 6
+      },
+      "end": {
+        "line": 234,
+        "column": 12
+      }
+    },
+    "uid-17": {
+      "start": {
+        "line": 233,
+        "column": 8
+      },
+      "end": {
+        "line": 233,
+        "column": 50
+      }
+    },
+    "uid-18": {
+      "start": {
+        "line": 235,
+        "column": 6
+      },
+      "end": {
+        "line": 235,
+        "column": 55
+      }
+    },
+    "uid-19": {
+      "start": {
+        "line": 236,
+        "column": 6
+      },
+      "end": {
+        "line": 236,
+        "column": 42
+      }
+    },
+    "uid-20": {
+      "start": {
+        "line": 240,
+        "column": 4
+      },
+      "end": {
+        "line": 247,
+        "column": 10
+      }
+    },
+    "uid-21": {
+      "start": {
+        "line": 241,
+        "column": 6
+      },
+      "end": {
+        "line": 241,
+        "column": 46
+      }
+    },
+    "uid-22": {
+      "start": {
+        "line": 242,
+        "column": 6
+      },
+      "end": {
+        "line": 244,
+        "column": 12
+      }
+    },
+    "uid-23": {
+      "start": {
+        "line": 243,
+        "column": 8
+      },
+      "end": {
+        "line": 243,
+        "column": 65
+      }
+    },
+    "uid-24": {
+      "start": {
+        "line": 245,
+        "column": 6
+      },
+      "end": {
+        "line": 245,
+        "column": 55
+      }
+    },
+    "uid-25": {
+      "start": {
+        "line": 246,
+        "column": 6
+      },
+      "end": {
+        "line": 246,
+        "column": 44
+      }
+    },
+    "uid-26": {
+      "start": {
+        "line": 250,
+        "column": 4
+      },
+      "end": {
+        "line": 257,
+        "column": 10
+      }
+    },
+    "uid-27": {
+      "start": {
+        "line": 251,
+        "column": 6
+      },
+      "end": {
+        "line": 251,
+        "column": 51
+      }
+    },
+    "uid-28": {
+      "start": {
+        "line": 252,
+        "column": 6
+      },
+      "end": {
+        "line": 254,
+        "column": 12
+      }
+    },
+    "uid-29": {
+      "start": {
+        "line": 253,
+        "column": 8
+      },
+      "end": {
+        "line": 253,
+        "column": 67
+      }
+    },
+    "uid-30": {
+      "start": {
+        "line": 255,
+        "column": 6
+      },
+      "end": {
+        "line": 255,
+        "column": 55
+      }
+    },
+    "uid-31": {
+      "start": {
+        "line": 256,
+        "column": 6
+      },
+      "end": {
+        "line": 256,
+        "column": 40
+      }
+    },
+    "uid-32": {
+      "start": {
+        "line": 260,
+        "column": 4
+      },
+      "end": {
+        "line": 267,
+        "column": 10
+      }
+    },
+    "uid-33": {
+      "start": {
+        "line": 261,
+        "column": 6
+      },
+      "end": {
+        "line": 261,
+        "column": 52
+      }
+    },
+    "uid-34": {
+      "start": {
+        "line": 262,
+        "column": 6
+      },
+      "end": {
+        "line": 264,
+        "column": 12
+      }
+    },
+    "uid-35": {
+      "start": {
+        "line": 263,
+        "column": 8
+      },
+      "end": {
+        "line": 263,
+        "column": 70
+      }
+    },
+    "uid-36": {
+      "start": {
+        "line": 265,
+        "column": 6
+      },
+      "end": {
+        "line": 265,
+        "column": 57
+      }
+    },
+    "uid-37": {
+      "start": {
+        "line": 266,
+        "column": 6
+      },
+      "end": {
+        "line": 266,
+        "column": 41
+      }
+    },
+    "uid-38": {
+      "start": {
+        "line": 271,
+        "column": 2
+      },
+      "end": {
+        "line": 278,
+        "column": 8
+      }
+    },
+    "uid-39": {
+      "start": {
+        "line": 272,
+        "column": 4
+      },
+      "end": {
+        "line": 272,
+        "column": 51
+      }
+    },
+    "uid-40": {
+      "start": {
+        "line": 273,
+        "column": 4
+      },
+      "end": {
+        "line": 277,
+        "column": 13
+      }
+    },
+    "uid-41": {
+      "start": {
+        "line": 274,
+        "column": 6
+      },
+      "end": {
+        "line": 276,
+        "column": 12
+      }
+    },
+    "uid-42": {
+      "start": {
+        "line": 275,
+        "column": 8
+      },
+      "end": {
+        "line": 276,
+        "column": 6
+      }
+    },
+    "uid-43": {
+      "start": {
+        "line": 280,
+        "column": 2
+      },
+      "end": {
+        "line": 280,
+        "column": 29
+      }
+    },
+    "uid-44": {
+      "start": {
+        "line": 283,
+        "column": 2
+      },
+      "end": {
+        "line": 286,
+        "column": 8
+      }
+    },
+    "uid-45": {
+      "start": {
+        "line": 284,
+        "column": 4
+      },
+      "end": {
+        "line": 284,
+        "column": 50
+      }
+    },
+    "uid-46": {
+      "start": {
+        "line": 285,
+        "column": 4
+      },
+      "end": {
+        "line": 285,
+        "column": 56
       }
     }
   }
