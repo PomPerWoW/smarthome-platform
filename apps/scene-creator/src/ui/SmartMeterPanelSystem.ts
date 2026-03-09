@@ -72,6 +72,20 @@ export class SmartMeterPanelSystem extends createSystem({
                                     }
                                 }
                             }
+
+                            // Notify Chart3D dashboard if gauge is active
+                            if (!this.deviceRenderer) {
+                                this.deviceRenderer = this.world.getSystem(DeviceRendererSystem);
+                            }
+                            if (this.deviceRenderer) {
+                                const record = this.deviceRenderer.getRecord(deviceId);
+                                if (record && record.activeChartType === "gauge" && record.chartEntity) {
+                                    const updateGauge = record.chartEntity.object3D?.userData?.updateGauge;
+                                    if (typeof updateGauge === "function") {
+                                        updateGauge(suffix, data.value);
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -98,7 +112,23 @@ export class SmartMeterPanelSystem extends createSystem({
             });
         }
 
+        // 3D Gauge button
+        const showGaugeBtn = document.getElementById("show-gauge-btn");
+        if (showGaugeBtn) {
+            showGaugeBtn.addEventListener("click", () => {
+                this.handleShowGauge(deviceId);
+            });
+        }
+
         this.updatePanel(entity, deviceId, document);
+    }
+
+    private handleShowGauge(deviceId: string): void {
+        console.log(`[SmartMeterPanel] Show gauge clicked for ${deviceId}`);
+        const deviceRenderer = this.world.getSystem(DeviceRendererSystem);
+        if (deviceRenderer) {
+            deviceRenderer.showChart(deviceId, "gauge" as any);
+        }
     }
 
     private handlePowerToggle(deviceId: string): void {
@@ -126,44 +156,32 @@ export class SmartMeterPanelSystem extends createSystem({
     private updatePanelMetricsOnly(document: UIKitDocument, deviceId: string): void {
         const readings = this.readings[deviceId] || {};
 
-        // Use case-insensitive matching for the metric suffix keys if needed, 
-        // though typically they remain exactly as sent by backend ('v', 'i', 'P', 'Q', 'KWH')
         const getVal = (keyBase: string) => {
-            // Try exact match, then upper, then lower
             return readings[keyBase] ?? readings[keyBase.toUpperCase()] ?? readings[keyBase.toLowerCase()];
         };
 
-        const vText = document.getElementById("metric-v") as UIKit.Text;
-        const vVal = getVal('v');
-        if (vText && vVal !== undefined) vText.setProperties({ text: `${Number(vVal).toFixed(2)} V` });
+        // Metric config: [key, max, unit, fillId, valueId]
+        type MetricCfg = { key: string; max: number; unit: string; fillId: string; valueId: string };
+        const metrics: MetricCfg[] = [
+            { key: 'v', max: 250, unit: '', fillId: 'fill-v', valueId: 'metric-v' },
+            { key: 'i', max: 50, unit: '', fillId: 'fill-i', valueId: 'metric-i' },
+            { key: 'P', max: 10, unit: '', fillId: 'fill-P', valueId: 'metric-P' },
+            { key: 'KWH', max: 9999, unit: '', fillId: 'fill-KWH', valueId: 'metric-KWH' },
+        ];
 
-        const iText = document.getElementById("metric-i") as UIKit.Text;
-        const iVal = getVal('i');
-        if (iText && iVal !== undefined) iText.setProperties({ text: `${Number(iVal).toFixed(2)} A` });
+        for (const cfg of metrics) {
+            const val = getVal(cfg.key);
+            if (val === undefined) continue;
 
-        const pText = document.getElementById("metric-P") as UIKit.Text;
-        const pVal = getVal('P');
-        if (pText && pVal !== undefined) pText.setProperties({ text: `${Number(pVal).toFixed(2)} kW` });
+            const pct = Math.max(0, Math.min(100, (Number(val) / cfg.max) * 100));
+            const pctStr = `${pct.toFixed(1)}%` as `${number}%`;
 
-        const qText = document.getElementById("metric-Q") as UIKit.Text;
-        const qVal = getVal('Q');
-        if (qText && qVal !== undefined) qText.setProperties({ text: `${Number(qVal).toFixed(2)} kVAR` });
+            const fillEl = document.getElementById(cfg.fillId) as UIKit.Container;
+            if (fillEl) fillEl.setProperties({ width: pctStr });
 
-        const kwhText = document.getElementById("metric-KWH") as UIKit.Text;
-        const kwhVal = getVal('KWH');
-        if (kwhText && kwhVal !== undefined) kwhText.setProperties({ text: `${Number(kwhVal).toFixed(2)} kWh` });
-
-        const sText = document.getElementById("metric-S") as UIKit.Text;
-        const sVal = getVal('S');
-        if (sText && sVal !== undefined) sText.setProperties({ text: `${Number(sVal).toFixed(2)} kVA` });
-
-        const pfText = document.getElementById("metric-PF") as UIKit.Text;
-        const pfVal = getVal('PF');
-        if (pfText && pfVal !== undefined) pfText.setProperties({ text: `${Number(pfVal).toFixed(2)}` });
-
-        const kvarhText = document.getElementById("metric-KVARH") as UIKit.Text;
-        const kvarhVal = getVal('KVARH');
-        if (kvarhText && kvarhVal !== undefined) kvarhText.setProperties({ text: `${Number(kvarhVal).toFixed(2)} kVARh` });
+            const valueEl = document.getElementById(cfg.valueId) as UIKit.Text;
+            if (valueEl) valueEl.setProperties({ text: Number(val).toFixed(2) });
+        }
     }
 
     private updatePanel(

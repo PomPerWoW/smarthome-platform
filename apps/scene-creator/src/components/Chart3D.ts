@@ -35,7 +35,7 @@ import {
     MOCK_TV_DEVICE_LOGS,
 } from "../data/mockData";
 
-export type ChartType = "bar" | "line" | "pie";
+export type ChartType = "bar" | "line" | "pie" | "gauge";
 
 const COLORS = {
     blue: "#3b82f6",
@@ -67,6 +67,13 @@ export class Chart3D {
                 break;
             case DeviceType.Television:
                 this.createTVChart(container, type);
+                break;
+            case DeviceType.SmartMeter:
+                if (type === "gauge") {
+                    this.createGaugeChart(container);
+                } else {
+                    this.createEmptyChart(container, "Unsupported Chart");
+                }
                 break;
             default:
                 this.createEmptyChart(container, "Unknown Device");
@@ -192,6 +199,190 @@ export class Chart3D {
 
             this.createPieChartFromMap(container, map, "Volume Levels");
         }
+    }
+
+    private createGaugeChart(container: Group) {
+        // We'll create a 2x3 grid of gauges
+        // Metrics: V, I, P, Q, S, PF
+        const gaugeConfigs = [
+            { key: "v", title: "Voltage (V)", max: 250, color: COLORS.blue },
+            { key: "i", title: "Current (A)", max: 50, color: COLORS.green },
+            { key: "P", title: "Active Pwr (kW)", max: 10, color: COLORS.orange },
+            { key: "Q", title: "Reactive (kVAR)", max: 10, color: COLORS.purple },
+            { key: "S", title: "Apparent (kVA)", max: 10, color: COLORS.red },
+            { key: "PF", title: "Power Factor", max: 1, color: COLORS.cyan }
+        ];
+
+        // Overall container for all gauges
+        const dashboard = new Group();
+        container.add(dashboard);
+
+        // Layout variables
+        const cols = 3;
+        const spacingX = 2.4;
+        const spacingY = 2.4;
+        const startX = -spacingX;
+        const startY = spacingY / 2;
+
+        const updateHandlers: Record<string, (val: number) => void> = {};
+
+        gaugeConfigs.forEach((cfg, index) => {
+            const col = index % cols;
+            const row = Math.floor(index / cols);
+
+            // Create individual gauge
+            const { group, updateFn } = this.createSingleGauge(cfg.title, cfg.max, cfg.color);
+
+            // Position
+            group.position.set(startX + col * spacingX, startY - row * spacingY, 0);
+
+            dashboard.add(group);
+
+            // Store updater by key (lowercase for easy matching later)
+            updateHandlers[cfg.key.toLowerCase()] = updateFn;
+        });
+
+        // The unified update function for the dashboard:
+        // Takes a key (e.g. "v", "i", "p") and a value, routing to the correct sub-gauge
+        container.userData.updateGauge = (key: string, value: number) => {
+            const handler = updateHandlers[key.toLowerCase()];
+            if (handler) {
+                handler(value);
+            }
+        };
+    }
+
+    /**
+     * Creates a single analog gauge and returns its Group and update function
+     */
+    private createSingleGauge(title: string, maxVal: number, primaryColor: string) {
+        const group = new Group();
+        const radius = 1.0;
+        const thickness = 0.1;
+
+        // Gauge Background (Cylinder)
+        const bgGeo = new CylinderGeometry(radius, radius, thickness, 32);
+        const bgMat = new MeshStandardMaterial({ color: 0x18181b, roughness: 0.8 });
+        const bgMesh = new Mesh(bgGeo, bgMat);
+        bgMesh.rotation.x = Math.PI / 2;
+        group.add(bgMesh);
+
+        // Gauge Ring (Torus or hollow cylinder)
+        const ringGeo = new CylinderGeometry(radius * 1.05, radius * 1.05, thickness * 1.2, 32, 1, true);
+        const ringMat = new MeshStandardMaterial({ color: 0x3f3f46, roughness: 0.5, side: DoubleSide });
+        const ringMesh = new Mesh(ringGeo, ringMat);
+        ringMesh.rotation.x = Math.PI / 2;
+        group.add(ringMesh);
+
+        // Add colored sectors
+        const startRad = -3 * Math.PI / 4;
+        const totalRad = 3 * Math.PI / 2;
+
+        // Consistent palette across all gauges
+        const sectors = [
+            { color: COLORS.green, percent: 0.6 },
+            { color: COLORS.yellow, percent: 0.25 },
+            { color: COLORS.red, percent: 0.15 }
+        ];
+
+        let currentRad = startRad;
+        for (const s of sectors) {
+            const arcRad = totalRad * s.percent;
+            const sectorGeo = new CylinderGeometry(radius * 0.9, radius * 0.9, thickness * 1.1, 32, 1, false, currentRad, arcRad);
+            const sectorMat = new MeshBasicMaterial({ color: s.color, side: DoubleSide });
+            const sectorMesh = new Mesh(sectorGeo, sectorMat);
+            sectorMesh.rotation.x = -Math.PI / 2;
+            group.add(sectorMesh);
+            currentRad += arcRad;
+        }
+
+        // Ticks
+        const numTicks = 11;
+        for (let i = 0; i < numTicks; i++) {
+            const t = i / (numTicks - 1);
+            const angle = startRad + t * totalRad;
+            const isMajor = i % 2 === 0;
+            const tickGeo = new BoxGeometry(isMajor ? 0.2 : 0.1, isMajor ? 0.04 : 0.02, thickness * 1.2);
+            const tickMat = new MeshBasicMaterial({ color: 0xffffff });
+            const tickMesh = new Mesh(tickGeo, tickMat);
+            const tx = Math.sin(angle) * (radius * 0.75);
+            const ty = Math.cos(angle) * (radius * 0.75);
+            tickMesh.position.set(tx, ty, 0);
+            tickMesh.rotation.z = -angle + Math.PI / 2;
+            group.add(tickMesh);
+
+            // Labels for major ticks
+            if (isMajor) {
+                // If maxVal is 1, format as 0.0, 0.2, etc. Otherwise round to integer.
+                const rawVal = t * maxVal;
+                const labelStr = maxVal <= 1 ? rawVal.toFixed(1) : Math.round(rawVal).toString();
+                const lx = Math.sin(angle) * (radius * 0.5);
+                const ly = Math.cos(angle) * (radius * 0.5);
+                this.addLabel(group, labelStr, lx, ly, 0.15, thickness);
+            }
+        }
+
+        // Title
+        this.addLabel(group, title, 0, -radius * 0.3, 0.2, thickness);
+
+        // Digital Value Display
+        const valueP = new Vector3(0, -radius * 0.6, thickness);
+        this.addLabel(group, "0.00", valueP.x, valueP.y, 0.25, valueP.z);
+
+        // Needle Pivot
+        const pivotGroup = new Group();
+        pivotGroup.position.set(0, 0, thickness);
+
+        // Needle Mesh
+        const needleGeo = new CylinderGeometry(0.02, 0.05, radius * 0.8, 8);
+        const needleMat = new MeshBasicMaterial({ color: 0xffffff }); // White for high contrast
+        const needleMesh = new Mesh(needleGeo, needleMat);
+        needleMesh.position.y = radius * 0.4;
+        pivotGroup.add(needleMesh);
+
+        // Center cap
+        const capGeo = new CylinderGeometry(0.1, 0.1, thickness * 1.5, 16);
+        const capMat = new MeshStandardMaterial({ color: 0x111111, roughness: 0.2 });
+        const capMesh = new Mesh(capGeo, capMat);
+        capMesh.rotation.x = Math.PI / 2;
+        group.add(capMesh);
+
+        group.add(pivotGroup);
+
+        pivotGroup.rotation.z = -startRad;
+
+        // Returned update function
+        const updateFn = (value: number) => {
+            const clamped = Math.max(0, Math.min(value, maxVal));
+            const t = clamped / maxVal;
+            const targetAngle = -(startRad + t * totalRad);
+
+            const animateNeedle = () => {
+                const diff = targetAngle - pivotGroup.rotation.z;
+                if (Math.abs(diff) > 0.01) {
+                    pivotGroup.rotation.z += diff * 0.1;
+                    requestAnimationFrame(animateNeedle);
+                } else {
+                    pivotGroup.rotation.z = targetAngle;
+                }
+            };
+            animateNeedle();
+
+            // Update digital label text
+            for (const child of group.children) {
+                if (child instanceof Sprite && Math.abs(child.position.y - valueP.y) < 0.01) {
+                    const text = value.toFixed(2);
+                    const texture = this.createLabelTexture(text);
+                    (child.material as SpriteMaterial).map = texture;
+                    const aspect = texture.image.width / texture.image.height;
+                    const size = 0.25;
+                    child.scale.set(size * aspect, size, 1);
+                    break;
+                }
+            }
+        };
+
+        return { group, updateFn };
     }
 
     // --- Chart Primitives ---
