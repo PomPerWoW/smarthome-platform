@@ -25,10 +25,12 @@ export class VoiceControlSystem {
   private useFallback: boolean = false;
   private mediaRecorder: MediaRecorder | null = null;
   private audioChunks: Blob[] = [];
-  private onStatusListeners: Array<(
-    status: "listening" | "processing" | "idle",
-    payload?: VoiceIdlePayload,
-  ) => void> = [];
+  private onStatusListeners: Array<
+    (
+      status: "listening" | "processing" | "idle",
+      payload?: VoiceIdlePayload,
+    ) => void
+  > = [];
 
   /** When true, skip "How can I help you?" on next toggle on (e.g. already in instruction session). */
   private skipGreetingChecker: (() => boolean) | null = null;
@@ -42,7 +44,11 @@ export class VoiceControlSystem {
     payload?: VoiceIdlePayload,
   ): void {
     if (status === "idle") {
-      console.log("[VoiceControl] 🔔 notifyStatus IDLE", JSON.stringify(payload), new Error().stack?.split("\n").slice(1, 4).join(" | "));
+      console.log(
+        "[VoiceControl] 🔔 notifyStatus IDLE",
+        JSON.stringify(payload),
+        new Error().stack?.split("\n").slice(1, 4).join(" | "),
+      );
     }
     this.onStatusListeners.forEach((cb) => cb(status, payload));
   }
@@ -56,7 +62,7 @@ export class VoiceControlSystem {
   private silenceCheckInterval: any = null;
   private safetyTimeout: any = null;
   private silenceStart: number = 0;
-  private readonly SILENCE_DURATION = 3000; // 3s of silence before auto-stop (increased for better capture)
+  private readonly SILENCE_DURATION = 800; // 800ms of silence before auto-stop
   private readonly MAX_RECORDING_DURATION = 20000; // 20s max recording (increased for longer commands)
   private readonly SOUND_THRESHOLD = 3; // Lower threshold for better sensitivity
   private readonly LISTEN_START_DELAY_MS = 700; // Delay after TTS before starting mic (avoid capturing robot voice)
@@ -66,8 +72,10 @@ export class VoiceControlSystem {
   private readonly MAX_RETRIES = 2;
 
   // Improved transcript handling
-  private readonly RESULT_WAIT_TIMEOUT = 1500; // 1.5s wait after final result (increased from 500ms)
+  private readonly RESULT_WAIT_TIMEOUT = 800; // 800ms of no speech activity before auto-processing
+  private readonly NO_ACTIVITY_TIMEOUT = 2000; // 2s with no results at all → stop listening
   private readonly MIN_TRANSCRIPT_LENGTH = 2; // Minimum characters to consider valid
+  private noActivityTimer: any = null;
 
   private constructor() {
     const isQuest = /Quest|Oculus/i.test(navigator.userAgent);
@@ -131,26 +139,68 @@ export class VoiceControlSystem {
       try {
         this.retryCount = 0;
         this.recognition.start();
+        this.resetNoActivityTimer();
       } catch (e) {
-        console.error("[VoiceControl] startListeningWithoutGreeting failed:", e);
+        console.error(
+          "[VoiceControl] startListeningWithoutGreeting failed:",
+          e,
+        );
       }
     }
   }
 
   private static matchNoThanks(t: string): boolean {
-    const lower = t.trim().toLowerCase().replace(/,/g, " ");
-    return /no,?\s*thank(s| you)|that'?s?\s*all|nothing\s*else|i'?m\s*good|all\s*good/.test(lower);
+    const lower = t.trim().toLowerCase().replace(/[,.]/g, " ").replace(/\s+/g, " ");
+    // Match various forms of "no thank you", "that's all", "nothing else", "I'm good", etc.
+    const patterns = [
+      /^no,?\s*thank(s| you)/,           // "no thank you", "no thanks", "no, thank you"
+      /^that'?s?\s*all/,                  // "that's all", "thats all"
+      /^nothing\s*else/,                  // "nothing else"
+      /^i'?m\s*good/,                     // "I'm good", "im good"
+      /^all\s*good/,                      // "all good"
+      /^no\s*more/,                       // "no more"
+      /^that'?s?\s*it/,                   // "that's it", "thats it"
+      /^i'?m\s*done/,                    // "I'm done", "im done"
+      /^we'?re\s*good/,                   // "we're good", "were good"
+    ];
+    return patterns.some(pattern => pattern.test(lower));
   }
 
   private static matchYesMore(t: string): boolean {
-    const lower = t.trim().toLowerCase().replace(/[.,!?]+$/, "");
-    if (["yes", "yeah", "yep", "yup", "sure", "ok", "okay"].includes(lower)) return true;
+    const lower = t
+      .trim()
+      .toLowerCase()
+      .replace(/[.,!?]+$/, "");
+    if (["yes", "yeah", "yep", "yup", "sure", "ok", "okay"].includes(lower))
+      return true;
     if (/^(yes|yeah|yep|yup|sure|ok|okay)\s+/.test(lower)) return true;
     return /(another|more)\s*(question|one|please)/.test(lower);
   }
 
   public setTranscriptListener(callback: (text: string) => void) {
     this.onTranscript = callback;
+  }
+
+  private clearNoActivityTimer() {
+    if (this.noActivityTimer) {
+      clearTimeout(this.noActivityTimer);
+      this.noActivityTimer = null;
+    }
+  }
+
+  /** Start (or restart) a timer that stops recognition if no results arrive at all. */
+  private resetNoActivityTimer() {
+    this.clearNoActivityTimer();
+    this.noActivityTimer = setTimeout(() => {
+      if (this.isListening && this.recognition) {
+        console.log(
+          "[VoiceControl] No activity for",
+          this.NO_ACTIVITY_TIMEOUT,
+          "ms — stopping.",
+        );
+        this.recognition.stop();
+      }
+    }, this.NO_ACTIVITY_TIMEOUT);
   }
 
   private setupListeners() {
@@ -163,6 +213,9 @@ export class VoiceControlSystem {
     let hasReceivedFinal = false;
 
     this.recognition.onresult = async (event: any) => {
+      // Any result means the user is (or was) speaking — reset no-activity timer
+      this.resetNoActivityTimer();
+
       // Collect transcripts from all results, including alternatives
       let interim = "";
       let final = "";
@@ -198,9 +251,16 @@ export class VoiceControlSystem {
           // Accumulate final results (speech recognition may split long utterances)
           if (bestTranscript) {
             final = bestTranscript;
-            accumulatedFinalTranscript += (accumulatedFinalTranscript ? " " : "") + final.trim();
+            accumulatedFinalTranscript +=
+              (accumulatedFinalTranscript ? " " : "") + final.trim();
             hasReceivedFinal = true;
-            console.log("[VoiceControl] Final transcript segment:", final, "(confidence:", bestConf, ")");
+            console.log(
+              "[VoiceControl] Final transcript segment:",
+              final,
+              "(confidence:",
+              bestConf,
+              ")",
+            );
           }
         } else {
           // Collect interim results for real-time feedback
@@ -216,26 +276,69 @@ export class VoiceControlSystem {
         this.onTranscript(interim + "...");
       }
 
-      // When we have final results, wait a bit longer to ensure we get the complete utterance
+      // When we have final results, check if speech has ended
       if (hasReceivedFinal) {
         if (this.onTranscript && accumulatedFinalTranscript) {
           this.onTranscript(accumulatedFinalTranscript);
         }
 
-        // Reset timeout - wait longer to allow for complete speech
+        // If we have a final result and no interim results in this event, speech likely ended
+        // Process immediately instead of waiting
+        if (
+          !interim &&
+          accumulatedFinalTranscript.trim().length >= this.MIN_TRANSCRIPT_LENGTH
+        ) {
+          // Clear any pending timeout since we're processing now
+          if (resultTimeout) {
+            clearTimeout(resultTimeout);
+            resultTimeout = null;
+          }
+          this.clearNoActivityTimer();
+
+          console.log(
+            "[VoiceControl] Speech ended (no interim results), processing immediately:",
+            accumulatedFinalTranscript,
+          );
+          this.recognition?.stop();
+          this.isListening = false;
+          this.retryCount = 0;
+
+          // Reset state before processing
+          const transcriptToProcess = accumulatedFinalTranscript.trim();
+          accumulatedFinalTranscript = "";
+          lastInterimTranscript = "";
+          hasReceivedFinal = false;
+
+          await this.processTranscript(transcriptToProcess);
+          return;
+        }
+
+        // Reset the speech-inactivity timer: if no new results (interim or final)
+        // arrive within RESULT_WAIT_TIMEOUT, the user has likely finished speaking.
         if (resultTimeout) clearTimeout(resultTimeout);
         resultTimeout = setTimeout(async () => {
           // Use accumulated final transcript, or fallback to interim if no final yet
-          const transcriptToProcess = accumulatedFinalTranscript.trim() || lastInterimTranscript.trim();
+          const transcriptToProcess =
+            accumulatedFinalTranscript.trim() || lastInterimTranscript.trim();
+
+          this.clearNoActivityTimer();
 
           if (transcriptToProcess.length >= this.MIN_TRANSCRIPT_LENGTH) {
-            console.log("[VoiceControl] Processing complete transcript:", transcriptToProcess);
+            console.log(
+              "[VoiceControl] No new speech for",
+              this.RESULT_WAIT_TIMEOUT,
+              "ms — processing:",
+              transcriptToProcess,
+            );
             this.recognition?.stop();
             this.isListening = false;
             this.retryCount = 0;
             await this.processTranscript(transcriptToProcess);
           } else {
-            console.warn("[VoiceControl] Transcript too short, ignoring:", transcriptToProcess);
+            console.warn(
+              "[VoiceControl] Transcript too short, ignoring:",
+              transcriptToProcess,
+            );
             this.notifyStatus("idle");
           }
 
@@ -290,12 +393,17 @@ export class VoiceControlSystem {
     };
 
     this.recognition.onend = () => {
+      this.clearNoActivityTimer();
+
       // If recognition ended but we're still listening, it might have stopped prematurely
       // Only reset if we haven't received any final results
       if (this.isListening && !hasReceivedFinal) {
         // If we have interim results, try processing them as a fallback
         if (lastInterimTranscript.trim().length >= this.MIN_TRANSCRIPT_LENGTH) {
-          console.log("[VoiceControl] Recognition ended, processing interim transcript:", lastInterimTranscript);
+          console.log(
+            "[VoiceControl] Recognition ended, processing interim transcript:",
+            lastInterimTranscript,
+          );
           this.isListening = false;
           this.retryCount = 0;
           this.processTranscript(lastInterimTranscript.trim());
@@ -317,8 +425,14 @@ export class VoiceControlSystem {
   private async processTranscript(transcript: string): Promise<void> {
     const trimmedTranscript = transcript.trim();
 
-    if (!trimmedTranscript || trimmedTranscript.length < this.MIN_TRANSCRIPT_LENGTH) {
-      console.warn("[VoiceControl] Transcript too short or empty — ignoring:", trimmedTranscript);
+    if (
+      !trimmedTranscript ||
+      trimmedTranscript.length < this.MIN_TRANSCRIPT_LENGTH
+    ) {
+      console.warn(
+        "[VoiceControl] Transcript too short or empty — ignoring:",
+        trimmedTranscript,
+      );
       this.notifyStatus("idle", { noMatch: true });
       return;
     }
@@ -337,6 +451,14 @@ export class VoiceControlSystem {
         return;
       }
       if (VoiceControlSystem.matchYesMore(transcript)) {
+        // Notify dialogue in 3D scene
+        const voicePanelSystem = (globalThis as any).__voicePanelSystem;
+        if (
+          voicePanelSystem &&
+          typeof voicePanelSystem.addRobotMessage === "function"
+        ) {
+          voicePanelSystem.addRobotMessage("What would you like to know?");
+        }
         await speakFollowUpWhatQuestion();
         setTimeout(
           () => this.startListeningWithoutGreeting(),
@@ -350,12 +472,22 @@ export class VoiceControlSystem {
 
     try {
       const response =
-        await BackendApiClient.getInstance().sendVoiceCommand(trimmedTranscript);
+        await BackendApiClient.getInstance().sendVoiceCommand(
+          trimmedTranscript,
+        );
       console.log("[VoiceControl] Backend response:", response);
 
       // Instruction / how-to: 3D robot handles TTS (walk to user, then speak); just notify
       if (response?.instruction_topic) {
         if (response.instruction_topic === "yes_more") {
+          // Notify dialogue in 3D scene
+          const voicePanelSystem = (globalThis as any).__voicePanelSystem;
+          if (
+            voicePanelSystem &&
+            typeof voicePanelSystem.addRobotMessage === "function"
+          ) {
+            voicePanelSystem.addRobotMessage("What would you like to know?");
+          }
           await speakFollowUpWhatQuestion();
           setTimeout(
             () => this.startListeningWithoutGreeting(),
@@ -377,13 +509,16 @@ export class VoiceControlSystem {
       if (response?.actions && response.actions.length > 0) {
         // Try to find a successful action
         const successfulAction = response.actions.find(
-          (a: any) => a.status === "success" && a.action && a.device
+          (a: any) => a.status === "success" && a.action && a.device,
         );
 
         if (successfulAction) {
           action = successfulAction.action;
           device = successfulAction.device;
-          console.log("[VoiceControl] Command executed successfully:", { action, device });
+          console.log("[VoiceControl] Command executed successfully:", {
+            action,
+            device,
+          });
         } else {
           console.warn("[VoiceControl] No successful action found in response");
           this.notifyStatus("idle", { success: false, noMatch: true });
@@ -391,7 +526,9 @@ export class VoiceControlSystem {
         }
       } else {
         noMatch = true;
-        console.warn("[VoiceControl] No actions in response — command not recognized");
+        console.warn(
+          "[VoiceControl] No actions in response — command not recognized",
+        );
       }
 
       this.notifyStatus("idle", {
@@ -489,12 +626,28 @@ export class VoiceControlSystem {
             this.onTranscript(transcript);
           }
 
-          if (!transcript || transcript.trim().length < this.MIN_TRANSCRIPT_LENGTH) {
-            console.warn("[VoiceControl] Empty or too short transcript — ignoring:", transcript);
+          if (
+            !transcript ||
+            transcript.trim().length < this.MIN_TRANSCRIPT_LENGTH
+          ) {
+            console.warn(
+              "[VoiceControl] Empty or too short transcript — ignoring:",
+              transcript,
+            );
             idlePayload = { success: false, noMatch: true };
           } else if (command_result?.instruction_topic) {
             if (command_result.instruction_topic === "yes_more") {
               this.restartingListening = true;
+              // Notify dialogue in 3D scene
+              const voicePanelSystem = (globalThis as any).__voicePanelSystem;
+              if (
+                voicePanelSystem &&
+                typeof voicePanelSystem.addRobotMessage === "function"
+              ) {
+                voicePanelSystem.addRobotMessage(
+                  "What would you like to know?",
+                );
+              }
               await speakFollowUpWhatQuestion();
               setTimeout(
                 () => this.startListeningWithoutGreeting(),
@@ -510,7 +663,7 @@ export class VoiceControlSystem {
           } else if (command_result?.actions?.length > 0) {
             // Try to find a successful action
             const successfulAction = command_result.actions.find(
-              (a: any) => a.status === "success" && a.action && a.device
+              (a: any) => a.status === "success" && a.action && a.device,
             );
 
             if (successfulAction) {
@@ -593,7 +746,7 @@ export class VoiceControlSystem {
       const source = this.audioContext.createMediaStreamSource(stream);
       this.analyser = this.audioContext.createAnalyser();
       this.analyser.fftSize = 2048; // Higher FFT size for better frequency analysis
-      this.analyser.smoothingTimeConstant = 0.8; // Smoothing to reduce false positives
+      this.analyser.smoothingTimeConstant = 0.3; // Lower smoothing for faster silence response
       source.connect(this.analyser);
 
       const bufferLength = this.analyser.frequencyBinCount;
@@ -626,7 +779,8 @@ export class VoiceControlSystem {
         const avgFrequency = freqSum / bufferLength;
 
         // Consider both amplitude and frequency - speech has both
-        const isSoundDetected = avgAmplitude > this.SOUND_THRESHOLD || avgFrequency > 10;
+        const isSoundDetected =
+          avgAmplitude > this.SOUND_THRESHOLD || avgFrequency > 10;
 
         if (isSoundDetected) {
           this.silenceStart = Date.now();
@@ -635,7 +789,9 @@ export class VoiceControlSystem {
           consecutiveSilenceChecks++;
           // Require consistent silence over the duration
           if (consecutiveSilenceChecks >= REQUIRED_SILENCE_CHECKS) {
-            console.log("[VoiceControl] Consistent silence detected, stopping.");
+            console.log(
+              "[VoiceControl] Consistent silence detected, stopping.",
+            );
             this.stopFallbackRecording();
           }
         }
@@ -655,7 +811,7 @@ export class VoiceControlSystem {
       this.safetyTimeout = null;
     }
     if (this.audioContext && this.audioContext.state !== "closed") {
-      this.audioContext.close().catch(() => { });
+      this.audioContext.close().catch(() => {});
     }
     this.audioContext = null;
     this.analyser = null;
@@ -678,6 +834,7 @@ export class VoiceControlSystem {
         this.stopRequestedByUser = true;
         this.stopFallbackRecording();
       } else if (this.recognition) {
+        this.clearNoActivityTimer();
         this.recognition.stop();
         this.isListening = false;
         this.notifyStatus("idle", { cancelled: true });
@@ -706,6 +863,7 @@ export class VoiceControlSystem {
     try {
       this.retryCount = 0;
       this.recognition.start();
+      this.resetNoActivityTimer();
     } catch (e) {
       console.error("Failed to start recognition:", e);
     }

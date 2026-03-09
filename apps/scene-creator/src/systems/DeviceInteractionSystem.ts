@@ -4,7 +4,9 @@ import {
   Hovered,
   Pressed,
   Entity,
+  DistanceGrabbable,
 } from "@iwsdk/core";
+import { Vector3 } from "three";
 
 import { deviceStore, getStore } from "../store/DeviceStore";
 import { DeviceComponent } from "../components/DeviceComponent";
@@ -25,13 +27,22 @@ export class DeviceInteractionSystem extends createSystem({
   pressedDevices: {
     required: [DeviceComponent, Pressed],
   },
+  grabbableDevices: {
+    required: [DeviceComponent, DistanceGrabbable],
+  },
 }) {
   private deviceRenderer!: DeviceRendererSystem;
-  private grabbedDevices: Map<
+  private grabbedDeviceData: Map<
     string,
-    { startPosition: [number, number, number] }
+    { 
+      startPosition: [number, number, number];
+      lastPosition: Vector3;
+      lastMovedTime: number;
+      isMoving: boolean;
+    }
   > = new Map();
   private lastClickTime: Map<string, number> = new Map();
+  private readonly MOVEMENT_THRESHOLD = 0.001; // 1mm movement threshold
 
   init() {
     this.deviceRenderer = this.world.getSystem(DeviceRendererSystem)!;
@@ -42,6 +53,18 @@ export class DeviceInteractionSystem extends createSystem({
       const deviceId = this.getDeviceId(entity);
       if (deviceId) {
         this.handleDevicePress(deviceId, entity);
+        // Also track potential grab start for grabbable devices
+        if (entity.hasComponent(DistanceGrabbable)) {
+          this.onPotentialGrabStart(deviceId, entity);
+        }
+      }
+    });
+
+    // Track when devices are released (grab end)
+    this.queries.pressedDevices.subscribe("disqualify", (entity) => {
+      const deviceId = this.getDeviceId(entity);
+      if (deviceId && this.grabbedDeviceData.has(deviceId)) {
+        this.onPotentialGrabEnd(deviceId, entity);
       }
     });
 
@@ -103,38 +126,45 @@ export class DeviceInteractionSystem extends createSystem({
     // obj?.scale.multiplyScalar(1 / HOVER_SCALE_FACTOR);
   }
 
-  onGrabStart(deviceId: string, entity: Entity): void {
+  private onPotentialGrabStart(deviceId: string, entity: Entity): void {
     if (!entity?.object3D) return;
 
     const pos = entity.object3D.position;
-    this.grabbedDevices.set(deviceId, {
-      startPosition: [pos.x, pos.y, pos.z],
-    });
-    console.log(`[DeviceInteraction] Grab started: ${deviceId}`);
+    // Only start tracking if not already tracking
+    if (!this.grabbedDeviceData.has(deviceId)) {
+      this.grabbedDeviceData.set(deviceId, {
+        startPosition: [pos.x, pos.y, pos.z],
+        lastPosition: new Vector3(pos.x, pos.y, pos.z),
+        lastMovedTime: Date.now(),
+        isMoving: false,
+      });
+      console.log(`[DeviceInteraction] Started tracking grab for: ${deviceId}`);
+    }
   }
 
-  async onGrabEnd(deviceId: string, entity: Entity): Promise<void> {
-    const grabData = this.grabbedDevices.get(deviceId);
+  private async onPotentialGrabEnd(deviceId: string, entity: Entity): Promise<void> {
+    const grabData = this.grabbedDeviceData.get(deviceId);
     if (!grabData || !entity?.object3D) return;
 
-    const pos = entity.object3D.position;
-    const moved =
-      Math.abs(pos.x - grabData.startPosition[0]) > POSITION_CHANGE_THRESHOLD ||
-      Math.abs(pos.y - grabData.startPosition[1]) > POSITION_CHANGE_THRESHOLD ||
-      Math.abs(pos.z - grabData.startPosition[2]) > POSITION_CHANGE_THRESHOLD;
+    const currentPos = entity.object3D.position;
+    const movedFromStart =
+      Math.abs(currentPos.x - grabData.startPosition[0]) > POSITION_CHANGE_THRESHOLD ||
+      Math.abs(currentPos.y - grabData.startPosition[1]) > POSITION_CHANGE_THRESHOLD ||
+      Math.abs(currentPos.z - grabData.startPosition[2]) > POSITION_CHANGE_THRESHOLD;
 
-    if (moved) {
+    if (movedFromStart) {
       console.log(
-        `[DeviceInteraction] Grab ended, saving position: ${deviceId}`,
+        `[DeviceInteraction] Device released, saving position: ${deviceId}`,
       );
       await this.deviceRenderer.saveDevicePosition(deviceId);
     }
 
-    this.grabbedDevices.delete(deviceId);
+    // Clean up tracking
+    this.grabbedDeviceData.delete(deviceId);
   }
 
   isGrabbed(deviceId: string): boolean {
-    return this.grabbedDevices.has(deviceId);
+    return this.grabbedDeviceData.has(deviceId);
   }
 
   update(dt: number): void {
@@ -142,6 +172,26 @@ export class DeviceInteractionSystem extends createSystem({
     for (const [deviceId, time] of this.lastClickTime) {
       if (now - time > CLICK_TIMEOUT_MS) {
         this.lastClickTime.delete(deviceId);
+      }
+    }
+
+    // Check all grabbable devices for movement tracking (for fallback detection)
+    for (const entity of this.queries.grabbableDevices.entities) {
+      const deviceId = this.getDeviceId(entity);
+      if (deviceId && this.grabbedDeviceData.has(deviceId)) {
+        // Update movement tracking
+        const grabData = this.grabbedDeviceData.get(deviceId);
+        if (grabData && entity.object3D) {
+          const currentPos = entity.object3D.position;
+          const currentPosVec = new Vector3(currentPos.x, currentPos.y, currentPos.z);
+          const movedDistance = currentPosVec.distanceTo(grabData.lastPosition);
+          
+          if (movedDistance > this.MOVEMENT_THRESHOLD) {
+            grabData.lastPosition.copy(currentPosVec);
+            grabData.lastMovedTime = Date.now();
+            grabData.isMoving = true;
+          }
+        }
       }
     }
   }

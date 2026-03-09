@@ -3,6 +3,8 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied
 from django.contrib.gis.geos import Point
+from django.conf import settings
+from django.core.files.base import ContentFile
 from .permissions import IsHomeOwner
 from .models import *
 from .serializers import *
@@ -11,6 +13,10 @@ from .scada import ScadaManager
 
 from datetime import datetime, timedelta
 import requests
+import os
+import zipfile
+import shutil
+import tempfile
 
 # --- 1. Home ViewSet ---
 class HomeViewSet(viewsets.ModelViewSet):
@@ -74,6 +80,12 @@ class RoomViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("You do not own this home.")
         serializer.save()
 
+    def get_serializer_context(self):
+        """Add request to serializer context for building absolute URLs"""
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+
     @action(detail=True, methods=['get'])
     def get_devices(self, request, pk=None):
         """
@@ -135,6 +147,280 @@ class RoomViewSet(viewsets.ModelViewSet):
             "position": {"x": room.position_x, "y": room.position_y, "z": room.position_z},
             "rotation": {"y": room.rotation_y},
             "anchor_uuid": room.anchor_uuid
+        })
+
+    @action(detail=True, methods=['post'])
+    def upload_model(self, request, pk=None):
+        """
+        Custom Action: Upload a 3D model file (GLTF/GLB) or ZIP folder for the room.
+        
+        Body Parameters:
+            file (file): Required. The 3D model file (GLTF/GLB) or ZIP archive containing the model folder.
+            
+        Returns:
+            JSON: The updated room data with the model file URL.
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        logger.info(f"[Upload Model] ===== Starting upload_model for room_id={pk} =====")
+        logger.info(f"[Upload Model] Request method: {request.method}")
+        logger.info(f"[Upload Model] Request FILES keys: {list(request.FILES.keys())}")
+        logger.info(f"[Upload Model] Request content type: {request.content_type}")
+        
+        try:
+            room = self.get_object()
+            logger.info(f"[Upload Model] Room found: {room.id}, name: {room.room_name}")
+        except Exception as e:
+            logger.error(f"[Upload Model] Failed to get room: {str(e)}")
+            return Response({"error": f"Room not found: {str(e)}"}, status=404)
+        
+        if 'file' not in request.FILES:
+            logger.error("[Upload Model] No 'file' key in request.FILES")
+            logger.error(f"[Upload Model] Available keys: {list(request.FILES.keys())}")
+            return Response({"error": "No file provided"}, status=400)
+        
+        uploaded_file = request.FILES['file']
+        file_extension = os.path.splitext(uploaded_file.name)[1].lower()
+        
+        logger.info(f"[Upload Model] File received: name={uploaded_file.name}, size={uploaded_file.size}, extension={file_extension}")
+        logger.info(f"[Upload Model] File content_type: {getattr(uploaded_file, 'content_type', 'unknown')}")
+        
+        # Validate file extension
+        allowed_extensions = ['.gltf', '.glb', '.zip']
+        if file_extension not in allowed_extensions:
+            logger.error(f"[Upload Model] Invalid file extension: {file_extension}")
+            return Response(
+                {"error": f"Invalid file type. Allowed: {', '.join(allowed_extensions)}"}, 
+                status=400
+            )
+        
+        logger.info(f"[Upload Model] File extension validated: {file_extension}")
+        
+        # Get the room's model directory
+        room_model_dir = os.path.join(settings.MEDIA_ROOT, 'room_models', str(room.id))
+        logger.info(f"[Upload Model] Room model directory: {room_model_dir}")
+        logger.info(f"[Upload Model] MEDIA_ROOT: {settings.MEDIA_ROOT}")
+        
+        # Delete old files if they exist
+        if os.path.exists(room_model_dir):
+            try:
+                logger.info(f"[Upload Model] Deleting old room model directory: {room_model_dir}")
+                shutil.rmtree(room_model_dir)
+                logger.info(f"[Upload Model] Old directory deleted successfully")
+            except Exception as e:
+                logger.warning(f"[Upload Model] Could not delete old room model directory: {e}")
+        
+        # Create the directory
+        try:
+            os.makedirs(room_model_dir, exist_ok=True)
+            logger.info(f"[Upload Model] Created/verified room model directory: {room_model_dir}")
+        except Exception as e:
+            logger.error(f"[Upload Model] Failed to create directory: {e}")
+            return Response({"error": f"Failed to create directory: {str(e)}"}, status=500)
+        
+        main_gltf_file = None
+        
+        if file_extension == '.zip':
+            # Handle ZIP file - extract it
+            logger.info("[Upload Model] Processing ZIP file")
+            try:
+                # Save uploaded file to a temporary location first
+                logger.info("[Upload Model] Saving uploaded file to temporary location")
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as tmp_file:
+                    chunk_count = 0
+                    total_bytes = 0
+                    for chunk in uploaded_file.chunks():
+                        tmp_file.write(chunk)
+                        chunk_count += 1
+                        total_bytes += len(chunk)
+                    tmp_file_path = tmp_file.name
+                
+                logger.info(f"[Upload Model] Saved to temp file: {tmp_file_path}, chunks: {chunk_count}, total bytes: {total_bytes}")
+                
+                try:
+                    logger.info(f"[Upload Model] Opening ZIP file: {tmp_file_path}")
+                    with zipfile.ZipFile(tmp_file_path, 'r') as zip_ref:
+                        file_list = zip_ref.namelist()
+                        logger.info(f"[Upload Model] ZIP contains {len(file_list)} files")
+                        logger.info(f"[Upload Model] ZIP file list (first 10): {file_list[:10]}")
+                        
+                        # Extract all files to the room model directory
+                        logger.info(f"[Upload Model] Extracting to: {room_model_dir}")
+                        zip_ref.extractall(room_model_dir)
+                        logger.info("[Upload Model] Extraction complete")
+                        
+                        # Clean up __MACOSX folder if it exists (macOS metadata)
+                        macosx_path = os.path.join(room_model_dir, '__MACOSX')
+                        if os.path.exists(macosx_path):
+                            logger.info(f"[Upload Model] Removing __MACOSX folder: {macosx_path}")
+                            try:
+                                shutil.rmtree(macosx_path)
+                                logger.info("[Upload Model] __MACOSX folder removed")
+                            except Exception as e:
+                                logger.warning(f"[Upload Model] Could not remove __MACOSX folder: {e}")
+                    
+                    # Find the main GLTF file (prefer .gltf over .glb, and prefer files in root)
+                    # Skip __MACOSX folders and macOS metadata files (._*)
+                    logger.info("[Upload Model] Searching for GLTF files")
+                    gltf_files = []
+                    for root, dirs, files in os.walk(room_model_dir):
+                        # Skip __MACOSX folders
+                        if '__MACOSX' in root:
+                            logger.info(f"[Upload Model] Skipping __MACOSX folder: {root}")
+                            continue
+                        
+                        # Filter out macOS metadata files and __MACOSX directories
+                        dirs[:] = [d for d in dirs if d != '__MACOSX']
+                        files = [f for f in files if not f.startswith('._')]
+                        
+                        for file in files:
+                            if file.lower().endswith('.gltf'):
+                                rel_path = os.path.relpath(os.path.join(root, file), room_model_dir)
+                                is_root = root == room_model_dir
+                                gltf_files.append((rel_path, file, is_root))
+                                logger.info(f"[Upload Model] Found GLTF: {rel_path} (root: {is_root})")
+                    
+                    # Sort: root files first, then by name
+                    gltf_files.sort(key=lambda x: (not x[2], x[0]))
+                    
+                    if gltf_files:
+                        main_gltf_file = gltf_files[0][0]  # Get relative path
+                        logger.info(f"[Upload Model] Selected main GLTF file: {main_gltf_file}")
+                    else:
+                        # If no .gltf, look for .glb
+                        logger.info("[Upload Model] No GLTF files found, searching for GLB files")
+                        glb_files = []
+                        for root, dirs, files in os.walk(room_model_dir):
+                            # Skip __MACOSX folders
+                            if '__MACOSX' in root:
+                                logger.info(f"[Upload Model] Skipping __MACOSX folder: {root}")
+                                continue
+                            
+                            # Filter out macOS metadata files and __MACOSX directories
+                            dirs[:] = [d for d in dirs if d != '__MACOSX']
+                            files = [f for f in files if not f.startswith('._')]
+                            
+                            for file in files:
+                                if file.lower().endswith('.glb'):
+                                    rel_path = os.path.relpath(os.path.join(root, file), room_model_dir)
+                                    is_root = root == room_model_dir
+                                    glb_files.append((rel_path, file, is_root))
+                                    logger.info(f"[Upload Model] Found GLB: {rel_path} (root: {is_root})")
+                        
+                        glb_files.sort(key=lambda x: (not x[2], x[0]))
+                        if glb_files:
+                            main_gltf_file = glb_files[0][0]
+                            logger.info(f"[Upload Model] Selected main GLB file: {main_gltf_file}")
+                        else:
+                            # Clean up temp file
+                            logger.error("[Upload Model] No GLTF or GLB files found in ZIP")
+                            os.unlink(tmp_file_path)
+                            return Response(
+                                {"error": "ZIP file does not contain any GLTF or GLB files"}, 
+                                status=400
+                            )
+                finally:
+                    # Clean up temporary file
+                    if os.path.exists(tmp_file_path):
+                        logger.info(f"[Upload Model] Cleaning up temp file: {tmp_file_path}")
+                        os.unlink(tmp_file_path)
+            except zipfile.BadZipFile as e:
+                logger.error(f"[Upload Model] Invalid ZIP file: {str(e)}")
+                return Response({"error": "Invalid ZIP file"}, status=400)
+            except Exception as e:
+                logger.error(f"[Upload Model] Failed to extract ZIP file: {str(e)}", exc_info=True)
+                return Response({"error": f"Failed to extract ZIP file: {str(e)}"}, status=400)
+        else:
+            # Handle single GLTF/GLB file
+            logger.info("[Upload Model] Processing single file (not ZIP)")
+            file_path = os.path.join(room_model_dir, uploaded_file.name)
+            logger.info(f"[Upload Model] Saving to: {file_path}")
+            try:
+                with open(file_path, 'wb+') as destination:
+                    chunk_count = 0
+                    total_bytes = 0
+                    for chunk in uploaded_file.chunks():
+                        destination.write(chunk)
+                        chunk_count += 1
+                        total_bytes += len(chunk)
+                    logger.info(f"[Upload Model] File saved: chunks={chunk_count}, bytes={total_bytes}")
+                main_gltf_file = uploaded_file.name
+                logger.info(f"[Upload Model] Main GLTF file: {main_gltf_file}")
+            except Exception as e:
+                logger.error(f"[Upload Model] Failed to save file: {str(e)}", exc_info=True)
+                return Response({"error": f"Failed to save file: {str(e)}"}, status=500)
+        
+        # Store the relative path to the main GLTF file
+        # The file path will be relative to the room model directory
+        relative_path = main_gltf_file.replace('\\', '/')  # Normalize path separators
+        logger.info(f"[Upload Model] Relative path: {relative_path}")
+        
+        # Update the room model field
+        room.room_model = f"uploaded_{room.id}"
+        logger.info(f"[Upload Model] Room model set to: {room.room_model}")
+        
+        # For ZIP files, we don't use the FileField since files are already extracted
+        # For single files, we save to the FileField
+        if file_extension == '.zip':
+            # For ZIP files, store a reference to the main file
+            logger.info("[Upload Model] Handling ZIP file - creating reference file")
+            main_file_path = os.path.join(room_model_dir, relative_path)
+            logger.info(f"[Upload Model] Main file path: {main_file_path}")
+            logger.info(f"[Upload Model] Main file exists: {os.path.exists(main_file_path)}")
+            
+            # Create a reference file that stores the relative path
+            reference_file = os.path.join(room_model_dir, '.main_gltf')
+            logger.info(f"[Upload Model] Creating reference file: {reference_file}")
+            with open(reference_file, 'w') as f:
+                f.write(relative_path)
+            logger.info(f"[Upload Model] Reference file created")
+            
+            # Save a dummy file to the FileField for compatibility
+            logger.info("[Upload Model] Saving dummy file to FileField")
+            room.room_model_file.save(
+                relative_path,
+                ContentFile(b''),  # Empty file, just for path reference
+                save=False
+            )
+            logger.info(f"[Upload Model] FileField saved: {room.room_model_file}")
+        else:
+            # For single files, save normally
+            logger.info("[Upload Model] Handling single file - saving to FileField")
+            main_file_path = os.path.join(room_model_dir, relative_path)
+            logger.info(f"[Upload Model] Main file path: {main_file_path}")
+            if os.path.exists(main_file_path):
+                logger.info("[Upload Model] Reading file and saving to FileField")
+                with open(main_file_path, 'rb') as f:
+                    file_content = f.read()
+                    logger.info(f"[Upload Model] File content size: {len(file_content)} bytes")
+                    room.room_model_file.save(
+                        relative_path,
+                        ContentFile(file_content),
+                        save=False
+                    )
+                logger.info(f"[Upload Model] FileField saved: {room.room_model_file}")
+            else:
+                logger.error(f"[Upload Model] Main file does not exist: {main_file_path}")
+                return Response({"error": f"File not found: {main_file_path}"}, status=500)
+        
+        logger.info("[Upload Model] Saving room to database")
+        room.save()
+        logger.info("[Upload Model] Room saved successfully")
+        
+        # Build the URL to the main GLTF file
+        # The URL should point to the extracted file in the folder structure
+        main_file_url = f"{settings.MEDIA_URL}room_models/{room.id}/{relative_path}"
+        file_url = request.build_absolute_uri(main_file_url)
+        logger.info(f"[Upload Model] File URL: {file_url}")
+        logger.info(f"[Upload Model] Main file URL (relative): {main_file_url}")
+        
+        logger.info("[Upload Model] ===== Upload completed successfully =====")
+        return Response({
+            "status": "model_uploaded",
+            "room_model": room.room_model,
+            "model_file_url": file_url,
+            "room": RoomSerializer(room, context={'request': request}).data
         })
 
 

@@ -117,7 +117,11 @@ venv.bak/
 .dmypy.json
 dmypy.json
 .pyre/
+# Django media files (user uploads)
 media/
+apps/backend/media/
+# Room model uploads
+**/room_models/
 staticfiles/
 
 # ===== Nx / Turborepo =====

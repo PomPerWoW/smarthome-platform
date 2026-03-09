@@ -8,6 +8,13 @@ export type VoiceIdlePayload = {
   instructionTopic?: string;
 };
 
+export type DialogueMessage = {
+  id: string;
+  text: string;
+  sender: "user" | "robot";
+  timestamp: number;
+};
+
 interface UIState {
 
   loading: boolean;
@@ -19,6 +26,7 @@ interface UIState {
   voice_status: VoiceStatus;
   voice_payload: VoiceIdlePayload | null;
   is_any_modal_open: boolean;
+  dialogue_messages: DialogueMessage[];
 
   set_loading: (is_loading: boolean) => void;
   set_error: (message: string) => void;
@@ -36,6 +44,8 @@ interface UIState {
   set_voice_status: (status: VoiceStatus, payload?: VoiceIdlePayload) => void;
   clear_voice_payload: () => void;
   set_modal_open: (open: boolean) => void;
+  add_dialogue_message: (text: string, sender: "user" | "robot") => void;
+  clear_dialogue: () => void;
   reset_state: () => void;
 }
 
@@ -50,6 +60,7 @@ export const useUIStore = create<UIState>()((set, get) => ({
   voice_status: "idle",
   voice_payload: null,
   is_any_modal_open: false,
+  dialogue_messages: [],
 
   set_loading: (is_loading) => set({ loading: is_loading }),
   
@@ -97,6 +108,21 @@ export const useUIStore = create<UIState>()((set, get) => ({
 
   set_modal_open: (open) => set({ is_any_modal_open: open }),
 
+  add_dialogue_message: (text, sender) =>
+    set((state) => ({
+      dialogue_messages: [
+        ...state.dialogue_messages,
+        {
+          id: `${Date.now()}-${Math.random()}`,
+          text,
+          sender,
+          timestamp: Date.now(),
+        },
+      ],
+    })),
+
+  clear_dialogue: () => set({ dialogue_messages: [] }),
+
   reset_state: () => set({
     loading: false,
     error_message: "",
@@ -107,5 +133,6 @@ export const useUIStore = create<UIState>()((set, get) => ({
     voice_status: "idle",
     voice_payload: null,
     is_any_modal_open: false,
+    dialogue_messages: [],
   }),
 }));

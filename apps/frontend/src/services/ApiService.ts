@@ -116,7 +116,17 @@ export class ApiService {
     data?: unknown,
     config?: AxiosRequestConfig,
   ): Promise<T> {
-    const response = await this.client.post<T>(url, data, config);
+    const isFormData = data instanceof FormData;
+    const finalConfig = isFormData
+      ? {
+        ...config,
+        headers: {
+          ...config?.headers,
+          "Content-Type": undefined, // Remove Content-Type to let axios set it
+        },
+      }
+      : config;
+    const response = await this.client.post<T>(url, data, finalConfig);
     return response.data;
   }
 

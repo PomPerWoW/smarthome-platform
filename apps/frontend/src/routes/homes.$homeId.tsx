@@ -10,6 +10,11 @@ import {
   Armchair,
   Pencil,
   Trash2,
+  Upload,
+  Box,
+  X,
+  CheckCircle2,
+  File,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -69,6 +74,7 @@ function HomeDetailPage() {
   const [isCreateRoomOpen, setIsCreateRoomOpen] = useState(false);
   const [newRoomName, setNewRoomName] = useState("");
   const [newRoomModel, setNewRoomModel] = useState("LabPlan");
+  const [newRoomModelFile, setNewRoomModelFile] = useState<File | null>(null);
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [roomToRename, setRoomToRename] = useState<Room | null>(null);
   const [roomToDelete, setRoomToDelete] = useState<Room | null>(null);
@@ -157,13 +163,38 @@ function HomeDetailPage() {
     });
 
   const createRoomMutation = useMutation({
-    mutationFn: ({ name, roomModel }: { name: string; roomModel: string }) =>
-      HomeService.getInstance().createRoom(name, homeId, roomModel),
+    mutationFn: async ({
+      name,
+      roomModel,
+      modelFile,
+    }: {
+      name: string;
+      roomModel: string;
+      modelFile?: File | null;
+    }) => {
+      // Create room first
+      const room = await HomeService.getInstance().createRoom(
+        name,
+        homeId,
+        roomModel,
+      );
+      // Upload model file if provided
+      if (modelFile) {
+        await HomeService.getInstance().uploadRoomModel(room.id, modelFile);
+      }
+      return room;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["rooms"] });
       setIsCreateRoomOpen(false);
       setNewRoomName("");
       setNewRoomModel("LabPlan");
+      setNewRoomModelFile(null);
+      // Reset file input
+      const fileInput = document.getElementById("room-model-file") as HTMLInputElement;
+      if (fileInput) {
+        fileInput.value = "";
+      }
       toast.success("Room created successfully");
     },
     onError: (error) => {
@@ -186,7 +217,48 @@ function HomeDetailPage() {
 
   const handleCreateRoom = () => {
     if (newRoomName.trim()) {
-      createRoomMutation.mutate({ name: newRoomName.trim(), roomModel: newRoomModel });
+      createRoomMutation.mutate({
+        name: newRoomName.trim(),
+        roomModel: newRoomModel,
+        modelFile: newRoomModelFile,
+      });
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      const validExtensions = [".gltf", ".glb", ".zip"];
+      const fileExtension = file.name
+        .toLowerCase()
+        .substring(file.name.lastIndexOf("."));
+      if (!validExtensions.includes(fileExtension)) {
+        toast.error(
+          "Invalid file type. Please upload a GLTF, GLB file, or ZIP archive containing the model folder.",
+        );
+        return;
+      }
+
+      // Validate file size (100MB max for ZIP, 50MB for single files)
+      const maxSize = fileExtension === ".zip" 
+        ? 100 * 1024 * 1024  // 100MB for ZIP
+        : 50 * 1024 * 1024;  // 50MB for single files
+      if (file.size > maxSize) {
+        toast.error(
+          `File too large. Please upload a file smaller than ${fileExtension === ".zip" ? "100MB" : "50MB"}.`,
+        );
+        return;
+      }
+
+      setNewRoomModelFile(file);
+      // Clear the dropdown selection when a file is uploaded
+      setNewRoomModel("LabPlan");
+      toast.success(
+        fileExtension === ".zip"
+          ? "ZIP archive selected. It will be extracted on upload."
+          : "3D model file selected successfully"
+      );
     }
   };
 
@@ -304,33 +376,166 @@ function HomeDetailPage() {
                 Create a new room in this home.
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-4">
+            <div className="space-y-6 py-4">
               <div className="space-y-2">
                 <Label htmlFor="room-name">Room Name</Label>
                 <Input
                   id="room-name"
-                  placeholder="e.g., Living Room"
+                  placeholder="e.g., Living Room, Bedroom, Kitchen"
                   value={newRoomName}
                   onChange={(e) => setNewRoomName(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleCreateRoom()}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="room-model">3D Room Model</Label>
-                <Select value={newRoomModel} onValueChange={setNewRoomModel}>
-                  <SelectTrigger>
+
+              {/* Divider */}
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">
+                    3D Model Configuration
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <Label htmlFor="room-model" className="text-base font-semibold">
+                  Pre-built Models
+                </Label>
+                <Select
+                  value={newRoomModel}
+                  onValueChange={(value) => {
+                    setNewRoomModel(value);
+                    // Clear file when selecting from dropdown
+                    setNewRoomModelFile(null);
+                  }}
+                  disabled={!!newRoomModelFile || createRoomMutation.isPending}
+                >
+                  <SelectTrigger className={newRoomModelFile ? "opacity-50" : ""}>
                     <SelectValue placeholder="Select a room model" />
                   </SelectTrigger>
                   <SelectContent>
                     {ROOM_MODELS.map((model) => (
                       <SelectItem key={model.value} value={model.value}>
-                        {model.label}
+                        <div className="flex items-center gap-2">
+                          <Box className="h-4 w-4" />
+                          {model.label}
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {newRoomModelFile && (
+                  <p className="text-xs text-amber-600 flex items-center gap-1">
+                    <X className="h-3 w-3" />
+                    Custom model selected - pre-built model disabled
+                  </p>
+                )}
+              </div>
+
+              {/* Divider */}
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">
+                    Or Upload Custom Model
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <Label htmlFor="room-model-file" className="text-base font-semibold">
+                  Upload Custom 3D Model
+                  <span className="ml-2 text-xs font-normal text-muted-foreground">
+                    (Optional)
+                  </span>
+                </Label>
+
+                {!newRoomModelFile ? (
+                  <div className="relative">
+                    <Input
+                      id="room-model-file"
+                      type="file"
+                      accept=".gltf,.glb,.zip"
+                      onChange={handleFileChange}
+                      disabled={createRoomMutation.isPending}
+                      className="sr-only"
+                    />
+                    <label
+                      htmlFor="room-model-file"
+                      className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-muted/50 hover:bg-muted/80 transition-colors group"
+                    >
+                      <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                        <Upload className="w-10 h-10 mb-3 text-muted-foreground group-hover:text-foreground transition-colors" />
+                        <p className="mb-2 text-sm text-foreground font-medium">
+                          <span className="font-semibold">Click to upload</span> or drag and drop
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          GLTF, GLB file, or ZIP archive (max 50MB/100MB)
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          ZIP files will be extracted automatically
+                        </p>
+                      </div>
+                    </label>
+                  </div>
+                ) : (
+                  <div className="relative rounded-lg border bg-card p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        <div className="mt-0.5 p-2 rounded-md bg-primary/10">
+                          <Box className="h-5 w-5 text-primary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <p className="text-sm font-medium truncate">
+                              {newRoomModelFile.name}
+                            </p>
+                            <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {(newRoomModelFile.size / 1024 / 1024).toFixed(2)} MB
+                            {" · "}
+                            {newRoomModelFile.name.endsWith(".zip")
+                              ? "ZIP Archive"
+                              : newRoomModelFile.name.endsWith(".glb")
+                              ? "Binary GLTF"
+                              : "GLTF"}
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 flex-shrink-0"
+                        onClick={() => {
+                          setNewRoomModelFile(null);
+                          const fileInput = document.getElementById(
+                            "room-model-file",
+                          ) as HTMLInputElement;
+                          if (fileInput) {
+                            fileInput.value = "";
+                          }
+                        }}
+                        disabled={createRoomMutation.isPending}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <div className="rounded-md bg-primary/5 border border-primary/20 p-2">
+                      <p className="text-xs text-primary font-medium">
+                        ✓ This custom model will override the pre-built model above
+                      </p>
+                    </div>
+                  </div>
+                )}
                 <p className="text-xs text-muted-foreground">
-                  Choose the 3D model for the room in the scene creator. Defaults to Lab Plan.
+                  Upload your own 3D room model in GLTF, GLB format, or as a ZIP archive containing the model folder with all textures and resources. The file will be used when viewing this room in the 3D scene creator.
                 </p>
               </div>
             </div>

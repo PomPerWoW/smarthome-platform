@@ -11,12 +11,17 @@ class Home(models.Model):
     def __str__(self):
         return self.home_name
 
+def room_model_upload_path(instance, filename):
+    """Generate upload path for room model files"""
+    return f"room_models/{instance.id}/{filename}"
+
 class Room(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     
     home = models.ForeignKey(Home, on_delete=models.CASCADE, related_name='rooms')
     room_name = models.CharField(max_length=255)
     room_model = models.CharField(max_length=255, default='LabPlan', help_text="3D model identifier for the room scene (e.g. LabPlan)")
+    room_model_file = models.FileField(upload_to=room_model_upload_path, null=True, blank=True, help_text="Uploaded 3D model file (GLTF/GLB)")
 
     position_x = models.FloatField(default=0.0)
     position_y = models.FloatField(default=0.0)

@@ -37,10 +37,34 @@ class HomeSerializer(serializers.ModelSerializer):
 class RoomSerializer(serializers.ModelSerializer):
     position = serializers.SerializerMethodField()
     rotation = serializers.SerializerMethodField()
+    room_model_file_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Room
-        fields = ['id', 'home', 'room_name', 'room_model', 'position', 'rotation']
+        fields = ['id', 'home', 'room_name', 'room_model', 'room_model_file_url', 'position', 'rotation']
+    
+    def get_room_model_file_url(self, obj):
+        """Return the URL of the uploaded room model file if it exists"""
+        if obj.room_model_file:
+            request = self.context.get('request')
+            if request:
+                # Check if this is a ZIP-extracted model (has .main_gltf reference file)
+                from django.conf import settings
+                import os
+                room_model_dir = os.path.join(settings.MEDIA_ROOT, 'room_models', str(obj.id))
+                reference_file = os.path.join(room_model_dir, '.main_gltf')
+                
+                if os.path.exists(reference_file):
+                    # Read the relative path from the reference file
+                    with open(reference_file, 'r') as f:
+                        relative_path = f.read().strip()
+                    # Build URL to the extracted file
+                    main_file_url = f"{settings.MEDIA_URL}room_models/{obj.id}/{relative_path}"
+                    return request.build_absolute_uri(main_file_url)
+                else:
+                    # Single file upload, use the FileField URL
+                    return request.build_absolute_uri(obj.room_model_file.url)
+        return None
 
     def get_position(self, obj):
         return {"x": obj.position_x, "y": obj.position_y, "z": obj.position_z}

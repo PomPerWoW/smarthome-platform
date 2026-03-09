@@ -14,7 +14,7 @@ import {
   LoopRepeat,
 } from "@iwsdk/core";
 
-import { Vector3 as TV3 } from "three";
+import { Vector3 as TV3, Mesh, Intersection } from "three";
 import {
   deviceStore,
   getStore,
@@ -27,6 +27,7 @@ import { BaseDevice, DeviceFactory } from "../entities";
 import { DEVICE_ASSET_KEYS } from "../constants";
 import { chart3D, ChartType } from "../components/Chart3D";
 import { constrainDeviceMovement, DEVICE_RADIUS } from "../config/collision";
+import { Vector3 as ThreeVector3, Raycaster, Intersection } from "three";
 
 export class DeviceRendererSystem extends createSystem({
   devices: {
@@ -689,11 +690,12 @@ export class DeviceRendererSystem extends createSystem({
         const worldPos = new Vector3();
         record.entity.object3D.getWorldPosition(worldPos);
 
-        // Position panel to the right of device (in world space)
+        // Find a safe position for the panel (collision-aware)
+        const safePanelPos = this.findSafePanelPosition(worldPos, yOffset);
         record.panelEntity.object3D.position.set(
-          worldPos.x + 0.5,
-          worldPos.y + yOffset,
-          worldPos.z,
+          safePanelPos.x,
+          safePanelPos.y,
+          safePanelPos.z,
         );
 
         // Make panel face the camera
@@ -702,12 +704,18 @@ export class DeviceRendererSystem extends createSystem({
           record.panelEntity.object3D.lookAt(camera.position);
         }
 
-        // Position graph panel to the right of the control panel
+        // Position graph panel relative to the control panel
         if (record.graphPanelEntity?.object3D && record.graphPanelVisible) {
+          // Try to position graph panel to the right of control panel, or find safe position
+          const graphPanelPos = this.findSafePanelPosition(
+            safePanelPos,
+            0,
+            0.5, // Offset from control panel
+          );
           record.graphPanelEntity.object3D.position.set(
-            worldPos.x + 1.0, // Further right than the control panel
-            worldPos.y,
-            worldPos.z,
+            graphPanelPos.x,
+            graphPanelPos.y,
+            graphPanelPos.z,
           );
 
           // Make graph panel face the camera
@@ -717,6 +725,138 @@ export class DeviceRendererSystem extends createSystem({
         }
       }
     }
+  }
+
+  /**
+   * Find a safe position for a panel that doesn't collide with room geometry.
+   * Tries multiple positions around the device (right, left, front, back, etc.)
+   * 
+   * @param deviceWorldPos World position of the device
+   * @param yOffset Vertical offset for the panel
+   * @param baseOffset Base horizontal offset from device (default 0.5m)
+   * @returns Safe world position for the panel
+   */
+  private findSafePanelPosition(
+    deviceWorldPos: Vector3,
+    yOffset: number,
+    baseOffset: number = 0.5,
+  ): Vector3 {
+    const roomModel = (globalThis as any).__labRoomModel as Object3D | undefined;
+    if (!roomModel) {
+      // No room model - use default position
+      return new Vector3(
+        deviceWorldPos.x + baseOffset,
+        deviceWorldPos.y + yOffset,
+        deviceWorldPos.z,
+      );
+    }
+
+    // Panel dimensions (approximate - panels are roughly 0.4m x 0.55m)
+    const PANEL_RADIUS = 0.3; // Conservative radius for collision checking
+    const PANEL_HEIGHTS = [0.1, 0.3, 0.5]; // Check at different heights
+
+    // Try multiple positions: right, left, front, back, and variations
+    const candidateOffsets = [
+      // Default: right of device
+      { x: baseOffset, z: 0 },
+      // Left of device
+      { x: -baseOffset, z: 0 },
+      // Front of device
+      { x: 0, z: baseOffset },
+      // Back of device
+      { x: 0, z: -baseOffset },
+      // Diagonal positions
+      { x: baseOffset * 0.7, z: baseOffset * 0.7 },
+      { x: -baseOffset * 0.7, z: baseOffset * 0.7 },
+      { x: baseOffset * 0.7, z: -baseOffset * 0.7 },
+      { x: -baseOffset * 0.7, z: -baseOffset * 0.7 },
+      // Closer positions
+      { x: baseOffset * 0.5, z: 0 },
+      { x: -baseOffset * 0.5, z: 0 },
+      { x: 0, z: baseOffset * 0.5 },
+      { x: 0, z: -baseOffset * 0.5 },
+      // Further positions
+      { x: baseOffset * 1.2, z: 0 },
+      { x: -baseOffset * 1.2, z: 0 },
+    ];
+
+    // Get collision meshes from room model (same approach as collision system)
+    const collisionMeshes: any[] = [];
+    roomModel.traverse((child: any) => {
+      if (child.isMesh && child.geometry) {
+        collisionMeshes.push(child);
+      }
+    });
+
+    // Use original raycast method (bypass any overrides, same as collision system)
+    const originalRaycast = (Mesh.prototype as any).raycast;
+
+    const raycaster = new Raycaster();
+    const testDirections = [
+      new ThreeVector3(1, 0, 0),   // Right
+      new ThreeVector3(-1, 0, 0),  // Left
+      new ThreeVector3(0, 0, 1),   // Forward
+      new ThreeVector3(0, 0, -1),  // Back
+      new ThreeVector3(0, 1, 0),   // Up
+      new ThreeVector3(0, -1, 0),  // Down
+    ];
+
+    // Try each candidate position
+    for (const offset of candidateOffsets) {
+      const candidatePos = new ThreeVector3(
+        deviceWorldPos.x + offset.x,
+        deviceWorldPos.y + yOffset,
+        deviceWorldPos.z + offset.z,
+      );
+
+      // Check if this position is safe by casting rays in multiple directions
+      let isSafe = true;
+      for (const height of PANEL_HEIGHTS) {
+        const testOrigin = new ThreeVector3(
+          candidatePos.x,
+          candidatePos.y + height,
+          candidatePos.z,
+        );
+
+        for (const dir of testDirections) {
+          raycaster.set(testOrigin, dir);
+          raycaster.far = PANEL_RADIUS;
+          raycaster.near = 0;
+
+          // Use original raycast to check collisions (same as collision system)
+          const hits: Intersection[] = [];
+          for (const mesh of collisionMeshes) {
+            originalRaycast.call(mesh, raycaster, hits);
+          }
+
+          if (hits.length > 0) {
+            hits.sort((a, b) => a.distance - b.distance);
+            if (hits[0].distance < PANEL_RADIUS) {
+              // Position is too close to room geometry
+              isSafe = false;
+              break;
+            }
+          }
+        }
+
+        if (!isSafe) break;
+      }
+
+      if (isSafe) {
+        // Found a safe position
+        return new Vector3(candidatePos.x, candidatePos.y, candidatePos.z);
+      }
+    }
+
+    // If no safe position found, use default position anyway (better than nothing)
+    console.warn(
+      `[DeviceRenderer] Could not find collision-free position for panel, using default`,
+    );
+    return new Vector3(
+      deviceWorldPos.x + baseOffset,
+      deviceWorldPos.y + yOffset,
+      deviceWorldPos.z,
+    );
   }
 
   destroy(): void {

@@ -7,6 +7,7 @@ import {
   speakInstruction,
 } from "./VoiceTextToSpeech";
 import { toast } from "sonner";
+import { useUIStore } from "@/stores/ui_store";
 
 class PythonTalkMainBridge {
   static async analyze(input: any) {
@@ -140,6 +141,7 @@ export class VoiceService {
     this.recognition.onresult = async (event: any) => {
       const transcript = event.results[0][0].transcript;
       onResult(transcript);
+      useUIStore.getState().add_dialogue_message(transcript, "user");
       onStatusChange?.("processing");
 
       try {
@@ -265,6 +267,9 @@ export class VoiceService {
           );
           console.log("[VoiceService] Transcribed:", transcript);
           onResult(transcript);
+          if (transcript && transcript.trim()) {
+            useUIStore.getState().add_dialogue_message(transcript, "user");
+          }
 
           if (command_result?.instruction_topic) {
             toast.success(`Instruction: "${transcript}"`);

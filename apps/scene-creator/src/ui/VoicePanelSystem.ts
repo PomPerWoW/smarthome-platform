@@ -53,6 +53,9 @@ export class VoicePanelSystem extends createSystem({
   // Dialogue closing timer
   private closingTimer = 0;
 
+  // Track if we're in an active conversation (robot is waiting for user response)
+  private inActiveConversation = false;
+
   // 3D panel status text reference
   private statusTextRef: UIKit.Text | null = null;
   private micButtonRef: UIKit.Container | null = null;
@@ -75,6 +78,9 @@ export class VoicePanelSystem extends createSystem({
   init() {
     this.voiceSystem = VoiceControlSystem.getInstance();
     this.dialogue = new DialogueOverlay();
+
+    // Register a callback for robot messages (to be called by RobotAssistantSystem)
+    this.setupRobotMessageListener();
 
     this.queries.voicePanel.subscribe("qualify", (entity) => {
       const document = PanelDocument.data.document[
@@ -136,9 +142,17 @@ export class VoicePanelSystem extends createSystem({
             micButton.setProperties({ backgroundColor: "#eab308" }); // Yellow/Orange
             statusText.setProperties({ text: "Processing..." });
           } else {
-            micButton.setProperties({ backgroundColor: "#2563eb" }); // Blue
-            if (!this.resetStatusTimeout) {
-              statusText.setProperties({ text: "Say 'Turn on...'" });
+            // idle - but check if we're in an active conversation
+            if (this.inActiveConversation && this.dialogueState === DialogueState.ACTIVE) {
+              // Still in conversation, keep button active (red) to indicate user can click to stop
+              micButton.setProperties({ backgroundColor: "#ef4444" }); // Red
+              statusText.setProperties({ text: "Click to stop" });
+            } else {
+              // Not in conversation, show idle state
+              micButton.setProperties({ backgroundColor: "#2563eb" }); // Blue
+              if (!this.resetStatusTimeout) {
+                statusText.setProperties({ text: "Say 'Turn on...'" });
+              }
             }
           }
         }
@@ -159,24 +173,58 @@ export class VoicePanelSystem extends createSystem({
               this.dialogue.addAssistantMessage(
                 `Done! I've ${payload.action.replace(/_/g, " ")} the ${payload.device}.`,
               );
+              // After successful action, robot will ask follow-up, so stay in conversation
+              this.inActiveConversation = true;
             } else if (payload?.success && payload.instructionTopic) {
-              this.dialogue.addAssistantMessage(
-                `Here's some info about "${payload.instructionTopic}".`,
-              );
+              if (payload.instructionTopic === "goodbye") {
+                this.dialogue.addAssistantMessage("See you again! 👋");
+                this.inActiveConversation = false;
+                // Stop listening when conversation ends
+                if (this.currentStatus === "listening" || this.currentStatus === "processing") {
+                  this.voiceSystem.toggleListening();
+                }
+                setTimeout(() => this.beginClosing(), 1000);
+              } else {
+                this.dialogue.addAssistantMessage(
+                  `Here's some info about "${payload.instructionTopic}".`,
+                );
+                // Robot will ask follow-up after instruction
+                this.inActiveConversation = true;
+              }
             } else if (payload?.cancelled) {
               this.dialogue.addAssistantMessage("See you again! 👋");
+              this.inActiveConversation = false;
+              // Stop listening when cancelled
+              if (this.currentStatus === "listening" || this.currentStatus === "processing") {
+                this.voiceSystem.toggleListening();
+              }
+              // Close dialogue after goodbye message
+              setTimeout(() => this.beginClosing(), 1000);
             } else if (payload?.noMatch) {
               this.dialogue.addAssistantMessage(
                 "Sorry, I didn't understand that. Could you try again?",
               );
+              // Stay in conversation, robot will ask follow-up
+              this.inActiveConversation = true;
+            } else if (payload?.endSession) {
+              // End of instruction session
+              this.inActiveConversation = false;
+              // Stop listening when session ends
+              if (this.currentStatus === "listening" || this.currentStatus === "processing") {
+                this.voiceSystem.toggleListening();
+              }
+              setTimeout(() => this.beginClosing(), 1000);
             }
 
-            // Begin closing the dialogue after a short delay
+            // Only begin closing if we're not in an active conversation
+            // (i.e., robot is not waiting for user response)
             if (
               this.dialogueState === DialogueState.ACTIVE &&
-              status === "idle"
+              status === "idle" &&
+              !this.inActiveConversation
             ) {
-              setTimeout(() => this.beginClosing(), 1500);
+              // Don't auto-close if we're still in conversation
+              // Only close if user explicitly stops or conversation ends
             }
           }
         }
@@ -193,14 +241,25 @@ export class VoicePanelSystem extends createSystem({
 
   private handleMicClick(): void {
     console.log(
-      `[VoicePanel] 🎤 Mic clicked — current state: ${DialogueState[this.dialogueState]}`,
+      `[VoicePanel] 🎤 Mic clicked — current state: ${DialogueState[this.dialogueState]}, voice status: ${this.currentStatus}, inActiveConversation: ${this.inActiveConversation}`,
     );
 
-    // If already in dialogue, toggle voice off (stop listening)
-    if (this.dialogueState === DialogueState.ACTIVE) {
-      console.log("[VoicePanel] Toggling voice off (ACTIVE → closing)");
-      this.beginClosing();
+    // If currently listening or processing, stop it and close dialogue
+    // This handles the case where robot auto-started listening after asking "anything else?"
+    if (this.currentStatus === "listening" || this.currentStatus === "processing") {
+      console.log("[VoicePanel] Stopping active listening/processing");
       this.voiceSystem.toggleListening();
+      // Always close the dialogue when user stops
+      if (this.dialogueState === DialogueState.ACTIVE || this.dialogueState === DialogueState.APPROACHING) {
+        this.beginClosing();
+      }
+      return;
+    }
+
+    // If already in active dialogue (including when robot is waiting for response), close the dialogue
+    if (this.dialogueState === DialogueState.ACTIVE) {
+      console.log("[VoicePanel] Closing dialogue (ACTIVE → closing)");
+      this.beginClosing(); // beginClosing() already handles stopping listening
       return;
     }
 
@@ -245,6 +304,7 @@ export class VoicePanelSystem extends createSystem({
   private onRobotArrived(): void {
     console.log("[VoicePanel] 🤖 Robot arrived — activating dialogue");
     this.dialogueState = DialogueState.ACTIVE;
+    this.inActiveConversation = true;
 
     // No camera zoom — robot faces user via RobotAssistantSystem
 
@@ -269,6 +329,19 @@ export class VoicePanelSystem extends createSystem({
     );
     this.dialogueState = DialogueState.CLOSING;
     this.closingTimer = 0;
+    this.inActiveConversation = false;
+
+    // Stop listening when closing
+    if (this.currentStatus === "listening" || this.currentStatus === "processing") {
+      console.log("[VoicePanel] Stopping listening during close");
+      this.voiceSystem.toggleListening();
+    }
+
+    // Explicitly reset button to idle state (blue) when closing
+    if (this.micButtonRef && this.statusTextRef) {
+      this.micButtonRef.setProperties({ backgroundColor: "#2563eb" }); // Blue
+      this.statusTextRef.setProperties({ text: "Say 'Turn on...'" });
+    }
 
     // Hide dialogue overlay
     if (this.dialogue) {
@@ -280,6 +353,30 @@ export class VoicePanelSystem extends createSystem({
     const robot = this.robotSystem;
     if (robot) {
       robot.returnToPatrol();
+    }
+  }
+
+  /** Setup listener for robot messages (called by RobotAssistantSystem) */
+  private setupRobotMessageListener(): void {
+    // Store reference to this system so RobotAssistantSystem can call it
+    (globalThis as any).__voicePanelSystem = this;
+  }
+
+  /** Public method to add robot assistant message to dialogue */
+  public addRobotMessage(message: string): void {
+    if (this.dialogue && this.dialogue.isVisible()) {
+      this.dialogue.addAssistantMessage(message);
+      // When robot asks a question, we're in active conversation
+      if (message.includes("Do you want") || message.includes("What would you like") || message.includes("Sorry, I didn't catch")) {
+        this.inActiveConversation = true;
+        // Update button state to show we're waiting for user
+        if (this.micButtonRef && this.statusTextRef) {
+          this.micButtonRef.setProperties({ backgroundColor: "#ef4444" }); // Red
+          this.statusTextRef.setProperties({ text: "Click to stop" });
+        }
+        // Show typing indicator to indicate waiting for user
+        this.dialogue.showTyping("Listening…");
+      }
     }
   }
 
@@ -296,6 +393,12 @@ export class VoicePanelSystem extends createSystem({
       if (this.closingTimer >= CLOSING_DURATION) {
         this.dialogueState = DialogueState.IDLE;
         console.log("[VoicePanel] ✅ Closing complete — IDLE");
+
+        // Ensure button is in idle state when transition to IDLE completes
+        if (this.micButtonRef && this.statusTextRef) {
+          this.micButtonRef.setProperties({ backgroundColor: "#2563eb" }); // Blue
+          this.statusTextRef.setProperties({ text: "Say 'Turn on...'" });
+        }
       }
     }
 

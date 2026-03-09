@@ -139,17 +139,24 @@ export function constrainMovement(
 
   _dir.set(dx / hDist, 0, dz / hDist);
 
-  // ── 1) Forward check ──────────────────────────────────────────────────
-  // Check forward movement AND also check side probes to catch thin vertical surfaces
+  // ── 1) Optimized collision check ──────────────────────────────────────
+  // Check forward movement with efficient strategies to catch thin vertical surfaces
   let blocked = false;
   let hitNormal: Vector3 | null = null;
+  let closestHitDist = Infinity;
 
-  // Forward raycast at multiple heights
-  for (const h of heights) {
+  // Strategy 1: Forward raycast at key heights (primary check)
+  // Sample heights more efficiently - check bottom, middle, and top regions
+  const keyHeights = heights.length > 6 
+    ? [heights[0], heights[Math.floor(heights.length / 3)], heights[Math.floor(heights.length * 2 / 3)], heights[heights.length - 1]]
+    : heights;
+  
+  for (const h of keyHeights) {
     _origin.set(from.x, from.y + h, from.z);
     const hit = raycastRoom(_origin, _dir, hDist + radius);
     if (hit && hit.distance < hDist + radius) {
       blocked = true;
+      closestHitDist = hit.distance;
       if (hit.face) {
         hitNormal = hit.face.normal
           .clone()
@@ -158,27 +165,42 @@ export function constrainMovement(
         if (hitNormal.lengthSq() > 0.0001) hitNormal.normalize();
         else hitNormal = null;
       }
-      break; // One hit is enough to know we're blocked
+      break; // Early exit - found collision
     }
   }
 
-  // Additional check: Probe perpendicular to movement direction to catch thin side faces
-  // This helps detect thin table edges that might be missed by forward-only rays
+  // Strategy 2: Limited angle probes to catch thin surfaces at slight angles
+  // Only check if forward check didn't find anything and movement is significant
   if (!blocked && hDist > 0.001) {
-    // Perpendicular directions (left and right of movement)
-    const perpLeft = new Vector3(-_dir.z, 0, _dir.x);
-    const perpRight = new Vector3(_dir.z, 0, -_dir.x);
+    // Use only 2 key angles (30 degrees) instead of 3, and only check at 2 key heights
+    const angleDeg = 30;
+    const angleRad = (angleDeg * Math.PI) / 180;
+    const cosA = Math.cos(angleRad);
+    const sinA = Math.sin(angleRad);
     
-    // Check a few key heights for side probes
-    const sideProbeHeights = [0.05, 0.15, 0.25];
+    // Left and right directions
+    const leftDir = new Vector3(
+      _dir.x * cosA - _dir.z * sinA,
+      0,
+      _dir.x * sinA + _dir.z * cosA
+    );
+    const rightDir = new Vector3(
+      _dir.x * cosA + _dir.z * sinA,
+      0,
+      -_dir.x * sinA + _dir.z * cosA
+    );
     
-    for (const h of sideProbeHeights) {
+    // Only check at 2 key heights (bottom and middle)
+    const probeHeights = keyHeights.slice(0, 2);
+    
+    for (const h of probeHeights) {
       _origin.set(from.x, from.y + h, from.z);
       
-      // Probe left side
-      const leftHit = raycastRoom(_origin, perpLeft, radius);
-      if (leftHit && leftHit.distance < radius) {
+      // Check left angle
+      const leftHit = raycastRoom(_origin, leftDir, hDist + radius);
+      if (leftHit && leftHit.distance < hDist + radius) {
         blocked = true;
+        closestHitDist = leftHit.distance;
         if (leftHit.face) {
           hitNormal = leftHit.face.normal
             .clone()
@@ -187,13 +209,14 @@ export function constrainMovement(
           if (hitNormal.lengthSq() > 0.0001) hitNormal.normalize();
           else hitNormal = null;
         }
-        break;
+        break; // Early exit
       }
       
-      // Probe right side
-      const rightHit = raycastRoom(_origin, perpRight, radius);
-      if (rightHit && rightHit.distance < radius) {
+      // Check right angle
+      const rightHit = raycastRoom(_origin, rightDir, hDist + radius);
+      if (rightHit && rightHit.distance < hDist + radius) {
         blocked = true;
+        closestHitDist = rightHit.distance;
         if (rightHit.face) {
           hitNormal = rightHit.face.normal
             .clone()
@@ -202,7 +225,53 @@ export function constrainMovement(
           if (hitNormal.lengthSq() > 0.0001) hitNormal.normalize();
           else hitNormal = null;
         }
-        break;
+        break; // Early exit
+      }
+    }
+  }
+
+  // Strategy 3: Perpendicular side probes - only if still not blocked
+  // Check sides at limited heights to catch thin edges
+  if (!blocked && hDist > 0.001) {
+    const perpLeft = new Vector3(-_dir.z, 0, _dir.x);
+    const perpRight = new Vector3(_dir.z, 0, -_dir.x);
+    
+    // Only check at 2-3 key heights for side probes
+    const sideProbeHeights = keyHeights.slice(0, Math.min(3, keyHeights.length));
+    
+    for (const h of sideProbeHeights) {
+      _origin.set(from.x, from.y + h, from.z);
+      
+      // Probe left side
+      const leftHit = raycastRoom(_origin, perpLeft, radius * 1.1);
+      if (leftHit && leftHit.distance < radius * 1.1) {
+        blocked = true;
+        closestHitDist = leftHit.distance;
+        if (leftHit.face) {
+          hitNormal = leftHit.face.normal
+            .clone()
+            .transformDirection(leftHit.object.matrixWorld)
+            .setY(0);
+          if (hitNormal.lengthSq() > 0.0001) hitNormal.normalize();
+          else hitNormal = null;
+        }
+        break; // Early exit
+      }
+      
+      // Probe right side
+      const rightHit = raycastRoom(_origin, perpRight, radius * 1.1);
+      if (rightHit && rightHit.distance < radius * 1.1) {
+        blocked = true;
+        closestHitDist = rightHit.distance;
+        if (rightHit.face) {
+          hitNormal = rightHit.face.normal
+            .clone()
+            .transformDirection(rightHit.object.matrixWorld)
+            .setY(0);
+          if (hitNormal.lengthSq() > 0.0001) hitNormal.normalize();
+          else hitNormal = null;
+        }
+        break; // Early exit
       }
     }
   }

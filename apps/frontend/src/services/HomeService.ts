@@ -86,6 +86,12 @@ export class HomeService {
     return Room.fromApi(data);
   }
 
+  async uploadRoomModel(roomId: string, file: File): Promise<void> {
+    const formData = new FormData();
+    formData.append("file", file);
+    await this.api.post(`/api/homes/rooms/${roomId}/upload_model/`, formData);
+  }
+
   async deleteRoom(id: string): Promise<void> {
     await this.api.delete(`/api/homes/rooms/${id}/`);
   }

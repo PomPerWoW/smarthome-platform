@@ -40,6 +40,7 @@ interface DeviceState {
   furniture: FurnitureItem[];
   homes: Home[];
   roomModel: string;
+  roomModelFileUrl: string | null;
   roomId: string | null;
   homeId: string | null;
   loading: boolean;
@@ -135,6 +136,7 @@ export const deviceStore = createStore<DeviceState>()(
     furniture: [],
     homes: [],
     roomModel: "LabPlan",
+    roomModelFileUrl: null,
     roomId: null,
     homeId: null,
     loading: false,
@@ -185,9 +187,10 @@ export const deviceStore = createStore<DeviceState>()(
       try {
         console.log(`[Store] Loading data for room ${roomId}...`);
 
-        // Fetch room details to get room_model
+        // Fetch room details to get room_model and model file URL
         const roomData = await api.getRoom(roomId);
         const roomModel = roomData.room_model || "LabPlan";
+        const roomModelFileUrl = roomData.room_model_file_url || null;
         const homeId = roomData.home;
 
         // Fetch room-specific devices and furniture in parallel
@@ -213,13 +216,14 @@ export const deviceStore = createStore<DeviceState>()(
           devices,
           furniture,
           roomModel,
+          roomModelFileUrl,
           roomId,
           homeId,
           loading: false,
         });
 
         console.log(
-          `[Store] Loaded room "${roomData.room_name}": model=${roomModel}, ${devices.length} devices, ${furniture.length} furniture`,
+          `[Store] Loaded room "${roomData.room_name}": model=${roomModel}, modelFileUrl=${roomModelFileUrl || "none"}, ${devices.length} devices, ${furniture.length} furniture`,
         );
       } catch (err) {
         const message =

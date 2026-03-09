@@ -17,6 +17,7 @@ import { useAuthStore } from "@/stores/auth";
 import { useUIStore } from "@/stores/ui_store";
 import { ThreeDWorldButton } from "@/components/three-d-world-button";
 import { RobotAssistant } from "@/components/RobotAssistant";
+import { Dialogue } from "@/components/Dialogue";
 import { WebSocketService } from "@/services/WebSocketService";
 import { useEffect } from "react";
 
@@ -109,7 +110,12 @@ function RootLayout() {
               <main className="relative z-10 flex-1 overflow-y-auto p-4">
                 <Outlet />
               </main>
-              {!isAnyModalOpen && <RobotAssistant />}
+              {!isAnyModalOpen && (
+                <>
+                  <Dialogue />
+                  <RobotAssistant />
+                </>
+              )}
             </SidebarInset>
           </SidebarProvider>
         )}

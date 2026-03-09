@@ -1,3 +1,5 @@
+import { useUIStore } from "@/stores/ui_store";
+
 const PREFERRED_VOICE_NAME = "Samantha";
 const GREETING = "How can I help you?";
 const GOODBYE = "See you again.";
@@ -52,14 +54,17 @@ function speakText(text: string): Promise<void> {
 }
 
 export function speakGreeting(): Promise<void> {
+  useUIStore.getState().add_dialogue_message(GREETING, "robot");
   return speakText(GREETING);
 }
 
 export function speakSeeYouAgain(): Promise<void> {
+  useUIStore.getState().add_dialogue_message(GOODBYE, "robot");
   return speakText(GOODBYE);
 }
 
 export function speakNoMatch(): Promise<void> {
+  useUIStore.getState().add_dialogue_message(NO_MATCH, "robot");
   return speakText(NO_MATCH);
 }
 
@@ -83,6 +88,7 @@ function formatAction(action: string): string {
 export function speakCompletion(action: string, device: string): void {
   const formattedAction = formatAction(action);
   const message = `Finished ${formattedAction} ${device}`;
+  useUIStore.getState().add_dialogue_message(message, "robot");
   speakText(message);
 }
 
@@ -112,5 +118,6 @@ const INSTRUCTION_TEXTS: Record<string, string> = {
 
 export function speakInstruction(topic: string): void {
   const text = INSTRUCTION_TEXTS[topic] ?? INSTRUCTION_TEXTS.fallback;
+  useUIStore.getState().add_dialogue_message(text, "robot");
   speakText(text);
 }

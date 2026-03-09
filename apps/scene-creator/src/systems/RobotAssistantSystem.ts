@@ -47,6 +47,8 @@ const WAYPOINT_REACH_DISTANCE = 0.5; // How close to get to waypoint before pick
 /** When walking to user, use larger radius so robot reliably stops and speaks (avoids overshoot/oscillation). */
 const REACH_USER_DISTANCE = 1.0;
 const WAYPOINT_INTERVAL = 8.0; // Pick new waypoint every 8-12 seconds
+/** Maximum time (seconds) the robot will try to walk to user before giving up. */
+const WALK_TO_USER_TIMEOUT_SEC = 30.0;
 
 // ── Stuck / repath constants ──
 /** Seconds without meaningful movement before triggering a repath. */
@@ -85,6 +87,8 @@ interface RobotAssistantRecord {
   walkDirection: Vector3;
   rotateAngle: Vector3;
   rotateQuaternion: Quaternion;
+  // Track previous room-local position to prevent warping
+  lastRoomLocalPos: { x: number; y: number; z: number } | null;
 }
 
 // ============================================================================
@@ -139,6 +143,11 @@ export class RobotAssistantSystem extends createSystem({
   /** When we spoke the re-prompt ("Sorry... Do you want...?"), skip saying "Do you want...?" again if success idle arrives right after. */
   private lastRepromptSpokenAt = 0;
   private static readonly SKIP_FOLLOW_UP_AFTER_REPROMPT_MS = 3000;
+  /** Time when robot started walking to user (for timeout detection). */
+  private walkToUserStartTime = -1;
+  /** Number of step-aside attempts while walking to user. */
+  private stepAsideAttempts = 0;
+  private static readonly MAX_STEP_ASIDE_ATTEMPTS = 5;
 
   init() {
     console.log(
@@ -199,6 +208,7 @@ export class RobotAssistantSystem extends createSystem({
                   }, LISTEN_START_DELAY_MS);
                 } else {
                   console.log("[RobotAssistant] 🗣️ SPEAKING follow-up: 'Do you want me to do anything else?'");
+                  this.notifyDialogueMessage("Do you want me to do anything else?");
                   speakFollowUpAnythingElse().then(() => {
                     console.log("[RobotAssistant] 🗣️ Follow-up DONE, starting listening");
                     setTimeout(() => {
@@ -217,6 +227,20 @@ export class RobotAssistantSystem extends createSystem({
             }
             return;
           }
+          // Handle endSession flag first - this prevents further prompts after "no thank you"
+          if (payload?.endSession) {
+            console.log("[RobotAssistant] 🛑 End session requested - stopping all prompts");
+            if (this.rePromptTimeoutId !== null) {
+              clearTimeout(this.rePromptTimeoutId);
+              this.rePromptTimeoutId = null;
+            }
+            this.walkingToUser = false;
+            this.pendingInstructionTopic = null;
+            this.inInstructionSession = false;
+            this.setVoiceListening(false);
+            return;
+          }
+          
           if (payload?.success && payload.instructionTopic) {
             if (this.rePromptTimeoutId !== null) {
               clearTimeout(this.rePromptTimeoutId);
@@ -235,13 +259,18 @@ export class RobotAssistantSystem extends createSystem({
             }
             if (this.inInstructionSession) {
               // Robot already at user: speak instruction and follow-up, then keep listening
-              speakInstruction(topic).then(() =>
+              const instructionText = this.getInstructionText(topic);
+              if (instructionText) {
+                this.notifyDialogueMessage(instructionText);
+              }
+              speakInstruction(topic).then(() => {
+                this.notifyDialogueMessage("Do you want me to do anything else?");
                 speakFollowUpAnythingElse().then(() => {
                   setTimeout(() => {
                     VoiceControlSystem.getInstance().startListeningWithoutGreeting();
                   }, LISTEN_START_DELAY_MS);
-                }),
-              );
+                });
+              });
               return;
             }
             if (this.walkingToUser) {
@@ -250,6 +279,7 @@ export class RobotAssistantSystem extends createSystem({
             }
             // First instruction: say "wait for me" and walk to user
             this.pendingInstructionTopic = topic;
+            this.notifyDialogueMessage("Ok, I will explain that for you. Wait for me.");
             speakInstructionWaitMe().then(() => {
               this.startWalkingToUser();
             });
@@ -265,15 +295,25 @@ export class RobotAssistantSystem extends createSystem({
             return;
           }
           // Timeout, no match, or failure while in instruction session: delay re-prompt so a late success idle can cancel it (avoids saying "Do you want...?" twice)
-          if (this.inInstructionSession) {
+          // BUT: Don't re-prompt if endSession was already requested (user said "no thank you")
+          if (this.inInstructionSession && !payload?.endSession) {
             if (this.rePromptTimeoutId !== null) clearTimeout(this.rePromptTimeoutId);
             this.rePromptTimeoutId = setTimeout(() => {
+              // Double-check that session hasn't ended before prompting
+              if (!this.inInstructionSession) {
+                this.rePromptTimeoutId = null;
+                return;
+              }
               this.rePromptTimeoutId = null;
               this.lastRepromptSpokenAt = Date.now();
+              this.notifyDialogueMessage("Sorry, I didn't catch that. Do you want me to do anything else?");
               speakSorryDidntCatch().then(() => {
-                setTimeout(() => {
-                  VoiceControlSystem.getInstance().startListeningWithoutGreeting();
-                }, LISTEN_START_DELAY_MS);
+                // Triple-check before starting listening again
+                if (this.inInstructionSession) {
+                  setTimeout(() => {
+                    VoiceControlSystem.getInstance().startListeningWithoutGreeting();
+                  }, LISTEN_START_DELAY_MS);
+                }
               });
             }, RobotAssistantSystem.RE_PROMPT_DELAY_MS);
             return;
@@ -452,6 +492,9 @@ export class RobotAssistantSystem extends createSystem({
 
       // Update robot position in world space (update loop will convert to room-local on next frame)
       record.model.position.set(worldPos.x, worldPos.y, worldPos.z);
+      
+      // Reset position tracking to prevent false warp detection after repositioning
+      record.lastRoomLocalPos = null;
 
       // Update component with new position and reset waypoint
       const bounds = getRoomBounds();
@@ -517,6 +560,10 @@ export class RobotAssistantSystem extends createSystem({
     record.entity.setValue(RobotAssistantComponent, "targetZ", userLocal.z);
     record.entity.setValue(RobotAssistantComponent, "hasReachedTarget", false);
     this.walkingToUser = true;
+    // Reset timeout timer when resuming walk to user
+    if (this.walkToUserStartTime < 0) {
+      this.walkToUserStartTime = this.timeElapsed;
+    }
     this.setVoiceListening(false);
     this.fadeToAction(record, "Walking", FADE_DURATION);
     record.entity.setValue(RobotAssistantComponent, "currentState", "Walking");
@@ -547,6 +594,9 @@ export class RobotAssistantSystem extends createSystem({
     record.entity.setValue(RobotAssistantComponent, "targetZ", userLocal.z);
     record.entity.setValue(RobotAssistantComponent, "hasReachedTarget", false);
     this.walkingToUser = true;
+    this.walkToUserStartTime = this.timeElapsed;
+    this.stepAsideAttempts = 0;
+    this.stepAsideTarget = null;
     this.fadeToAction(record, "Walking", FADE_DURATION);
     record.entity.setValue(RobotAssistantComponent, "currentState", "Walking");
 
@@ -561,6 +611,8 @@ export class RobotAssistantSystem extends createSystem({
     this.onReachedUserCallback = null;
     this.pendingInstructionTopic = null;
     this.stepAsideTarget = null;
+    this.walkToUserStartTime = -1;
+    this.stepAsideAttempts = 0;
 
     const record = this.robotRecords.values().next().value as
       | RobotAssistantRecord
@@ -741,6 +793,7 @@ export class RobotAssistantSystem extends createSystem({
         walkDirection: new Vector3(),
         rotateAngle: new Vector3(0, 1, 0),
         rotateQuaternion: new Quaternion(),
+        lastRoomLocalPos: null,
       };
       this.robotRecords.set(robotId, record);
 
@@ -1008,15 +1061,57 @@ export class RobotAssistantSystem extends createSystem({
       // Movement code (waypoints, clamping) all works in
       // room-local coords that match roomBounds. After movement,
       // we convert back to world at end-of-frame.
-      const roomLocal = this.worldToRoomLocal(
-        record.model.position.x,
-        record.model.position.y,
-        record.model.position.z,
-      );
-      record.model.position.set(roomLocal.x, roomLocal.y, roomLocal.z);
-      // Also undo room rotation from the model's visual rotation
       const roomModel = (globalThis as any).__labRoomModel;
       const roomRotY = roomModel ? roomModel.rotation.y : 0;
+      
+      // Get current world position and convert to room-local
+      const currentWorldPos = {
+        x: record.model.position.x,
+        y: record.model.position.y,
+        z: record.model.position.z,
+      };
+      const roomLocal = this.worldToRoomLocal(
+        currentWorldPos.x,
+        currentWorldPos.y,
+        currentWorldPos.z,
+      );
+      
+      // Prevent warping by checking if the position change is reasonable
+      // If we have a previous position, ensure the change is not too large
+      if (record.lastRoomLocalPos !== null) {
+        const posDiff = Math.sqrt(
+          (roomLocal.x - record.lastRoomLocalPos.x) ** 2 +
+          (roomLocal.z - record.lastRoomLocalPos.z) ** 2
+        );
+        
+        // Maximum reasonable movement per frame (based on max velocity + safety margin)
+        // WALK_VELOCITY is 0.5 m/s, so at 60fps (dt ~0.016s), max movement is ~0.008m per frame
+        // Add safety margin: allow up to 0.1m per frame (much more than possible)
+        const maxReasonableMovement = 0.1;
+        
+        if (posDiff > maxReasonableMovement) {
+          // Large jump detected - this is likely a coordinate conversion error
+          // Keep the previous position and log a warning
+          console.warn(
+            `[RobotAssistant] ⚠️ Prevented position warp: diff=${posDiff.toFixed(3)}m (max=${maxReasonableMovement.toFixed(3)}m), keeping previous position`
+          );
+          // Use previous position instead
+          record.model.position.set(
+            record.lastRoomLocalPos.x,
+            record.lastRoomLocalPos.y,
+            record.lastRoomLocalPos.z
+          );
+        } else {
+          // Valid position update
+          record.model.position.set(roomLocal.x, roomLocal.y, roomLocal.z);
+          record.lastRoomLocalPos = { ...roomLocal };
+        }
+      } else {
+        // First frame - initialize position
+        record.model.position.set(roomLocal.x, roomLocal.y, roomLocal.z);
+        record.lastRoomLocalPos = { ...roomLocal };
+      }
+      
       // Undo room rotation so all rotation math is in room-local space
       record.model.rotation.y -= roomRotY;
 
@@ -1101,6 +1196,59 @@ export class RobotAssistantSystem extends createSystem({
       // Explicit "reached user" / "reached step-aside" check
       // Check if walking to user with either a pending instruction topic OR an external callback
       if (this.walkingToUser && (this.pendingInstructionTopic || this.onReachedUserCallback)) {
+        const walkDuration = this.timeElapsed - this.walkToUserStartTime;
+
+        // Timeout check: if we've been walking too long, give up and call callback anyway
+        if (walkDuration > WALK_TO_USER_TIMEOUT_SEC) {
+          console.warn(
+            `[RobotAssistant] ⏱️ Walk to user timed out after ${walkDuration.toFixed(1)}s — giving up and calling callback`,
+          );
+          const callback = this.onReachedUserCallback;
+          this.walkingToUser = false;
+          this.pendingInstructionTopic = null;
+          this.onReachedUserCallback = null;
+          this.walkToUserStartTime = -1;
+          this.stepAsideAttempts = 0;
+          this.stepAsideTarget = null;
+          if (callback) {
+            callback();
+          }
+          // Continue with normal behavior
+          continue;
+        }
+
+        // Update target position to current user position smoothly (if user moved)
+        // This ensures the robot follows the user if they move while it's walking
+        if (!this.stepAsideTarget && this.world.camera) {
+          const cam = this.world.camera as { position: { x: number; y: number; z: number } };
+          const currentUserLocal = this.worldToRoomLocal(
+            cam.position.x,
+            cam.position.y,
+            cam.position.z,
+          );
+          
+          // Smoothly update target position (lerp) to prevent sudden jumps
+          const targetUpdateSpeed = 2.0; // How fast to update target (units per second)
+          const dxTarget = currentUserLocal.x - targetX;
+          const dzTarget = currentUserLocal.z - targetZ;
+          const distToTarget = Math.sqrt(dxTarget * dxTarget + dzTarget * dzTarget);
+          
+          if (distToTarget > 0.1) {
+            // Only update if user moved significantly (prevents micro-adjustments)
+            const maxUpdate = targetUpdateSpeed * dt;
+            if (distToTarget > maxUpdate) {
+              const newTargetX = targetX + (dxTarget / distToTarget) * maxUpdate;
+              const newTargetZ = targetZ + (dzTarget / distToTarget) * maxUpdate;
+              entity.setValue(RobotAssistantComponent, "targetX", newTargetX);
+              entity.setValue(RobotAssistantComponent, "targetZ", newTargetZ);
+            } else {
+              // User moved a small amount, update directly
+              entity.setValue(RobotAssistantComponent, "targetX", currentUserLocal.x);
+              entity.setValue(RobotAssistantComponent, "targetZ", currentUserLocal.z);
+            }
+          }
+        }
+
         if (this.stepAsideTarget) {
           // If we are currently stepping aside to avoid an obstacle
           const dxAside = targetX - record.model.position.x;
@@ -1113,16 +1261,33 @@ export class RobotAssistantSystem extends createSystem({
             continue;
           }
         } else {
-          // Normal walk to user check
-          const dxUser = targetX - record.model.position.x;
-          const dzUser = targetZ - record.model.position.z;
+          // Normal walk to user check - use current target position (may have been updated above)
+          const currentTargetX = entity.getValue(
+            RobotAssistantComponent,
+            "targetX",
+          ) as number;
+          const currentTargetZ = entity.getValue(
+            RobotAssistantComponent,
+            "targetZ",
+          ) as number;
+          const dxUser = currentTargetX - record.model.position.x;
+          const dzUser = currentTargetZ - record.model.position.z;
           const distToUser = Math.sqrt(dxUser * dxUser + dzUser * dzUser);
-          if (distToUser <= REACH_USER_DISTANCE) {
+          
+          // Ensure robot has actually moved close enough and is not warping
+          // Check that robot has been walking for at least a short time to prevent immediate callback
+          const minWalkTime = 0.3; // Minimum 0.3 seconds of walking before reaching user
+          const hasWalkedEnough = walkDuration >= minWalkTime;
+          
+          if (distToUser <= REACH_USER_DISTANCE && hasWalkedEnough) {
             const topic = this.pendingInstructionTopic;
             const callback = this.onReachedUserCallback;
             this.walkingToUser = false;
             this.pendingInstructionTopic = null;
             this.onReachedUserCallback = null;
+            this.walkToUserStartTime = -1;
+            this.stepAsideAttempts = 0;
+            this.stepAsideTarget = null;
 
             // If there's an external callback (e.g., from VoicePanelSystem), call it
             if (callback) {
@@ -1162,13 +1327,18 @@ export class RobotAssistantSystem extends createSystem({
               console.log(
                 `[RobotAssistant] 👋 Reached user (dist=${distToUser.toFixed(2)}m), speaking instruction: ${topic}`,
               );
-              speakInstruction(topic).then(() =>
+              const instructionText = this.getInstructionText(topic);
+              if (instructionText) {
+                this.notifyDialogueMessage(instructionText);
+              }
+              speakInstruction(topic).then(() => {
+                this.notifyDialogueMessage("Do you want me to do anything else?");
                 speakFollowUpAnythingElse().then(() => {
                   setTimeout(() => {
                     VoiceControlSystem.getInstance().startListeningWithoutGreeting();
                   }, LISTEN_START_DELAY_MS);
-                }),
-              );
+                });
+              });
               // Apply room transform and skip rest of movement for this frame
               const worldPos = this.roomLocalToWorld(
                 record.model.position.x,
@@ -1294,8 +1464,29 @@ export class RobotAssistantSystem extends createSystem({
                 (Math.abs(cLocal.x - newLocalX) > 0.001 ||
                   Math.abs(cLocal.z - newLocalZ) > 0.001)
               ) {
-                console.log(`[RobotAssistant] 💥 Hit obstacle while walking to user - recalculating path. From (${oldLocalX.toFixed(2)}, ${oldLocalZ.toFixed(2)}) TargetUser (${targetX.toFixed(2)}, ${targetZ.toFixed(2)})`);
-                this.triggerStepAside(record, entity, oldLocalX, oldLocalZ, dx, dz);
+                // Only trigger step-aside if we haven't exceeded max attempts
+                if (this.stepAsideAttempts < RobotAssistantSystem.MAX_STEP_ASIDE_ATTEMPTS) {
+                  console.log(`[RobotAssistant] 💥 Hit obstacle while walking to user - recalculating path (attempt ${this.stepAsideAttempts + 1}/${RobotAssistantSystem.MAX_STEP_ASIDE_ATTEMPTS}). From (${oldLocalX.toFixed(2)}, ${oldLocalZ.toFixed(2)}) TargetUser (${targetX.toFixed(2)}, ${targetZ.toFixed(2)})`);
+                  this.stepAsideAttempts++;
+                  this.triggerStepAside(record, entity, oldLocalX, oldLocalZ, dx, dz, targetX, targetZ);
+                } else {
+                  console.warn(`[RobotAssistant] ⚠️ Too many step-aside attempts (${this.stepAsideAttempts}), trying direct path to user`);
+                  // Reset attempts and try direct path again
+                  this.stepAsideAttempts = 0;
+                  this.stepAsideTarget = null;
+                  // Update target to current user position (might have moved)
+                  if (this.world.camera) {
+                    const cam = this.world.camera as { position: { x: number; y: number; z: number } };
+                    const userLocal = this.worldToRoomLocal(
+                      cam.position.x,
+                      cam.position.y,
+                      cam.position.z,
+                    );
+                    entity.setValue(RobotAssistantComponent, "targetX", userLocal.x);
+                    entity.setValue(RobotAssistantComponent, "targetZ", userLocal.z);
+                    entity.setValue(RobotAssistantComponent, "collisionCooldown", 0.5);
+                  }
+                }
               }
             } else {
               // For autonomous walking, track blocked direction for smart repathing
@@ -1447,9 +1638,29 @@ export class RobotAssistantSystem extends createSystem({
           }
         } else if (this.walkingToUser && stuckTime > 1.0) {
           // For walkingToUser, use step-aside instead of smart repathing
-          console.log(`[RobotAssistant] ⚠️ Stuck while walking to user - forcing new step aside. Current Target: (${targetX.toFixed(2)}, ${targetZ.toFixed(2)})`);
-          this.triggerStepAside(record, entity, currentX, currentZ, dx, dz);
-          entity.setValue(RobotAssistantComponent, "stuckTime", 0);
+          if (this.stepAsideAttempts < RobotAssistantSystem.MAX_STEP_ASIDE_ATTEMPTS) {
+            console.log(`[RobotAssistant] ⚠️ Stuck while walking to user - forcing new step aside (attempt ${this.stepAsideAttempts + 1}/${RobotAssistantSystem.MAX_STEP_ASIDE_ATTEMPTS}). Current Target: (${targetX.toFixed(2)}, ${targetZ.toFixed(2)})`);
+            this.stepAsideAttempts++;
+            this.triggerStepAside(record, entity, currentX, currentZ, dx, dz, targetX, targetZ);
+            entity.setValue(RobotAssistantComponent, "stuckTime", 0);
+          } else {
+            // Too many attempts - try updating to current user position
+            console.warn(`[RobotAssistant] ⚠️ Too many step-aside attempts while stuck, updating to current user position`);
+            this.stepAsideAttempts = 0;
+            this.stepAsideTarget = null;
+            if (this.world.camera) {
+              const cam = this.world.camera as { position: { x: number; y: number; z: number } };
+              const userLocal = this.worldToRoomLocal(
+                cam.position.x,
+                cam.position.y,
+                cam.position.z,
+              );
+              entity.setValue(RobotAssistantComponent, "targetX", userLocal.x);
+              entity.setValue(RobotAssistantComponent, "targetZ", userLocal.z);
+              entity.setValue(RobotAssistantComponent, "stuckTime", 0);
+              entity.setValue(RobotAssistantComponent, "collisionCooldown", 0.5);
+            }
+          }
         }
       } else {
         entity.setValue(RobotAssistantComponent, "stuckTime", 0);
@@ -1474,14 +1685,22 @@ export class RobotAssistantSystem extends createSystem({
       // ── END OF FRAME: Convert room-local position → world ──
       // Apply the room model's transform so the robot renders at
       // the correct world position relative to the aligned room.
+      const finalRoomLocal = {
+        x: record.model.position.x,
+        y: record.model.position.y,
+        z: record.model.position.z,
+      };
       const worldPos = this.roomLocalToWorld(
-        record.model.position.x,
-        record.model.position.y,
-        record.model.position.z,
+        finalRoomLocal.x,
+        finalRoomLocal.y,
+        finalRoomLocal.z,
       );
       record.model.position.set(worldPos.x, worldPos.y, worldPos.z);
       // Add room rotation to the robot's facing direction
       record.model.rotation.y += roomRotY;
+      
+      // Update last known room-local position for next frame's warp prevention
+      record.lastRoomLocalPos = { ...finalRoomLocal };
     }
   }
 
@@ -1513,6 +1732,158 @@ export class RobotAssistantSystem extends createSystem({
     entity.setValue(RobotAssistantComponent, "stuckTime", 0);
   }
 
+  // ── Helper: Teleport robot to a safe position in front of user ──
+  private teleportRobotInFrontOfUser(
+    record: RobotAssistantRecord,
+    entity: Entity
+  ): void {
+    const camera = this.world.camera;
+    if (!camera) {
+      console.warn("[RobotAssistant] Cannot teleport: no camera");
+      return;
+    }
+
+    const cam = camera as {
+      position: { x: number; y: number; z: number };
+      getWorldDirection: (dir: Vector3) => Vector3;
+    };
+
+    // Get camera forward direction (flattened to XZ plane)
+    const forward = new Vector3();
+    cam.getWorldDirection(forward);
+    forward.y = 0;
+    forward.normalize();
+
+    // Try multiple distances in front of user
+    const distances = [1.5, 1.8, 2.0, 1.2, 2.2];
+    const bounds = getRoomBounds();
+    const floorY = bounds ? bounds.floorY : record.model.position.y;
+
+    let safePosition: { x: number; y: number; z: number } | null = null;
+
+    // Try each distance
+    for (const dist of distances) {
+      // Calculate world position in front of camera
+      const worldTarget = new Vector3(
+        cam.position.x + forward.x * dist,
+        floorY,
+        cam.position.z + forward.z * dist
+      );
+
+      // Convert to room-local
+      const localTarget = this.worldToRoomLocal(
+        worldTarget.x,
+        worldTarget.y,
+        worldTarget.z
+      );
+
+      // Clamp to walkable area
+      let [clampedX, clampedZ] = clampToWalkableArea(localTarget.x, localTarget.z);
+
+      // Check if position is collision-free
+      const worldCheck = this.roomLocalToWorld(clampedX, floorY, clampedZ);
+      const fromPos = new Vector3(worldCheck.x, worldCheck.y, worldCheck.z);
+      const toPos = new Vector3(worldCheck.x, worldCheck.y, worldCheck.z);
+
+      // Use constrainMovement to check if position is safe (if it returns same position, it's safe)
+      const constrained = constrainMovement(fromPos, toPos, ROBOT_RADIUS * 1.2, ROBOT_HEIGHTS);
+
+      // Check if constrained position is very close to original (meaning no collision)
+      const distCheck = Math.sqrt(
+        (constrained.x - worldCheck.x) ** 2 +
+        (constrained.z - worldCheck.z) ** 2
+      );
+
+      if (distCheck < 0.1) {
+        // Position is safe - use it
+        safePosition = { x: clampedX, y: floorY, z: clampedZ };
+        break;
+      }
+    }
+
+    // If no safe position found at primary distances, try slightly offset positions
+    if (!safePosition) {
+      for (const dist of [1.5, 1.8, 2.0]) {
+        // Try left and right offsets
+        for (const offset of [-0.3, 0.3, -0.5, 0.5]) {
+          const right = new Vector3(-forward.z, 0, forward.x); // Perpendicular to forward
+          const worldTarget = new Vector3(
+            cam.position.x + forward.x * dist + right.x * offset,
+            floorY,
+            cam.position.z + forward.z * dist + right.z * offset
+          );
+
+          const localTarget = this.worldToRoomLocal(
+            worldTarget.x,
+            worldTarget.y,
+            worldTarget.z
+          );
+
+          let [clampedX, clampedZ] = clampToWalkableArea(localTarget.x, localTarget.z);
+          const worldCheck = this.roomLocalToWorld(clampedX, floorY, clampedZ);
+          const fromPos = new Vector3(worldCheck.x, worldCheck.y, worldCheck.z);
+          const toPos = new Vector3(worldCheck.x, worldCheck.y, worldCheck.z);
+          const constrained = constrainMovement(fromPos, toPos, ROBOT_RADIUS * 1.2, ROBOT_HEIGHTS);
+
+          const distCheck = Math.sqrt(
+            (constrained.x - worldCheck.x) ** 2 +
+            (constrained.z - worldCheck.z) ** 2
+          );
+
+          if (distCheck < 0.1) {
+            safePosition = { x: clampedX, y: floorY, z: clampedZ };
+            break;
+          }
+        }
+        if (safePosition) break;
+      }
+    }
+
+    // Fallback: use closest walkable position to user
+    if (!safePosition) {
+      const userLocal = this.worldToRoomLocal(
+        cam.position.x,
+        floorY,
+        cam.position.z
+      );
+      const [clampedX, clampedZ] = clampToWalkableArea(userLocal.x, userLocal.z);
+      safePosition = { x: clampedX, y: floorY, z: clampedZ };
+      console.warn("[RobotAssistant] Using fallback position for teleport");
+    }
+
+    // Teleport robot to safe position
+    if (safePosition) {
+      // Set position in room-local space (will be converted to world in update loop)
+      record.model.position.set(safePosition.x, safePosition.y, safePosition.z);
+
+      // Update target to user position (so robot faces user)
+      const userLocal = this.worldToRoomLocal(
+        cam.position.x,
+        cam.position.y,
+        cam.position.z
+      );
+      entity.setValue(RobotAssistantComponent, "targetX", userLocal.x);
+      entity.setValue(RobotAssistantComponent, "targetZ", userLocal.z);
+
+      // Face robot toward user
+      const dx = userLocal.x - safePosition.x;
+      const dz = userLocal.z - safePosition.z;
+      if (Math.abs(dx) > 0.001 || Math.abs(dz) > 0.001) {
+        const angle = Math.atan2(dx, dz);
+        record.model.rotation.y = angle;
+      }
+
+      // Switch to Standing animation
+      this.fadeToAction(record, "Standing", FADE_DURATION);
+      entity.setValue(RobotAssistantComponent, "currentState", "Standing");
+      entity.setValue(RobotAssistantComponent, "hasReachedTarget", true);
+
+      console.log(
+        `[RobotAssistant] ⚡ Teleported to (${safePosition.x.toFixed(2)}, ${safePosition.y.toFixed(2)}, ${safePosition.z.toFixed(2)}) in front of user`
+      );
+    }
+  }
+
   // ── Helper: Step aside maneuver to bypass obstacles while walking to user ──
   private triggerStepAside(
     record: RobotAssistantRecord,
@@ -1520,54 +1891,217 @@ export class RobotAssistantSystem extends createSystem({
     currentX: number,
     currentZ: number,
     dxUser: number,
-    dzUser: number
+    dzUser: number,
+    targetX: number,
+    targetZ: number
   ) {
+    // Get current user position for better pathfinding (use latest camera position)
+    let userTargetX = targetX;
+    let userTargetZ = targetZ;
+    if (this.world.camera) {
+      const cam = this.world.camera as { position: { x: number; y: number; z: number } };
+      const userLocal = this.worldToRoomLocal(
+        cam.position.x,
+        cam.position.y,
+        cam.position.z,
+      );
+      userTargetX = userLocal.x;
+      userTargetZ = userLocal.z;
+    }
+    
+    // Calculate distance to user from current position
+    const currentDistToUser = Math.sqrt(
+      (userTargetX - currentX) ** 2 + (userTargetZ - currentZ) ** 2
+    );
+
     // Normalize direction to user
     const dist = Math.sqrt(dxUser * dxUser + dzUser * dzUser);
     const dirX = dist > 0 ? dxUser / dist : 1;
     const dirZ = dist > 0 ? dzUser / dist : 0;
 
-    // Pick a perpendicular-ish vector (rotate 70-110 degrees left or right)
-    // Adding some randomness helps get out of "perfectly blocked" corners.
-    const sign = Math.random() < 0.5 ? 1 : -1;
-    const randomAngle = (Math.PI / 2) + (Math.random() - 0.5) * 0.5; // 90 deg +/- 15 deg
-    const cosA = Math.cos(randomAngle * sign);
-    const sinA = Math.sin(randomAngle * sign);
+    // Optimized: Try fewer escape directions (3 angles, 2 distances, 2 sides = 12 total instead of 30)
+    const escapeAngles = [
+      Math.PI / 2,           // 90 degrees (perpendicular)
+      Math.PI / 2 + 0.4,     // ~113 degrees
+      Math.PI / 2 - 0.4,     // ~67 degrees
+    ];
+    const escapeDistances = [1.8, 2.2]; // Just 2 distances
 
-    const perpX = dirX * cosA - dirZ * sinA;
-    const perpZ = dirX * sinA + dirZ * cosA;
+    let bestTarget: { x: number; z: number } | null = null;
+    let bestScore = -Infinity;
 
-    // Create a waypoint 1.8m to the side. 
-    let escapeDist = 1.8;
-    let newTargetX = currentX + perpX * escapeDist;
-    let newTargetZ = currentZ + perpZ * escapeDist;
+    // Try each combination (limited set)
+    for (const angle of escapeAngles) {
+      for (const escapeDist of escapeDistances) {
+        // Try both left and right
+        for (const sign of [-1, 1]) {
+          const adjustedAngle = angle * sign;
+          const cosA = Math.cos(adjustedAngle);
+          const sinA = Math.sin(adjustedAngle);
 
-    // Clamp to walkable area
-    let [clampedX, clampedZ] = clampToWalkableArea(newTargetX, newTargetZ);
+          const perpX = dirX * cosA - dirZ * sinA;
+          const perpZ = dirX * sinA + dirZ * cosA;
 
-    // If the clamped target is very close to where we are, try the other side
-    const distToTarget = Math.sqrt((clampedX - currentX) ** 2 + (clampedZ - currentZ) ** 2);
-    if (distToTarget < 0.5) {
-      const altCosA = Math.cos(-randomAngle * sign);
-      const altSinA = Math.sin(-randomAngle * sign);
-      const altPerpX = dirX * altCosA - dirZ * altSinA;
-      const altPerpZ = dirX * altSinA + dirZ * altCosA;
+          let candidateX = currentX + perpX * escapeDist;
+          let candidateZ = currentZ + perpZ * escapeDist;
 
-      newTargetX = currentX + altPerpX * escapeDist;
-      newTargetZ = currentZ + altPerpZ * escapeDist;
-      [clampedX, clampedZ] = clampToWalkableArea(newTargetX, newTargetZ);
+          // Clamp to walkable area
+          let [clampedX, clampedZ] = clampToWalkableArea(candidateX, candidateZ);
+
+          // Skip if clamped position is too close to current position
+          const distToTarget = Math.sqrt((clampedX - currentX) ** 2 + (clampedZ - currentZ) ** 2);
+          if (distToTarget < 0.3) continue;
+
+          // Calculate how much closer this candidate gets us to the user
+          const candidateDistToUser = Math.sqrt(
+            (userTargetX - clampedX) ** 2 + (userTargetZ - clampedZ) ** 2
+          );
+          const progressTowardUser = currentDistToUser - candidateDistToUser; // Positive = closer to user
+
+          // Score this candidate: balance obstacle avoidance with progress toward user
+          // When blocked, we need to prioritize clearing the obstacle first, then moving toward user
+          let score = 0;
+          
+          // Base score: prefer paths that move us away from the obstacle (perpendicular movement)
+          // This is important - we need to clear the obstacle first
+          const perpComponent = Math.abs((clampedX - currentX) * (-dirZ) + (clampedZ - currentZ) * dirX);
+          score += perpComponent * 3; // Strong preference for perpendicular movement (around obstacle)
+          
+          // Bonus for making progress toward user (preferred when possible)
+          if (progressTowardUser > 0) {
+            score += progressTowardUser * 8; // Good bonus for getting closer
+          } else if (progressTowardUser > -0.5) {
+            // Small penalty for slight detour (acceptable if it clears obstacle)
+            score += progressTowardUser * 2; // Small penalty, but not too harsh
+          } else {
+            // Larger penalty for moving significantly away from user
+            score -= Math.abs(progressTowardUser) * 3;
+          }
+          
+          // Bonus for moving in a direction that's somewhat toward user (even if perpendicular)
+          const towardUser = (clampedX - currentX) * dirX + (clampedZ - currentZ) * dirZ;
+          if (towardUser > 0) {
+            score += towardUser * 2; // Bonus for forward component
+          }
+          
+          // Bonus for distance moved (helps clear obstacle)
+          score += distToTarget * 1.0;
+          
+          // Small randomness to break ties
+          score += Math.random() * 0.3;
+
+          if (score > bestScore) {
+            bestScore = score;
+            bestTarget = { x: clampedX, z: clampedZ };
+          }
+        }
+      }
     }
 
-    this.stepAsideTarget = { x: clampedX, z: clampedZ };
-
-    if (!isNaN(clampedX) && !isNaN(clampedZ)) {
-      entity.setValue(RobotAssistantComponent, "targetX", clampedX);
-      entity.setValue(RobotAssistantComponent, "targetZ", clampedZ);
+    // Use the best candidate, or fallback to smart perpendicular that still moves toward user
+    if (bestTarget) {
+      this.stepAsideTarget = bestTarget;
+      entity.setValue(RobotAssistantComponent, "targetX", bestTarget.x);
+      entity.setValue(RobotAssistantComponent, "targetZ", bestTarget.z);
+      console.log(`[RobotAssistant] ✅ Selected step-aside path: (${bestTarget.x.toFixed(2)}, ${bestTarget.z.toFixed(2)}) - score: ${bestScore.toFixed(2)}`);
+    } else {
+      // Fallback: try perpendicular directions but prefer the one that gets us closer to user
+      const fallbackDist = 2.0;
+      let bestFallback: { x: number; z: number } | null = null;
+      let bestFallbackScore = -Infinity;
+      
+      // Try both left and right perpendicular
+      for (const sign of [-1, 1]) {
+        const perpX = -dirZ * sign;
+        const perpZ = dirX * sign;
+        let newTargetX = currentX + perpX * fallbackDist;
+        let newTargetZ = currentZ + perpZ * fallbackDist;
+        let [clampedX, clampedZ] = clampToWalkableArea(newTargetX, newTargetZ);
+        
+        // Calculate progress toward user
+        const fallbackDistToUser = Math.sqrt(
+          (userTargetX - clampedX) ** 2 + (userTargetZ - clampedZ) ** 2
+        );
+        const fallbackProgress = currentDistToUser - fallbackDistToUser;
+        
+        // Score: balance perpendicular movement (obstacle clearing) with progress toward user
+        let score = 2.0; // Base score for perpendicular movement (clearing obstacle)
+        if (fallbackProgress > 0) {
+          score += fallbackProgress * 3; // Bonus if it also gets closer
+        } else if (fallbackProgress > -0.5) {
+          score += fallbackProgress * 1; // Small penalty for slight detour (acceptable)
+        } else {
+          score -= Math.abs(fallbackProgress) * 2; // Larger penalty for moving away
+        }
+        score += Math.random() * 0.1;
+        
+        if (score > bestFallbackScore) {
+          bestFallbackScore = score;
+          bestFallback = { x: clampedX, z: clampedZ };
+        }
+      }
+      
+      if (bestFallback) {
+        this.stepAsideTarget = bestFallback;
+        entity.setValue(RobotAssistantComponent, "targetX", bestFallback.x);
+        entity.setValue(RobotAssistantComponent, "targetZ", bestFallback.z);
+        console.log(`[RobotAssistant] ✅ Fallback step-aside path: (${bestFallback.x.toFixed(2)}, ${bestFallback.z.toFixed(2)})`);
+      } else {
+        // Last resort: simple perpendicular (just clear the obstacle)
+        const sign = Math.random() < 0.5 ? 1 : -1;
+        const perpX = -dirZ * sign;
+        const perpZ = dirX * sign;
+        let newTargetX = currentX + perpX * fallbackDist;
+        let newTargetZ = currentZ + perpZ * fallbackDist;
+        let [clampedX, clampedZ] = clampToWalkableArea(newTargetX, newTargetZ);
+        this.stepAsideTarget = { x: clampedX, z: clampedZ };
+        entity.setValue(RobotAssistantComponent, "targetX", clampedX);
+        entity.setValue(RobotAssistantComponent, "targetZ", clampedZ);
+        console.log(`[RobotAssistant] ⚠️ Last resort step-aside: (${clampedX.toFixed(2)}, ${clampedZ.toFixed(2)})`);
+      }
     }
+    
+    console.log(`[RobotAssistant] 🔀 Step aside target: (${this.stepAsideTarget.x.toFixed(2)}, ${this.stepAsideTarget.z.toFixed(2)}) [Attempt ${this.stepAsideAttempts}]`);
+
     entity.setValue(RobotAssistantComponent, "hasReachedTarget", false);
-    entity.setValue(RobotAssistantComponent, "collisionCooldown", 1.0); // Shorter CD for faster recovery
+    entity.setValue(RobotAssistantComponent, "collisionCooldown", 0.8); // Shorter CD for faster recovery
     entity.setValue(RobotAssistantComponent, "stuckTime", 0);
 
-    console.log(`[RobotAssistant] 🔀 Step aside target: (${clampedX.toFixed(2)}, ${clampedZ.toFixed(2)}) [PerpX: ${perpX.toFixed(2)}, PerpZ: ${perpZ.toFixed(2)}, DistToTarget: ${distToTarget.toFixed(2)}m]`);
+    console.log(`[RobotAssistant] 🔀 Step aside target: (${this.stepAsideTarget.x.toFixed(2)}, ${this.stepAsideTarget.z.toFixed(2)}) [Attempt ${this.stepAsideAttempts}]`);
+  }
+
+  /** Notify VoicePanelSystem to add a message to the dialogue overlay */
+  private notifyDialogueMessage(message: string): void {
+    const voicePanelSystem = (globalThis as any).__voicePanelSystem;
+    if (voicePanelSystem && typeof voicePanelSystem.addRobotMessage === "function") {
+      voicePanelSystem.addRobotMessage(message);
+    }
+  }
+
+  /** Get instruction text for a topic (same mapping as VoiceTextToSpeech) */
+  private getInstructionText(topic: string): string | null {
+    const INSTRUCTION_TEXTS: Record<string, string> = {
+      control:
+        "You can control your devices in two ways: by voice or from the panel. Say 'how do I use voice?' for the microphone, or 'how do I use the panel?' for the on-screen controls.",
+      panel:
+        "This is your control panel. It shows your smart home devices. You can tap a device to open its controls, or use the microphone for voice commands. The status text shows what the system is doing. You have one main panel.",
+      voice:
+        "Tap the microphone button and wait for 'How can I help you?'. Then say things like 'turn on the fan', 'turn off the light', or 'set the temperature to twenty-four'. Tap again to stop listening and hear 'See you again'.",
+      on_off:
+        "You can turn any device on or off in two ways: tap the device on the panel and use the on/off control, or say 'turn on the fan' or 'turn off the light' using the microphone.",
+      usage_graph:
+        "Use the usage or 3D graph view to see how a device is used over time. Open a device on the panel and select the usage or graph option to see its data.",
+      fan:
+        "You can turn the fan on or off from the panel or by saying 'turn on the fan' or 'turn off the fan'. Use the speed and swing controls on the panel, or say 'set fan speed to two' or 'turn on swing'. You can also check the usage view for the fan.",
+      light:
+        "You can turn the light on or off from the panel or by voice. Use the brightness and colour controls on the panel, or say 'set brightness to fifty' or 'set colour to red'. You can also view usage for the light.",
+      television:
+        "You can turn the TV on or off from the panel or by voice. Use the volume, channel, and mute controls on the panel, or say 'set volume to fifty', 'set channel to five', or 'mute the TV'. You can also check the usage view.",
+      ac:
+        "You can turn the air conditioner on or off from the panel or by voice. Use the temperature control on the panel, or say 'set temperature to twenty-four'. You can also view usage for the AC.",
+      fallback:
+        "I can explain the panel, voice commands, and devices like the fan, light, TV, and AC. You can ask 'how do I control?' for an overview, or name a device or the panel. Which one do you mean?",
+    };
+    return INSTRUCTION_TEXTS[topic] || null;
   }
 }

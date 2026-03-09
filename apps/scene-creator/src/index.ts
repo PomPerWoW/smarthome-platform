@@ -8,6 +8,7 @@ import {
   Interactable,
   ScreenSpace,
 } from "@iwsdk/core";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 import { getAuth } from "./api/auth";
 import { getWebSocketClient } from "./api/WebSocketClient";
@@ -39,6 +40,7 @@ import { WelcomePanelGestureSystem } from "./systems/WelcomePanelGestureSystem";
 
 import { initializeNavMesh, getRoomBounds } from "./config/navmesh";
 import { initializeCollision } from "./config/collision";
+import { config } from "./config/env";
 import {
   type ControllableAvatarSystem,
   getAvatarCount,
@@ -200,48 +202,114 @@ async function main(): Promise<void> {
 
   camera.position.set(0, 1.6, 0.5);
 
-  // Room model loading — always uses room_scene asset (LabPlan).
-  // The store's roomModel will be checked after data loads.
-  // For now, LabPlan is the only supported room model (others can be added to the asset manifest).
+  // Room model loading — supports both preloaded assets and dynamically uploaded models
   const ROOM_MODEL_ASSET_MAP: Record<string, string> = {
     LabPlan: "room_scene",
   };
 
-  const loadRoomScene = (modelName: string) => {
-    const assetKey =
-      ROOM_MODEL_ASSET_MAP[modelName] || ROOM_MODEL_ASSET_MAP["LabPlan"];
-    const roomGltf = AssetManager.getGLTF(assetKey);
-    if (roomGltf) {
-      const roomModel = roomGltf.scene;
-      roomModel.position.set(0, 0, 0);
+  let currentRoomModel: any = null;
 
-      // Disable raycasting on all room model meshes so they don't block
-      // device grab/move interactions. The room is visual-only.
-      roomModel.traverse((child: any) => {
-        if (child.isMesh) {
-          child.raycast = () => {};
-        }
-      });
-
-      world.scene.add(roomModel as any);
-      console.log(
-        `✅ Room scene loaded: ${modelName} (1:1 scale, raycast disabled)`,
-      );
-
-      initializeNavMesh(roomModel as any, 1.0);
-      console.log("✅ NavMesh initialized for room");
-
-      initializeCollision(roomModel as any);
-      console.log("✅ Collision initialized from room model meshes");
-
-      (globalThis as any).__labRoomModel = roomModel;
-    } else {
-      console.warn(`⚠️ Room scene not available for model: ${modelName}`);
+  const loadRoomScene = async (
+    modelName: string,
+    modelFileUrl?: string | null,
+  ) => {
+    // Remove existing room model if any
+    if (currentRoomModel) {
+      world.scene.remove(currentRoomModel);
+      currentRoomModel = null;
     }
+
+    let roomModel: any = null;
+
+    // If a model file URL is provided, load it dynamically
+    if (modelFileUrl) {
+      console.log(`📦 Loading room model from URL: ${modelFileUrl}`);
+      try {
+        // Ensure URL is absolute - if relative, prepend backend URL
+        let absoluteUrl = modelFileUrl;
+        if (!modelFileUrl.startsWith("http://") && !modelFileUrl.startsWith("https://")) {
+          // Get backend URL from config
+          const backendUrl = config.BACKEND_URL;
+          // Remove trailing slash from backend URL and leading slash from modelFileUrl
+          const cleanBackendUrl = backendUrl.replace(/\/$/, "");
+          const cleanModelUrl = modelFileUrl.startsWith("/") ? modelFileUrl : `/${modelFileUrl}`;
+          absoluteUrl = `${cleanBackendUrl}${cleanModelUrl}`;
+          console.log(`🔗 Converted relative URL to absolute: ${absoluteUrl}`);
+        }
+        
+        // Log the URL we're trying to load
+        console.log(`🔍 Attempting to load model from: ${absoluteUrl}`);
+        
+        // Verify URL is accessible (optional check - will fail gracefully if not)
+        try {
+          const response = await fetch(absoluteUrl, { method: "HEAD" });
+          if (!response.ok) {
+            console.warn(`⚠️ Model file returned status ${response.status}, but attempting to load anyway...`);
+          } else {
+            console.log(`✅ Model file is accessible (${response.status})`);
+          }
+        } catch (fetchError) {
+          console.warn(`⚠️ Could not verify model file accessibility: ${fetchError}, but attempting to load anyway...`);
+        }
+        
+        const loader = new GLTFLoader();
+        // Configure loader to handle CORS if needed
+        loader.setCrossOrigin("anonymous");
+        
+        const gltf = await loader.loadAsync(absoluteUrl);
+        roomModel = gltf.scene;
+        console.log(`✅ Room model loaded from URL: ${absoluteUrl}`);
+      } catch (error) {
+        console.error(`❌ Failed to load room model from URL: ${modelFileUrl}`, error);
+        console.error(`   Error details:`, error instanceof Error ? error.message : String(error));
+        // Fall back to default model
+        modelFileUrl = null;
+      }
+    }
+
+    // If no URL or URL loading failed, try to load from asset manifest
+    if (!roomModel) {
+      const assetKey =
+        ROOM_MODEL_ASSET_MAP[modelName] || ROOM_MODEL_ASSET_MAP["LabPlan"];
+      const roomGltf = AssetManager.getGLTF(assetKey);
+      if (roomGltf) {
+        roomModel = roomGltf.scene.clone();
+        console.log(`✅ Room scene loaded from assets: ${modelName}`);
+      } else {
+        console.warn(`⚠️ Room scene not available for model: ${modelName}`);
+        return;
+      }
+    }
+
+    // Configure the room model
+    roomModel.position.set(0, 0, 0);
+
+    // Disable raycasting on all room model meshes so they don't block
+    // device grab/move interactions. The room is visual-only.
+    roomModel.traverse((child: any) => {
+      if (child.isMesh) {
+        child.raycast = () => {};
+      }
+    });
+
+    world.scene.add(roomModel);
+    currentRoomModel = roomModel;
+
+    console.log(
+      `✅ Room scene loaded: ${modelName} (1:1 scale, raycast disabled)`,
+    );
+
+    initializeNavMesh(roomModel, 1.0);
+    console.log("✅ NavMesh initialized for room");
+
+    initializeCollision(roomModel);
+    console.log("✅ Collision initialized from room model meshes");
+
+    (globalThis as any).__labRoomModel = roomModel;
   };
 
-  // Load room scene with default model (LabPlan) — will be confirmed after store loads
-  loadRoomScene("LabPlan");
+  // Load room scene with default model (LabPlan) — will be updated after store loads
+  await loadRoomScene("LabPlan");
 
   world
     .registerComponent(DeviceComponent)
@@ -349,12 +417,34 @@ async function main(): Promise<void> {
     await store.loadAllData();
   }
 
-  if (store.error) {
-    console.error("❌ Failed to load data:", store.error);
+  // Get fresh state after loading (Zustand getState() returns current state)
+  const currentState = getStore();
+
+  // Debug: Log the entire state to see what we have
+  console.log("[Debug] Current store state:", {
+    roomModel: currentState.roomModel,
+    roomModelFileUrl: currentState.roomModelFileUrl,
+    roomId: currentState.roomId,
+  });
+
+  if (currentState.error) {
+    console.error("❌ Failed to load data:", currentState.error);
   } else {
     console.log(
-      `✅ Loaded ${store.getDeviceCount()} devices, room model: ${store.roomModel}`,
+      `✅ Loaded ${currentState.getDeviceCount()} devices, room model: ${currentState.roomModel}`,
     );
+    console.log(
+      `📋 Room model file URL: ${currentState.roomModelFileUrl || "none (using default)"}`,
+    );
+    
+    // Reload room scene with the correct model (uploaded file or default)
+    if (currentState.roomModelFileUrl) {
+      console.log(`🔄 Reloading room model from uploaded file: ${currentState.roomModelFileUrl}`);
+      await loadRoomScene(currentState.roomModel, currentState.roomModelFileUrl);
+    } else {
+      console.log(`🔄 Reloading room model from assets: ${currentState.roomModel}`);
+      await loadRoomScene(currentState.roomModel);
+    }
   }
 
   const renderer = world.getSystem(DeviceRendererSystem);
@@ -464,10 +554,12 @@ async function main(): Promise<void> {
 
   console.log("\n🚀 SmartHome Platform Scene Creator ready!");
 
+  // Get fresh state for final summary
+  const finalState = getStore();
   console.log("───────────────────────────────────");
   console.log(`   👤 User: ${user?.email}`);
-  console.log(`   📱 Devices: ${store.getDeviceCount()}`);
-  console.log(`   🟢 Active: ${store.getActiveDevices().length}`);
+  console.log(`   📱 Devices: ${finalState.getDeviceCount()}`);
+  console.log(`   🟢 Active: ${finalState.getActiveDevices().length}`);
   console.log(`   🎮 Controlled Avatars: ${getAvatarCount()} (O = switch)`);
   console.log("───────────────────────────────────");
   console.log("💡 Click devices to control");

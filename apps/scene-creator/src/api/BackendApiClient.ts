@@ -44,6 +44,7 @@ export class BackendApiClient {
     id: string;
     room_name: string;
     room_model: string;
+    room_model_file_url: string | null;
     home: string;
     position: { x: number; y: number; z: number };
     rotation: { y: number };
@@ -80,6 +81,28 @@ export class BackendApiClient {
       `/api/homes/rooms/${roomId}/set_alignment/`,
       alignment,
     );
+    return response.data;
+  }
+
+  async uploadRoomModel(
+    roomId: string,
+    file: File,
+  ): Promise<{
+    status: string;
+    room_model: string;
+    model_file_url: string;
+    room: any;
+  }> {
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await api.post<{
+      status: string;
+      room_model: string;
+      model_file_url: string;
+      room: any;
+    }>(`/api/homes/rooms/${roomId}/upload_model/`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
     return response.data;
   }
 
