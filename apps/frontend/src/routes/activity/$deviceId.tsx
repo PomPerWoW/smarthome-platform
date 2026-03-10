@@ -1,7 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { MOCK_LIGHTBULB_DEVICE_LOGS, MOCK_TV_DEVICE_LOGS, MOCK_FAN_DEVICE_LOGS, MOCK_AC_DEVICE_LOGS } from '@/data/mockActivityData'
-import { Activity, Lightbulb, ArrowLeft, Tv, Fan, Snowflake, BarChart3, PieChart } from 'lucide-react'
+import { Activity, Lightbulb, ArrowLeft, Tv, Fan, Snowflake, BarChart3, PieChart, CalendarDays } from 'lucide-react'
 import { useMemo, useRef, useState } from 'react'
 import { clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
@@ -143,9 +142,9 @@ function LineChartPlot({ data, color, yMax, yTicks, valueKey }: { data: any[], c
                         >
                             <div className="absolute w-3 h-3 rounded-full opacity-40" style={{ backgroundColor: color }} />
                             <div className="absolute w-1.5 h-1.5 rounded-full bg-background" />
-                            <div 
-                                className="absolute w-1.5 h-1.5 rounded-full" 
-                                style={{ backgroundColor: color, boxShadow: `0 0 6px ${color}cc` }} 
+                            <div
+                                className="absolute w-1.5 h-1.5 rounded-full"
+                                style={{ backgroundColor: color, boxShadow: `0 0 6px ${color}cc` }}
                             />
                         </div>
 
@@ -356,6 +355,10 @@ function PieChartCustom({ data, centerValue, centerLabel }: { data: { label: str
 function DeviceActivityPage() {
     const { deviceId } = Route.useParams()
 
+    // Default to today's date in YYYY-MM-DD format
+    const today = new Date().toISOString().slice(0, 10)
+    const [selectedDate, setSelectedDate] = useState(today)
+
     const { data: devices = [], isLoading } = useQuery({
         queryKey: ['devices'],
         queryFn: () => DeviceService.getInstance().getAllDevices(),
@@ -366,16 +369,16 @@ function DeviceActivityPage() {
 
     const Icon = device ? (deviceIcons[device.type as DeviceType] || Lightbulb) : Lightbulb
 
-    // Parse the respective datasets
-    const parsedData = useMemo(() => {
-        let logs: any[] = []
+    // Fetch device logs from API based on selected date
+    const { data: logResponse, isLoading: isLoadingLogs } = useQuery({
+        queryKey: ['deviceLog', type, selectedDate],
+        queryFn: () => DeviceService.getInstance().getDeviceLog(type as DeviceType, selectedDate),
+        enabled: !!device,
+    })
 
-        switch (type) {
-            case DeviceType.Television: logs = MOCK_TV_DEVICE_LOGS.data; break;
-            case DeviceType.AirConditioner: logs = MOCK_AC_DEVICE_LOGS.data; break;
-            case DeviceType.Fan: logs = MOCK_FAN_DEVICE_LOGS.data; break;
-            default: logs = MOCK_LIGHTBULB_DEVICE_LOGS.data; break;
-        }
+    // Parse the fetched log data
+    const parsedData = useMemo(() => {
+        const logs: any[] = logResponse?.data || []
 
         // Scene creator truncates to 288 records reversed.
         const recentLogs = logs.slice(0, 288).reverse()
@@ -524,7 +527,7 @@ function DeviceActivityPage() {
             barChart: { title: barTitle, color: barColor, values: barValues, labels: barLabels, max: barMax },
             pieChart: { title: pieTitle, data: pieData, centerValue: pieCenterValue, centerLabel: pieCenterLabel }
         }
-    }, [type])
+    }, [type, logResponse])
 
     if (isLoading) {
         return <div className="p-8 text-center text-muted-foreground animate-pulse">Loading device data...</div>
@@ -557,6 +560,16 @@ function DeviceActivityPage() {
                         <p className="text-muted-foreground uppercase text-xs tracking-wider font-semibold">{device.type}</p>
                     </div>
                 </div>
+                <div className="flex items-center gap-2 bg-card px-3 py-2 rounded-xl border border-border/50 shadow-sm hover:border-primary/30 transition-colors">
+                    <CalendarDays className="h-4 w-4 text-primary flex-shrink-0" />
+                    <input
+                        type="date"
+                        value={selectedDate}
+                        onChange={(e) => setSelectedDate(e.target.value)}
+                        max={today}
+                        className="bg-transparent text-sm font-semibold outline-none cursor-pointer text-foreground [color-scheme:dark]"
+                    />
+                </div>
                 <div className="ml-auto flex items-center gap-3 bg-card p-2 px-4 rounded-xl border border-border/50 shadow-sm transition-colors hover:border-primary/30">
                     <span className="font-semibold text-sm hidden sm:inline-block">{P.rawStatus ? 'Telemetry Active' : 'Offline'}</span>
                     <div className="relative flex h-3 w-3">
@@ -567,68 +580,77 @@ function DeviceActivityPage() {
             </div>
 
             {/* Layout for charts */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-6 pt-4">
+            {isLoadingLogs ? (
+                <div className="flex items-center justify-center h-[400px] text-muted-foreground">
+                    <div className="flex flex-col items-center gap-3 animate-pulse">
+                        <Activity className="h-8 w-8 text-primary animate-spin" />
+                        <span className="text-sm font-medium">Loading activity data for {selectedDate}...</span>
+                    </div>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-6 pt-4">
 
-                {/* LINE CHART CONTAINER (Full Span on smaller, 2 spans on large) */}
-                <Card className="lg:col-span-2 xl:col-span-2 bg-card/60 backdrop-blur-xl border border-border/50 shadow-sm hover:shadow-lg transition-shadow duration-300">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-lg">
-                            <Activity className="h-4 w-4 text-primary" />
-                            {P.lineChart.title}
-                        </CardTitle>
-                        <CardDescription>Over the last 24 hours (288 readings)</CardDescription>
-                    </CardHeader>
-                    <CardContent className="h-[280px] pb-12 pt-2">
-                        <LineChartPlot
-                            data={P.recentLogs}
-                            color={P.lineChart.color}
-                            yMax={P.lineChart.yMax}
-                            yTicks={P.lineChart.yTicks}
-                            valueKey={P.lineChart.valKey}
-                        />
-                    </CardContent>
-                </Card>
-
-                {/* BAR CHART CONTAINER */}
-                <Card className={cn(
-                    "lg:col-span-1 bg-card/60 backdrop-blur-xl border border-border/50 shadow-sm hover:shadow-lg transition-shadow duration-300",
-                    P.pieChart.data.length > 0 ? "xl:col-span-1" : "xl:col-span-2"
-                )}>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-lg">
-                            <BarChart3 className="h-4 w-4 text-primary" />
-                            {P.barChart.title}
-                        </CardTitle>
-                        <CardDescription>Lifetime aggregates</CardDescription>
-                    </CardHeader>
-                    <CardContent className="flex flex-col items-center justify-end h-[240px]">
-                        <BarChartCustom
-                            values={P.barChart.values}
-                            labels={P.barChart.labels}
-                            color={P.barChart.color}
-                            yMax={P.barChart.max}
-                            valueFormat="duration"
-                        />
-                    </CardContent>
-                </Card>
-
-                {/* PIE CHART CONTAINER (Only render if data is available) */}
-                {P.pieChart.data.length > 0 && (
-                    <Card className="lg:col-span-3 xl:col-span-1 bg-card/60 backdrop-blur-xl border border-border/50 shadow-sm hover:shadow-lg transition-shadow duration-300">
+                    {/* LINE CHART CONTAINER (Full Span on smaller, 2 spans on large) */}
+                    <Card className="lg:col-span-2 xl:col-span-2 bg-card/60 backdrop-blur-xl border border-border/50 shadow-sm hover:shadow-lg transition-shadow duration-300">
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2 text-lg">
-                                <PieChart className="h-4 w-4 text-primary" />
-                                {P.pieChart.title}
+                                <Activity className="h-4 w-4 text-primary" />
+                                {P.lineChart.title}
                             </CardTitle>
-                            <CardDescription>Distribution breakdown</CardDescription>
+                            <CardDescription>Data for {selectedDate} (288 readings)</CardDescription>
                         </CardHeader>
-                        <CardContent className="flex flex-col items-center justify-center p-6 h-[240px]">
-                            <PieChartCustom data={P.pieChart.data} centerValue={P.pieChart.centerValue} centerLabel={P.pieChart.centerLabel} />
+                        <CardContent className="h-[280px] pb-12 pt-2">
+                            <LineChartPlot
+                                data={P.recentLogs}
+                                color={P.lineChart.color}
+                                yMax={P.lineChart.yMax}
+                                yTicks={P.lineChart.yTicks}
+                                valueKey={P.lineChart.valKey}
+                            />
                         </CardContent>
                     </Card>
-                )}
 
-            </div>
+                    {/* BAR CHART CONTAINER */}
+                    <Card className={cn(
+                        "lg:col-span-1 bg-card/60 backdrop-blur-xl border border-border/50 shadow-sm hover:shadow-lg transition-shadow duration-300",
+                        P.pieChart.data.length > 0 ? "xl:col-span-1" : "xl:col-span-2"
+                    )}>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2 text-lg">
+                                <BarChart3 className="h-4 w-4 text-primary" />
+                                {P.barChart.title}
+                            </CardTitle>
+                            <CardDescription>Lifetime aggregates</CardDescription>
+                        </CardHeader>
+                        <CardContent className="flex flex-col items-center justify-end h-[240px]">
+                            <BarChartCustom
+                                values={P.barChart.values}
+                                labels={P.barChart.labels}
+                                color={P.barChart.color}
+                                yMax={P.barChart.max}
+                                valueFormat="duration"
+                            />
+                        </CardContent>
+                    </Card>
+
+                    {/* PIE CHART CONTAINER (Only render if data is available) */}
+                    {P.pieChart.data.length > 0 && (
+                        <Card className="lg:col-span-3 xl:col-span-1 bg-card/60 backdrop-blur-xl border border-border/50 shadow-sm hover:shadow-lg transition-shadow duration-300">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2 text-lg">
+                                    <PieChart className="h-4 w-4 text-primary" />
+                                    {P.pieChart.title}
+                                </CardTitle>
+                                <CardDescription>Distribution breakdown</CardDescription>
+                            </CardHeader>
+                            <CardContent className="flex flex-col items-center justify-center p-6 h-[240px]">
+                                <PieChartCustom data={P.pieChart.data} centerValue={P.pieChart.centerValue} centerLabel={P.pieChart.centerLabel} />
+                            </CardContent>
+                        </Card>
+                    )}
+
+                </div>
+            )}
         </div>
     )
 }
