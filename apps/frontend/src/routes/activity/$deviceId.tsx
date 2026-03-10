@@ -2,7 +2,7 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { MOCK_LIGHTBULB_DEVICE_LOGS, MOCK_TV_DEVICE_LOGS, MOCK_FAN_DEVICE_LOGS, MOCK_AC_DEVICE_LOGS } from '@/data/mockActivityData'
 import { Activity, Lightbulb, ArrowLeft, Tv, Fan, Snowflake, BarChart3, PieChart } from 'lucide-react'
-import { useMemo } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 import { useQuery } from '@tanstack/react-query'
@@ -30,6 +30,9 @@ const deviceIcons = {
 function LineChartPlot({ data, color, yMax, yTicks, valueKey }: { data: any[], color: string, yMax: number, yTicks?: number[], valueKey: (d: any) => number }) {
     if (!data.length) return null;
 
+    const svgRef = useRef<SVGSVGElement | null>(null)
+    const [hoverIndex, setHoverIndex] = useState<number | null>(null)
+
     // We calculate perfectly even integer ticks to guarantee equal spacing
     let ticks = yTicks;
     if (!ticks) {
@@ -50,13 +53,39 @@ function LineChartPlot({ data, color, yMax, yTicks, valueKey }: { data: any[], c
     const xScale = d3.scaleLinear().domain([0, data.length - 1]).range([0, 100])
     const yScale = d3.scaleLinear().domain([0, chartMax]).range([100, 0])
 
+    const clampedValues = data.map(d => {
+        const v = valueKey(d)
+        return Math.max(0, Math.min(chartMax, v))
+    })
+
     const lineGenerator = d3.line<any>()
         .x((_, i) => xScale(i))
-        .y(d => yScale(Math.max(0, Math.min(chartMax, valueKey(d)))))
+        .y((_, i) => yScale(clampedValues[i]))
         .curve(d3.curveMonotoneX)
 
     const pathData = lineGenerator(data) || ""
     const areaPath = `${pathData} L 100,100 L 0,100 Z`
+
+    const activeIndex = hoverIndex ?? (clampedValues.length - 1)
+    const hasActive = activeIndex >= 0 && activeIndex < clampedValues.length
+    const activeValue = hasActive ? clampedValues[activeIndex] : null
+    const activeX = hasActive ? xScale(activeIndex) : null
+    const activeY = hasActive && activeValue !== null ? yScale(activeValue) : null
+
+    const handleMouseMove: React.MouseEventHandler<SVGSVGElement> = (event) => {
+        if (!svgRef.current || !data.length) return
+        const rect = svgRef.current.getBoundingClientRect()
+        const x = event.clientX - rect.left
+        if (rect.width <= 0) return
+        const xPercent = (x / rect.width) * 100
+        const indexApprox = xScale.invert(xPercent)
+        const idx = Math.min(data.length - 1, Math.max(0, Math.round(indexApprox)))
+        setHoverIndex(idx)
+    }
+
+    const handleMouseLeave = () => {
+        setHoverIndex(null)
+    }
 
     return (
         <div className="relative w-full h-[200px] mt-4 z-10 pl-8">
@@ -69,7 +98,14 @@ function LineChartPlot({ data, color, yMax, yTicks, valueKey }: { data: any[], c
                 ))}
             </div>
 
-            <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full overflow-visible">
+            <svg
+                ref={svgRef}
+                viewBox="0 0 100 100"
+                preserveAspectRatio="none"
+                className="w-full h-full overflow-visible cursor-crosshair"
+                onMouseMove={handleMouseMove}
+                onMouseLeave={handleMouseLeave}
+            >
                 <defs>
                     <linearGradient id={`gradient-${color.replace('#', '')}`} x1="0" x2="0" y1="0" y2="1">
                         <stop offset="0%" stopColor={color} stopOpacity="0.4" />
@@ -95,6 +131,35 @@ function LineChartPlot({ data, color, yMax, yTicks, valueKey }: { data: any[], c
                 {/* Line */}
                 <path d={pathData} fill="none" stroke={color} strokeWidth="1.5" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" className="drop-shadow-md transition-all duration-500" />
             </svg>
+
+            {/* Active Point Overlay (HTML guarantees perfect circles regardless of SVG stretch) */}
+            <div className="absolute inset-y-0 right-0 left-8 pointer-events-none z-20">
+                {hasActive && activeX !== null && activeY !== null && activeValue !== null && (
+                    <>
+                        {/* The perfectly round dot */}
+                        <div
+                            className="absolute -translate-x-1/2 -translate-y-1/2 flex items-center justify-center"
+                            style={{ left: `${activeX}%`, top: `${activeY}%` }}
+                        >
+                            <div className="absolute w-3 h-3 rounded-full opacity-40" style={{ backgroundColor: color }} />
+                            <div className="absolute w-1.5 h-1.5 rounded-full bg-background" />
+                            <div 
+                                className="absolute w-1.5 h-1.5 rounded-full" 
+                                style={{ backgroundColor: color, boxShadow: `0 0 6px ${color}cc` }} 
+                            />
+                        </div>
+
+                        {/* The tooltip, straight above */}
+                        <div
+                            className="absolute -translate-x-1/2 -translate-y-8 bg-popover/90 text-[10px] font-semibold px-2 py-1 rounded shadow-xl border border-border/80"
+                            style={{ left: `${activeX}%`, top: `${activeY}%` }}
+                        >
+                            {Math.round(activeValue)}
+                        </div>
+                    </>
+                )}
+            </div>
+
             {/* X Axis Labels mock */}
             <div className="absolute -bottom-6 left-8 right-0 flex justify-between text-xs text-muted-foreground font-medium">
                 <span>00:00</span>
