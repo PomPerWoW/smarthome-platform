@@ -2,8 +2,9 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { DeviceService } from '@/services/DeviceService'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Activity, Lightbulb, Tv, Fan, Snowflake, Zap, ArrowRight } from 'lucide-react'
+import { Activity, Lightbulb, Tv, Fan, Snowflake, Zap, ArrowRight, DoorOpen } from 'lucide-react'
 import { DeviceType } from '@/types/device.types'
+import { useMemo } from 'react'
 
 export const Route = createFileRoute('/activity/')({
   component: ActivityOverviewPage,
@@ -22,8 +23,25 @@ function ActivityOverviewPage() {
     queryFn: () => DeviceService.getInstance().getAllDevices(),
   })
 
+  // Group devices by room
+  const devicesByRoom = useMemo(() => {
+    const grouped = new Map<string, typeof devices>()
+    for (const device of devices) {
+      const room = device.roomName || 'Unassigned'
+      if (!grouped.has(room)) grouped.set(room, [])
+      grouped.get(room)!.push(device)
+    }
+    // Sort rooms alphabetically, but keep "Unassigned" at the end
+    const sorted = Array.from(grouped.entries()).sort(([a], [b]) => {
+      if (a === 'Unassigned') return 1
+      if (b === 'Unassigned') return -1
+      return a.localeCompare(b)
+    })
+    return sorted
+  }, [devices])
+
   // Global Mock Stats (Extrapolated for overview)
-  const totalActive = Math.floor(devices.length * 0.6) // Mock 60% active
+  const totalActive = devices.filter(d => d.is_on).length
   const totalEnergy = (devices.length * 1.8).toFixed(1) // Mock 1.8 kWh per device overall
 
   return (
@@ -68,8 +86,8 @@ function ActivityOverviewPage() {
         </Card>
       </div>
 
-      {/* Devices List Menu */}
-      <div className="space-y-4">
+      {/* Devices Grouped by Room */}
+      <div className="space-y-6">
         <h2 className="text-2xl font-semibold tracking-tight border-b border-border/50 pb-2">Device Activity Profiles</h2>
 
         {isLoading ? (
@@ -79,44 +97,66 @@ function ActivityOverviewPage() {
             No devices found in the system.
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pt-2">
-            {devices.map((device) => {
-              const Icon = deviceIcons[device.type as DeviceType] || Lightbulb;
-              return (
-                <Link
-                  key={device.id}
-                  to="/activity/$deviceId"
-                  params={{ deviceId: device.id }}
-                  className="group block outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-xl"
-                >
-                  <Card className="bg-card/40 hover:bg-card/80 border-border/50 hover:border-primary/40 transition-all duration-300 shadow-sm hover:shadow-md cursor-pointer flex flex-col h-full overflow-hidden relative">
-                    {/* Background subtle glow on hover */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+          <div className="space-y-8">
+            {devicesByRoom.map(([roomName, roomDevices]) => (
+              <div key={roomName} className="space-y-3">
+                {/* Room Header */}
+                <div className="flex items-center gap-2.5">
+                  <div className="p-1.5 rounded-lg bg-secondary/80">
+                    <DoorOpen className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <h3 className="text-lg font-semibold tracking-tight text-foreground/90">{roomName}</h3>
+                  <span className="text-xs font-medium text-muted-foreground bg-secondary/60 px-2 py-0.5 rounded-full">
+                    {roomDevices.length} {roomDevices.length === 1 ? 'device' : 'devices'}
+                  </span>
+                </div>
 
-                    <CardHeader className="flex flex-row items-center gap-4 pb-2">
-                      <div className="p-2.5 bg-primary/10 rounded-xl group-hover:bg-primary/20 group-hover:scale-110 transition-all duration-300 transform">
-                        <Icon className="h-5 w-5 text-primary" />
-                      </div>
-                      <div className="flex-1 overflow-hidden">
-                        <CardTitle className="text-lg truncate group-hover:text-primary transition-colors">
-                          {device.name}
-                        </CardTitle>
-                        <CardDescription className="uppercase text-xs tracking-wider opacity-70">
-                          {device.type}
-                        </CardDescription>
-                      </div>
-                    </CardHeader>
+                {/* Device Cards Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {roomDevices.map((device) => {
+                    const Icon = deviceIcons[device.type as DeviceType] || Lightbulb;
+                    return (
+                      <Link
+                        key={device.id}
+                        to="/activity/$deviceId"
+                        params={{ deviceId: device.id }}
+                        className="group block outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-xl"
+                      >
+                        <Card className="bg-card/40 hover:bg-card/80 border-border/50 hover:border-primary/40 transition-all duration-300 shadow-sm hover:shadow-md cursor-pointer flex flex-col h-full overflow-hidden relative">
+                          {/* Background subtle glow on hover */}
+                          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
 
-                    <CardContent className="mt-auto pt-4 flex items-center justify-between">
-                      <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5 bg-secondary/50 px-2.5 py-1 rounded-full border border-border/50 group-hover:border-primary/20 transition-colors">
-                        View details
-                      </span>
-                      <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
-                    </CardContent>
-                  </Card>
-                </Link>
-              )
-            })}
+                          <CardHeader className="flex flex-row items-center gap-4 pb-2">
+                            <div className="p-2.5 bg-primary/10 rounded-xl group-hover:bg-primary/20 group-hover:scale-110 transition-all duration-300 transform">
+                              <Icon className="h-5 w-5 text-primary" />
+                            </div>
+                            <div className="flex-1 overflow-hidden">
+                              <CardTitle className="text-lg truncate group-hover:text-primary transition-colors">
+                                {device.name}
+                              </CardTitle>
+                              <CardDescription className="uppercase text-xs tracking-wider opacity-70 flex items-center gap-2">
+                                {device.type}
+                                <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${device.is_on ? 'bg-emerald-500/15 text-emerald-500' : 'bg-destructive/15 text-destructive'}`}>
+                                  <span className={`w-1.5 h-1.5 rounded-full ${device.is_on ? 'bg-emerald-500' : 'bg-destructive'}`} />
+                                  {device.is_on ? 'ON' : 'OFF'}
+                                </span>
+                              </CardDescription>
+                            </div>
+                          </CardHeader>
+
+                          <CardContent className="mt-auto pt-4 flex items-center justify-between">
+                            <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5 bg-secondary/50 px-2.5 py-1 rounded-full border border-border/50 group-hover:border-primary/20 transition-colors">
+                              View details
+                            </span>
+                            <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
+                          </CardContent>
+                        </Card>
+                      </Link>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
