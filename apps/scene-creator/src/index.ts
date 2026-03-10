@@ -7,6 +7,8 @@ import {
   PanelUI,
   Interactable,
   ScreenSpace,
+  Follower,
+  FollowBehavior,
 } from "@iwsdk/core";
 
 import { getAuth } from "./api/auth";
@@ -28,7 +30,11 @@ import { AirConditionerPanelSystem } from "./ui/AirConditionerPanelSystem";
 import { VoiceControlSystem } from "./systems/VoiceControlSystem";
 import { VoicePanel } from "./ui/VoicePanel";
 import { RoomScanningSystem } from "./systems/RoomScanningSystem";
+import { LegPoseLoggerSystem } from "./systems/LegPoseLoggerSystem";
+import { LegPosePanelSystem } from "./ui/LegPosePanelSystem";
+import { PunchToWalkSystem } from "./systems/PunchToWalkSystem";
 import { initializeNavMesh, getRoomBounds } from "./config/navmesh";
+import { setupPCLegPoseSimulator } from "./utils/pcLegPoseSimulator";
 import {
   type ControllableAvatarSystem,
   getAvatarCount,
@@ -157,6 +163,10 @@ async function main(): Promise<void> {
 
   console.log("✅ World created");
 
+  // On desktop without WebXR, start a simple fake leg
+  // motion so logging + debug panels can be tested without a headset.
+  setupPCLegPoseSimulator();
+
   const { camera } = world;
 
   camera.position.set(0, 1.6, 0.5);
@@ -222,11 +232,14 @@ async function main(): Promise<void> {
     .registerSystem(RPMUserControlledAvatarSystem)
     .registerSystem(RobotAssistantSystem)
     .registerSystem(PanelSystem)
+    .registerSystem(LegPosePanelSystem)
     .registerSystem(LightbulbPanelSystem)
     .registerSystem(TelevisionPanelSystem)
     .registerSystem(FanPanelSystem)
     .registerSystem(AirConditionerPanelSystem)
     .registerSystem(RoomScanningSystem)
+    .registerSystem(LegPoseLoggerSystem)
+    .registerSystem(PunchToWalkSystem)
 
   console.log("✅ Systems registered");
 
@@ -247,6 +260,26 @@ async function main(): Promise<void> {
   welcomePanel.object3D!.position.set(0, 1.5, -0.8);
 
   console.log("✅ Welcome panel created");
+
+  // PoC: 3D panel that follows the camera to show L/R controller XYZ (leg pose logger)
+  const legPosePanel = world
+    .createTransformEntity()
+    .addComponent(PanelUI, {
+      config: "./ui/legpose-logger.json",
+      maxHeight: 0.22,
+      maxWidth: 0.4,
+    })
+    .addComponent(Interactable)
+    .addComponent(Follower, {
+      target: world.camera,
+      offsetPosition: [-0.3, -0.25, -0.8],
+      behavior: FollowBehavior.PivotY,
+      speed: 5,
+      tolerance: 0.3,
+      maxAngle: 35,
+    });
+
+  console.log("✅ Leg pose logger panel created (camera-follow HUD)");
 
   const store = getStore();
 
@@ -291,6 +324,13 @@ async function main(): Promise<void> {
     registerAvatar(rpmAvatarSystem as ControllableAvatarSystem, "player1", "RPM Avatar");
     setLipSyncEnabled = setupLipSyncControlPanel(rpmAvatarSystem);
     console.log("✅ RPM avatar (RPM_clip.glb)");
+
+    // Wire punch-to-walk: VR controller punches → avatar walking + headset yaw → turning
+    const punchToWalkSystem = world.getSystem(PunchToWalkSystem);
+    if (punchToWalkSystem) {
+      punchToWalkSystem.setAvatarSystem(rpmAvatarSystem);
+      console.log("✅ PunchToWalk system linked to RPM avatar");
+    }
   }
 
   // 2) User-controlled (clip-based)

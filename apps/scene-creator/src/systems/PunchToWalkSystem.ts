@@ -1,23 +1,21 @@
 import { createSystem, Interactable } from "@iwsdk/core";
-import { consumePunchGestures } from "../utils/legPoseLogger";
+import { consumePunchGestures, getHeadsetYaw } from "../utils/legPoseLogger";
 import { RPMUserControlledAvatarSystem } from "./RPMUserControlledAvatarSystem";
 
 // ============================================================================
 // PUNCH-TO-WALK SYSTEM
 //
-// Consumes alternating left/right punch gestures from legPoseLogger and
-// injects virtual "forward" key presses into RPMUserControlledAvatarSystem
-// so the avatar walks forward using the existing Walk animation + movement.
+// Each single punch triggers one walk step, but the user MUST alternate
+// hands (Left → Right → Left → …). Punching the same hand twice in a row
+// is ignored, enforcing a natural walking rhythm.
+//
+// Also reads headset yaw every frame (from the XR viewer pose extracted in
+// legPoseLogger) and feeds it to RPMUserControlledAvatarSystem so the avatar
+// turns when the user turns in VR.
 // ============================================================================
 
 /** How long a virtual "forward" key press lasts per walk step (seconds). */
 const WALK_STEP_DURATION = 0.55;
-
-/**
- * Maximum time window (seconds) between a left and right punch for them
- * to count as one "alternating pair" that triggers a step.
- */
-const PAIR_WINDOW = 1.5;
 
 /** The keyboard key that RPMUserControlledAvatarSystem uses for forward. */
 const KEY_FORWARD = "i";
@@ -30,11 +28,13 @@ export class PunchToWalkSystem extends createSystem({
     private rpmAvatarSystem: RPMUserControlledAvatarSystem | null = null;
     private enabled = true;
 
-    // Alternating-punch tracking
-    private pendingLeft = false;
-    private pendingRight = false;
-    private pendingLeftTime = 0;
-    private pendingRightTime = 0;
+    /**
+     * Tracks which hand punched last.
+     * null  = no punch yet (either hand can start)
+     * "left"  = last accepted punch was left  → next must be right
+     * "right" = last accepted punch was right → next must be left
+     */
+    private lastPunchHand: "left" | "right" | null = null;
 
     // Virtual key injection state
     private walkingRemaining = 0; // seconds remaining for current virtual keypress
@@ -51,10 +51,8 @@ export class PunchToWalkSystem extends createSystem({
     setEnabled(on: boolean): void {
         this.enabled = on;
         if (!on) {
-            // Release any held virtual key
             this.releaseForwardKey();
-            this.pendingLeft = false;
-            this.pendingRight = false;
+            this.lastPunchHand = null;
             this.walkingRemaining = 0;
         }
         console.log(`[PunchToWalk] ${on ? "Enabled ✅" : "Disabled ❌"}`);
@@ -69,32 +67,24 @@ export class PunchToWalkSystem extends createSystem({
     update(dt: number): void {
         if (!this.enabled || !this.rpmAvatarSystem) return;
 
-        // 1. Consume punch gestures detected this frame
+        // 1. Feed headset yaw from XR viewer pose → avatar rotation
+        //    (getHeadsetYaw() is updated every XR frame inside legPoseLogger)
+        const yaw = getHeadsetYaw();
+        if (yaw !== null) {
+            this.rpmAvatarSystem.setHeadsetYaw(yaw);
+        }
+
+        // 2. Consume punch gestures detected this frame
         const punches = consumePunchGestures();
-        const now = performance.now();
 
-        if (punches.left) {
-            this.pendingLeft = true;
-            this.pendingLeftTime = now;
+        // 3. Check each hand — only accept if it is the OPPOSITE of the last punch
+        if (punches.left && this.lastPunchHand !== "left") {
+            this.lastPunchHand = "left";
+            this.triggerWalkStep("left");
         }
-        if (punches.right) {
-            this.pendingRight = true;
-            this.pendingRightTime = now;
-        }
-
-        // 2. Expire stale pending punches outside the pair window
-        if (this.pendingLeft && now - this.pendingLeftTime > PAIR_WINDOW * 1000) {
-            this.pendingLeft = false;
-        }
-        if (this.pendingRight && now - this.pendingRightTime > PAIR_WINDOW * 1000) {
-            this.pendingRight = false;
-        }
-
-        // 3. If we have one punch from each hand within the window → trigger a walk step
-        if (this.pendingLeft && this.pendingRight) {
-            this.pendingLeft = false;
-            this.pendingRight = false;
-            this.triggerWalkStep();
+        if (punches.right && this.lastPunchHand !== "right") {
+            this.lastPunchHand = "right";
+            this.triggerWalkStep("right");
         }
 
         // 4. Tick down the virtual key press
@@ -109,13 +99,13 @@ export class PunchToWalkSystem extends createSystem({
 
     // ── internals ──
 
-    private triggerWalkStep(): void {
+    private triggerWalkStep(hand: "left" | "right"): void {
         if (!this.rpmAvatarSystem) return;
-        // If already walking, extend the timer instead of resetting
-        this.walkingRemaining += WALK_STEP_DURATION;
+        // Reset (not accumulate) so avatar stops promptly when punching stops
+        this.walkingRemaining = WALK_STEP_DURATION;
         this.rpmAvatarSystem.injectKeyState(KEY_FORWARD, true);
         console.log(
-            `[PunchToWalk] 🚶 Walk step triggered (remaining: ${this.walkingRemaining.toFixed(2)}s)`
+            `[PunchToWalk] 🚶 ${hand.toUpperCase()} punch → walk step (remaining: ${this.walkingRemaining.toFixed(2)}s)`
         );
     }
 
@@ -124,3 +114,4 @@ export class PunchToWalkSystem extends createSystem({
         this.rpmAvatarSystem.injectKeyState(KEY_FORWARD, false);
     }
 }
+

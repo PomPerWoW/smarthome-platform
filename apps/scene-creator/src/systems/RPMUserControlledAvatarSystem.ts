@@ -89,6 +89,9 @@ export class RPMUserControlledAvatarSystem extends createSystem({
   // When false, this system does not process input or camera (used by avatar switcher)
   private active = true;
 
+  // VR headset yaw — when set, avatar rotation + walk direction follow the headset
+  private headsetYaw: number | null = null;
+
   // Lip sync
   private lipsyncManager = new Lipsync();
   private audioElement = new Audio();
@@ -121,6 +124,16 @@ export class RPMUserControlledAvatarSystem extends createSystem({
    */
   injectKeyState(key: string, pressed: boolean): void {
     this.keyStates.set(key.toLowerCase(), pressed);
+  }
+
+  /**
+   * Set the headset yaw (Y-axis rotation in radians).
+   * When set, the avatar always rotates to match the headset direction,
+   * and walk direction follows the headset instead of the follow camera.
+   * Called by PunchToWalkSystem each frame during VR.
+   */
+  setHeadsetYaw(yaw: number): void {
+    this.headsetYaw = yaw;
   }
 
   private setupKeyboardControls(): void {
@@ -739,21 +752,46 @@ export class RPMUserControlledAvatarSystem extends createSystem({
       }
     }
 
-    // Lock movement during Jump/Wave/Sit: IJKL pressed but no position/rotation update
-    if (directionPressed && this.followCamera && !record.isPlayingWave && !record.isSitting && !record.isSleeping) {
-      const angleYCameraDirection = Math.atan2(
-        this.followCamera.position.x - record.model.position.x,
-        this.followCamera.position.z - record.model.position.z
+    // ── VR headset yaw: always rotate avatar to match headset direction ──
+    if (this.headsetYaw !== null && !record.isSitting && !record.isSleeping) {
+      record.rotateQuaternion.setFromAxisAngle(
+        record.rotateAngle,
+        this.headsetYaw + record.forwardOffset
       );
-      const directionOffset = this.directionOffset();
-
-      record.rotateQuaternion.setFromAxisAngle(record.rotateAngle, angleYCameraDirection + directionOffset + record.forwardOffset);
       (record.model as any).quaternion.rotateTowards(record.rotateQuaternion, ROTATE_SPEED);
+    }
 
-      this.followCamera.getWorldDirection(record.walkDirection);
-      record.walkDirection.y = 0;
-      record.walkDirection.normalize();
-      record.walkDirection.applyAxisAngle(record.rotateAngle, directionOffset);
+    // ── Movement: walk in facing direction ──
+    if (directionPressed && !record.isPlayingWave && !record.isSitting && !record.isSleeping) {
+      if (this.headsetYaw !== null) {
+        // VR mode: walk direction = where the headset is looking
+        // forwardOffset is only for the model mesh rotation, NOT for walk direction
+        const directionOffset = this.directionOffset();
+        record.walkDirection.set(
+          -Math.sin(this.headsetYaw + directionOffset),
+          0,
+          -Math.cos(this.headsetYaw + directionOffset)
+        );
+        record.walkDirection.normalize();
+      } else if (this.followCamera) {
+        // Desktop mode: walk direction from camera (existing behavior)
+        const angleYCameraDirection = Math.atan2(
+          this.followCamera.position.x - record.model.position.x,
+          this.followCamera.position.z - record.model.position.z
+        );
+        const directionOffset = this.directionOffset();
+
+        record.rotateQuaternion.setFromAxisAngle(record.rotateAngle, angleYCameraDirection + directionOffset + record.forwardOffset);
+        (record.model as any).quaternion.rotateTowards(record.rotateQuaternion, ROTATE_SPEED);
+
+        this.followCamera.getWorldDirection(record.walkDirection);
+        record.walkDirection.y = 0;
+        record.walkDirection.normalize();
+        record.walkDirection.applyAxisAngle(record.rotateAngle, directionOffset);
+      } else {
+        // No camera and no headset yaw — cannot determine direction
+        return;
+      }
 
       const velocity =
         record.currentAction === "Run" ? RUN_VELOCITY : WALK_VELOCITY;
