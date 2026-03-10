@@ -79,21 +79,21 @@ function LineChartPlot({ data, color, yMax, yTicks, valueKey }: { data: any[], c
 
                 {/* Horizontal Grid Lines */}
                 {ticks.map((t, i) => (
-                    <line key={`h-${i}`} x1="0" y1={yScale(t)} x2="100" y2={yScale(t)} stroke="currentColor" strokeWidth="0.2" className="text-border" />
+                    <line key={`h-${i}`} x1="0" y1={yScale(t)} x2="100" y2={yScale(t)} stroke="currentColor" strokeWidth="1" vectorEffect="non-scaling-stroke" className="text-border" />
                 ))}
 
                 {/* Vertical Grid Lines */}
-                <line x1="0" y1="0" x2="0" y2="100" stroke="currentColor" strokeWidth="0.2" className="text-border" />
-                <line x1="25" y1="0" x2="25" y2="100" stroke="currentColor" strokeWidth="0.2" className="text-border" />
-                <line x1="50" y1="0" x2="50" y2="100" stroke="currentColor" strokeWidth="0.2" className="text-border" />
-                <line x1="75" y1="0" x2="75" y2="100" stroke="currentColor" strokeWidth="0.2" className="text-border" />
-                <line x1="100" y1="0" x2="100" y2="100" stroke="currentColor" strokeWidth="0.2" className="text-border" />
+                <line x1="0" y1="0" x2="0" y2="100" stroke="currentColor" strokeWidth="1" vectorEffect="non-scaling-stroke" className="text-border" />
+                <line x1="25" y1="0" x2="25" y2="100" stroke="currentColor" strokeWidth="1" vectorEffect="non-scaling-stroke" className="text-border" />
+                <line x1="50" y1="0" x2="50" y2="100" stroke="currentColor" strokeWidth="1" vectorEffect="non-scaling-stroke" className="text-border" />
+                <line x1="75" y1="0" x2="75" y2="100" stroke="currentColor" strokeWidth="1" vectorEffect="non-scaling-stroke" className="text-border" />
+                <line x1="100" y1="0" x2="100" y2="100" stroke="currentColor" strokeWidth="1" vectorEffect="non-scaling-stroke" className="text-border" />
 
                 {/* Area */}
                 <path d={areaPath} fill={`url(#gradient-${color.replace('#', '')})`} className="transition-all duration-500" />
 
                 {/* Line */}
-                <path d={pathData} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" className="drop-shadow-md transition-all duration-500" />
+                <path d={pathData} fill="none" stroke={color} strokeWidth="1.5" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" className="drop-shadow-md transition-all duration-500" />
             </svg>
             {/* X Axis Labels mock */}
             <div className="absolute -bottom-6 left-8 right-0 flex justify-between text-xs text-muted-foreground font-medium">
@@ -162,7 +162,7 @@ function BarChartCustom({ values, labels, color, yMax, valueFormat = 'default' }
             <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full overflow-visible">
                 {/* Horizontal Grid Lines */}
                 {ticks.map((t, i) => (
-                    <line key={`grid-${i}`} x1="0" y1={yScale(t)} x2="100" y2={yScale(t)} stroke="currentColor" strokeWidth="0.2" className="text-border" />
+                    <line key={`grid-${i}`} x1="0" y1={yScale(t)} x2="100" y2={yScale(t)} stroke="currentColor" strokeWidth="1" vectorEffect="non-scaling-stroke" className="text-border" />
                 ))}
 
                 {/* Bars mapped to scales */}
