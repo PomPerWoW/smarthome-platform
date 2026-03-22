@@ -15,15 +15,9 @@ import {
   LineBasicMaterial,
   BoxGeometry,
   EdgesGeometry,
-  Scene,
-  Group,
-  CanvasTexture,
-  PlaneGeometry,
   Vector3,
   Quaternion,
 } from "three";
-
-import { GLTFExporter } from "three/examples/jsm/exporters/GLTFExporter.js";
 
 // Extend XRSession type to include Meta Quest's proprietary room capture API
 declare global {
@@ -71,7 +65,6 @@ function getMeshColor(label: string): number {
  * - Renders actual mesh geometry from XRMesh (LiDAR triangles) in the scene
  * - Creates semi-transparent colored overlays for detected planes
  * - Creates real mesh geometry + wireframe bounding boxes for detected 3D meshes
- * - GLTF export: call `exportRoomAsGLB()` to download the scanned room as .glb
  * - Logs detailed info (orientation, semantic labels, dimensions) to console
  */
 export class RoomScanningSystem extends createSystem({
@@ -84,11 +77,6 @@ export class RoomScanningSystem extends createSystem({
   private meshVisuals = new Map<Entity, Object3D>();
   private logTimer = 0;
   private readonly LOG_INTERVAL = 3; // seconds between summary logs
-
-  // ── Auto-export state ───────────────────────────────────────────
-  private autoExportDone = false;
-  private scanReadyTimer = 0;
-  private readonly SCAN_READY_DELAY = 5;
 
   init(): void {
     console.log("[RoomScanning] System initializing...");
@@ -130,12 +118,7 @@ export class RoomScanningSystem extends createSystem({
       this.onMeshRemoved(entity);
     });
 
-    // Expose export function globally for easy access from console
-    (globalThis as any).__exportRoomAsGLB = () => this.exportRoomAsGLB();
     console.log("[RoomScanning] System initialized ✅");
-    console.log(
-      "[RoomScanning] 💡 Call __exportRoomAsGLB() from the console to download scanned room as .glb",
-    );
   }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -151,13 +134,10 @@ export class RoomScanningSystem extends createSystem({
         "[RoomScanning] 🔍 Triggering initiateRoomCapture() — always scan on session start",
       );
       this.roomCaptureInitiated = true;
-      this.autoExportDone = false;
-      this.scanReadyTimer = 0;
       session
         .initiateRoomCapture()
         .then(() => {
           console.log("[RoomScanning] ✅ Room capture completed successfully");
-          this.scanReadyTimer = 0;
         })
         .catch((err: unknown) => {
           console.warn(
@@ -173,7 +153,6 @@ export class RoomScanningSystem extends createSystem({
       );
       // Still mark as initiated so HUD shows scan data
       this.roomCaptureInitiated = true;
-      this.scanReadyTimer = 0;
     }
   }
 
@@ -474,181 +453,6 @@ export class RoomScanningSystem extends createSystem({
   }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  //  GLTF Export — download scanned room as .glb
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  /**
-   * Exports all currently detected planes and meshes as a single .glb file.
-   * Call from console: `__exportRoomAsGLB()` or `world.getSystem(RoomScanningSystem).exportRoomAsGLB()`
-   */
-  async exportRoomAsGLB(): Promise<void> {
-    console.log("[RoomScanning] 📦 Starting GLTF export...");
-
-    const exportScene = new Scene();
-    exportScene.name = "RoomScan";
-
-    // ── Add plane geometry ──────────────────────────────────────────
-    const planesGroup = new Group();
-    planesGroup.name = "Planes";
-
-    for (const entity of this.queries.planes.entities) {
-      try {
-        const planeData = entity.getValue(XRPlane, "_plane") as any;
-        const orientation: string = planeData?.orientation ?? "unknown";
-
-        if (planeData?.polygon) {
-          const polygon: DOMPointReadOnly[] = planeData.polygon;
-          const vertices: number[] = [];
-          for (let i = 1; i < polygon.length - 1; i++) {
-            vertices.push(polygon[0].x, polygon[0].y, polygon[0].z);
-            vertices.push(polygon[i].x, polygon[i].y, polygon[i].z);
-            vertices.push(polygon[i + 1].x, polygon[i + 1].y, polygon[i + 1].z);
-          }
-
-          const geometry = new BufferGeometry();
-          geometry.setAttribute(
-            "position",
-            new Float32BufferAttribute(vertices, 3),
-          );
-          geometry.computeVertexNormals();
-
-          const material = new MeshStandardMaterial({
-            color: new Color(PLANE_COLORS[orientation] ?? PLANE_COLORS.unknown),
-            side: DoubleSide,
-            roughness: 0.9,
-            metalness: 0.0,
-          });
-
-          const planeMesh = new Mesh(geometry, material);
-          planeMesh.name = `plane-${orientation}-${planesGroup.children.length}`;
-
-          // Copy world position/rotation from entity
-          if (entity.object3D) {
-            entity.object3D.updateWorldMatrix(true, false);
-            planeMesh.applyMatrix4(entity.object3D.matrixWorld as any);
-          }
-
-          planesGroup.add(planeMesh);
-        }
-      } catch {
-        /* skip */
-      }
-    }
-    exportScene.add(planesGroup);
-
-    // ── Add mesh geometry ───────────────────────────────────────────
-    const meshesGroup = new Group();
-    meshesGroup.name = "Meshes";
-
-    for (const entity of this.queries.meshes.entities) {
-      try {
-        const meshData = entity.getValue(XRMesh, "_mesh") as any;
-        const isBounded = entity.getValue(XRMesh, "isBounded3D") as boolean;
-        const semanticLabel =
-          (entity.getValue(XRMesh, "semanticLabel") as string) || "unknown";
-        const color = isBounded
-          ? getMeshColor(semanticLabel)
-          : MESH_COLORS.global_mesh;
-
-        let meshObj: Mesh | null = null;
-
-        // Try raw XRMesh vertices/indices
-        if (meshData?.vertices && meshData.vertices.length > 0) {
-          const geometry = new BufferGeometry();
-          geometry.setAttribute(
-            "position",
-            new Float32BufferAttribute(meshData.vertices, 3),
-          );
-          if (meshData.indices && meshData.indices.length > 0) {
-            geometry.setIndex(new Uint32BufferAttribute(meshData.indices, 1));
-          }
-          geometry.computeVertexNormals();
-
-          const material = new MeshStandardMaterial({
-            color: new Color(color),
-            side: DoubleSide,
-            roughness: 0.7,
-            metalness: 0.1,
-          });
-
-          meshObj = new Mesh(geometry, material);
-          meshObj.name = isBounded
-            ? `mesh-${semanticLabel}-${meshesGroup.children.length}`
-            : `global-mesh-${meshesGroup.children.length}`;
-        }
-
-        if (meshObj) {
-          // Copy world transform from entity
-          if (entity.object3D) {
-            entity.object3D.updateWorldMatrix(true, false);
-            meshObj.applyMatrix4(entity.object3D.matrixWorld as any);
-          }
-          meshesGroup.add(meshObj);
-        }
-      } catch {
-        /* skip */
-      }
-    }
-    exportScene.add(meshesGroup);
-
-    const totalObjects =
-      planesGroup.children.length + meshesGroup.children.length;
-    if (totalObjects === 0) {
-      console.warn(
-        "[RoomScanning] ⚠️ No geometry to export. Complete a room scan first.",
-      );
-      return;
-    }
-
-    console.log(
-      `[RoomScanning] 📦 Exporting ${planesGroup.children.length} planes + ${meshesGroup.children.length} meshes...`,
-    );
-
-    // ── Export as binary .glb ───────────────────────────────────────
-    try {
-      const exporter = new GLTFExporter();
-      const glb = await (exporter as any).parseAsync(exportScene, {
-        binary: true,
-      });
-
-      const blob = new Blob([glb as ArrayBuffer], {
-        type: "application/octet-stream",
-      });
-      const timestamp = new Date()
-        .toISOString()
-        .replace(/[:.]/g, "-")
-        .slice(0, 19);
-      const filename = `room-scan-${timestamp}.glb`;
-
-      // POST to dev server to save in room-scans/
-      try {
-        const serverUrl = `${window.location.protocol}//${window.location.host}/api/save-room-scan`;
-        const formData = new FormData();
-        formData.append("file", blob, filename);
-        const resp = await fetch(serverUrl, { method: "POST", body: formData });
-        if (resp.ok) {
-          console.log(
-            `[RoomScanning] ✅ Saved to server: room-scans/${filename}`,
-          );
-        } else {
-          console.warn(`[RoomScanning] ⚠️ Server save failed: ${resp.status}`);
-        }
-      } catch (postErr) {
-        console.warn(
-          "[RoomScanning] ⚠️ Could not POST to dev server:",
-          postErr,
-        );
-      }
-
-      console.log(
-        `[RoomScanning] ✅ Exported ${filename} (${(blob.size / 1024).toFixed(1)} KB)`,
-      );
-    } catch (err) {
-      console.error("[RoomScanning] ❌ GLTF export failed:", err);
-    }
-  }
-
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   //  Update loop & cleanup
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -704,22 +508,6 @@ export class RoomScanningSystem extends createSystem({
         console.log(
           `[RoomScanning] 📊 Summary | planes: ${planeCount} (${orientStr}) | meshes: ${meshCount} (${labelStr})`,
         );
-      }
-    }
-
-    // Auto-export countdown
-    if (this.roomCaptureInitiated && !this.autoExportDone) {
-      this.scanReadyTimer += dt;
-      if (this.scanReadyTimer >= this.SCAN_READY_DELAY) {
-        const planeCount = this.queries.planes.entities.size;
-        const meshCount = this.queries.meshes.entities.size;
-        if (planeCount > 0 || meshCount > 0) {
-          this.autoExportDone = true;
-          console.log("[RoomScanning] 📦 Auto-exporting scan...");
-          this.exportRoomAsGLB().catch((err) => {
-            console.warn("[RoomScanning] Auto-export failed:", err);
-          });
-        }
       }
     }
   }
