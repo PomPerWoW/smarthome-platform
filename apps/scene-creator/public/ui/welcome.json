@@ -194,7 +194,7 @@
                     "sourceTag": "span",
                     "type": "custom",
                     "children": [
-                      "Enter AR"
+                      "Enter 3D"
                     ],
                     "properties": {
                       "class": "btn-text"

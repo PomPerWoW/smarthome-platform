@@ -13,7 +13,7 @@
  * for the interactive grab system. This way collision works without
  * interfering with device grab interactions.
  */
-import { Mesh, Object3D, Raycaster, Vector3, Intersection } from "three";
+import { Box3, Mesh, Object3D, Raycaster, Vector3, Intersection } from "three";
 
 // ── Private state ──────────────────────────────────────────────────────────
 
@@ -26,6 +26,27 @@ let _roomModel: Object3D | null = null;
 const _raycaster = new Raycaster();
 const _origin = new Vector3();
 const _dir = new Vector3();
+
+// ── Table-top collision zones ──────────────────────────────────────────────
+
+/**
+ * Axis-aligned bounding box (XZ footprint) of a table top surface.
+ * Used to block entities from walking through desks/tables whose
+ * horizontal surfaces are invisible to horizontal raycasts.
+ */
+interface TableTopZone {
+  minX: number;
+  maxX: number;
+  minZ: number;
+  maxZ: number;
+  /** World-space Y of the table top surface. */
+  tableY: number;
+}
+
+let _tableTopZones: TableTopZone[] = [];
+
+/** Extra margin (metres) around each table zone to prevent clipping. */
+const TABLE_ZONE_MARGIN = 0.05;
 
 // ── Preset height arrays for different entity types ────────────────────────
 
@@ -64,8 +85,48 @@ export function initializeCollision(roomModel: Object3D): void {
   // Ensure world matrices are current for raycasting
   roomModel.updateMatrixWorld(true);
 
+  // ── Build table-top collision zones ────────────────────────────────────
+  // Traverse the room model looking for meshes named "TableTop" that are
+  // children of desk/table groups.  For each, compute a world-space AABB
+  // and store the XZ footprint + surface Y so we can block entities from
+  // walking through desks.
+  _tableTopZones = [];
+  const _box = new Box3();
+
+  roomModel.traverse((child: any) => {
+    if (!child.isMesh || !child.geometry) return;
+
+    // Match meshes named "TableTop" (case-insensitive)
+    const meshName = (child.name || "").toLowerCase();
+    const isTableTop = meshName === "tabletop";
+
+    // Also check if parent node name contains "desk" or "table"
+    // to catch any differently-named top surfaces
+    const parentName = (child.parent?.name || "").toLowerCase();
+    const parentIsDesk =
+      parentName.includes("desk") || parentName.includes("table");
+
+    if (!isTableTop && !parentIsDesk) return;
+    // For non-TableTop children of desk groups (legs, drawers, etc),
+    // skip — those are already handled by horizontal raycasts.
+    if (!isTableTop) return;
+
+    // Compute world-space bounding box of this TableTop mesh
+    child.geometry.computeBoundingBox();
+    _box.setFromObject(child);
+
+    _tableTopZones.push({
+      minX: _box.min.x - TABLE_ZONE_MARGIN,
+      maxX: _box.max.x + TABLE_ZONE_MARGIN,
+      minZ: _box.min.z - TABLE_ZONE_MARGIN,
+      maxZ: _box.max.z + TABLE_ZONE_MARGIN,
+      tableY: _box.min.y, // bottom face of the table top slab
+    });
+  });
+
   console.log(
-    `[Collision] ✅ Initialized with ${_collisionMeshes.length} meshes from room model`,
+    `[Collision] ✅ Initialized with ${_collisionMeshes.length} meshes, ` +
+      `${_tableTopZones.length} table-top zones from room model`,
   );
 }
 
@@ -76,6 +137,25 @@ export function initializeCollision(roomModel: Object3D): void {
 export function updateCollisionTransform(): void {
   if (_roomModel) {
     _roomModel.updateMatrixWorld(true);
+
+    // Recompute table-top zones because they are stored in world space
+    // and the room model may have moved (room alignment, manual panel, etc.)
+    _tableTopZones = [];
+    const box = new Box3();
+    _roomModel.traverse((child: any) => {
+      if (!child.isMesh || !child.geometry) return;
+      const meshName = (child.name || "").toLowerCase();
+      if (meshName !== "tabletop") return;
+      child.geometry.computeBoundingBox();
+      box.setFromObject(child);
+      _tableTopZones.push({
+        minX: box.min.x - TABLE_ZONE_MARGIN,
+        maxX: box.max.x + TABLE_ZONE_MARGIN,
+        minZ: box.min.z - TABLE_ZONE_MARGIN,
+        maxZ: box.max.z + TABLE_ZONE_MARGIN,
+        tableY: box.min.y,
+      });
+    });
   }
 }
 
@@ -130,7 +210,8 @@ export function constrainMovement(
   radius: number,
   heights: number[] = AVATAR_HEIGHTS,
 ): Vector3 {
-  if (_collisionMeshes.length === 0) return to.clone();
+  if (_collisionMeshes.length === 0 && _tableTopZones.length === 0)
+    return to.clone();
 
   const dx = to.x - from.x;
   const dz = to.z - from.z;
@@ -138,6 +219,39 @@ export function constrainMovement(
   if (hDist < 0.0005) return to.clone();
 
   _dir.set(dx / hDist, 0, dz / hDist);
+
+  // ── 0) Table-top zone check ─────────────────────────────────────────────
+  // If the entity is short enough to be under a table top, check whether
+  // the destination XZ falls inside any table-top footprint.  If so, block
+  // the movement entirely (treat it like hitting a wall).
+  if (_tableTopZones.length > 0) {
+    const entityTopY = from.y + heights[heights.length - 1];
+
+    for (const zone of _tableTopZones) {
+      // Only block if the entity is shorter than the table surface
+      if (entityTopY > zone.tableY) continue;
+
+      // Check if the destination point (expanded by entity radius)
+      // overlaps with this table zone
+      const inZoneX =
+        to.x + radius > zone.minX && to.x - radius < zone.maxX;
+      const inZoneZ =
+        to.z + radius > zone.minZ && to.z - radius < zone.maxZ;
+
+      if (inZoneX && inZoneZ) {
+        // Also check that we are walking INTO the zone (not already inside)
+        const fromInX =
+          from.x + radius > zone.minX && from.x - radius < zone.maxX;
+        const fromInZ =
+          from.z + radius > zone.minZ && from.z - radius < zone.maxZ;
+
+        if (!(fromInX && fromInZ)) {
+          // Walking into a table zone — fully block at current position
+          return new Vector3(from.x, to.y, from.z);
+        }
+      }
+    }
+  }
 
   // ── 1) Optimized collision check ──────────────────────────────────────
   // Check forward movement with efficient strategies to catch thin vertical surfaces

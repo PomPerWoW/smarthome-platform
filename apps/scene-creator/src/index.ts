@@ -368,6 +368,7 @@ async function main(): Promise<void> {
   console.log("✅ Welcome panel created");
 
   // Placement Panel (3D floating panel, starts hidden)
+  // Position relative to welcome panel so it moves with it
   const placementPanel = world
     .createTransformEntity()
     .addComponent(PanelUI, {
@@ -377,9 +378,18 @@ async function main(): Promise<void> {
     })
     .addComponent(Interactable);
 
-  placementPanel.object3D!.position.set(-0.6, 1.5, -0.8);
+  // Make placement panel a child of welcome panel so it follows its position
+  if (welcomePanel.object3D && placementPanel.object3D) {
+    welcomePanel.object3D.add(placementPanel.object3D);
+    // Position relative to welcome panel (to the left, closer)
+    placementPanel.object3D.position.set(-0.4, 0, 0);
+  } else {
+    // Fallback to absolute positioning if object3D not available
+    placementPanel.object3D!.position.set(-0.6, 1.5, -0.8);
+  }
   placementPanel.object3D!.visible = false; // Hidden until "Devices" button pressed
-  console.log("✅ Placement panel created (hidden)");
+  (globalThis as any).__placementPanelEntity = placementPanel;
+  console.log("✅ Placement panel created (hidden, relative to welcome panel)");
 
   const legPosePanel = world
     .createTransformEntity()
@@ -415,6 +425,7 @@ async function main(): Promise<void> {
   console.log("✅ Voice 3D Panel created");
 
   // Room Alignment Panel (3D floating panel, starts hidden)
+  // Position relative to welcome panel so it moves with it
   const alignmentPanel = world
     .createTransformEntity()
     .addComponent(PanelUI, {
@@ -424,10 +435,18 @@ async function main(): Promise<void> {
     })
     .addComponent(Interactable);
 
-  alignmentPanel.object3D!.position.set(0.6, 1.5, -0.8);
+  // Make alignment panel a child of welcome panel so it follows its position
+  if (welcomePanel.object3D && alignmentPanel.object3D) {
+    welcomePanel.object3D.add(alignmentPanel.object3D);
+    // Position relative to welcome panel (to the right, closer)
+    alignmentPanel.object3D.position.set(0.4, 0, 0);
+  } else {
+    // Fallback to absolute positioning if object3D not available
+    alignmentPanel.object3D!.position.set(0.6, 1.5, -0.8);
+  }
   alignmentPanel.object3D!.visible = false; // Hidden until "Align Room" button pressed
   (globalThis as any).__alignmentPanelEntity = alignmentPanel;
-  console.log("✅ Room Alignment panel created (hidden)");
+  console.log("✅ Room Alignment panel created (hidden, relative to welcome panel)");
 
   const store = getStore();
 

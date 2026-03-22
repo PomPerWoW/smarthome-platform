@@ -251,7 +251,7 @@
         <div>
           <GlassesIcon class="btn-icon" />
         </div>
-        <span class="btn-text">Enter AR</span>
+        <span class="btn-text">Enter 3D</span>
       </div>
     </button>
     

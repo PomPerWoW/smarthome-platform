@@ -1,7 +1,14 @@
 # ============================================================================
 # SmartHome Platform Production Docker Compose Configuration
 # ============================================================================
-# Usage: docker-compose -f docker-compose.production.yml --env-file .env.production up -d
+# Usage: docker-compose -f docker-compose.production.yaml --env-file .env.production up -d
+# ============================================================================
+# 
+# Port Mappings:
+# - Frontend: 3000 (served at /smarthome/home via reverse proxy)
+# - Scene Creator: 3003 (served at /smarthome/xr via reverse proxy)
+# - Backend: 5500 (served at /smarthome/api via reverse proxy)
+# - Database: 5433
 # ============================================================================
 
 version: "3.8"
@@ -13,12 +20,16 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "${DB_EXTERNAL_PORT}:5432"
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-smarthome}
     networks:
       - smarthome_network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-smarthome}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -28,13 +39,20 @@ services:
       context: ./apps/backend
       dockerfile: Dockerfile
     container_name: smarthome_backend
-    command: gunicorn app.wsgi:application --bind 0.0.0.0:5500 --workers 4 --timeout 120
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME:-smarthome}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - DEBUG=${DEBUG:-False}
+      - SECRET_KEY=${SECRET_KEY}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-*}
     volumes:
-      - ./apps/backend:/app
       - backend_static:/app/staticfiles
       - backend_media:/app/media
     ports:
-      - "${BACKEND_PORT}:5500"
+      - "5500:5500"
     networks:
       - smarthome_network
     depends_on:
@@ -42,10 +60,11 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "${BACKEND_URL}/health/"]
+      test: ["CMD-SHELL", "curl -s -o /dev/null -w '%{http_code}' http://localhost:5500/admin/ | grep -q '[0-9]'"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 40s
 
   frontend:
     build:
@@ -53,29 +72,17 @@ services:
       dockerfile: Dockerfile
     container_name: smarthome_frontend
     ports:
-      - "${FRONTEND_PORT}:3000"
-      - "${FRONTEND_BACKEND_PORT}:8000"
+      - "3000:80"
     networks:
       - smarthome_network
     depends_on:
       - backend
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "${FRONTEND_URL}"]
+      test: ["CMD", "curl", "-f", "http://localhost/"]
       interval: 30s
       timeout: 10s
       retries: 3
-
-  landing-page:
-    build:
-      context: ./apps/landing-page
-      dockerfile: Dockerfile
-    container_name: smarthome_landing
-    ports:
-      - "${LANDING_PAGE_PORT}:5173"
-    networks:
-      - smarthome_network
-    restart: unless-stopped
 
   scene-creator:
     build:
@@ -83,12 +90,17 @@ services:
       dockerfile: Dockerfile
     container_name: smarthome_scene_creator
     ports:
-      - "${SCENE_CREATOR_PORT}:80"
+      - "3003:80"
     networks:
       - smarthome_network
     depends_on:
       - backend
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 volumes:
   postgres_data:

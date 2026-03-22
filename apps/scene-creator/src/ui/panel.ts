@@ -103,7 +103,7 @@ export class PanelSystem extends createSystem({
           this.world.visibilityState.value === VisibilityState.NonImmersive
         ) {
           xrBtn.setProperties({
-            text: ar ? "Enter AR" : "Enter VR",
+            text: "Enter 3D",
           });
         }
 
@@ -130,19 +130,24 @@ export class PanelSystem extends createSystem({
           }
         });
 
-        // Set initial text based on default mode (VR)
-        xrButton.setProperties({
-          text: isARMode ? "Enter AR" : "Enter VR",
-        });
-
-        this.world.visibilityState.subscribe((visibilityState) => {
+        // Set initial text based on visibility state
+        const updateButtonText = () => {
+          const visibilityState = this.world.visibilityState.value;
           if (visibilityState === VisibilityState.NonImmersive) {
             xrButton.setProperties({
-              text: isARMode ? "Enter AR" : "Enter VR",
+              text: "Enter 3D",
             });
           } else {
-            xrButton.setProperties({ text: "Exit to Browser" });
+            xrButton.setProperties({ text: "Exit 3D" });
           }
+        };
+
+        // Set initial text
+        updateButtonText();
+
+        // Update text when visibility state changes
+        this.world.visibilityState.subscribe(() => {
+          updateButtonText();
         });
       }
 
