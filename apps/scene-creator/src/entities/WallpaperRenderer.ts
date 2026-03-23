@@ -1,6 +1,7 @@
 import {
   PlaneGeometry,
   MeshBasicMaterial,
+  MeshStandardMaterial,
   Mesh,
   TextureLoader,
   Shape,
@@ -13,40 +14,248 @@ import {
   DoubleSide,
   SRGBColorSpace,
   ClampToEdgeWrapping,
+  RepeatWrapping,
   LinearFilter,
   Vector3,
+  Box3,
   Texture,
   Object3D,
+  Material,
 } from "three";
 
-import { WallInfo } from "../utils/wallDetection";
+import { getAvailableWalls, WallInfo } from "../utils/wallDetection";
 import { WallpaperCutoutRect } from "../store/WallpaperStore";
 
-// ─── Internal record kept per wallpaper ──────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+//  Internal types
+// ─────────────────────────────────────────────────────────────────────────────
 
-interface WallpaperRecord {
+interface PlaneRecord {
   id: string;
   mesh: Mesh;
   wallWidth: number;
   wallHeight: number;
-  /** Green confirmed-region overlay (child of mesh) */
   confirmOverlay: LineSegments | null;
-  /** Yellow in-progress drag preview overlay (child of mesh) */
   previewOverlay: LineSegments | null;
 }
 
-// ─── Module-level registry (one per wallpaper id) ────────────────────────────
+/** One entry for every room-model mesh that had its material replaced. */
+interface PaintedMeshRecord {
+  mesh: Mesh;
+  originalMaterial: Material | Material[];
+}
 
-const _records = new Map<string, WallpaperRecord>();
+// ─────────────────────────────────────────────────────────────────────────────
+//  Module-level registries
+// ─────────────────────────────────────────────────────────────────────────────
 
-// ─── Public API ───────────────────────────────────────────────────────────────
+/** Wallpaper overlay planes (used when the mesh-paint path fails or for cutouts). */
+const _planeRecords = new Map<string, PlaneRecord>();
+
+/** Room-model meshes whose material was replaced so we can restore them later. */
+let _paintedMeshes: PaintedMeshRecord[] = [];
+
+/** The shared texture instance currently painted onto room meshes (if any). */
+let _activePaintTexture: Texture | null = null;
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  ① Primary path — paint texture directly onto room-model wall meshes
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Create a wallpaper plane mesh, orient it to face the given wall, and add it
- * as a child of `__labRoomModel`.  Positions are already in labModel-local
- * space (computed by `wallDetection.ts`).
+ * Traverse `__labRoomModel`, detect wall-like meshes, and replace their
+ * material with one that carries the given texture / colour.
  *
- * @returns The created `Mesh`, already added to the scene graph.
+ * Detection strategy (first match wins):
+ *   • Name heuristic  — mesh name contains "wall", "wand", "mur", or "pared"
+ *     (covers common English, German, French, Spanish naming conventions).
+ *   • Shape heuristic — bounding box is tall (y > 1 m), thin in exactly ONE
+ *     horizontal direction (< 15 % of height), and wide in the other (> 0.5 m).
+ *
+ * Returns the number of meshes that were painted.  0 means the caller should
+ * fall back to `createPlanesOnAllWalls()`.
+ */
+export function applyTextureToRoomWalls(imageDataUrl: string): number {
+  const labModel = getLabModel();
+  if (!labModel) {
+    console.warn(
+      "[WallpaperRenderer] __labRoomModel not ready — cannot paint walls",
+    );
+    return 0;
+  }
+
+  // Always restore previous paint first so we don't stack materials
+  restoreRoomWallMaterials();
+
+  const texture = loadTexture(imageDataUrl);
+  _activePaintTexture = texture;
+
+  let count = 0;
+
+  labModel.traverse((child) => {
+    const mesh = child as Mesh;
+    if (!mesh.isMesh || !mesh.material) return;
+    if (!isLikelyWallMesh(mesh)) return;
+
+    // Clone the material so we never modify a shared instance
+    const originalMaterial = Array.isArray(mesh.material)
+      ? mesh.material.map((m) => m.clone())
+      : mesh.material.clone();
+
+    _paintedMeshes.push({ mesh, originalMaterial: mesh.material });
+
+    const newMat = new MeshBasicMaterial({
+      map: texture,
+      side: DoubleSide,
+      toneMapped: false,
+    });
+
+    mesh.material = newMat;
+    count++;
+  });
+
+  console.log(
+    `[WallpaperRenderer] Painted texture on ${count} wall mesh(es) in room model`,
+  );
+  return count;
+}
+
+/**
+ * Restore every room-model mesh that was previously painted back to its
+ * original material and free the associated texture from GPU memory.
+ */
+export function restoreRoomWallMaterials(): void {
+  for (const { mesh, originalMaterial } of _paintedMeshes) {
+    // Dispose the replacement material(s) we created
+    disposeMaterial(mesh.material);
+    mesh.material = originalMaterial as Material;
+  }
+  _paintedMeshes = [];
+
+  if (_activePaintTexture) {
+    _activePaintTexture.dispose();
+    _activePaintTexture = null;
+  }
+
+  console.log("[WallpaperRenderer] Restored original wall materials");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  ② Fallback / overlay path — textured planes in front of every wall
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Create one `PlaneGeometry` mesh per detected wall, cover it with the given
+ * texture, orient it to face the wall, and add it as a child of
+ * `__labRoomModel`.
+ *
+ * All four cardinal walls are covered simultaneously — no wall-selection step
+ * is required by the caller.
+ *
+ * Returns the list of generated wallpaper ids (one per wall).
+ */
+export function createPlanesOnAllWalls(
+  imageDataUrl: string,
+  idPrefix: string = "wallpaper",
+): string[] {
+  const walls = getAvailableWalls();
+  if (walls.length === 0) {
+    console.warn("[WallpaperRenderer] No walls detected — nothing to cover");
+    return [];
+  }
+
+  const ids: string[] = [];
+
+  for (const wall of walls) {
+    const id = `${idPrefix}-${wall.id}-${Date.now()}`;
+    createWallpaperMesh(id, wall, imageDataUrl);
+    ids.push(id);
+  }
+
+  console.log(
+    `[WallpaperRenderer] Created ${ids.length} wallpaper plane(s) ` +
+      `covering walls: ${walls.map((w) => w.id).join(", ")}`,
+  );
+
+  return ids;
+}
+
+/**
+ * Remove all planes that were created by `createPlanesOnAllWalls()` and free
+ * their GPU resources.
+ */
+export function removeAllWallpaperPlanes(): void {
+  for (const id of Array.from(_planeRecords.keys())) {
+    removeWallpaperMesh(id);
+  }
+  console.log("[WallpaperRenderer] All wallpaper planes removed");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  ③ Combined entry-point — try mesh-paint, fall back to planes
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Apply a wallpaper (colour or image) to all walls in the current room.
+ *
+ * Attempt order:
+ *   1. Paint the texture directly onto detected wall meshes in `__labRoomModel`
+ *      (zero z-fighting, looks part of the geometry).
+ *   2. If no wall meshes were detected, create floating `PlaneGeometry` planes
+ *      covering all four cardinal walls (reliable fallback for any model).
+ *
+ * @param imageDataUrl  A `data:image/...;base64,...` string or any URL the
+ *                      `TextureLoader` can resolve.
+ * @param idPrefix      Optional prefix for plane ids (ignored when mesh-paint
+ *                      succeeds).
+ *
+ * @returns `"mesh"` when the mesh-paint path was used, `"plane"` when the
+ *          plane fallback was used, `"none"` when both paths produced nothing.
+ */
+export function applyWallpaperToAll(
+  imageDataUrl: string,
+  idPrefix: string = "wallpaper",
+): "mesh" | "plane" | "none" {
+  // Always clear any previous planes before applying new wallpaper
+  removeAllWallpaperPlanes();
+
+  const painted = applyTextureToRoomWalls(imageDataUrl);
+  if (painted > 0) {
+    return "mesh";
+  }
+
+  // Mesh-paint found nothing usable — fall back to planes
+  const ids = createPlanesOnAllWalls(imageDataUrl, idPrefix);
+  if (ids.length > 0) {
+    return "plane";
+  }
+
+  console.warn(
+    "[WallpaperRenderer] applyWallpaperToAll: both paths produced nothing — " +
+      "room model may not be loaded yet",
+  );
+  return "none";
+}
+
+/**
+ * Remove all wallpaper (both painted mesh materials and overlay planes) and
+ * restore the room to its original look.
+ */
+export function clearAllWallpaper(): void {
+  restoreRoomWallMaterials();
+  removeAllWallpaperPlanes();
+  console.log("[WallpaperRenderer] All wallpaper cleared");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Single-plane helpers (used internally + by the cutout system)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Create a single textured plane on the given wall and register it so the
+ * cutout / overlay APIs can reference it by `id`.
+ *
+ * @returns The created `Mesh`, already parented to `__labRoomModel`.
  */
 export function createWallpaperMesh(
   id: string,
@@ -55,13 +264,9 @@ export function createWallpaperMesh(
 ): Mesh {
   const { width, height, center, wallNormal } = wallInfo;
 
-  // ── geometry ─────────────────────────────────────────────────────────────
   const geometry = new PlaneGeometry(width, height);
-
-  // ── texture ───────────────────────────────────────────────────────────────
   const texture = loadTexture(imageDataUrl);
 
-  // ── material ──────────────────────────────────────────────────────────────
   const material = new MeshBasicMaterial({
     map: texture,
     side: DoubleSide,
@@ -70,25 +275,23 @@ export function createWallpaperMesh(
     opacity: 1,
   });
 
-  // ── mesh ──────────────────────────────────────────────────────────────────
   const mesh = new Mesh(geometry, material);
   mesh.position.set(center[0], center[1], center[2]);
-  mesh.name = `wallpaper-${id}`;
+  mesh.name = `wallpaper-plane-${id}`;
 
-  // Rotate the plane so its normal aligns with the wall normal
   orientToNormal(mesh, wallNormal);
 
-  // ── add to scene ──────────────────────────────────────────────────────────
   const labModel = getLabModel();
   if (labModel) {
     labModel.add(mesh);
   } else {
-    console.warn("[WallpaperRenderer] __labRoomModel not available; adding to window.scene");
+    console.warn(
+      "[WallpaperRenderer] __labRoomModel not available; plane added to scene root",
+    );
     (globalThis as any).__scene?.add(mesh);
   }
 
-  // ── register ──────────────────────────────────────────────────────────────
-  _records.set(id, {
+  _planeRecords.set(id, {
     id,
     mesh,
     wallWidth: width,
@@ -98,7 +301,7 @@ export function createWallpaperMesh(
   });
 
   console.log(
-    `[WallpaperRenderer] Created wallpaper "${id}" ` +
+    `[WallpaperRenderer] Plane "${id}" created ` +
       `(${width.toFixed(2)}m × ${height.toFixed(2)}m) ` +
       `at (${center[0].toFixed(2)}, ${center[1].toFixed(2)}, ${center[2].toFixed(2)})`,
   );
@@ -107,17 +310,19 @@ export function createWallpaperMesh(
 }
 
 /**
- * Punch holes in an existing wallpaper plane by rebuilding its geometry as a
- * `THREE.ShapeGeometry` with `THREE.Path` holes.  UVs are recomputed so the
- * texture still covers the solid areas correctly.
+ * Punch rectangular holes in a plane mesh by replacing its `PlaneGeometry`
+ * with a `ShapeGeometry` that has `THREE.Path` holes.  UVs are remapped so
+ * the texture still covers the remaining solid areas correctly.
  */
 export function applyWallpaperCutouts(
   id: string,
   holes: WallpaperCutoutRect[],
 ): void {
-  const record = _records.get(id);
+  const record = _planeRecords.get(id);
   if (!record) {
-    console.warn(`[WallpaperRenderer] applyWallpaperCutouts: unknown id "${id}"`);
+    console.warn(
+      `[WallpaperRenderer] applyWallpaperCutouts: unknown id "${id}"`,
+    );
     return;
   }
 
@@ -125,7 +330,6 @@ export function applyWallpaperCutouts(
   const hw = w / 2;
   const hh = h / 2;
 
-  // Outer rectangle (the full wallpaper)
   const shape = new Shape();
   shape.moveTo(-hw, -hh);
   shape.lineTo(hw, -hh);
@@ -133,17 +337,12 @@ export function applyWallpaperCutouts(
   shape.lineTo(-hw, hh);
   shape.closePath();
 
-  // Each cutout becomes a hole
   for (const hole of holes) {
     const path = new Path();
-    const x1 = hole.x;
-    const y1 = hole.y;
-    const x2 = hole.x + hole.width;
-    const y2 = hole.y + hole.height;
-    path.moveTo(x1, y1);
-    path.lineTo(x1, y2);
-    path.lineTo(x2, y2);
-    path.lineTo(x2, y1);
+    path.moveTo(hole.x, hole.y);
+    path.lineTo(hole.x, hole.y + hole.height);
+    path.lineTo(hole.x + hole.width, hole.y + hole.height);
+    path.lineTo(hole.x + hole.width, hole.y);
     path.closePath();
     shape.holes.push(path);
   }
@@ -151,21 +350,17 @@ export function applyWallpaperCutouts(
   const geom = new ShapeGeometry(shape);
   remapUVs(geom, w, h);
 
-  // Swap geometry, dispose old one
   mesh.geometry.dispose();
   mesh.geometry = geom;
 
   console.log(
-    `[WallpaperRenderer] Applied ${holes.length} cutout(s) to wallpaper "${id}"`,
+    `[WallpaperRenderer] Applied ${holes.length} cutout(s) to plane "${id}"`,
   );
 }
 
-/**
- * Set the material opacity of a wallpaper mesh.  Useful to make it
- * semi-transparent while the user is drawing cutout regions.
- */
+/** Set the material opacity of a plane mesh (e.g. 0.5 during cutout drawing). */
 export function setWallpaperOpacity(id: string, opacity: number): void {
-  const record = _records.get(id);
+  const record = _planeRecords.get(id);
   if (!record) return;
   const mat = record.mesh.material as MeshBasicMaterial;
   mat.transparent = opacity < 1;
@@ -173,67 +368,60 @@ export function setWallpaperOpacity(id: string, opacity: number): void {
   mat.needsUpdate = true;
 }
 
-/**
- * Retrieve the raw `Mesh` for a wallpaper (used for raycasting during lasso
- * drawing).
- */
+/** Retrieve the raw `Mesh` for a registered plane (used for raycasting). */
 export function getWallpaperMesh(id: string): Mesh | null {
-  return _records.get(id)?.mesh ?? null;
+  return _planeRecords.get(id)?.mesh ?? null;
 }
 
-/** True if a wallpaper record exists for the given id. */
+/** True when a plane record exists for `id`. */
 export function wallpaperExists(id: string): boolean {
-  return _records.has(id);
+  return _planeRecords.has(id);
 }
 
-/** All registered wallpaper ids. */
+/** All registered plane ids. */
 export function getAllWallpaperIds(): string[] {
-  return Array.from(_records.keys());
+  return Array.from(_planeRecords.keys());
 }
 
 /**
- * Remove a wallpaper from the scene and free its GPU resources.
+ * Remove a single plane from the scene and free its GPU resources.
  */
 export function removeWallpaperMesh(id: string): void {
-  const record = _records.get(id);
+  const record = _planeRecords.get(id);
   if (!record) return;
 
   const { mesh, confirmOverlay, previewOverlay } = record;
 
-  // Remove overlays first
   if (confirmOverlay) mesh.remove(confirmOverlay);
   if (previewOverlay) mesh.remove(previewOverlay);
   disposeLineSegments(confirmOverlay);
   disposeLineSegments(previewOverlay);
 
-  // Remove mesh from parent
   mesh.parent?.remove(mesh);
-
-  // Free GPU memory
   mesh.geometry.dispose();
   const mat = mesh.material as MeshBasicMaterial;
   if (mat.map) mat.map.dispose();
   mat.dispose();
 
-  _records.delete(id);
-
-  console.log(`[WallpaperRenderer] Removed wallpaper "${id}"`);
+  _planeRecords.delete(id);
+  console.log(`[WallpaperRenderer] Plane "${id}" removed`);
 }
 
-// ─── Lasso overlay API ────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+//  Lasso overlay helpers (for the optional cutout-drawing step)
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Update the green "confirmed regions" line-segment overlay that is a child
- * of the wallpaper mesh.  Pass an empty array to clear all confirmed lines.
+ * Rebuild the green "confirmed regions" `LineSegments` overlay that is a
+ * child of the plane mesh.  Pass an empty array to clear all lines.
  */
 export function updateLassoConfirmOverlay(
   id: string,
   regions: WallpaperCutoutRect[],
 ): void {
-  const record = _records.get(id);
+  const record = _planeRecords.get(id);
   if (!record) return;
 
-  // Remove old overlay
   if (record.confirmOverlay) {
     record.mesh.remove(record.confirmOverlay);
     disposeLineSegments(record.confirmOverlay);
@@ -243,29 +431,23 @@ export function updateLassoConfirmOverlay(
   if (regions.length === 0) return;
 
   const vertices: number[] = [];
-  for (const rect of regions) {
-    pushRectLines(vertices, rect, 0.005);
-  }
+  for (const rect of regions) pushRectLines(vertices, rect, 0.005);
 
-  record.confirmOverlay = buildLineSegments(
-    vertices,
-    0x22c55e, // Tailwind green-500
-  );
+  record.confirmOverlay = buildLineSegments(vertices, 0x22c55e);
   record.mesh.add(record.confirmOverlay);
 }
 
 /**
- * Update (or clear) the yellow in-progress drag-preview rectangle that is a
- * child of the wallpaper mesh.  Pass `null` to hide the preview.
+ * Update the yellow in-progress drag-preview `LineSegments` overlay.
+ * Pass `null` to hide it.
  */
 export function updateLassoPreviewOverlay(
   id: string,
   rect: WallpaperCutoutRect | null,
 ): void {
-  const record = _records.get(id);
+  const record = _planeRecords.get(id);
   if (!record) return;
 
-  // Remove old preview
   if (record.previewOverlay) {
     record.mesh.remove(record.previewOverlay);
     disposeLineSegments(record.previewOverlay);
@@ -277,47 +459,116 @@ export function updateLassoPreviewOverlay(
   const vertices: number[] = [];
   pushRectLines(vertices, rect, 0.006);
 
-  record.previewOverlay = buildLineSegments(
-    vertices,
-    0xf59e0b, // Tailwind amber-500
-  );
+  record.previewOverlay = buildLineSegments(vertices, 0xf59e0b);
   record.mesh.add(record.previewOverlay);
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+//  Wall-mesh detection
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Heuristic: returns `true` when a mesh is likely a wall.
+ *
+ * Two independent signals — if either fires the mesh is treated as a wall:
+ *
+ * **Name signal** (highest confidence)
+ * The mesh name (lower-cased) contains one of: "wall", "wand", "mur", "pared",
+ * "paroi", "wal", "zid", "muur".  This covers the most common model-authoring
+ * conventions in English, German, French, Spanish, Dutch, and Slavic languages.
+ *
+ * **Shape signal** (geometry-based, works on untitled meshes)
+ * Bounding box in world space satisfies ALL of:
+ *   • height (y)  > 1.0 m   — it is taller than a metre
+ *   • min dimension (x or z) < 15 % of height   — it is thin
+ *   • max dimension (x or z) > 0.5 m             — it is wide
+ * Floor slabs (thin in Y, not Y) and ceilings are excluded automatically
+ * because they fail the first condition.
+ */
+function isLikelyWallMesh(mesh: Mesh): boolean {
+  // ── name-based ────────────────────────────────────────────────────────────
+  const WALL_NAME_FRAGMENTS = [
+    "wall",
+    "wand",
+    "mur",
+    "pared",
+    "paroi",
+    "wal ",
+    "zid",
+    "muur",
+    "wall_",
+    "_wall",
+    "walls",
+  ];
+  const nameLower = (mesh.name || "").toLowerCase();
+  if (WALL_NAME_FRAGMENTS.some((f) => nameLower.includes(f))) {
+    return true;
+  }
+
+  // ── shape-based ───────────────────────────────────────────────────────────
+  const bbox = new Box3().setFromObject(mesh);
+  const size = new Vector3();
+  bbox.getSize(size);
+
+  const height = size.y;
+  if (height < 1.0) return false; // too short to be a wall
+
+  const minH = Math.min(size.x, size.z); // thickness of the wall
+  const maxH = Math.max(size.x, size.z); // span of the wall
+
+  const isThin = minH < height * 0.15; // wall is thin relative to its height
+  const isWide = maxH > 0.5; // wall spans at least 0.5 m
+
+  return isThin && isWide;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Private helpers
+// ─────────────────────────────────────────────────────────────────────────────
 
 function getLabModel(): Object3D | null {
   return (globalThis as any).__labRoomModel ?? null;
 }
 
+/**
+ * Load a texture from a data-URL or any URL recognised by `TextureLoader`.
+ * Colour-space, filtering, and wrapping are configured for best visual output.
+ */
 function loadTexture(dataUrl: string): Texture {
   const url = dataUrl.startsWith("data:")
     ? dataUrl
     : `data:image/png;base64,${dataUrl}`;
+
   const loader = new TextureLoader();
   const texture = loader.load(url);
+
   texture.wrapS = ClampToEdgeWrapping;
   texture.wrapT = ClampToEdgeWrapping;
   texture.minFilter = LinearFilter;
   texture.magFilter = LinearFilter;
   texture.colorSpace = SRGBColorSpace;
   texture.needsUpdate = true;
+
   return texture;
 }
 
 /**
- * Rotate `plane` so its +Z face aligns with `wallNormal`.
- * A PlaneGeometry's default face normal is [0, 0, 1].
+ * Rotate a plane mesh so its +Z face aligns with `wallNormal`.
+ * `PlaneGeometry` default face normal is [0, 0, 1].
  */
 function orientToNormal(
   plane: Mesh,
   wallNormal: [number, number, number],
 ): void {
-  const target = new Vector3(wallNormal[0], wallNormal[1], wallNormal[2]).normalize();
+  const target = new Vector3(
+    wallNormal[0],
+    wallNormal[1],
+    wallNormal[2],
+  ).normalize();
   const defaultNormal = new Vector3(0, 0, 1);
 
   if (target.dot(defaultNormal) < -0.999) {
-    // Exactly anti-parallel — flip 180° around Y
+    // Exactly anti-parallel — flip 180° around Y to avoid degenerate quaternion
     plane.rotation.set(0, Math.PI, 0);
   } else {
     plane.quaternion.setFromUnitVectors(defaultNormal, target);
@@ -325,14 +576,10 @@ function orientToNormal(
 }
 
 /**
- * Recompute UV coordinates for a `ShapeGeometry` so that the image fills the
- * wallpaper rectangle [−w/2, w/2] × [−h/2, h/2].
+ * Recompute UV coordinates for a `ShapeGeometry` so the texture fills the
+ * rectangle [−w/2, w/2] × [−h/2, h/2].
  */
-function remapUVs(
-  geometry: ShapeGeometry,
-  w: number,
-  h: number,
-): void {
+function remapUVs(geometry: ShapeGeometry, w: number, h: number): void {
   const pos = geometry.attributes.position;
   if (!pos) return;
   const count = pos.count;
@@ -346,9 +593,8 @@ function remapUVs(
 }
 
 /**
- * Push 8 vertices (4 edges × 2 endpoints) for a rectangle outline into the
- * `out` array.  `z` is the local-space depth offset (keeps lines in front of
- * the wallpaper plane).
+ * Append 8 vertex positions (4 edges × 2 endpoints) for a rectangle outline
+ * to `out`.  `z` is the local-space depth to keep lines in front of the plane.
  */
 function pushRectLines(
   out: number[],
@@ -356,18 +602,13 @@ function pushRectLines(
   z: number,
 ): void {
   const { x, y, width, height } = rect;
-  const x1 = x;
-  const y1 = y;
   const x2 = x + width;
   const y2 = y + height;
-  // Bottom
-  out.push(x1, y1, z, x2, y1, z);
-  // Right
-  out.push(x2, y1, z, x2, y2, z);
-  // Top
-  out.push(x2, y2, z, x1, y2, z);
-  // Left
-  out.push(x1, y2, z, x1, y1, z);
+  // bottom, right, top, left
+  out.push(x, y, z, x2, y, z);
+  out.push(x2, y, z, x2, y2, z);
+  out.push(x2, y2, z, x, y2, z);
+  out.push(x, y2, z, x, y, z);
 }
 
 function buildLineSegments(vertices: number[], color: number): LineSegments {
@@ -382,4 +623,17 @@ function disposeLineSegments(ls: LineSegments | null): void {
   if (!ls) return;
   ls.geometry.dispose();
   (ls.material as LineBasicMaterial).dispose();
+}
+
+function disposeMaterial(mat: Material | Material[]): void {
+  if (Array.isArray(mat)) {
+    mat.forEach((m) => {
+      if ((m as MeshBasicMaterial).map) (m as MeshBasicMaterial).map!.dispose();
+      m.dispose();
+    });
+  } else {
+    if ((mat as MeshBasicMaterial).map)
+      (mat as MeshBasicMaterial).map!.dispose();
+    mat.dispose();
+  }
 }

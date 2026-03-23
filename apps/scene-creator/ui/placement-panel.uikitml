@@ -159,6 +159,10 @@
       <span class="item-label" style="font-size: 2.5; color: #f8f8f8;">■</span>
       <span class="item-label">White</span>
     </div>
+    <div class="item-btn" id="place-wallpaper-cream">
+      <span class="item-label" style="font-size: 2.5; color: #fdf6e3;">■</span>
+      <span class="item-label">Cream</span>
+    </div>
     <div class="item-btn" id="place-wallpaper-sky">
       <span class="item-label" style="font-size: 2.5; color: #bfdbfe;">■</span>
       <span class="item-label">Sky Blue</span>
@@ -175,6 +179,10 @@
       <span class="item-label" style="font-size: 2.5; color: #ddd6fe;">■</span>
       <span class="item-label">Lavender</span>
     </div>
+  </div>
+
+  <div class="close-btn" id="remove-wallpaper" style="margin-top: 1; background-color: #3f1515;">
+    <span class="close-text">🗑 Remove Wallpaper</span>
   </div>
 
   <div class="close-btn" id="close-placement">

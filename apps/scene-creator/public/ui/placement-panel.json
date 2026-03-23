@@ -493,10 +493,47 @@
                   "class": "item-label",
                   "style": {
                     "fontSize": "2.5",
-                    "color": "#bfdbfe"
+                    "color": "#fdf6e3"
                   }
                 },
                 "dataUid": "uid-48"
+              },
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "Cream"
+                ],
+                "properties": {
+                  "class": "item-label"
+                },
+                "dataUid": "uid-49"
+              }
+            ],
+            "properties": {
+              "class": "item-btn",
+              "id": "place-wallpaper-cream"
+            },
+            "dataUid": "uid-47"
+          },
+          {
+            "type": "container",
+            "sourceTag": "div",
+            "children": [
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "■"
+                ],
+                "properties": {
+                  "class": "item-label",
+                  "style": {
+                    "fontSize": "2.5",
+                    "color": "#bfdbfe"
+                  }
+                },
+                "dataUid": "uid-51"
               },
               {
                 "sourceTag": "span",
@@ -507,14 +544,14 @@
                 "properties": {
                   "class": "item-label"
                 },
-                "dataUid": "uid-49"
+                "dataUid": "uid-52"
               }
             ],
             "properties": {
               "class": "item-btn",
               "id": "place-wallpaper-sky"
             },
-            "dataUid": "uid-47"
+            "dataUid": "uid-50"
           },
           {
             "type": "container",
@@ -533,7 +570,7 @@
                     "color": "#bbf7d0"
                   }
                 },
-                "dataUid": "uid-51"
+                "dataUid": "uid-54"
               },
               {
                 "sourceTag": "span",
@@ -544,14 +581,14 @@
                 "properties": {
                   "class": "item-label"
                 },
-                "dataUid": "uid-52"
+                "dataUid": "uid-55"
               }
             ],
             "properties": {
               "class": "item-btn",
               "id": "place-wallpaper-sage"
             },
-            "dataUid": "uid-50"
+            "dataUid": "uid-53"
           },
           {
             "type": "container",
@@ -570,7 +607,7 @@
                     "color": "#fecdd3"
                   }
                 },
-                "dataUid": "uid-54"
+                "dataUid": "uid-57"
               },
               {
                 "sourceTag": "span",
@@ -581,14 +618,14 @@
                 "properties": {
                   "class": "item-label"
                 },
-                "dataUid": "uid-55"
+                "dataUid": "uid-58"
               }
             ],
             "properties": {
               "class": "item-btn",
               "id": "place-wallpaper-blush"
             },
-            "dataUid": "uid-53"
+            "dataUid": "uid-56"
           },
           {
             "type": "container",
@@ -607,7 +644,7 @@
                     "color": "#ddd6fe"
                   }
                 },
-                "dataUid": "uid-57"
+                "dataUid": "uid-60"
               },
               {
                 "sourceTag": "span",
@@ -618,14 +655,14 @@
                 "properties": {
                   "class": "item-label"
                 },
-                "dataUid": "uid-58"
+                "dataUid": "uid-61"
               }
             ],
             "properties": {
               "class": "item-btn",
               "id": "place-wallpaper-lavender"
             },
-            "dataUid": "uid-56"
+            "dataUid": "uid-59"
           }
         ],
         "properties": {
@@ -641,19 +678,45 @@
             "sourceTag": "span",
             "type": "custom",
             "children": [
+              "🗑 Remove Wallpaper"
+            ],
+            "properties": {
+              "class": "close-text"
+            },
+            "dataUid": "uid-63"
+          }
+        ],
+        "properties": {
+          "class": "close-btn",
+          "id": "remove-wallpaper",
+          "style": {
+            "marginTop": "1",
+            "backgroundColor": "#3f1515"
+          }
+        },
+        "dataUid": "uid-62"
+      },
+      {
+        "type": "container",
+        "sourceTag": "div",
+        "children": [
+          {
+            "sourceTag": "span",
+            "type": "custom",
+            "children": [
               "Close"
             ],
             "properties": {
               "class": "close-text"
             },
-            "dataUid": "uid-60"
+            "dataUid": "uid-65"
           }
         ],
         "properties": {
           "class": "close-btn",
           "id": "close-placement"
         },
-        "dataUid": "uid-59"
+        "dataUid": "uid-64"
       }
     ],
     "properties": {
@@ -873,7 +936,7 @@
         "column": 0
       },
       "end": {
-        "line": 182,
+        "line": 190,
         "column": 6
       }
     },
@@ -1263,7 +1326,7 @@
         "column": 2
       },
       "end": {
-        "line": 177,
+        "line": 181,
         "column": 8
       }
     },
@@ -1354,7 +1417,7 @@
       },
       "end": {
         "line": 163,
-        "column": 46
+        "column": 43
       }
     },
     "uid-50": {
@@ -1384,7 +1447,7 @@
       },
       "end": {
         "line": 167,
-        "column": 42
+        "column": 46
       }
     },
     "uid-53": {
@@ -1414,7 +1477,7 @@
       },
       "end": {
         "line": 171,
-        "column": 43
+        "column": 42
       }
     },
     "uid-56": {
@@ -1444,26 +1507,76 @@
       },
       "end": {
         "line": 175,
-        "column": 46
+        "column": 43
       }
     },
     "uid-59": {
       "start": {
-        "line": 179,
-        "column": 2
-      },
-      "end": {
-        "line": 181,
-        "column": 8
-      }
-    },
-    "uid-60": {
-      "start": {
-        "line": 180,
+        "line": 177,
         "column": 4
       },
       "end": {
         "line": 180,
+        "column": 10
+      }
+    },
+    "uid-60": {
+      "start": {
+        "line": 178,
+        "column": 6
+      },
+      "end": {
+        "line": 178,
+        "column": 79
+      }
+    },
+    "uid-61": {
+      "start": {
+        "line": 179,
+        "column": 6
+      },
+      "end": {
+        "line": 179,
+        "column": 46
+      }
+    },
+    "uid-62": {
+      "start": {
+        "line": 183,
+        "column": 2
+      },
+      "end": {
+        "line": 185,
+        "column": 8
+      }
+    },
+    "uid-63": {
+      "start": {
+        "line": 184,
+        "column": 4
+      },
+      "end": {
+        "line": 184,
+        "column": 55
+      }
+    },
+    "uid-64": {
+      "start": {
+        "line": 187,
+        "column": 2
+      },
+      "end": {
+        "line": 189,
+        "column": 8
+      }
+    },
+    "uid-65": {
+      "start": {
+        "line": 188,
+        "column": 4
+      },
+      "end": {
+        "line": 188,
         "column": 41
       }
     }
