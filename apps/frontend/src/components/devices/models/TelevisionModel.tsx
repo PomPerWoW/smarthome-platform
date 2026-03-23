@@ -8,7 +8,7 @@ interface TelevisionModelProps {
 
 export function TelevisionModel({ isOn }: TelevisionModelProps) {
   const groupRef = useRef<THREE.Group>(null);
-  const { scene } = useGLTF("/models/devices/television/scene.gltf");
+  const { scene } = useGLTF(`${import.meta.env.BASE_URL}models/devices/television/scene.gltf`);
 
   const clonedScene = useMemo(() => {
     const cloned = scene.clone();
@@ -49,4 +49,4 @@ export function TelevisionModel({ isOn }: TelevisionModelProps) {
   );
 }
 
-useGLTF.preload("/models/devices/television/scene.gltf");
+useGLTF.preload(`${import.meta.env.BASE_URL}models/devices/television/scene.gltf`);

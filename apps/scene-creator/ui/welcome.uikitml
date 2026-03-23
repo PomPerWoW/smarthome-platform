@@ -251,7 +251,7 @@
         <div>
           <GlassesIcon class="btn-icon" />
         </div>
-        <span class="btn-text">Enter 3D</span>
+        <span class="btn-text" id="xr-button-text">Enter AR / VR</span>
       </div>
     </button>
     

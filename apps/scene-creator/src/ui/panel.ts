@@ -96,15 +96,18 @@ export class PanelSystem extends createSystem({
           });
         }
 
-        // Update XR button text when not in XR
-        const xrBtn = document.getElementById("xr-button") as UIKit.Text;
-        if (
-          xrBtn &&
-          this.world.visibilityState.value === VisibilityState.NonImmersive
-        ) {
-          xrBtn.setProperties({
-            text: "Enter 3D",
-          });
+        // Update XR button text based on mode
+        const xrBtnText = document.getElementById("xr-button-text") as UIKit.Text;
+        if (xrBtnText) {
+          if (this.world.visibilityState.value === VisibilityState.NonImmersive) {
+            xrBtnText.setProperties({
+              text: ar ? "Enter AR" : "Enter VR",
+            });
+          } else {
+            xrBtnText.setProperties({
+              text: ar ? "Exit AR" : "Exit VR",
+            });
+          }
         }
 
         console.log(`[Panel] Mode switched to: ${ar ? "AR" : "VR"}`);
@@ -132,13 +135,16 @@ export class PanelSystem extends createSystem({
 
         // Set initial text based on visibility state
         const updateButtonText = () => {
+          const xrBtnText = document.getElementById("xr-button-text") as UIKit.Text;
+          if (!xrBtnText) return;
+
           const visibilityState = this.world.visibilityState.value;
           if (visibilityState === VisibilityState.NonImmersive) {
-            xrButton.setProperties({
-              text: "Enter 3D",
+            xrBtnText.setProperties({
+              text: isARMode ? "Enter AR" : "Enter VR",
             });
           } else {
-            xrButton.setProperties({ text: "Exit 3D" });
+            xrBtnText.setProperties({ text: isARMode ? "Exit AR" : "Exit VR" });
           }
         };
 
@@ -200,7 +206,7 @@ export class PanelSystem extends createSystem({
           console.log(
             `[Panel] Welcome panel ${!isVisible ? "shown" : "hidden"}`,
           );
-          
+
           // Update floating button text/icon if it exists
           const floatingBtn = document.getElementById("welcome-panel-toggle-btn");
           if (floatingBtn) {
@@ -225,7 +231,7 @@ export class PanelSystem extends createSystem({
         if (welcomeEntity?.object3D) {
           welcomeEntity.object3D.visible = true;
           console.log("[Panel] Welcome panel shown");
-          
+
           // Update floating button
           const floatingBtn = document.getElementById("welcome-panel-toggle-btn");
           if (floatingBtn) {
@@ -436,7 +442,7 @@ export class PanelSystem extends createSystem({
 
       try {
         const inputSources = this.xrSession.inputSources;
-        
+
         for (const inputSource of inputSources) {
           // Skip hand tracking input sources
           if (inputSource.hand) continue;

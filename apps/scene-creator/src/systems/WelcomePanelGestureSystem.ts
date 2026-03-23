@@ -61,12 +61,12 @@ export class WelcomePanelGestureSystem extends createSystem({}) {
     // Check if hand tracking is available
     // enabledFeatures might be a Set, an array, or might not exist
     let handTrackingSupported = false;
-    
+
     if (this.xrSession.enabledFeatures) {
       // Check if it's a Set
       if (this.xrSession.enabledFeatures instanceof Set) {
         handTrackingSupported = this.xrSession.enabledFeatures.has("hand-tracking");
-      } 
+      }
       // Check if it's an array
       else if (Array.isArray(this.xrSession.enabledFeatures)) {
         handTrackingSupported = this.xrSession.enabledFeatures.includes("hand-tracking");
@@ -97,7 +97,7 @@ export class WelcomePanelGestureSystem extends createSystem({}) {
     } else {
       console.log("[WelcomePanelGesture] Hand tracking enabled");
     }
-    
+
     // Set up frame callback for gesture detection
     // This will gracefully handle cases where hand tracking isn't available
     this.setupFrameCallback();

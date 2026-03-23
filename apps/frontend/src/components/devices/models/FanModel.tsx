@@ -10,7 +10,7 @@ interface FanModelProps {
 
 export function FanModel({ speed, swing }: FanModelProps) {
   const groupRef = useRef<THREE.Group>(null);
-  const { scene, animations } = useGLTF("/models/devices/fan/scene.gltf");
+  const { scene, animations } = useGLTF(`${import.meta.env.BASE_URL}models/devices/fan/scene.gltf`);
   const { actions } = useAnimations(animations, groupRef);
 
   const clonedScene = useMemo(() => scene.clone(), [scene]);
@@ -44,4 +44,4 @@ export function FanModel({ speed, swing }: FanModelProps) {
   );
 }
 
-useGLTF.preload("/models/devices/fan/scene.gltf");
+useGLTF.preload(`${import.meta.env.BASE_URL}models/devices/fan/scene.gltf`);

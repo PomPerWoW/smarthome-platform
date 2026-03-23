@@ -124,6 +124,8 @@ CORS_ALLOWED_ORIGINS = [
     "https://127.0.0.1:8081",
     "https://192.168.89.100:5173", # Change to your actual local IP
     "https://192.168.89.100:8081", # Change to your actual local IP
+    "https://localhost:3000",
+    "https://localhost:3003",
 ]
 
 if HOST_IP:
@@ -182,8 +184,8 @@ elif sys.platform == "darwin":
     GDAL_LIBRARY_PATH = "/opt/homebrew/opt/gdal/lib/libgdal.dylib"
     GEOS_LIBRARY_PATH = "/opt/homebrew/opt/geos/lib/libgeos_c.dylib"
 elif sys.platform == "linux":
-    GDAL_LIBRARY_PATH = "/usr/lib/x86_64-linux-gnu/libgdal.so"
-    GEOS_LIBRARY_PATH = "/usr/lib/x86_64-linux-gnu/libgeos_c.so"
+    GDAL_LIBRARY_PATH = os.environ.get("GDAL_LIBRARY_PATH", "/usr/lib/x86_64-linux-gnu/libgdal.so")
+    GEOS_LIBRARY_PATH = os.environ.get("GEOS_LIBRARY_PATH", "/usr/lib/x86_64-linux-gnu/libgeos_c.so")
 
 WSGI_APPLICATION = "app.wsgi.application"
 
@@ -241,11 +243,13 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = "static/"
+FORCE_SCRIPT_NAME = "/smarthome/api"
+
+STATIC_URL = "/smarthome/api/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
 # Media files (User uploaded content)
-MEDIA_URL = "media/"
+MEDIA_URL = "/smarthome/api/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
 # Default primary key field type

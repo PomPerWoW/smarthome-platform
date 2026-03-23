@@ -14,7 +14,7 @@ import {
   Box,
   X,
   CheckCircle2,
-  File,
+
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";

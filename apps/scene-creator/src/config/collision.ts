@@ -68,6 +68,45 @@ const DEVICE_PUSH_BACK = 0.02;
 
 // ── Initialization ─────────────────────────────────────────────────────────
 
+/** Returns the top-level desk/table/drawer ancestor of a node, or null. */
+function getFurnitureRoot(node: Object3D, roomModel: Object3D): Object3D | null {
+  let result: Object3D | null = null;
+  let current: Object3D | null = node;
+  while (current && current !== roomModel.parent) {
+    const nName = (current.name || "").toLowerCase();
+    if (/desk|table|drawer/i.test(nName)) {
+      result = current; // keep walking up so we get the highest matching ancestor
+    }
+    current = current.parent;
+  }
+  return result;
+}
+
+/**
+ * Collect all top-level desk/table groups in the room model and return one
+ * merged world-space AABB per group (i.e. one box per whole desk, not per mesh).
+ */
+function buildMergedDeskBoxes(roomModel: Object3D): Box3[] {
+  // Map from Object3D (desk root) → merged Box3
+  const deskBoxMap = new Map<Object3D, Box3>();
+  const meshBox = new Box3();
+
+  roomModel.traverse((child: any) => {
+    if (!child.isMesh || !child.geometry) return;
+    const root = getFurnitureRoot(child as Object3D, roomModel);
+    if (!root) return;
+
+    if (!deskBoxMap.has(root)) {
+      deskBoxMap.set(root, new Box3());
+    }
+    child.geometry.computeBoundingBox();
+    meshBox.setFromObject(child as Object3D);
+    deskBoxMap.get(root)!.union(meshBox);
+  });
+
+  return Array.from(deskBoxMap.values());
+}
+
 /**
  * Initialize collision detection from the room model's mesh geometry.
  * Should be called **after** the model is loaded and added to the scene.
@@ -86,47 +125,25 @@ export function initializeCollision(roomModel: Object3D): void {
   roomModel.updateMatrixWorld(true);
 
   // ── Build table-top collision zones ────────────────────────────────────
-  // Traverse the room model looking for meshes named "TableTop" that are
-  // children of desk/table groups.  For each, compute a world-space AABB
-  // and store the XZ footprint + surface Y so we can block entities from
-  // walking through desks.
+  // Merge ALL mesh components of each desk/table group into ONE unified
+  // world-space AABB per desk so the robot treats the full rectangular
+  // footprint as a solid block (including open underdesk air space).
   _tableTopZones = [];
-  const _box = new Box3();
 
-  roomModel.traverse((child: any) => {
-    if (!child.isMesh || !child.geometry) return;
-
-    // Match meshes named "TableTop" (case-insensitive)
-    const meshName = (child.name || "").toLowerCase();
-    const isTableTop = meshName === "tabletop";
-
-    // Also check if parent node name contains "desk" or "table"
-    // to catch any differently-named top surfaces
-    const parentName = (child.parent?.name || "").toLowerCase();
-    const parentIsDesk =
-      parentName.includes("desk") || parentName.includes("table");
-
-    if (!isTableTop && !parentIsDesk) return;
-    // For non-TableTop children of desk groups (legs, drawers, etc),
-    // skip — those are already handled by horizontal raycasts.
-    if (!isTableTop) return;
-
-    // Compute world-space bounding box of this TableTop mesh
-    child.geometry.computeBoundingBox();
-    _box.setFromObject(child);
-
+  const mergedDeskBoxes = buildMergedDeskBoxes(roomModel);
+  for (const box of mergedDeskBoxes) {
     _tableTopZones.push({
-      minX: _box.min.x - TABLE_ZONE_MARGIN,
-      maxX: _box.max.x + TABLE_ZONE_MARGIN,
-      minZ: _box.min.z - TABLE_ZONE_MARGIN,
-      maxZ: _box.max.z + TABLE_ZONE_MARGIN,
-      tableY: _box.min.y, // bottom face of the table top slab
+      minX: box.min.x - TABLE_ZONE_MARGIN,
+      maxX: box.max.x + TABLE_ZONE_MARGIN,
+      minZ: box.min.z - TABLE_ZONE_MARGIN,
+      maxZ: box.max.z + TABLE_ZONE_MARGIN,
+      tableY: box.max.y, // block entities shorter than the top of this desk
     });
-  });
+  }
 
   console.log(
     `[Collision] ✅ Initialized with ${_collisionMeshes.length} meshes, ` +
-      `${_tableTopZones.length} table-top zones from room model`,
+      `${_tableTopZones.length} unified desk-zone(s) from room model`,
   );
 }
 
@@ -141,21 +158,16 @@ export function updateCollisionTransform(): void {
     // Recompute table-top zones because they are stored in world space
     // and the room model may have moved (room alignment, manual panel, etc.)
     _tableTopZones = [];
-    const box = new Box3();
-    _roomModel.traverse((child: any) => {
-      if (!child.isMesh || !child.geometry) return;
-      const meshName = (child.name || "").toLowerCase();
-      if (meshName !== "tabletop") return;
-      child.geometry.computeBoundingBox();
-      box.setFromObject(child);
+    const mergedBoxes = buildMergedDeskBoxes(_roomModel);
+    for (const box of mergedBoxes) {
       _tableTopZones.push({
         minX: box.min.x - TABLE_ZONE_MARGIN,
         maxX: box.max.x + TABLE_ZONE_MARGIN,
         minZ: box.min.z - TABLE_ZONE_MARGIN,
         maxZ: box.max.z + TABLE_ZONE_MARGIN,
-        tableY: box.min.y,
+        tableY: box.max.y,
       });
-    });
+    }
   }
 }
 
@@ -183,6 +195,29 @@ function raycastRoom(
   if (hits.length === 0) return null;
   hits.sort((a, b) => a.distance - b.distance);
   return hits[0];
+}
+
+const _downDir = new Vector3(0, -1, 0);
+
+/**
+ * Checks if there is a floor mesh beneath the given position.
+ * Casts a ray downwards from a point slightly above the highest given height.
+ */
+function hasFloorBelow(pos: Vector3, baseY: number, maxH: number): boolean {
+  if (_collisionMeshes.length === 0) return true;
+  _origin.set(pos.x, baseY + maxH, pos.z);
+  // Look for a hit within maxH + 0.5 (allowing a slight downward slope/step)
+  const hit = raycastRoom(_origin, _downDir, maxH + 0.5);
+  
+  if (hit && hit.face && hit.face.normal) {
+      const normalWorld = hit.face.normal.clone().transformDirection(hit.object.matrixWorld);
+      // Ensure the hit surface is roughly pointing upwards (like a floor)
+      if (normalWorld.y > 0.5) return true;
+  } else if (hit) {
+      // If no normal information, a hit is still better than nothing
+      return true;
+  }
+  return false;
 }
 
 // ── Public API ─────────────────────────────────────────────────────────────
@@ -220,68 +255,84 @@ export function constrainMovement(
 
   _dir.set(dx / hDist, 0, dz / hDist);
 
-  // ── 0) Table-top zone check ─────────────────────────────────────────────
-  // If the entity is short enough to be under a table top, check whether
-  // the destination XZ falls inside any table-top footprint.  If so, block
-  // the movement entirely (treat it like hitting a wall).
-  if (_tableTopZones.length > 0) {
-    const entityTopY = from.y + heights[heights.length - 1];
-
-    for (const zone of _tableTopZones) {
-      // Only block if the entity is shorter than the table surface
-      if (entityTopY > zone.tableY) continue;
-
-      // Check if the destination point (expanded by entity radius)
-      // overlaps with this table zone
-      const inZoneX =
-        to.x + radius > zone.minX && to.x - radius < zone.maxX;
-      const inZoneZ =
-        to.z + radius > zone.minZ && to.z - radius < zone.maxZ;
-
-      if (inZoneX && inZoneZ) {
-        // Also check that we are walking INTO the zone (not already inside)
-        const fromInX =
-          from.x + radius > zone.minX && from.x - radius < zone.maxX;
-        const fromInZ =
-          from.z + radius > zone.minZ && from.z - radius < zone.maxZ;
-
-        if (!(fromInX && fromInZ)) {
-          // Walking into a table zone — fully block at current position
-          return new Vector3(from.x, to.y, from.z);
-        }
-      }
-    }
-  }
-
   // ── 1) Optimized collision check ──────────────────────────────────────
   // Check forward movement with efficient strategies to catch thin vertical surfaces
   let blocked = false;
   let hitNormal: Vector3 | null = null;
   let closestHitDist = Infinity;
 
-  // Strategy 1: Forward raycast at key heights (primary check)
-  // Sample heights more efficiently - check bottom, middle, and top regions
-  const keyHeights = heights.length > 6 
-    ? [heights[0], heights[Math.floor(heights.length / 3)], heights[Math.floor(heights.length * 2 / 3)], heights[heights.length - 1]]
-    : heights;
-  
-  for (const h of keyHeights) {
-    _origin.set(from.x, from.y + h, from.z);
-    const hit = raycastRoom(_origin, _dir, hDist + radius);
-    if (hit && hit.distance < hDist + radius) {
-      blocked = true;
-      closestHitDist = hit.distance;
-      if (hit.face) {
-        hitNormal = hit.face.normal
-          .clone()
-          .transformDirection(hit.object.matrixWorld)
-          .setY(0);
-        if (hitNormal.lengthSq() > 0.0001) hitNormal.normalize();
-        else hitNormal = null;
+  // ── 0) Table-top zone check ─────────────────────────────────────────────
+  // If the entity is short enough to be under a table top, check whether
+  // the destination XZ falls inside any table-top footprint. If so, treat the
+  // AABB as a solid wall and compute a surface normal for wall-sliding.
+  if (_tableTopZones.length > 0) {
+    const entityTopY = from.y + heights[heights.length - 1];
+
+    for (const zone of _tableTopZones) {
+      if (entityTopY > zone.tableY) continue;
+
+      // Check if the destination point (expanded by entity radius) overlaps this table zone
+      const inZoneX = to.x + radius > zone.minX && to.x - radius < zone.maxX;
+      const inZoneZ = to.z + radius > zone.minZ && to.z - radius < zone.maxZ;
+
+      if (inZoneX && inZoneZ) {
+        // Also check that we are walking INTO the zone (not already safely inside it)
+        const fromInX = from.x + radius > zone.minX && from.x - radius < zone.maxX;
+        const fromInZ = from.z + radius > zone.minZ && from.z - radius < zone.maxZ;
+
+        if (!(fromInX && fromInZ)) {
+          blocked = true;
+
+          // Compute the AABB normal to allow wall-sliding instead of stopping dead
+          // We find which edge of the extended AABB the `from` position is closest to
+          const distToMinX = Math.abs(from.x - (zone.minX - radius));
+          const distToMaxX = Math.abs(from.x - (zone.maxX + radius));
+          const distToMinZ = Math.abs(from.z - (zone.minZ - radius));
+          const distToMaxZ = Math.abs(from.z - (zone.maxZ + radius));
+
+          const minDist = Math.min(distToMinX, distToMaxX, distToMinZ, distToMaxZ);
+
+          if (minDist === distToMinX) {
+            hitNormal = new Vector3(-1, 0, 0); // Hit left side
+          } else if (minDist === distToMaxX) {
+            hitNormal = new Vector3(1, 0, 0);  // Hit right side
+          } else if (minDist === distToMinZ) {
+            hitNormal = new Vector3(0, 0, -1); // Hit front side
+          } else {
+            hitNormal = new Vector3(0, 0, 1);  // Hit back side
+          }
+          break; // Found our blocking zone, exit loop
+        }
       }
-      break; // Early exit - found collision
     }
   }
+
+  // If the AABB desk check already blocked us, we skip the raycasts
+  // otherwise we proceed with checking the actual mesh geometry
+  if (!blocked) {
+    // Strategy 1: Forward raycast at key heights (primary check)
+    // Sample heights more efficiently - check bottom, middle, and top regions
+    const keyHeights = heights.length > 6 
+      ? [heights[0], heights[Math.floor(heights.length / 3)], heights[Math.floor(heights.length * 2 / 3)], heights[heights.length - 1]]
+      : heights;
+    
+    for (const h of keyHeights) {
+      _origin.set(from.x, from.y + h, from.z);
+      const hit = raycastRoom(_origin, _dir, hDist + radius);
+      if (hit && hit.distance < hDist + radius) {
+        blocked = true;
+        closestHitDist = hit.distance;
+        if (hit.face) {
+          hitNormal = hit.face.normal
+            .clone()
+            .transformDirection(hit.object.matrixWorld)
+            .setY(0);
+          if (hitNormal.lengthSq() > 0.0001) hitNormal.normalize();
+          else hitNormal = null;
+        }
+        break; // Early exit - found collision
+      }
+    }
 
   // Strategy 2: Limited angle probes to catch thin surfaces at slight angles
   // Only check if forward check didn't find anything and movement is significant
@@ -388,9 +439,19 @@ export function constrainMovement(
         break; // Early exit
       }
     }
-  }
+    }
+} // End of if (!blocked) block for general raycasting
 
-  if (!blocked) return to.clone();
+  const maxH = heights[heights.length - 1];
+
+  if (!blocked) {
+    const result = to.clone();
+    if (hasFloorBelow(result, from.y, maxH)) {
+      return result;
+    }
+    // No floor found at destination! Stay at current XZ (blocked by void)
+    return new Vector3(from.x, to.y, from.z);
+  }
 
   // ── 2) Wall slide ─────────────────────────────────────────────────────
   if (hitNormal) {
@@ -416,7 +477,10 @@ export function constrainMovement(
         }
 
         if (!slideBlocked) {
-          return new Vector3(from.x + slide.x, to.y, from.z + slide.z);
+          const slideResult = new Vector3(from.x + slide.x, to.y, from.z + slide.z);
+          if (hasFloorBelow(slideResult, from.y, maxH)) {
+            return slideResult;
+          }
         }
       }
     }

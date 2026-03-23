@@ -16,6 +16,7 @@ import { Switch } from "@/components/ui/switch";
 import type { Television } from "@/models";
 import { DeviceService } from "@/services/DeviceService";
 import { toast } from "sonner";
+import { useNotificationStore } from "@/stores/notification_store";
 
 interface TelevisionControlProps {
   device: Television;
@@ -31,8 +32,9 @@ export function TelevisionControl({
   const [channel, setChannel] = useState(device.channel);
   const [isMute, setIsMute] = useState(device.isMute);
   const [isUpdating, setIsUpdating] = useState(false);
+  const addNotification = useNotificationStore((s) => s.addNotification);
 
-  // Sync state
+  // Sync state when device prop changes
   useEffect(() => {
     setIsOn(device.is_on);
     setVolume(device.volume);
@@ -47,6 +49,15 @@ export function TelevisionControl({
     try {
       await DeviceService.getInstance().togglePower(device.id, newIsOn);
       toast.success(newIsOn ? "TV turned on" : "TV turned off");
+      addNotification({
+        category: "device",
+        iconType: newIsOn ? "power_on" : "power_off",
+        title: newIsOn ? "TV turned on" : "TV turned off",
+        description: `'${device.name}' is now ${newIsOn ? "on" : "off"}`,
+        severity: newIsOn ? "success" : "info",
+        deviceType: "Television",
+        deviceName: device.name,
+      });
       onUpdate?.();
     } catch (err) {
       toast.error("Failed to toggle power");
@@ -65,6 +76,17 @@ export function TelevisionControl({
     try {
       await DeviceService.getInstance().setVolume(device.id, volume);
       toast.success("Volume updated");
+      addNotification({
+        category: "device",
+        iconType: "volume",
+        title: "Volume adjusted",
+        description: `'${device.name}' volume set to ${volume}%`,
+        severity: "info",
+        deviceType: "Television",
+        deviceName: device.name,
+        numericValue: volume,
+        unit: "%",
+      });
       onUpdate?.();
     } catch (err) {
       toast.error("Failed to update volume");
@@ -80,6 +102,17 @@ export function TelevisionControl({
     try {
       await DeviceService.getInstance().setChannel(device.id, newChannel);
       toast.success("Channel updated");
+      addNotification({
+        category: "device",
+        iconType: "channel",
+        title: "Channel changed",
+        description: `'${device.name}' switched to channel ${newChannel}`,
+        severity: "info",
+        deviceType: "Television",
+        deviceName: device.name,
+        numericValue: newChannel,
+        unit: " ch",
+      });
       onUpdate?.();
     } catch (err) {
       toast.error("Failed to update channel");
@@ -94,6 +127,15 @@ export function TelevisionControl({
     try {
       await DeviceService.getInstance().setMute(device.id, muted);
       toast.success(muted ? "Muted" : "Unmuted");
+      addNotification({
+        category: "device",
+        iconType: muted ? "mute" : "unmute",
+        title: muted ? "TV muted" : "TV unmuted",
+        description: `'${device.name}' ${muted ? "audio is now muted" : "audio has been restored"}`,
+        severity: "info",
+        deviceType: "Television",
+        deviceName: device.name,
+      });
       onUpdate?.();
     } catch (err) {
       toast.error("Failed to update mute");

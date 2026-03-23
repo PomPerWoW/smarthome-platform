@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import type { AirConditioner } from "@/models";
 import { DeviceService } from "@/services/DeviceService";
 import { toast } from "sonner";
+import { useNotificationStore } from "@/stores/notification_store";
 import { cn } from "@/lib/utils";
 
 interface AirConditionerControlProps {
@@ -20,6 +21,7 @@ export function AirConditionerControl({
   const [temperature, setTemperature] = useState(device.temperature);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isOn, setIsOn] = useState(device.is_on);
+  const addNotification = useNotificationStore((s) => s.addNotification);
 
   useEffect(() => {
     setIsOn(device.is_on);
@@ -33,6 +35,15 @@ export function AirConditionerControl({
     try {
       await DeviceService.getInstance().togglePower(device.id, newIsOn);
       toast.success(newIsOn ? "AC turned on" : "AC turned off");
+      addNotification({
+        category: "device",
+        iconType: newIsOn ? "power_on" : "power_off",
+        title: newIsOn ? "AC turned on" : "AC turned off",
+        description: `'${device.name}' is now ${newIsOn ? "cooling" : "off"}`,
+        severity: newIsOn ? "success" : "info",
+        deviceType: "AirConditioner",
+        deviceName: device.name,
+      });
       onUpdate?.();
     } catch (err) {
       toast.error("Failed to toggle power");
@@ -51,6 +62,17 @@ export function AirConditionerControl({
     try {
       await DeviceService.getInstance().setTemperature(device.id, temperature);
       toast.success("Temperature updated");
+      addNotification({
+        category: "device",
+        iconType: "temperature",
+        title: "Temperature set",
+        description: `'${device.name}' temperature set to ${temperature}°C`,
+        severity: "info",
+        deviceType: "AirConditioner",
+        deviceName: device.name,
+        numericValue: temperature,
+        unit: "°C",
+      });
       onUpdate?.();
     } catch (err) {
       toast.error("Failed to update temperature");
@@ -66,6 +88,17 @@ export function AirConditionerControl({
     try {
       await DeviceService.getInstance().setTemperature(device.id, newTemp);
       toast.success("Temperature updated");
+      addNotification({
+        category: "device",
+        iconType: "temperature",
+        title: "Temperature adjusted",
+        description: `'${device.name}' temperature set to ${newTemp}°C`,
+        severity: "info",
+        deviceType: "AirConditioner",
+        deviceName: device.name,
+        numericValue: newTemp,
+        unit: "°C",
+      });
       onUpdate?.();
     } catch (err) {
       toast.error("Failed to update temperature");

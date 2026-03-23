@@ -63,7 +63,8 @@ function DashboardPage() {
         const roomsWithDevicesData = await Promise.all(
           rooms.map(async (room) => {
             const devices = await HomeService.getInstance().getRoomDevices(room.id);
-            return { ...room, devices };
+            room.devices = devices;
+            return room;
           })
         );
         setRoomsWithDevices(roomsWithDevicesData);

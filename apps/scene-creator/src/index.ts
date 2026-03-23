@@ -14,6 +14,7 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 import { getAuth } from "./api/auth";
 import { getWebSocketClient } from "./api/WebSocketClient";
+import { sceneNotify, SN_ICONS } from "./ui/SceneNotification";
 import { getStore } from "./store/DeviceStore";
 import { DeviceComponent } from "./components/DeviceComponent";
 import { UserControlledAvatarComponent } from "./components/UserControlledAvatarComponent";
@@ -41,6 +42,7 @@ import { DevicePlacementSystem } from "./systems/DevicePlacementSystem";
 import { PlacementPanelSystem } from "./ui/PlacementPanelSystem";
 import { RoomAlignmentPanelSystem } from "./ui/RoomAlignmentPanelSystem";
 import { WelcomePanelGestureSystem } from "./systems/WelcomePanelGestureSystem";
+import { XRInstructionSystem } from "./systems/XRInstructionSystem";
 
 import { initializeNavMesh, getRoomBounds } from "./config/navmesh";
 import { initializeCollision } from "./config/collision";
@@ -69,82 +71,82 @@ const assets: AssetManifest = {
     priority: "background",
   },
   room_scene: {
-    url: "/models/scenes/lab_plan/LabPlan.gltf",
+    url: `${import.meta.env.BASE_URL}models/scenes/lab_plan/LabPlan.gltf`,
     type: AssetType.GLTF,
     priority: "critical",
   },
   lightbulb: {
-    url: "/models/devices/ceiling_lamp/scene.gltf",
+    url: `${import.meta.env.BASE_URL}models/devices/ceiling_lamp/scene.gltf`,
     type: AssetType.GLTF,
     priority: "critical",
   },
   television: {
-    url: "/models/devices/television/scene.gltf",
+    url: `${import.meta.env.BASE_URL}models/devices/television/scene.gltf`,
     type: AssetType.GLTF,
     priority: "critical",
   },
   fan: {
-    url: "/models/devices/fan/scene.gltf",
+    url: `${import.meta.env.BASE_URL}models/devices/fan/scene.gltf`,
     type: AssetType.GLTF,
     priority: "critical",
   },
   air_conditioner: {
-    url: "/models/devices/air_conditioner/scene.gltf",
+    url: `${import.meta.env.BASE_URL}models/devices/air_conditioner/scene.gltf`,
     type: AssetType.GLTF,
     priority: "critical",
   },
   soldier_model: {
-    url: "/models/avatar/resident/Soldier.glb",
+    url: `${import.meta.env.BASE_URL}models/avatar/resident/Soldier.glb`,
     type: AssetType.GLTF,
     priority: "critical",
   },
   rpmBone_model: {
-    url: "/models/avatar/resident/RPM_bone.glb",
+    url: `${import.meta.env.BASE_URL}models/avatar/resident/RPM_bone.glb`,
     type: AssetType.GLTF,
     priority: "critical",
   },
   rpmClip_model: {
-    url: "/models/avatar/resident/RPM_clip.glb",
+    url: `${import.meta.env.BASE_URL}models/avatar/resident/RPM_clip.glb`,
     type: AssetType.GLTF,
     priority: "critical",
   },
   rpmClip_model1: {
-    url: "/models/avatar/resident/MediumRes12.glb",
+    url: `${import.meta.env.BASE_URL}models/avatar/resident/MediumRes12.glb`,
     type: AssetType.GLTF,
     priority: "critical",
   },
   robot_assistant: {
-    url: "/models/avatar/assistant/robot_3D_scene.glb",
+    url: `${import.meta.env.BASE_URL}models/avatar/assistant/robot_3D_scene.glb`,
     type: AssetType.GLTF,
     priority: "critical",
   },
   chair: {
-    url: "/models/furnitures/chair/chair.glb",
+    url: `${import.meta.env.BASE_URL}models/furnitures/chair/chair.glb`,
     type: AssetType.GLTF,
     priority: "critical",
   },
   chair2: {
-    url: "/models/furnitures/chair2/B07B4DBBPY.glb",
+    url: `${import.meta.env.BASE_URL}models/furnitures/chair2/B07B4DBBPY.glb`,
     type: AssetType.GLTF,
     priority: "critical",
   },
   chair3: {
-    url: "/models/furnitures/chair3/B07B7B244W.glb",
+    url: `${import.meta.env.BASE_URL}models/furnitures/chair3/B07B7B244W.glb`,
     type: AssetType.GLTF,
     priority: "critical",
   },
   chair4: {
-    url: "/models/furnitures/chair4/B073G6GTKL.glb",
+    url: `${import.meta.env.BASE_URL}models/furnitures/chair4/B073G6GTKL.glb`,
     type: AssetType.GLTF,
     priority: "critical",
   },
   chair5: {
-    url: "/models/furnitures/chair5/B075X33T21.glb",
+    url: `${import.meta.env.BASE_URL}models/furnitures/chair5/B075X33T21.glb`,
     type: AssetType.GLTF,
     priority: "critical",
   },
   chair6: {
-    url: "/models/furnitures/chair6/B071W5VD5C.glb",
+    url: `${import.meta.env.BASE_URL}models/furnitures/chair6/B071W5VD5C.glb`,
     type: AssetType.GLTF,
     priority: "critical",
   },
@@ -235,12 +237,17 @@ async function main(): Promise<void> {
       try {
         // Ensure URL is absolute - if relative, prepend backend URL
         let absoluteUrl = modelFileUrl;
-        if (!modelFileUrl.startsWith("http://") && !modelFileUrl.startsWith("https://")) {
+        if (
+          !modelFileUrl.startsWith("http://") &&
+          !modelFileUrl.startsWith("https://")
+        ) {
           // Get backend URL from config
           const backendUrl = config.BACKEND_URL;
           // Remove trailing slash from backend URL and leading slash from modelFileUrl
           const cleanBackendUrl = backendUrl.replace(/\/$/, "");
-          const cleanModelUrl = modelFileUrl.startsWith("/") ? modelFileUrl : `/${modelFileUrl}`;
+          const cleanModelUrl = modelFileUrl.startsWith("/")
+            ? modelFileUrl
+            : `/${modelFileUrl}`;
           absoluteUrl = `${cleanBackendUrl}${cleanModelUrl}`;
           console.log(`🔗 Converted relative URL to absolute: ${absoluteUrl}`);
         }
@@ -252,12 +259,16 @@ async function main(): Promise<void> {
         try {
           const response = await fetch(absoluteUrl, { method: "HEAD" });
           if (!response.ok) {
-            console.warn(`⚠️ Model file returned status ${response.status}, but attempting to load anyway...`);
+            console.warn(
+              `⚠️ Model file returned status ${response.status}, but attempting to load anyway...`,
+            );
           } else {
             console.log(`✅ Model file is accessible (${response.status})`);
           }
         } catch (fetchError) {
-          console.warn(`⚠️ Could not verify model file accessibility: ${fetchError}, but attempting to load anyway...`);
+          console.warn(
+            `⚠️ Could not verify model file accessibility: ${fetchError}, but attempting to load anyway...`,
+          );
         }
 
         const loader = new GLTFLoader();
@@ -268,8 +279,14 @@ async function main(): Promise<void> {
         roomModel = gltf.scene;
         console.log(`✅ Room model loaded from URL: ${absoluteUrl}`);
       } catch (error) {
-        console.error(`❌ Failed to load room model from URL: ${modelFileUrl}`, error);
-        console.error(`   Error details:`, error instanceof Error ? error.message : String(error));
+        console.error(
+          `❌ Failed to load room model from URL: ${modelFileUrl}`,
+          error,
+        );
+        console.error(
+          `   Error details:`,
+          error instanceof Error ? error.message : String(error),
+        );
         // Fall back to default model
         modelFileUrl = null;
       }
@@ -296,7 +313,7 @@ async function main(): Promise<void> {
     // device grab/move interactions. The room is visual-only.
     roomModel.traverse((child: any) => {
       if (child.isMesh) {
-        child.raycast = () => { };
+        child.raycast = () => {};
       }
     });
 
@@ -342,7 +359,8 @@ async function main(): Promise<void> {
     .registerSystem(DevicePlacementSystem)
     .registerSystem(VoicePanelSystem)
     .registerSystem(PlacementPanelSystem)
-    .registerSystem(WelcomePanelGestureSystem);
+    .registerSystem(WelcomePanelGestureSystem)
+    .registerSystem(XRInstructionSystem);
 
   console.log("✅ Systems registered");
 
@@ -382,7 +400,7 @@ async function main(): Promise<void> {
   if (welcomePanel.object3D && placementPanel.object3D) {
     welcomePanel.object3D.add(placementPanel.object3D);
     // Position relative to welcome panel (to the left, closer)
-    placementPanel.object3D.position.set(-0.4, 0, 0);
+    placementPanel.object3D.position.set(-0.6, 0, 0);
   } else {
     // Fallback to absolute positioning if object3D not available
     placementPanel.object3D!.position.set(-0.6, 1.5, -0.8);
@@ -439,14 +457,16 @@ async function main(): Promise<void> {
   if (welcomePanel.object3D && alignmentPanel.object3D) {
     welcomePanel.object3D.add(alignmentPanel.object3D);
     // Position relative to welcome panel (to the right, closer)
-    alignmentPanel.object3D.position.set(0.4, 0, 0);
+    alignmentPanel.object3D.position.set(0.6, 0, 0);
   } else {
     // Fallback to absolute positioning if object3D not available
     alignmentPanel.object3D!.position.set(0.6, 1.5, -0.8);
   }
   alignmentPanel.object3D!.visible = false; // Hidden until "Align Room" button pressed
   (globalThis as any).__alignmentPanelEntity = alignmentPanel;
-  console.log("✅ Room Alignment panel created (hidden, relative to welcome panel)");
+  console.log(
+    "✅ Room Alignment panel created (hidden, relative to welcome panel)",
+  );
 
   const store = getStore();
 
@@ -488,10 +508,17 @@ async function main(): Promise<void> {
 
     // Reload room scene with the correct model (uploaded file or default)
     if (currentState.roomModelFileUrl) {
-      console.log(`🔄 Reloading room model from uploaded file: ${currentState.roomModelFileUrl}`);
-      await loadRoomScene(currentState.roomModel, currentState.roomModelFileUrl);
+      console.log(
+        `🔄 Reloading room model from uploaded file: ${currentState.roomModelFileUrl}`,
+      );
+      await loadRoomScene(
+        currentState.roomModel,
+        currentState.roomModelFileUrl,
+      );
     } else {
-      console.log(`🔄 Reloading room model from assets: ${currentState.roomModel}`);
+      console.log(
+        `🔄 Reloading room model from assets: ${currentState.roomModel}`,
+      );
       await loadRoomScene(currentState.roomModel);
     }
   }
@@ -506,6 +533,31 @@ async function main(): Promise<void> {
   const authToken = auth.getToken();
   wsClient.connect(authToken || undefined);
 
+  // ── WebSocket connection notifications ──────────────────────────────────────
+  wsClient.onConnect(() => {
+    sceneNotify({
+      title: "Connected to Smart Home",
+      description: "Real-time device sync is active",
+      severity: "success",
+      icon: SN_ICONS.wifi,
+      iconBg: "rgba(34,197,94,0.15)",
+      iconFg: "#22c55e",
+      duration: 3500,
+    });
+  });
+
+  wsClient.onDisconnect(() => {
+    sceneNotify({
+      title: "Connection lost",
+      description: "Lost connection to Smart Home hub — reconnecting…",
+      severity: "warning",
+      icon: SN_ICONS.wifiOff,
+      iconBg: "rgba(245,158,11,0.15)",
+      iconFg: "#f59e0b",
+      duration: 5000,
+    });
+  });
+
   console.log("\n👥 Initializing resident avatars...");
 
   wsClient.subscribe(async (data) => {
@@ -513,6 +565,18 @@ async function main(): Promise<void> {
       console.log("[WebSocket] Device update notification:", data);
       // Backend sends device_id and action, so we need to refresh the device
       await store.refreshSingleDevice(data.device_id);
+      // Show a subtle notification for externally-triggered device changes
+      sceneNotify({
+        title: "Device updated remotely",
+        description: data.device_name
+          ? `'${data.device_name}' state was changed`
+          : "A device was updated outside the scene",
+        severity: "info",
+        icon: SN_ICONS.refresh,
+        iconBg: "rgba(99,102,241,0.15)",
+        iconFg: "#818cf8",
+        duration: 3000,
+      });
     }
   });
   console.log("✅ WebSocket connected for real-time updates");
@@ -522,17 +586,15 @@ async function main(): Promise<void> {
 
   setAvatarSwitcherCamera(camera);
 
-  // 1) RPM (Ready Player Me with clip-based) – lip sync available
-  const rpmAvatarSystem = world.getSystem(RPMUserControlledAvatarSystem);
-  // let setLipSyncEnabled: (enabled: boolean) => void = () => { };
-  if (rpmAvatarSystem) {
-    await rpmAvatarSystem.createRPMUserControlledAvatar("player1", "RPM Avatar", "rpmClip_model1", [-0.6, 0, -1.5]);
-    registerAvatar(rpmAvatarSystem as ControllableAvatarSystem, "player1", "RPM Avatar");
-    //     setLipSyncEnabled = setupLipSyncControlPanel(rpmAvatarSystem);
-    console.log("✅ RPM avatar (RPM_clip.glb)");
-  }
+  // 1) RPM Avatar — disabled (not rendered in scene)
+  // const rpmAvatarSystem = world.getSystem(RPMUserControlledAvatarSystem);
+  // if (rpmAvatarSystem) {
+  //   await rpmAvatarSystem.createRPMUserControlledAvatar("player1", "RPM Avatar", "rpmClip_model1", [-0.6, 0, -1.5]);
+  //   registerAvatar(rpmAvatarSystem as ControllableAvatarSystem, "player1", "RPM Avatar");
+  //   console.log("✅ RPM avatar (RPM_clip.glb)");
+  // }
 
-  // 2) Skeleton-controlled (bone-only)
+  // 2) Skeleton-controlled (bone-only) — disabled
   // const skeletonAvatarSystem = world.getSystem(SkeletonControlledAvatarSystem);
   // if (skeletonAvatarSystem) {
   //   await skeletonAvatarSystem.createSkeletonControlledAvatar(
@@ -549,22 +611,22 @@ async function main(): Promise<void> {
   //   console.log("✅ Skeleton avatar (RPM_bone.glb)");
   // }
 
-  // 3) User-controlled (clip-based)
-  const userAvatarSystem = world.getSystem(UserControlledAvatarSystem);
-  if (userAvatarSystem) {
-    await userAvatarSystem.createUserControlledAvatar(
-      "player3",
-      "Soldier",
-      "soldier_model",
-      [-1.2, 0, -1.5],
-    );
-    registerAvatar(
-      userAvatarSystem as ControllableAvatarSystem,
-      "player3",
-      "Soldier",
-    );
-    console.log("✅ Soldier avatar (soldier_model)");
-  }
+  // 3) Soldier avatar — disabled (not rendered in scene)
+  // const userAvatarSystem = world.getSystem(UserControlledAvatarSystem);
+  // if (userAvatarSystem) {
+  //   await userAvatarSystem.createUserControlledAvatar(
+  //     "player3",
+  //     "Soldier",
+  //     "soldier_model",
+  //     [-1.2, 0, -1.5],
+  //   );
+  //   registerAvatar(
+  //     userAvatarSystem as ControllableAvatarSystem,
+  //     "player3",
+  //     "Soldier",
+  //   );
+  //   console.log("✅ Soldier avatar (soldier_model)");
+  // }
 
   // 3) Robot Assistant
   const robotAssistantSystem = world.getSystem(RobotAssistantSystem);

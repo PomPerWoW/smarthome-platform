@@ -22,7 +22,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 ENV PYTHONUNBUFFERED=1
 ENV CPLUS_INCLUDE_PATH=/usr/include/gdal
 ENV C_INCLUDE_PATH=/usr/include/gdal
-ENV GDAL_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu/libgdal.so
 
 RUN pip install poetry
 
@@ -32,13 +31,13 @@ RUN poetry config virtualenvs.create false
 RUN poetry config installer.max-workers 10
 ENV PIP_DEFAULT_TIMEOUT=100
 
-COPY pyproject.toml poetry.lock ./
+COPY apps/backend/pyproject.toml apps/backend/poetry.lock ./
 
 RUN poetry install --no-interaction --no-ansi --no-root
 
-COPY . /app
+COPY apps/backend /app
 
-COPY docker/entrypoint.sh /entrypoint.sh
+COPY apps/backend/docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 EXPOSE 5500

@@ -6,7 +6,7 @@ import { clone as cloneSkinned } from "three/addons/utils/SkeletonUtils.js";
 import { LoopOnce, LoopRepeat } from "three";
 import { useUIStore } from "@/stores/ui_store";
 
-const AVATAR_URL = "/models/avatar/assistant/robot_3D_scene.glb";
+const AVATAR_URL = `${import.meta.env.BASE_URL}models/avatar/assistant/robot_3D_scene.glb`;
 
 const DEFAULT_ANIMATION = "Idle";
 const FADE_DURATION = 0.25;

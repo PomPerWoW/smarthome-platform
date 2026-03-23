@@ -51,7 +51,7 @@ export default defineConfig(({ mode }) => {
       esbuildOptions: { target: "esnext" },
     },
     publicDir: "public",
-    base: "./",
+    base: "/smarthome/xr/",
     define: {
       "process.env.VITE_BACKEND_URL": JSON.stringify(
         env.VITE_BACKEND_URL || "https://localhost:5500",

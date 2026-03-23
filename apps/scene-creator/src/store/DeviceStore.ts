@@ -11,6 +11,7 @@ import {
   Fan,
   AirConditioner,
 } from "../types";
+import { sceneNotify, SN_ICONS } from "../ui/SceneNotification";
 
 export interface FurnitureItem {
   id: string;
@@ -126,6 +127,73 @@ interface DeviceState {
   getFan: (id: string) => Fan | undefined;
   getAirConditioner: (id: string) => AirConditioner | undefined;
 }
+
+// ─── Device notification helpers ─────────────────────────────────────────────
+
+function _devIcon(type: DeviceType): {
+  icon: string;
+  iconBg: string;
+  iconFg: string;
+} {
+  switch (type) {
+    case DeviceType.Lightbulb:
+      return {
+        icon: SN_ICONS.lightbulb,
+        iconBg: "rgba(234,179,8,0.15)",
+        iconFg: "#eab308",
+      };
+    case DeviceType.Fan:
+      return {
+        icon: SN_ICONS.fan,
+        iconBg: "rgba(34,211,238,0.15)",
+        iconFg: "#22d3ee",
+      };
+    case DeviceType.AirConditioner:
+      return {
+        icon: SN_ICONS.snowflake,
+        iconBg: "rgba(56,189,248,0.15)",
+        iconFg: "#38bdf8",
+      };
+    case DeviceType.Television:
+      return {
+        icon: SN_ICONS.tv,
+        iconBg: "rgba(99,102,241,0.15)",
+        iconFg: "#6366f1",
+      };
+    default:
+      return {
+        icon: SN_ICONS.zap,
+        iconBg: "rgba(59,130,246,0.15)",
+        iconFg: "#3b82f6",
+      };
+  }
+}
+
+function _devTypeName(type: DeviceType): string {
+  switch (type) {
+    case DeviceType.Lightbulb:
+      return "Light";
+    case DeviceType.Fan:
+      return "Fan";
+    case DeviceType.AirConditioner:
+      return "AC";
+    case DeviceType.Television:
+      return "TV";
+    default:
+      return "Device";
+  }
+}
+
+const FAN_SPEED_LABELS = [
+  "Off",
+  "Low",
+  "Med-Low",
+  "Medium",
+  "Med-High",
+  "High",
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 const api: BackendApiClient = getApiClient();
 
@@ -468,6 +536,18 @@ export const deviceStore = createStore<DeviceState>()(
         set((state) => ({
           devices: state.devices.map((d) => (d.id === deviceId ? updated : d)),
         }));
+        // ── notification ──────────────────────────────────────────────────────
+        const { icon, iconBg, iconFg } = _devIcon(device.type);
+        sceneNotify({
+          title: nextState
+            ? `${_devTypeName(device.type)} turned on`
+            : `${_devTypeName(device.type)} turned off`,
+          description: `'${device.name}' is now ${nextState ? "on" : "off"}`,
+          severity: nextState ? "success" : "info",
+          icon: nextState ? icon : SN_ICONS.power,
+          iconBg: nextState ? iconBg : "rgba(100,116,139,0.15)",
+          iconFg: nextState ? iconFg : "#64748b",
+        });
       } catch (err) {
         console.error("[Store] Failed to toggle device:", err);
         throw err;
@@ -528,11 +608,34 @@ export const deviceStore = createStore<DeviceState>()(
 
     updateLightbulb: async (deviceId, options) => {
       try {
+        const device = get().getDeviceById(deviceId);
         console.log(`[Store] Updating lightbulb ${deviceId}:`, options);
         const updated = await api.setLightbulb(deviceId, options);
         set((state) => ({
           devices: state.devices.map((d) => (d.id === deviceId ? updated : d)),
         }));
+        if (options.colour !== undefined) {
+          sceneNotify({
+            title: "Light color changed",
+            description: `'${device?.name ?? "Light"}' color updated`,
+            severity: "info",
+            icon: SN_ICONS.palette,
+            iconBg: "rgba(168,85,247,0.15)",
+            iconFg: "#a855f7",
+            colorValue: options.colour,
+          });
+        }
+        if (options.brightness !== undefined) {
+          sceneNotify({
+            title: "Brightness adjusted",
+            description: `'${device?.name ?? "Light"}' set to ${options.brightness}%`,
+            severity: "info",
+            icon: SN_ICONS.sun,
+            iconBg: "rgba(234,179,8,0.15)",
+            iconFg: "#eab308",
+            badge: `${options.brightness}%`,
+          });
+        }
       } catch (err) {
         console.error("[Store] Failed to update lightbulb:", err);
         throw err;
@@ -541,11 +644,44 @@ export const deviceStore = createStore<DeviceState>()(
 
     updateTelevision: async (deviceId, options) => {
       try {
+        const device = get().getDeviceById(deviceId);
         console.log(`[Store] Updating television ${deviceId}:`, options);
         const updated = await api.setTelevision(deviceId, options);
         set((state) => ({
           devices: state.devices.map((d) => (d.id === deviceId ? updated : d)),
         }));
+        if (options.volume !== undefined) {
+          sceneNotify({
+            title: "Volume adjusted",
+            description: `'${device?.name ?? "TV"}' volume → ${options.volume}%`,
+            severity: "info",
+            icon: SN_ICONS.volume2,
+            iconBg: "rgba(99,102,241,0.15)",
+            iconFg: "#6366f1",
+            badge: `${options.volume}%`,
+          });
+        }
+        if (options.channel !== undefined) {
+          sceneNotify({
+            title: "Channel changed",
+            description: `'${device?.name ?? "TV"}' → channel ${options.channel}`,
+            severity: "info",
+            icon: SN_ICONS.hash,
+            iconBg: "rgba(99,102,241,0.15)",
+            iconFg: "#6366f1",
+            badge: `ch ${options.channel}`,
+          });
+        }
+        if (options.is_mute !== undefined) {
+          sceneNotify({
+            title: options.is_mute ? "TV muted" : "TV unmuted",
+            description: `'${device?.name ?? "TV"}' ${options.is_mute ? "audio muted" : "audio restored"}`,
+            severity: "info",
+            icon: options.is_mute ? SN_ICONS.volumeX : SN_ICONS.volume2,
+            iconBg: "rgba(99,102,241,0.15)",
+            iconFg: "#6366f1",
+          });
+        }
       } catch (err) {
         console.error("[Store] Failed to update television:", err);
         throw err;
@@ -554,11 +690,33 @@ export const deviceStore = createStore<DeviceState>()(
 
     updateFan: async (deviceId, options) => {
       try {
+        const device = get().getDeviceById(deviceId);
         console.log(`[Store] Updating fan ${deviceId}:`, options);
         const updated = await api.setFan(deviceId, options);
         set((state) => ({
           devices: state.devices.map((d) => (d.id === deviceId ? updated : d)),
         }));
+        if (options.speed !== undefined) {
+          sceneNotify({
+            title: "Fan speed changed",
+            description: `'${device?.name ?? "Fan"}' → ${FAN_SPEED_LABELS[options.speed] ?? options.speed}`,
+            severity: "info",
+            icon: SN_ICONS.wind,
+            iconBg: "rgba(34,211,238,0.15)",
+            iconFg: "#22d3ee",
+            badge: FAN_SPEED_LABELS[options.speed] ?? `${options.speed}`,
+          });
+        }
+        if (options.swing !== undefined) {
+          sceneNotify({
+            title: options.swing ? "Fan oscillation on" : "Fan oscillation off",
+            description: `'${device?.name ?? "Fan"}' ${options.swing ? "is now oscillating" : "oscillation stopped"}`,
+            severity: "info",
+            icon: SN_ICONS.rotateCw,
+            iconBg: "rgba(34,211,238,0.15)",
+            iconFg: "#22d3ee",
+          });
+        }
       } catch (err) {
         console.error("[Store] Failed to update fan:", err);
         throw err;
@@ -567,11 +725,23 @@ export const deviceStore = createStore<DeviceState>()(
 
     updateAirConditioner: async (deviceId, options) => {
       try {
+        const device = get().getDeviceById(deviceId);
         console.log(`[Store] Updating air conditioner ${deviceId}:`, options);
         const updated = await api.setAirConditioner(deviceId, options);
         set((state) => ({
           devices: state.devices.map((d) => (d.id === deviceId ? updated : d)),
         }));
+        if (options.temperature !== undefined) {
+          sceneNotify({
+            title: "Temperature set",
+            description: `'${device?.name ?? "AC"}' → ${options.temperature}°C`,
+            severity: "info",
+            icon: SN_ICONS.thermometer,
+            iconBg: "rgba(56,189,248,0.15)",
+            iconFg: "#38bdf8",
+            badge: `${options.temperature}°C`,
+          });
+        }
       } catch (err) {
         console.error("[Store] Failed to update air conditioner:", err);
         throw err;

@@ -6,6 +6,8 @@ export class WebSocketClient {
   private static instance: WebSocketClient;
   private socket: WebSocket | null = null;
   private listeners: Set<MessageHandler> = new Set();
+  private connectCallbacks: Set<() => void> = new Set();
+  private disconnectCallbacks: Set<() => void> = new Set();
   private reconnectInterval: number = 3000;
   private shouldReconnect: boolean = true;
   private reconnectAttempts: number = 0;
@@ -52,6 +54,7 @@ export class WebSocketClient {
       console.log("[WebSocket] Connected successfully");
       this.reconnectAttempts = 0;
       this.startHeartbeat();
+      this.connectCallbacks.forEach((cb) => cb());
     };
 
     this.socket.onmessage = (event) => {
@@ -77,6 +80,7 @@ export class WebSocketClient {
         console.log(
           `[WebSocket] Reconnecting in ${this.reconnectInterval}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`,
         );
+        this.disconnectCallbacks.forEach((cb) => cb());
         setTimeout(() => this.connect(), this.reconnectInterval);
       }
     };
@@ -98,6 +102,18 @@ export class WebSocketClient {
   subscribe(handler: MessageHandler): () => void {
     this.listeners.add(handler);
     return () => this.listeners.delete(handler);
+  }
+
+  /** Register a callback that fires once the WebSocket connection is established. */
+  onConnect(callback: () => void): () => void {
+    this.connectCallbacks.add(callback);
+    return () => this.connectCallbacks.delete(callback);
+  }
+
+  /** Register a callback that fires when the WebSocket connection is lost (before reconnect). */
+  onDisconnect(callback: () => void): () => void {
+    this.disconnectCallbacks.add(callback);
+    return () => this.disconnectCallbacks.delete(callback);
   }
 
   private notifyListeners(data: any): void {

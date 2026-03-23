@@ -1,6 +1,7 @@
 type MessageHandler = (data: any) => void;
 
 import { useAuthStore } from "@/stores/auth";
+import { useNotificationStore } from "@/stores/notification_store";
 
 export class WebSocketService {
   private static instance: WebSocketService;
@@ -44,6 +45,13 @@ export class WebSocketService {
     this.socket.onopen = () => {
       console.log("[WebSocket] Connected");
       this.startHeartbeat();
+      useNotificationStore.getState().addNotification({
+        category: "system",
+        iconType: "system_connected",
+        title: "Connected to Smart Home",
+        description: "Real-time device sync is active",
+        severity: "success",
+      });
     };
 
     this.socket.onmessage = (event) => {
@@ -61,6 +69,13 @@ export class WebSocketService {
       this.stopHeartbeat();
       this.socket = null;
       if (this.shouldReconnect) {
+        useNotificationStore.getState().addNotification({
+          category: "system",
+          iconType: "system_disconnected",
+          title: "Connection lost",
+          description: "Lost connection to Smart Home hub — reconnecting…",
+          severity: "warning",
+        });
         setTimeout(() => this.connect(), this.reconnectInterval);
       }
     };

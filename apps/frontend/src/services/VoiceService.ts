@@ -8,6 +8,7 @@ import {
 } from "./VoiceTextToSpeech";
 import { toast } from "sonner";
 import { useUIStore } from "@/stores/ui_store";
+import { useNotificationStore } from "@/stores/notification_store";
 
 class PythonTalkMainBridge {
   static async analyze(input: any) {
@@ -106,7 +107,14 @@ export class VoiceService {
     onEnd: () => void,
     onStatusChange?: (
       status: "listening" | "processing" | "idle",
-      payload?: { success?: boolean; cancelled?: boolean; instructionTopic?: string },
+      payload?: {
+        success?: boolean;
+        cancelled?: boolean;
+        instructionTopic?: string;
+        instructionText?: string;
+        action?: string;
+        device?: string;
+      },
     ) => void,
   ): Promise<void> {
     if (this.isListening) return;
@@ -155,10 +163,17 @@ export class VoiceService {
         if (response?.instruction_topic) {
           toast.success(`Instruction: "${transcript}"`);
           speakInstruction(response.instruction_topic);
-          onStatusChange?.("idle", { 
-            success: true, 
+          useNotificationStore.getState().addNotification({
+            category: "robot",
+            iconType: "robot_info",
+            title: "Robot provided information",
+            description: `"${transcript}" — Topic: ${response.instruction_topic}`,
+            severity: "info",
+          });
+          onStatusChange?.("idle", {
+            success: true,
             instructionTopic: response.instruction_topic,
-            instructionText: response.instruction_text 
+            instructionText: response.instruction_text,
           });
           return;
         }
@@ -173,21 +188,53 @@ export class VoiceService {
           ) {
             toast.success(`Executed: "${transcript}"`);
             speakCompletion(firstAction.action, firstAction.device);
+            useNotificationStore.getState().addNotification({
+              category: "robot",
+              iconType: "robot_command_success",
+              title: "Voice command executed",
+              description: `"${transcript}" — ${firstAction.action} on ${firstAction.device}`,
+              severity: "success",
+            });
             // Stop listening after successful device action
             this.stopListening();
-            onStatusChange?.("idle", { success: true, action: firstAction.action, device: firstAction.device });
+            onStatusChange?.("idle", {
+              success: true,
+              action: firstAction.action,
+              device: firstAction.device,
+            });
           } else {
             toast.error("Failed to process command.");
+            useNotificationStore.getState().addNotification({
+              category: "robot",
+              iconType: "robot_command_fail",
+              title: "Voice command failed",
+              description: `"${transcript}" — could not be processed`,
+              severity: "error",
+            });
             onStatusChange?.("idle", { success: false });
           }
         } else {
           toast.info("Command not recognized.");
           speakNoMatch();
+          useNotificationStore.getState().addNotification({
+            category: "robot",
+            iconType: "robot_command_fail",
+            title: "Command not recognized",
+            description: `"${transcript}" — no matching action found`,
+            severity: "warning",
+          });
           onStatusChange?.("idle", { success: false });
         }
       } catch (error) {
         console.error(error);
         toast.error("Failed to process command.");
+        useNotificationStore.getState().addNotification({
+          category: "robot",
+          iconType: "robot_command_fail",
+          title: "Voice command error",
+          description: "An unexpected error occurred processing the command",
+          severity: "error",
+        });
         onStatusChange?.("idle", { success: false });
       }
     };
@@ -199,6 +246,13 @@ export class VoiceService {
       if (this.stopRequested || err === "aborted") {
         this.stopRequested = false;
         this.isListening = false;
+        useNotificationStore.getState().addNotification({
+          category: "robot",
+          iconType: "robot_cancelled",
+          title: "Voice session ended",
+          description: "Robot assistant returned to standby",
+          severity: "info",
+        });
         onStatusChange?.("idle", { cancelled: true });
         onEnd();
         return;
@@ -228,7 +282,14 @@ export class VoiceService {
     onEnd: () => void,
     onStatusChange?: (
       status: "listening" | "processing" | "idle",
-      payload?: { success?: boolean; cancelled?: boolean; instructionTopic?: string },
+      payload?: {
+        success?: boolean;
+        cancelled?: boolean;
+        instructionTopic?: string;
+        instructionText?: string;
+        action?: string;
+        device?: string;
+      },
     ) => void,
   ): Promise<void> {
     try {
@@ -280,7 +341,17 @@ export class VoiceService {
           if (command_result?.instruction_topic) {
             toast.success(`Instruction: "${transcript}"`);
             speakInstruction(command_result.instruction_topic);
-            onStatusChange?.("idle", { success: true, instructionTopic: command_result.instruction_topic });
+            useNotificationStore.getState().addNotification({
+              category: "robot",
+              iconType: "robot_info",
+              title: "Robot provided information",
+              description: `"${transcript}" — Topic: ${command_result.instruction_topic}`,
+              severity: "info",
+            });
+            onStatusChange?.("idle", {
+              success: true,
+              instructionTopic: command_result.instruction_topic,
+            });
           } else if (
             command_result?.actions?.length > 0 &&
             command_result.actions[0].status === "success" &&
@@ -292,9 +363,23 @@ export class VoiceService {
               command_result.actions[0].action,
               command_result.actions[0].device,
             );
+            useNotificationStore.getState().addNotification({
+              category: "robot",
+              iconType: "robot_command_success",
+              title: "Voice command executed",
+              description: `"${transcript}" — ${command_result.actions[0].action} on ${command_result.actions[0].device}`,
+              severity: "success",
+            });
             onStatusChange?.("idle", { success: true });
           } else if (command_result?.actions?.length > 0) {
             toast.error("Failed to process command.");
+            useNotificationStore.getState().addNotification({
+              category: "robot",
+              iconType: "robot_command_fail",
+              title: "Voice command failed",
+              description: `"${transcript}" — could not be processed`,
+              severity: "error",
+            });
             onStatusChange?.("idle", { success: false });
           } else if (!transcript || !transcript.trim()) {
             toast.error("No speech detected.");
@@ -302,6 +387,13 @@ export class VoiceService {
           } else {
             toast.info("Command not recognized.");
             speakNoMatch();
+            useNotificationStore.getState().addNotification({
+              category: "robot",
+              iconType: "robot_command_fail",
+              title: "Command not recognized",
+              description: `"${transcript}" — no matching action found`,
+              severity: "warning",
+            });
             onStatusChange?.("idle", { success: false });
           }
         } catch (error) {
@@ -428,6 +520,7 @@ export class VoiceService {
       device?: string;
     }>;
     instruction_topic?: string;
+    instruction_text?: string;
   }> {
     type VoiceCommandResponse = {
       actions?: Array<{
@@ -436,6 +529,7 @@ export class VoiceService {
         device?: string;
       }>;
       instruction_topic?: string;
+      instruction_text?: string;
     };
     const data = await ApiService.getInstance().post<VoiceCommandResponse>(
       "/api/homes/voice/command/",

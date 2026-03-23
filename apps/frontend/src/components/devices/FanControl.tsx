@@ -8,6 +8,7 @@ import type { Fan } from "@/models";
 import { DeviceService } from "@/services/DeviceService";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useNotificationStore } from "@/stores/notification_store";
 
 interface FanControlProps {
   device: Fan;
@@ -28,6 +29,7 @@ export function FanControl({ device, onUpdate }: FanControlProps) {
   const [speed, setSpeed] = useState(device.speed);
   const [swing, setSwing] = useState(device.swing);
   const [isUpdating, setIsUpdating] = useState(false);
+  const addNotification = useNotificationStore((s) => s.addNotification);
 
   useEffect(() => {
     setIsOn(device.is_on);
@@ -42,6 +44,15 @@ export function FanControl({ device, onUpdate }: FanControlProps) {
     try {
       await DeviceService.getInstance().togglePower(device.id, newIsOn);
       toast.success(newIsOn ? "Fan turned on" : "Fan turned off");
+      addNotification({
+        category: "device",
+        iconType: newIsOn ? "power_on" : "power_off",
+        title: newIsOn ? "Fan turned on" : "Fan turned off",
+        description: `'${device.name}' is now ${newIsOn ? "running" : "off"}`,
+        severity: newIsOn ? "success" : "info",
+        deviceType: "Fan",
+        deviceName: device.name,
+      });
       onUpdate?.();
     } catch (err) {
       toast.error("Failed to toggle power");
@@ -60,6 +71,17 @@ export function FanControl({ device, onUpdate }: FanControlProps) {
     try {
       await DeviceService.getInstance().setSpeed(device.id, speed);
       toast.success("Speed updated");
+      addNotification({
+        category: "device",
+        iconType: "fan_speed",
+        title: "Fan speed changed",
+        description: `'${device.name}' speed set to ${speedLabels[speed]}`,
+        severity: "info",
+        deviceType: "Fan",
+        deviceName: device.name,
+        numericValue: speed,
+        unit: ` (${speedLabels[speed]})`,
+      });
       onUpdate?.();
     } catch (err) {
       toast.error("Failed to update speed");
@@ -74,6 +96,15 @@ export function FanControl({ device, onUpdate }: FanControlProps) {
     try {
       await DeviceService.getInstance().setSwing(device.id, enabled);
       toast.success(enabled ? "Swing enabled" : "Swing disabled");
+      addNotification({
+        category: "device",
+        iconType: enabled ? "fan_swing_on" : "fan_swing_off",
+        title: enabled ? "Fan oscillation enabled" : "Fan oscillation disabled",
+        description: `'${device.name}' ${enabled ? "is now oscillating side-to-side" : "oscillation has stopped"}`,
+        severity: "info",
+        deviceType: "Fan",
+        deviceName: device.name,
+      });
       onUpdate?.();
     } catch (err) {
       toast.error("Failed to update swing");

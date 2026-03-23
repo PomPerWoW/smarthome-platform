@@ -1,0 +1,10 @@
+# Root .dockerignore – used when build context is repo root (e.g. frontend)
+**/node_modules
+**/dist
+**/.env
+**/.env.*
+**/*.log
+.git
+**/venv
+**/__pycache__
+**/.DS_Store

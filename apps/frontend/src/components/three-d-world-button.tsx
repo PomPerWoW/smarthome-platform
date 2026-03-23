@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Box } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -19,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useHomeStore } from "@/stores/home_store";
 import { useUIStore } from "@/stores/ui_store";
+import { HomeService } from "@/services/HomeService";
 
 export function ThreeDWorldButton() {
   const [open, setOpen] = useState(false);
@@ -28,11 +30,18 @@ export function ThreeDWorldButton() {
   const { homes, fetchHomes, isLoadingHomes } = useHomeStore();
   const setModalOpen = useUIStore((s) => s.set_modal_open);
 
+  const hasNoHome = homes.length === 0;
+
+  const { data: allRooms = [] } = useQuery({
+    queryKey: ["rooms"],
+    queryFn: () => HomeService.getInstance().getRooms(),
+  });
+
   useEffect(() => {
-    if (open && homes.length === 0) {
+    if (open && hasNoHome) {
       fetchHomes();
     }
-  }, [open, homes.length, fetchHomes]);
+  }, [open, hasNoHome, fetchHomes]);
 
   // Sync dialog visibility with global modal flag (hides robot assistant)
   useEffect(() => {
@@ -45,8 +54,7 @@ export function ThreeDWorldButton() {
     setSelectedRoomId("");
   }, [selectedHomeId]);
 
-  const selectedHome = homes.find((h) => h.id === selectedHomeId);
-  const rooms = selectedHome?.rooms || [];
+  const rooms = allRooms.filter((r) => r.homeId === selectedHomeId);
 
   const handleEnter = () => {
     let url = `https://${window.location.hostname}:8081/`;
@@ -73,66 +81,76 @@ export function ThreeDWorldButton() {
         <DialogHeader>
           <DialogTitle>Enter 3D World</DialogTitle>
           <p className="text-sm text-muted-foreground">
-            Select a home and room to enter the 3D scene creator with the room's
-            devices and furniture.
+            {hasNoHome
+              ? "You need to create a home first before you can enter the 3D world."
+              : "Select a home and room to enter the 3D scene creator with the room's devices and furniture."}
           </p>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="home" className="text-right">
-              Home
-            </Label>
-            <div className="col-span-3">
-              <Select
-                value={selectedHomeId}
-                onValueChange={setSelectedHomeId}
-                disabled={isLoadingHomes}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a Home" />
-                </SelectTrigger>
-                <SelectContent>
-                  {homes.map((home) => (
-                    <SelectItem key={home.id} value={home.id}>
-                      {home.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+        
+        {!hasNoHome ? (
+          <>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="home" className="text-right">
+                  Home
+                </Label>
+                <div className="col-span-3">
+                  <Select
+                    value={selectedHomeId}
+                    onValueChange={setSelectedHomeId}
+                    disabled={isLoadingHomes}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a Home" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {homes.map((home) => (
+                        <SelectItem key={home.id} value={home.id}>
+                          {home.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="room" className="text-right">
+                  Room
+                </Label>
+                <div className="col-span-3">
+                  <Select
+                    value={selectedRoomId}
+                    onValueChange={setSelectedRoomId}
+                    disabled={!selectedHomeId || rooms.length === 0}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a Room" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {rooms.map((room: { id: string; name: string }) => (
+                        <SelectItem key={room.id} value={room.id}>
+                          {room.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="room" className="text-right">
-              Room
-            </Label>
-            <div className="col-span-3">
-              <Select
-                value={selectedRoomId}
-                onValueChange={setSelectedRoomId}
-                disabled={!selectedHomeId || rooms.length === 0}
+            <DialogFooter>
+              <Button
+                onClick={handleEnter}
+                disabled={!selectedHomeId || !selectedRoomId}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a Room" />
-                </SelectTrigger>
-                <SelectContent>
-                  {rooms.map((room) => (
-                    <SelectItem key={room.id} value={room.id}>
-                      {room.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button
-            onClick={handleEnter}
-            disabled={!selectedHomeId || !selectedRoomId}
-          >
-            Enter
-          </Button>
-        </DialogFooter>
+                Enter
+              </Button>
+            </DialogFooter>
+          </>
+        ) : (
+          <DialogFooter>
+            <Button onClick={() => setOpen(false)}>Close</Button>
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   );

@@ -14,15 +14,13 @@ services:
 
   backend:
     build:
-      context: ./apps/backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/backend/Dockerfile
     container_name: smarthome-backend-dev
-    ports:
-      - "${BACKEND_PORT}:5500"
     volumes:
       - backend-data:/app/data
     networks:
-      - smarthome-network
+      - smarthome-network-dev
     env_file:
       - .env
     depends_on:
@@ -30,11 +28,13 @@ services:
 
   frontend:
     build:
-      context: ./apps/frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/frontend/Dockerfile
+      args:
+        VITE_BACKEND_URL: ${VITE_BACKEND_URL}
+        VITE_SCENE_CREATOR_URL: ${VITE_SCENE_CREATOR_URL}
+        VITE_HOST_IP: ${VITE_HOST_IP}
     container_name: smarthome-frontend
-    ports:
-      - "${FRONTEND_PORT}:3000"
     env_file:
       - .env
     networks:
@@ -44,16 +44,39 @@ services:
 
   scene-creator:
     build:
-      context: ./apps/scene-creator
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/scene-creator/Dockerfile
     container_name: smarthome-scene-creator
     env_file:
       - .env
-    ports:
-      - "${SCENE_CREATOR_PORT}:8081"
     networks:
       - smarthome-network-dev
     depends_on:
+      - backend
+
+  https-proxy:
+    image: nginx:alpine
+    container_name: smarthome-https-proxy
+    ports:
+      - "${FRONTEND_PORT}:3000"
+      - "${SCENE_CREATOR_PORT}:3003"
+      - "${BACKEND_PORT}:5500"
+    volumes:
+      - ./docker/proxy/nginx.conf:/etc/nginx/nginx.conf:ro
+      - proxy_certs:/etc/nginx/certs
+    command: >
+      sh -c "
+      apk add --no-cache openssl &&
+      if [ ! -f /etc/nginx/certs/cert.pem ]; then
+        openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /etc/nginx/certs/key.pem -out /etc/nginx/certs/cert.pem -subj '/CN=localhost';
+      fi &&
+      nginx -g 'daemon off;'
+      "
+    networks:
+      - smarthome-network-dev
+    depends_on:
+      - frontend
+      - scene-creator
       - backend
 
 volumes:
@@ -61,6 +84,8 @@ volumes:
     name: smarthome-backend-data
   db_data:
     name: smarthome-db-data
+  proxy_certs:
+    name: smarthome-proxy-certs
 
 networks:
   smarthome-network-dev:

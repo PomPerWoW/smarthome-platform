@@ -194,10 +194,11 @@
                     "sourceTag": "span",
                     "type": "custom",
                     "children": [
-                      "Enter 3D"
+                      "Enter AR / VR"
                     ],
                     "properties": {
-                      "class": "btn-text"
+                      "class": "btn-text",
+                      "id": "xr-button-text"
                     },
                     "dataUid": "uid-23"
                   }
@@ -1226,7 +1227,7 @@
       },
       "end": {
         "line": 253,
-        "column": 46
+        "column": 71
       }
     },
     "uid-24": {

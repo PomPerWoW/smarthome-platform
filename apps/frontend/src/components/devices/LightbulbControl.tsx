@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import type { Lightbulb } from "@/models";
 import { DeviceService } from "@/services/DeviceService";
 import { toast } from "sonner";
+import { useNotificationStore } from "@/stores/notification_store";
 
 interface LightbulbControlProps {
   device: Lightbulb;
@@ -29,6 +30,7 @@ export function LightbulbControl({ device, onUpdate }: LightbulbControlProps) {
   const [brightness, setBrightness] = useState(device.brightness);
   const [colour, setColour] = useState(device.colour);
   const [isUpdating, setIsUpdating] = useState(false);
+  const addNotification = useNotificationStore((s) => s.addNotification);
 
   // Sync state
   useEffect(() => {
@@ -44,6 +46,15 @@ export function LightbulbControl({ device, onUpdate }: LightbulbControlProps) {
     try {
       await DeviceService.getInstance().togglePower(device.id, newIsOn);
       toast.success(newIsOn ? "Light turned on" : "Light turned off");
+      addNotification({
+        category: "device",
+        iconType: newIsOn ? "power_on" : "power_off",
+        title: newIsOn ? "Light turned on" : "Light turned off",
+        description: `'${device.name}' is now ${newIsOn ? "on" : "off"}`,
+        severity: newIsOn ? "success" : "info",
+        deviceType: "Lightbulb",
+        deviceName: device.name,
+      });
       onUpdate?.();
     } catch (err) {
       toast.error("Failed to toggle power");
@@ -63,6 +74,17 @@ export function LightbulbControl({ device, onUpdate }: LightbulbControlProps) {
     try {
       await DeviceService.getInstance().setBrightness(device.id, brightness);
       toast.success("Brightness updated");
+      addNotification({
+        category: "device",
+        iconType: "brightness",
+        title: "Brightness adjusted",
+        description: `'${device.name}' brightness set to ${brightness}%`,
+        severity: "info",
+        deviceType: "Lightbulb",
+        deviceName: device.name,
+        numericValue: brightness,
+        unit: "%",
+      });
       onUpdate?.();
     } catch (err) {
       toast.error("Failed to update brightness");
@@ -77,6 +99,16 @@ export function LightbulbControl({ device, onUpdate }: LightbulbControlProps) {
     try {
       await DeviceService.getInstance().setColour(device.id, newColour);
       toast.success("Colour updated");
+      addNotification({
+        category: "device",
+        iconType: "color",
+        title: "Light color changed",
+        description: `'${device.name}' color updated`,
+        severity: "info",
+        deviceType: "Lightbulb",
+        deviceName: device.name,
+        colorValue: newColour,
+      });
       onUpdate?.();
     } catch (err) {
       toast.error("Failed to update colour");
