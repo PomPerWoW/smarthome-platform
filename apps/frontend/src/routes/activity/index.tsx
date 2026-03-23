@@ -19,7 +19,6 @@ const deviceIcons = {
   [DeviceType.AirConditioner]: Snowflake,
 }
 
-// Apple Watch–inspired ring color palette
 const RING_PALETTE = [
   '#FA114F', // Red
   '#92E82A', // Green
@@ -37,15 +36,10 @@ function ActivityOverviewPage() {
     queryFn: () => DeviceService.getInstance().getAllDevices(),
   })
 
-  // Fetch device logs for ALL devices for the selected date
   const { data: allDeviceLogs, isLoading: isLoadingLogs } = useQuery({
     queryKey: ['allDeviceLogs', selectedDate, devices.map(d => d.id).join(',')],
     queryFn: async () => {
       const service = DeviceService.getInstance()
-      // Fetch logs for each unique device type (API returns per-type)
-      // We need to fetch for each device individually if they share a type,
-      // but the API returns one log set per type. So we fetch per-type and
-      // assign the same log to all devices of that type.
       const typeSet = new Set(devices.map(d => d.type))
       const logByType = new Map<string, any[]>()
 
@@ -64,16 +58,13 @@ function ActivityOverviewPage() {
     enabled: devices.length > 0,
   })
 
-  // Compute on-hours per device and pick top 5
   const ringsData: ActivityRingData[] = useMemo(() => {
     if (!allDeviceLogs || devices.length === 0) return []
 
     const deviceOnHours = devices.map((device) => {
       const logs = allDeviceLogs.get(device.type) || []
-      // Count entries where onoff === true
-      // Each log entry represents a 5-minute interval
       const onCount = logs.filter((l: any) => l.onoff === true).length
-      const onHours = (onCount * 5) / 60 // Convert 5-min intervals to hours
+      const onHours = (onCount * 5) / 60
 
       return {
         deviceName: device.name,
@@ -82,7 +73,6 @@ function ActivityOverviewPage() {
       }
     })
 
-    // Sort by onHours descending, take top 5
     const top5 = deviceOnHours
       .sort((a, b) => b.onHours - a.onHours)
       .slice(0, 5)
@@ -94,7 +84,6 @@ function ActivityOverviewPage() {
     return top5
   }, [allDeviceLogs, devices])
 
-  // Group devices by room
   const devicesByRoom = useMemo(() => {
     const grouped = new Map<string, typeof devices>()
     for (const device of devices) {
@@ -102,7 +91,6 @@ function ActivityOverviewPage() {
       if (!grouped.has(room)) grouped.set(room, [])
       grouped.get(room)!.push(device)
     }
-    // Sort rooms alphabetically, but keep "Unassigned" at the end
     const sorted = Array.from(grouped.entries()).sort(([a], [b]) => {
       if (a === 'Unassigned') return 1
       if (b === 'Unassigned') return -1
@@ -111,9 +99,7 @@ function ActivityOverviewPage() {
     return sorted
   }, [devices])
 
-  // Global Mock Stats (Extrapolated for overview)
   const totalActive = devices.filter(d => d.is_on).length
-  // Find the most-used device (first in ringsData, which is sorted desc by onHours)
   const mostUsedDevice = useMemo(() => {
     if (!ringsData.length || !devices.length) return null
     const topEntry = ringsData[0]

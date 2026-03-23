@@ -3,22 +3,21 @@ import { useMemo } from 'react'
 export interface ActivityRingData {
   deviceName: string
   deviceType: string
-  onHours: number // 0–24+
+  onHours: number
   color: string
 }
 
 export interface ActivityRingsProps {
-  data: ActivityRingData[] // up to 5 items, sorted by onHours desc
+  data: ActivityRingData[]
   isLoading?: boolean
 }
 
-// Apple Watch–inspired ring colors
 const RING_COLORS = [
   { main: '#FA114F', glow: '#FA114F' },   // Red (outermost)
   { main: '#92E82A', glow: '#92E82A' },   // Green
   { main: '#00D4FF', glow: '#00D4FF' },   // Cyan
   { main: '#5E5CE6', glow: '#5E5CE6' },   // Blue
-  { main: '#f770c8ff', glow: '#f770c8ff' },   // Pink (innermost)
+  { main: '#F770C8FF', glow: '#F770C8FF' },   // Pink (innermost)
 ]
 
 const SIZE = 220
@@ -27,10 +26,6 @@ const STROKE_WIDTH = 16
 const GAP = 4
 const MAX_HOURS = 24
 
-/**
- * Renders Apple Watch–style concentric activity rings.
- * Each ring represents a device's on-hours as a fraction of 24h.
- */
 export function ActivityRings({ data, isLoading }: ActivityRingsProps) {
   const rings = useMemo(() => {
     return data.slice(0, 5).map((item, index) => {
@@ -46,7 +41,6 @@ export function ActivityRings({ data, isLoading }: ActivityRingsProps) {
         fraction,
         dashOffset,
         ringColor: RING_COLORS[index] || RING_COLORS[0],
-        // Angle for cap icon position
         endAngle: fraction * 360,
       }
     })
