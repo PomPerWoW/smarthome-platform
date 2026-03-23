@@ -149,6 +149,34 @@
     </div>
   </div>
 
+  <span class="section-label">Wallpaper</span>
+  <div class="item-grid">
+    <div class="item-btn" id="place-wallpaper-upload">
+      <span class="item-label" style="font-size: 2.5;">🖼</span>
+      <span class="item-label">Upload Image</span>
+    </div>
+    <div class="item-btn" id="place-wallpaper-white">
+      <span class="item-label" style="font-size: 2.5; color: #f8f8f8;">■</span>
+      <span class="item-label">White</span>
+    </div>
+    <div class="item-btn" id="place-wallpaper-sky">
+      <span class="item-label" style="font-size: 2.5; color: #bfdbfe;">■</span>
+      <span class="item-label">Sky Blue</span>
+    </div>
+    <div class="item-btn" id="place-wallpaper-sage">
+      <span class="item-label" style="font-size: 2.5; color: #bbf7d0;">■</span>
+      <span class="item-label">Sage</span>
+    </div>
+    <div class="item-btn" id="place-wallpaper-blush">
+      <span class="item-label" style="font-size: 2.5; color: #fecdd3;">■</span>
+      <span class="item-label">Blush</span>
+    </div>
+    <div class="item-btn" id="place-wallpaper-lavender">
+      <span class="item-label" style="font-size: 2.5; color: #ddd6fe;">■</span>
+      <span class="item-label">Lavender</span>
+    </div>
+  </div>
+
   <div class="close-btn" id="close-placement">
     <span class="close-text">Close</span>
   </div>

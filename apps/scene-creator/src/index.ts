@@ -43,6 +43,9 @@ import { PlacementPanelSystem } from "./ui/PlacementPanelSystem";
 import { RoomAlignmentPanelSystem } from "./ui/RoomAlignmentPanelSystem";
 import { WelcomePanelGestureSystem } from "./systems/WelcomePanelGestureSystem";
 import { XRInstructionSystem } from "./systems/XRInstructionSystem";
+import { WallpaperSystem } from "./systems/WallpaperSystem";
+import { WallSelectionPanelSystem } from "./ui/WallSelectionPanelSystem";
+import { WallpaperCutoutPanelSystem } from "./ui/WallpaperCutoutPanelSystem";
 
 import { initializeNavMesh, getRoomBounds } from "./config/navmesh";
 import { initializeCollision } from "./config/collision";
@@ -360,7 +363,10 @@ async function main(): Promise<void> {
     .registerSystem(VoicePanelSystem)
     .registerSystem(PlacementPanelSystem)
     .registerSystem(WelcomePanelGestureSystem)
-    .registerSystem(XRInstructionSystem);
+    .registerSystem(XRInstructionSystem)
+    .registerSystem(WallpaperSystem)
+    .registerSystem(WallSelectionPanelSystem)
+    .registerSystem(WallpaperCutoutPanelSystem);
 
   console.log("✅ Systems registered");
 
@@ -408,6 +414,36 @@ async function main(): Promise<void> {
   placementPanel.object3D!.visible = false; // Hidden until "Devices" button pressed
   (globalThis as any).__placementPanelEntity = placementPanel;
   console.log("✅ Placement panel created (hidden, relative to welcome panel)");
+
+  // Wall Selection Panel (hidden until wallpaper placement starts)
+  const wallSelectionPanel = world
+    .createTransformEntity()
+    .addComponent(PanelUI, {
+      config: "./ui/wall-selection-panel.json",
+      maxHeight: 0.6,
+      maxWidth: 0.5,
+    })
+    .addComponent(Interactable);
+
+  wallSelectionPanel.object3D!.position.set(0, 1.5, -0.8);
+  wallSelectionPanel.object3D!.visible = false;
+  (globalThis as any).__wallSelectionPanelEntity = wallSelectionPanel;
+  console.log("✅ Wall selection panel created (hidden)");
+
+  // Wallpaper Cutout Panel (hidden until a wallpaper is placed)
+  const cutoutPanel = world
+    .createTransformEntity()
+    .addComponent(PanelUI, {
+      config: "./ui/wallpaper-cutout-panel.json",
+      maxHeight: 0.6,
+      maxWidth: 0.5,
+    })
+    .addComponent(Interactable);
+
+  cutoutPanel.object3D!.position.set(0.65, 1.5, -0.8);
+  cutoutPanel.object3D!.visible = false;
+  (globalThis as any).__cutoutPanelEntity = cutoutPanel;
+  console.log("✅ Wallpaper cutout panel created (hidden)");
 
   const legPosePanel = world
     .createTransformEntity()

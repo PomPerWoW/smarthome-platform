@@ -392,6 +392,248 @@
         "dataUid": "uid-20"
       },
       {
+        "sourceTag": "span",
+        "type": "custom",
+        "children": [
+          "Wallpaper"
+        ],
+        "properties": {
+          "class": "section-label"
+        },
+        "dataUid": "uid-39"
+      },
+      {
+        "type": "container",
+        "sourceTag": "div",
+        "children": [
+          {
+            "type": "container",
+            "sourceTag": "div",
+            "children": [
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "🖼"
+                ],
+                "properties": {
+                  "class": "item-label",
+                  "style": {
+                    "fontSize": "2.5"
+                  }
+                },
+                "dataUid": "uid-42"
+              },
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "Upload Image"
+                ],
+                "properties": {
+                  "class": "item-label"
+                },
+                "dataUid": "uid-43"
+              }
+            ],
+            "properties": {
+              "class": "item-btn",
+              "id": "place-wallpaper-upload"
+            },
+            "dataUid": "uid-41"
+          },
+          {
+            "type": "container",
+            "sourceTag": "div",
+            "children": [
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "■"
+                ],
+                "properties": {
+                  "class": "item-label",
+                  "style": {
+                    "fontSize": "2.5",
+                    "color": "#f8f8f8"
+                  }
+                },
+                "dataUid": "uid-45"
+              },
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "White"
+                ],
+                "properties": {
+                  "class": "item-label"
+                },
+                "dataUid": "uid-46"
+              }
+            ],
+            "properties": {
+              "class": "item-btn",
+              "id": "place-wallpaper-white"
+            },
+            "dataUid": "uid-44"
+          },
+          {
+            "type": "container",
+            "sourceTag": "div",
+            "children": [
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "■"
+                ],
+                "properties": {
+                  "class": "item-label",
+                  "style": {
+                    "fontSize": "2.5",
+                    "color": "#bfdbfe"
+                  }
+                },
+                "dataUid": "uid-48"
+              },
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "Sky Blue"
+                ],
+                "properties": {
+                  "class": "item-label"
+                },
+                "dataUid": "uid-49"
+              }
+            ],
+            "properties": {
+              "class": "item-btn",
+              "id": "place-wallpaper-sky"
+            },
+            "dataUid": "uid-47"
+          },
+          {
+            "type": "container",
+            "sourceTag": "div",
+            "children": [
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "■"
+                ],
+                "properties": {
+                  "class": "item-label",
+                  "style": {
+                    "fontSize": "2.5",
+                    "color": "#bbf7d0"
+                  }
+                },
+                "dataUid": "uid-51"
+              },
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "Sage"
+                ],
+                "properties": {
+                  "class": "item-label"
+                },
+                "dataUid": "uid-52"
+              }
+            ],
+            "properties": {
+              "class": "item-btn",
+              "id": "place-wallpaper-sage"
+            },
+            "dataUid": "uid-50"
+          },
+          {
+            "type": "container",
+            "sourceTag": "div",
+            "children": [
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "■"
+                ],
+                "properties": {
+                  "class": "item-label",
+                  "style": {
+                    "fontSize": "2.5",
+                    "color": "#fecdd3"
+                  }
+                },
+                "dataUid": "uid-54"
+              },
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "Blush"
+                ],
+                "properties": {
+                  "class": "item-label"
+                },
+                "dataUid": "uid-55"
+              }
+            ],
+            "properties": {
+              "class": "item-btn",
+              "id": "place-wallpaper-blush"
+            },
+            "dataUid": "uid-53"
+          },
+          {
+            "type": "container",
+            "sourceTag": "div",
+            "children": [
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "■"
+                ],
+                "properties": {
+                  "class": "item-label",
+                  "style": {
+                    "fontSize": "2.5",
+                    "color": "#ddd6fe"
+                  }
+                },
+                "dataUid": "uid-57"
+              },
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "Lavender"
+                ],
+                "properties": {
+                  "class": "item-label"
+                },
+                "dataUid": "uid-58"
+              }
+            ],
+            "properties": {
+              "class": "item-btn",
+              "id": "place-wallpaper-lavender"
+            },
+            "dataUid": "uid-56"
+          }
+        ],
+        "properties": {
+          "class": "item-grid"
+        },
+        "dataUid": "uid-40"
+      },
+      {
         "type": "container",
         "sourceTag": "div",
         "children": [
@@ -404,14 +646,14 @@
             "properties": {
               "class": "close-text"
             },
-            "dataUid": "uid-40"
+            "dataUid": "uid-60"
           }
         ],
         "properties": {
           "class": "close-btn",
           "id": "close-placement"
         },
-        "dataUid": "uid-39"
+        "dataUid": "uid-59"
       }
     ],
     "properties": {
@@ -631,7 +873,7 @@
         "column": 0
       },
       "end": {
-        "line": 154,
+        "line": 182,
         "column": 6
       }
     },
@@ -1011,17 +1253,217 @@
         "column": 2
       },
       "end": {
-        "line": 153,
-        "column": 8
+        "line": 151,
+        "column": 46
       }
     },
     "uid-40": {
       "start": {
         "line": 152,
+        "column": 2
+      },
+      "end": {
+        "line": 177,
+        "column": 8
+      }
+    },
+    "uid-41": {
+      "start": {
+        "line": 153,
         "column": 4
       },
       "end": {
-        "line": 152,
+        "line": 156,
+        "column": 10
+      }
+    },
+    "uid-42": {
+      "start": {
+        "line": 154,
+        "column": 6
+      },
+      "end": {
+        "line": 154,
+        "column": 64
+      }
+    },
+    "uid-43": {
+      "start": {
+        "line": 155,
+        "column": 6
+      },
+      "end": {
+        "line": 155,
+        "column": 50
+      }
+    },
+    "uid-44": {
+      "start": {
+        "line": 157,
+        "column": 4
+      },
+      "end": {
+        "line": 160,
+        "column": 10
+      }
+    },
+    "uid-45": {
+      "start": {
+        "line": 158,
+        "column": 6
+      },
+      "end": {
+        "line": 158,
+        "column": 79
+      }
+    },
+    "uid-46": {
+      "start": {
+        "line": 159,
+        "column": 6
+      },
+      "end": {
+        "line": 159,
+        "column": 43
+      }
+    },
+    "uid-47": {
+      "start": {
+        "line": 161,
+        "column": 4
+      },
+      "end": {
+        "line": 164,
+        "column": 10
+      }
+    },
+    "uid-48": {
+      "start": {
+        "line": 162,
+        "column": 6
+      },
+      "end": {
+        "line": 162,
+        "column": 79
+      }
+    },
+    "uid-49": {
+      "start": {
+        "line": 163,
+        "column": 6
+      },
+      "end": {
+        "line": 163,
+        "column": 46
+      }
+    },
+    "uid-50": {
+      "start": {
+        "line": 165,
+        "column": 4
+      },
+      "end": {
+        "line": 168,
+        "column": 10
+      }
+    },
+    "uid-51": {
+      "start": {
+        "line": 166,
+        "column": 6
+      },
+      "end": {
+        "line": 166,
+        "column": 79
+      }
+    },
+    "uid-52": {
+      "start": {
+        "line": 167,
+        "column": 6
+      },
+      "end": {
+        "line": 167,
+        "column": 42
+      }
+    },
+    "uid-53": {
+      "start": {
+        "line": 169,
+        "column": 4
+      },
+      "end": {
+        "line": 172,
+        "column": 10
+      }
+    },
+    "uid-54": {
+      "start": {
+        "line": 170,
+        "column": 6
+      },
+      "end": {
+        "line": 170,
+        "column": 79
+      }
+    },
+    "uid-55": {
+      "start": {
+        "line": 171,
+        "column": 6
+      },
+      "end": {
+        "line": 171,
+        "column": 43
+      }
+    },
+    "uid-56": {
+      "start": {
+        "line": 173,
+        "column": 4
+      },
+      "end": {
+        "line": 176,
+        "column": 10
+      }
+    },
+    "uid-57": {
+      "start": {
+        "line": 174,
+        "column": 6
+      },
+      "end": {
+        "line": 174,
+        "column": 79
+      }
+    },
+    "uid-58": {
+      "start": {
+        "line": 175,
+        "column": 6
+      },
+      "end": {
+        "line": 175,
+        "column": 46
+      }
+    },
+    "uid-59": {
+      "start": {
+        "line": 179,
+        "column": 2
+      },
+      "end": {
+        "line": 181,
+        "column": 8
+      }
+    },
+    "uid-60": {
+      "start": {
+        "line": 180,
+        "column": 4
+      },
+      "end": {
+        "line": 180,
         "column": 41
       }
     }

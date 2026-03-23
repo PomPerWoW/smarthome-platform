@@ -9,6 +9,8 @@ import {
 
 import { getStore } from "../store/DeviceStore";
 import { DeviceType } from "../types";
+import { beginWallpaperPlacement } from "../systems/WallpaperSystem";
+import { solidColorDataUrl, WALLPAPER_PRESETS } from "../utils/wallDetection";
 
 export class PlacementPanelSystem extends createSystem({
   placementPanel: {
@@ -25,7 +27,7 @@ export class PlacementPanelSystem extends createSystem({
 
       const store = getStore();
 
-      // Wire up placement buttons
+      // Wire up device/furniture placement buttons
       const buttons: Array<{ id: string; type: DeviceType }> = [
         { id: "place-lightbulb", type: DeviceType.Lightbulb },
         { id: "place-television", type: DeviceType.Television },
@@ -50,6 +52,54 @@ export class PlacementPanelSystem extends createSystem({
             if (entity.object3D) {
               entity.object3D.visible = false;
             }
+          });
+        }
+      }
+
+      // ── Wallpaper buttons ──────────────────────────────────────────────────
+
+      // Upload custom image
+      const uploadBtn = document.getElementById("place-wallpaper-upload");
+      if (uploadBtn) {
+        uploadBtn.addEventListener("click", async () => {
+          console.log("[PlacementPanel] Wallpaper: open image picker");
+          if (entity.object3D) entity.object3D.visible = false;
+          // beginWallpaperPlacement with no argument opens the file picker
+          await beginWallpaperPlacement();
+        });
+      }
+
+      // Preset colour swatches — map button ids to WALLPAPER_PRESETS entries
+      const presetMap: Record<
+        string,
+        { id: string; label: string; color: string }
+      > = {
+        "place-wallpaper-white": WALLPAPER_PRESETS.find(
+          (p) => p.id === "preset-white",
+        )!,
+        "place-wallpaper-sky": WALLPAPER_PRESETS.find(
+          (p) => p.id === "preset-sky",
+        )!,
+        "place-wallpaper-sage": WALLPAPER_PRESETS.find(
+          (p) => p.id === "preset-sage",
+        )!,
+        "place-wallpaper-blush": WALLPAPER_PRESETS.find(
+          (p) => p.id === "preset-blush",
+        )!,
+        "place-wallpaper-lavender": WALLPAPER_PRESETS.find(
+          (p) => p.id === "preset-lavender",
+        )!,
+      };
+
+      for (const [btnId, preset] of Object.entries(presetMap)) {
+        if (!preset) continue;
+        const btn = document.getElementById(btnId);
+        if (btn) {
+          btn.addEventListener("click", () => {
+            console.log(`[PlacementPanel] Wallpaper preset: ${preset.label}`);
+            if (entity.object3D) entity.object3D.visible = false;
+            const dataUrl = solidColorDataUrl(preset.color);
+            beginWallpaperPlacement(dataUrl, preset.label);
           });
         }
       }

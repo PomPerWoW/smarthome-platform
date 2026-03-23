@@ -1,0 +1,120 @@
+<style>
+  .panel-container {
+    align-items: flex-start;
+    padding: 2;
+    width: 48;
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    background-color: #09090b;
+    border-color: #27272a;
+    border-width: 0.15;
+    border-radius: 2;
+  }
+
+  .panel-header {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 1;
+    margin-bottom: 1.5;
+    width: 100%;
+  }
+
+  .heading {
+    font-size: 2.5;
+    font-weight: bold;
+    color: #fafafa;
+  }
+
+  .sub-heading {
+    font-size: 1.6;
+    color: #a1a1aa;
+    margin-bottom: 1.5;
+  }
+
+  .wall-btn {
+    width: 100%;
+    padding: 1.5;
+    background-color: #18181b;
+    border-radius: 1.5;
+    border-width: 0.1;
+    border-color: #3f3f46;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 0.3;
+    cursor: pointer;
+    margin-bottom: 1;
+  }
+
+  .wall-btn:hover {
+    background-color: #27272a;
+    border-color: #f59e0b;
+  }
+
+  .wall-btn-title {
+    font-size: 1.8;
+    font-weight: bold;
+    color: #fafafa;
+  }
+
+  .wall-btn-dims {
+    font-size: 1.4;
+    color: #a1a1aa;
+  }
+
+  .cancel-btn {
+    width: 100%;
+    padding: 1;
+    background-color: #27272a;
+    border-radius: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 1;
+    cursor: pointer;
+  }
+
+  .cancel-btn:hover {
+    background-color: #3f3f46;
+  }
+
+  .cancel-text {
+    font-size: 1.6;
+    color: #fafafa;
+  }
+</style>
+
+<div class="panel-container">
+  <div class="panel-header">
+    <span class="heading">Select a Wall</span>
+  </div>
+
+  <span class="sub-heading">Choose which wall to apply the wallpaper to</span>
+
+  <div class="wall-btn" id="wall-north">
+    <span class="wall-btn-title">North Wall</span>
+    <span class="wall-btn-dims" id="wall-north-label">Detecting dimensions…</span>
+  </div>
+
+  <div class="wall-btn" id="wall-south">
+    <span class="wall-btn-title">South Wall</span>
+    <span class="wall-btn-dims" id="wall-south-label">Detecting dimensions…</span>
+  </div>
+
+  <div class="wall-btn" id="wall-east">
+    <span class="wall-btn-title">East Wall</span>
+    <span class="wall-btn-dims" id="wall-east-label">Detecting dimensions…</span>
+  </div>
+
+  <div class="wall-btn" id="wall-west">
+    <span class="wall-btn-title">West Wall</span>
+    <span class="wall-btn-dims" id="wall-west-label">Detecting dimensions…</span>
+  </div>
+
+  <div class="cancel-btn" id="wall-cancel">
+    <span class="cancel-text">Cancel</span>
+  </div>
+</div>
