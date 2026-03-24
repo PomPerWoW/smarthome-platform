@@ -15,11 +15,13 @@ import { getStore } from "./store/DeviceStore";
 import { DeviceComponent } from "./components/DeviceComponent";
 import { UserControlledAvatarComponent } from "./components/UserControlledAvatarComponent";
 import { RobotAssistantComponent } from "./components/RobotAssistantComponent";
+import { NPCAvatarComponent } from "./components/NPCAvatarComponent";
 import { DeviceRendererSystem } from "./systems/DeviceRendererSystem";
 import { DeviceInteractionSystem } from "./systems/DeviceInteractionSystem";
 import { UserControlledAvatarSystem } from "./systems/UserControlledAvatarSystem";
 import { RPMUserControlledAvatarSystem } from "./systems/RPMUserControlledAvatarSystem";
 import { RobotAssistantSystem } from "./systems/RobotAssistantSystem";
+import { NPCAvatarSystem } from "./systems/NPCAvatarSystem";
 import { PanelSystem } from "./ui/panel";
 import { LightbulbPanelSystem } from "./ui/LightbulbPanelSystem";
 import { TelevisionPanelSystem } from "./ui/TelevisionPanelSystem";
@@ -95,6 +97,11 @@ const assets: AssetManifest = {
   },
   robot_assistant: {
     url: "/models/avatar/assistant/robot_3D_scene.glb",
+    type: AssetType.GLTF,
+    priority: "critical",
+  },
+  npc_rpm_model: {
+    url: "/models/avatar/npc/RPM_clip.glb",
     type: AssetType.GLTF,
     priority: "critical",
   },
@@ -216,11 +223,13 @@ async function main(): Promise<void> {
     .registerComponent(DeviceComponent)
     .registerComponent(UserControlledAvatarComponent)
     .registerComponent(RobotAssistantComponent)
+    .registerComponent(NPCAvatarComponent)
     .registerSystem(DeviceRendererSystem)
     .registerSystem(DeviceInteractionSystem)
     .registerSystem(UserControlledAvatarSystem)
     .registerSystem(RPMUserControlledAvatarSystem)
     .registerSystem(RobotAssistantSystem)
+    .registerSystem(NPCAvatarSystem)
     .registerSystem(PanelSystem)
     .registerSystem(LightbulbPanelSystem)
     .registerSystem(TelevisionPanelSystem)
@@ -306,6 +315,15 @@ async function main(): Promise<void> {
   if (robotAssistantSystem) {
     await robotAssistantSystem.createRobotAssistant("robot1", "Robot Assistant", "robot_assistant", [0.6, 0, -1.5]);
     console.log("✅ Robot Assistant (robot_3D_scene.glb) - autonomous behavior");
+  }
+
+  // 4) NPC RPM Avatars — autonomous walking characters
+  const npcAvatarSystem = world.getSystem(NPCAvatarSystem);
+  if (npcAvatarSystem) {
+    await npcAvatarSystem.createNPCAvatar("npc1", "NPC Alice", "npc_rpm_model", [1.0, 0, 0.5], 0.35);
+    await npcAvatarSystem.createNPCAvatar("npc2", "NPC Bob", "npc_rpm_model", [-0.8, 0, 1.0], 0.45);
+    await npcAvatarSystem.createNPCAvatar("npc3", "NPC Carol", "npc_rpm_model", [0.3, 0, -0.8], 0.40);
+    console.log("✅ 3 NPC RPM Avatars (npc/RPM_clip.glb) - autonomous walking");
   }
 
   // Voice panel: wire status to robot (listening → Standing; idle → success: Yes+ThumbsUp, failure: No, cancelled: Wave)
