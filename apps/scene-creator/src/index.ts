@@ -19,11 +19,13 @@ import { getStore } from "./store/DeviceStore";
 import { DeviceComponent } from "./components/DeviceComponent";
 import { UserControlledAvatarComponent } from "./components/UserControlledAvatarComponent";
 import { RobotAssistantComponent } from "./components/RobotAssistantComponent";
+import { NPCAvatarComponent } from "./components/NPCAvatarComponent";
 import { DeviceRendererSystem } from "./systems/DeviceRendererSystem";
 import { DeviceInteractionSystem } from "./systems/DeviceInteractionSystem";
 import { UserControlledAvatarSystem } from "./systems/UserControlledAvatarSystem";
 import { RPMUserControlledAvatarSystem } from "./systems/RPMUserControlledAvatarSystem";
 import { RobotAssistantSystem } from "./systems/RobotAssistantSystem";
+import { NPCAvatarSystem } from "./systems/NPCAvatarSystem";
 import { PanelSystem } from "./ui/panel";
 import { LightbulbPanelSystem } from "./ui/LightbulbPanelSystem";
 import { TelevisionPanelSystem } from "./ui/TelevisionPanelSystem";
@@ -126,6 +128,26 @@ const assets: AssetManifest = {
   },
   robot_assistant: {
     url: `${import.meta.env.BASE_URL}models/avatar/assistant/robot_3D_scene.glb`,
+    type: AssetType.GLTF,
+    priority: "critical",
+  },
+  npc_1: {
+    url: `${import.meta.env.BASE_URL}models/avatar/npc/NPC_4.glb`,
+    type: AssetType.GLTF,
+    priority: "critical",
+  },
+  npc_2: {
+    url: `${import.meta.env.BASE_URL}models/avatar/npc/NPC_7.glb`,
+    type: AssetType.GLTF,
+    priority: "critical",
+  },
+  npc_3: {
+    url: `${import.meta.env.BASE_URL}models/avatar/npc/NPC_10.glb`,
+    type: AssetType.GLTF,
+    priority: "critical",
+  },
+  npc_4: {
+    url: `${import.meta.env.BASE_URL}models/avatar/npc/NPC_11.glb`,
     type: AssetType.GLTF,
     priority: "critical",
   },
@@ -349,11 +371,13 @@ async function main(): Promise<void> {
     .registerComponent(DeviceComponent)
     .registerComponent(UserControlledAvatarComponent)
     .registerComponent(RobotAssistantComponent)
+    .registerComponent(NPCAvatarComponent)
     .registerSystem(DeviceRendererSystem)
     .registerSystem(DeviceInteractionSystem)
     .registerSystem(UserControlledAvatarSystem)
     .registerSystem(RPMUserControlledAvatarSystem)
     .registerSystem(RobotAssistantSystem)
+    .registerSystem(NPCAvatarSystem)
     .registerSystem(PanelSystem)
     .registerSystem(LegPosePanelSystem)
     .registerSystem(LightbulbPanelSystem)
@@ -682,6 +706,17 @@ async function main(): Promise<void> {
     console.log(
       "✅ Robot Assistant (robot_3D_scene.glb) - autonomous behavior",
     );
+  }
+
+  // 4) NPC RPM Avatars — stationary characters
+  const npcAvatarSystem = world.getSystem(NPCAvatarSystem);
+  if (npcAvatarSystem) {
+    // Math.PI = 180 degrees, Math.PI / 2 = 90 degrees, etc.
+    await npcAvatarSystem.createNPCAvatar("npc1", "NPC Alice", "npc_1", [3.0, 0, -3.5], -Math.PI / 4);
+    await npcAvatarSystem.createNPCAvatar("npc2", "NPC Bob", "npc_2", [4.0, 0, 4.5], Math.PI);
+    await npcAvatarSystem.createNPCAvatar("npc3", "NPC Carol", "npc_3", [-3.5, 0, 2.5], Math.PI / 2);
+    await npcAvatarSystem.createNPCAvatar("npc4", "NPC Mike", "npc_4", [-3.5, 0, -5.0], 0);
+    console.log("✅ 4 NPC RPM Avatars (npc/RPM_clip.glb) - stationary");
   }
 
   setupAvatarSwitcherPanel();
