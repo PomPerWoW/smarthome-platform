@@ -105,6 +105,26 @@ const assets: AssetManifest = {
     type: AssetType.GLTF,
     priority: "critical",
   },
+  npc_1: {
+    url: "/models/avatar/npc/NPC_4.glb",
+    type: AssetType.GLTF,
+    priority: "critical",
+  },
+  npc_2: {
+    url: "/models/avatar/npc/NPC_7.glb",
+    type: AssetType.GLTF,
+    priority: "critical",
+  },
+  npc_3: {
+    url: "/models/avatar/npc/NPC_10.glb",
+    type: AssetType.GLTF,
+    priority: "critical",
+  },
+  npc_4: {
+    url: "/models/avatar/npc/NPC_11.glb",
+    type: AssetType.GLTF,
+    priority: "critical",
+  },
   chair: {
     url: "/models/furnitures/chair/chair.glb",
     type: AssetType.GLTF,
@@ -320,10 +340,11 @@ async function main(): Promise<void> {
   // 4) NPC RPM Avatars — autonomous walking characters
   const npcAvatarSystem = world.getSystem(NPCAvatarSystem);
   if (npcAvatarSystem) {
-    await npcAvatarSystem.createNPCAvatar("npc1", "NPC Alice", "npc_rpm_model", [1.0, 0, 0.5], 0.35);
-    await npcAvatarSystem.createNPCAvatar("npc2", "NPC Bob", "npc_rpm_model", [-0.8, 0, 1.0], 0.45);
-    await npcAvatarSystem.createNPCAvatar("npc3", "NPC Carol", "npc_rpm_model", [0.3, 0, -0.8], 0.40);
-    console.log("✅ 3 NPC RPM Avatars (npc/RPM_clip.glb) - autonomous walking");
+    await npcAvatarSystem.createNPCAvatar("npc1", "NPC Alice", "npc_1", [1.0, 0, 0.5], 0.35);
+    await npcAvatarSystem.createNPCAvatar("npc2", "NPC Bob", "npc_2", [-0.8, 0, 1.0], 0.45);
+    await npcAvatarSystem.createNPCAvatar("npc3", "NPC Carol", "npc_3", [0.3, 0, -0.8], 0.40);
+    await npcAvatarSystem.createNPCAvatar("npc4", "NPC Mike", "npc_4", [0.1, 0, 1.3], 0.30);
+    console.log("✅ 4 NPC RPM Avatars (npc/RPM_clip.glb) - autonomous walking");
   }
 
   // Voice panel: wire status to robot (listening → Standing; idle → success: Yes+ThumbsUp, failure: No, cancelled: Wave)
