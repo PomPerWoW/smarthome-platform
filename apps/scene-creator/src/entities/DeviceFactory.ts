@@ -5,6 +5,7 @@ import { Television } from "./Television";
 import { Fan } from "./Fan";
 import { AirConditioner } from "./AirConditioner";
 import { Chair } from "./Chair";
+import { SmartMeter } from "./SmartMeter";
 
 export class DeviceFactory {
   static create(data: Device): BaseDevice {
@@ -24,6 +25,8 @@ export class DeviceFactory {
       case DeviceType.Chair5:
       case DeviceType.Chair6:
         return new Chair(data as any);
+      case DeviceType.SmartMeter:
+        return new SmartMeter(data as any);
       default:
         // Fallback for unknown types
         console.warn(

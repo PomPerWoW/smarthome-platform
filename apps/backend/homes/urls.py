@@ -5,6 +5,9 @@ from .views import (
     AirConditionerViewSet, FanViewSet, LightbulbViewSet, TelevisionViewSet,
     FurnitureViewSet,
     VoiceCommandViewSet,
+    AutomationViewSet,
+    SmartMeterViewSet, 
+    VoiceCommandViewSet, 
     AutomationViewSet
 )
 
@@ -17,6 +20,7 @@ router.register(r'fans', FanViewSet, basename='fan')
 router.register(r'lightbulbs', LightbulbViewSet, basename='lightbulb')
 router.register(r'tvs', TelevisionViewSet, basename='television')
 router.register(r'furniture', FurnitureViewSet, basename='furniture')
+router.register(r'smartmeters', SmartMeterViewSet, basename='smartmeter')
 router.register(r'voice', VoiceCommandViewSet, basename='voice')
 router.register(r'automations', AutomationViewSet, basename='automation')
 

@@ -77,7 +77,7 @@ export class DevicePlacementSystem extends createSystem({}) {
       // 6. Check collision with room geometry and find a collision-free position
       const worldSpawnPos = new Vector3();
       worldSpawnPos.copy(labModel.localToWorld(spawnPos.clone()));
-      
+
       // Check if initial position collides with room geometry
       if (this.isPositionColliding(worldSpawnPos, spawnPos.y, labModel)) {
         console.log(
@@ -119,7 +119,7 @@ export class DevicePlacementSystem extends createSystem({}) {
       // 7. Final verification: ensure position is still within bounds
       spawnPos.x = Math.max(minX, Math.min(maxX, spawnPos.x));
       spawnPos.z = Math.max(minZ, Math.min(maxZ, spawnPos.z));
-      
+
       // 8. Double-check: if still outside bounds, use room center as fallback
       if (!isPositionWalkable(spawnPos.x, spawnPos.z)) {
         console.warn(
@@ -190,7 +190,7 @@ export class DevicePlacementSystem extends createSystem({}) {
 
     console.log(
       `[DevicePlacement] ✨ Spawning "${name}" at local pos ` +
-        `(${spawnPos.x.toFixed(2)}, ${spawnPos.y.toFixed(2)}, ${spawnPos.z.toFixed(2)})`,
+      `(${spawnPos.x.toFixed(2)}, ${spawnPos.y.toFixed(2)}, ${spawnPos.z.toFixed(2)})`,
     );
 
     const store = getStore();

@@ -30,6 +30,7 @@ import { TelevisionPanelSystem } from "./ui/TelevisionPanelSystem";
 import { FanPanelSystem } from "./ui/FanPanelSystem";
 import { AirConditionerPanelSystem } from "./ui/AirConditionerPanelSystem";
 import { GraphPanelSystem } from "./ui/GraphPanelSystem";
+import { SmartMeterPanelSystem } from "./ui/SmartMeterPanelSystem";
 import { VoiceControlSystem } from "./systems/VoiceControlSystem";
 import { VoicePanelSystem } from "./ui/VoicePanelSystem";
 // import { VoicePanel } from "./ui/VoicePanel"; // Legacy DOM panel
@@ -95,6 +96,11 @@ const assets: AssetManifest = {
   },
   air_conditioner: {
     url: `${import.meta.env.BASE_URL}models/devices/air_conditioner/scene.gltf`,
+    type: AssetType.GLTF,
+    priority: "critical",
+  },
+  smartmeter: {
+    url: `${import.meta.env.BASE_URL}models/devices/smartmeter/scene.gltf`,
     type: AssetType.GLTF,
     priority: "critical",
   },
@@ -316,7 +322,7 @@ async function main(): Promise<void> {
     // device grab/move interactions. The room is visual-only.
     roomModel.traverse((child: any) => {
       if (child.isMesh) {
-        child.raycast = () => {};
+        child.raycast = () => { };
       }
     });
 
@@ -354,6 +360,7 @@ async function main(): Promise<void> {
     .registerSystem(TelevisionPanelSystem)
     .registerSystem(FanPanelSystem)
     .registerSystem(AirConditionerPanelSystem)
+    .registerSystem(SmartMeterPanelSystem)
     .registerSystem(GraphPanelSystem)
     .registerSystem(RoomScanningSystem)
     .registerSystem(RoomAlignmentSystem)

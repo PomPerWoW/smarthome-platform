@@ -7,10 +7,12 @@ import type { Lightbulb } from "@/models/devices/Lightbulb";
 import type { Fan } from "@/models/devices/Fan";
 import type { Television } from "@/models/devices/Television";
 import type { AirConditioner } from "@/models/devices/AirConditioner";
+import type { SmartMeter } from "@/models/devices/SmartMeter";
 import { LightbulbModel } from "./LightbulbModel";
 import { FanModel } from "./FanModel";
 import { TelevisionModel } from "./TelevisionModel";
 import { AirConditionerModel } from "./AirConditionerModel";
+import { SmartMeterModel } from "./SmartMeterModel";
 
 interface DeviceModel3DProps {
   device: BaseDevice;
@@ -46,6 +48,10 @@ function DeviceScene({ device }: { device: BaseDevice }) {
       return (
         <AirConditionerModel isOn={ac.is_on} temperature={ac.temperature} />
       );
+    }
+    case DeviceType.SmartMeter: {
+      const smartMeter = device as SmartMeter;
+      return <SmartMeterModel isOn={smartMeter.is_on} />;
     }
     default:
       return null;

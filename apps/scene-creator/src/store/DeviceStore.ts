@@ -239,6 +239,28 @@ export const deviceStore = createStore<DeviceState>()(
           room: f.room || "",
         }));
         set({ homes, devices, furniture, loading: false });
+        // Ensure at least 1 SmartMeter exists for the Scene Creator Showcase
+        const hasSmartMeter = devices.some(d => d.type === DeviceType.SmartMeter);
+        if (!hasSmartMeter) {
+          console.log("[Store] Injecting missing SmartMeter for AR showcase...");
+          devices.push({
+            id: "local-smartmeter-mock-01",
+            name: "Smart Meter Demo",
+            type: DeviceType.SmartMeter,
+            is_on: true,
+            position: [0.6, 2.0, -0.8],
+            rotation_y: 0,
+            tag: "smartmeter-raspi.meter-1phase-01",
+            home_id: "local_home",
+            home_name: "Local Home",
+            floor_id: "local_floor",
+            floor_name: "Local Floor",
+            room_id: "local_room",
+            room_name: "Lab Room",
+          });
+        }
+
+        set({ homes, devices, loading: false });
         console.log(
           `[Store] Loaded ${homes.length} homes, ${devices.length} devices, ${furniture.length} furniture`,
         );
@@ -336,8 +358,8 @@ export const deviceStore = createStore<DeviceState>()(
               ...updatedDevice,
               position:
                 updatedDevice.position[0] !== 0 ||
-                updatedDevice.position[1] !== 0 ||
-                updatedDevice.position[2] !== 0
+                  updatedDevice.position[1] !== 0 ||
+                  updatedDevice.position[2] !== 0
                   ? updatedDevice.position
                   : existingDevice.position,
             };
@@ -463,10 +485,10 @@ export const deviceStore = createStore<DeviceState>()(
           furniture: state.furniture.map((f) =>
             f.id === furnitureId
               ? {
-                  ...f,
-                  position: [x, y, z] as [number, number, number],
-                  rotation_y: rotationY ?? f.rotation_y,
-                }
+                ...f,
+                position: [x, y, z] as [number, number, number],
+                rotation_y: rotationY ?? f.rotation_y,
+              }
               : f,
           ),
         }));
@@ -495,8 +517,8 @@ export const deviceStore = createStore<DeviceState>()(
               // Preserve position if the update doesn't include it
               position:
                 updatedDevice.position[0] !== 0 ||
-                updatedDevice.position[1] !== 0 ||
-                updatedDevice.position[2] !== 0
+                  updatedDevice.position[1] !== 0 ||
+                  updatedDevice.position[2] !== 0
                   ? updatedDevice.position
                   : existingDevice.position,
             };
@@ -786,6 +808,7 @@ export const deviceStore = createStore<DeviceState>()(
         [DeviceType.Chair4]: [],
         [DeviceType.Chair5]: [],
         [DeviceType.Chair6]: [],
+        [DeviceType.SmartMeter]: [],
       };
       for (const device of get().devices) {
         grouped[device.type].push(device);

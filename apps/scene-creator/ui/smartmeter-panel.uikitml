@@ -1,0 +1,289 @@
+<style>
+  .panel-container {
+    align-items: flex-start;
+    padding: 2;
+    width: 36;
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    background-color: #09090b;
+    border-color: #27272a;
+    border-width: 0.15;
+    border-radius: 2;
+  }
+
+  .header-section {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 1.5;
+    width: 100%;
+    margin-bottom: 0.5;
+  }
+
+  .header-action {
+    margin-left: auto;
+  }
+
+  .device-icon {
+    width: 4;
+    height: 4;
+    color: #3b82f6;
+  }
+
+  .header-text {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+  }
+
+  .device-name {
+    font-size: 2.5;
+    font-weight: bold;
+    color: #fafafa;
+  }
+
+  .device-location {
+    font-size: 1.6;
+    color: #71717a;
+  }
+
+  .power-btn {
+    width: 5;
+    height: 5;
+    border-radius: 2.5;
+    background-color: #22c55e;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .power-icon {
+    width: 2.5;
+    height: 2.5;
+    color: #ffffff;
+  }
+
+  .divider {
+    height: 0.1;
+    width: 100%;
+    background-color: #27272a;
+    margin: 1.5 0;
+  }
+
+  .grid-section {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 1.5;
+    width: 100%;
+  }
+
+  .gauge-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    background-color: #18181b;
+    border-radius: 1;
+    padding: 1 1.2;
+    width: 100%;
+    border-color: #27272a;
+    border-width: 0.1;
+    gap: 0.5;
+  }
+
+  .gauge-label {
+    color: #71717a;
+    font-size: 1.4;
+    font-weight: bold;
+    letter-spacing: 0.5;
+    flex: 1;
+  }
+
+  .gauge-track {
+    width: 100%;
+    height: 0.6;
+    background-color: #3f3f46;
+    border-radius: 0.3;
+    overflow: hidden;
+    position: relative;
+    margin-top: 0.2;
+  }
+
+  .gauge-fill {
+    height: 100%;
+    width: 0%;
+    background-color: #3b82f6;
+    border-radius: 0.3;
+  }
+
+  .gauge-fill-red {
+    background-color: #ef4444;
+  }
+
+  .gauge-fill-green {
+    background-color: #22c55e;
+  }
+
+  .gauge-fill-orange {
+    background-color: #f97316;
+  }
+
+  .gauge-fill-purple {
+    background-color: #a855f7;
+  }
+
+  .gauge-fill-cyan {
+    background-color: #06b6d4;
+  }
+
+  .gauge-fill-yellow {
+    background-color: #eab308;
+  }
+
+  .gauge-fill-pink {
+    background-color: #ec4899;
+  }
+
+  .gauge-value {
+    color: #fafafa;
+    font-size: 1.8;
+    font-weight: bold;
+    line-height: 1;
+    margin-right: 0.5;
+  }
+
+  .gauge-unit {
+    color: #71717a;
+    font-size: 1.2;
+  }
+
+  .control-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 1.5;
+    width: 100%;
+    padding: 0 1.5;
+    margin-top: 2.5;
+  }
+
+  .control-icon {
+    width: 2.5;
+    height: 2.5;
+    color: #a1a1aa;
+  }
+
+  .control-label {
+    font-size: 1.8;
+    color: #a1a1aa;
+    width: 12;
+  }
+
+  .status-section {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 1;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .status-dot {
+    width: 1.5;
+    height: 1.5;
+    border-radius: 0.75;
+    background-color: #22c55e;
+  }
+
+  .status-text {
+    font-size: 1.6;
+    color: #a1a1aa;
+  }
+</style>
+
+<div class="panel-container">
+  <!-- Header -->
+  <div class="header-section">
+    <div>
+      <ActivityIcon class="device-icon" />
+    </div>
+    <div class="header-text">
+      <span class="device-name" id="device-name">Smart Meter</span>
+      <span class="device-location" id="device-location">Loading...</span>
+    </div>
+    <div class="header-action">
+      <button class="power-btn" id="power-btn">
+        <div>
+          <PowerIcon class="power-icon" />
+        </div>
+      </button>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Gauges -->
+  <div class="grid-section">
+    <!-- Voltage -->
+    <div class="gauge-card gauge-blue">
+      <span class="gauge-label" id="label-v">VOLTAGE</span>
+      <div class="gauge-track">
+        <div class="gauge-fill" id="fill-v"></div>
+      </div>
+      <span class="gauge-value" id="metric-v">--</span>
+      <span class="gauge-unit">Volt</span>
+    </div>
+
+    <!-- Current -->
+    <div class="gauge-card">
+      <span class="gauge-label">CURRENT</span>
+      <div class="gauge-track">
+        <div class="gauge-fill gauge-fill-red" id="fill-i"></div>
+      </div>
+      <span class="gauge-value" id="metric-i">--</span>
+      <span class="gauge-unit">Ampere</span>
+    </div>
+
+    <!-- Active Power -->
+    <div class="gauge-card">
+      <span class="gauge-label">ACTIVE POWER</span>
+      <div class="gauge-track">
+        <div class="gauge-fill gauge-fill-green" id="fill-P"></div>
+      </div>
+      <span class="gauge-value" id="metric-P">--</span>
+      <span class="gauge-unit">kW</span>
+    </div>
+
+    <!-- Active Energy -->
+    <div class="gauge-card">
+      <span class="gauge-label">ACTIVE ENERGY</span>
+      <div class="gauge-track">
+        <div class="gauge-fill gauge-fill-yellow" id="fill-KWH"></div>
+      </div>
+      <span class="gauge-value" id="metric-KWH">--</span>
+      <span class="gauge-unit">kWh</span>
+    </div>
+  </div>
+
+  <!-- More details row -->
+  <div class="control-row">
+    <span class="control-label">More Details</span>
+    <button class="power-btn" id="show-gauge-btn" style="background-color: #3f3f46;">
+      <div>
+        <EllipsisIcon class="power-icon" />
+      </div>
+    </button>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Status Footer -->
+  <div class="status-section">
+    <div class="status-dot" id="status-dot"></div>
+    <span class="status-text" id="status-text">On</span>
+  </div>
+</div>
+
