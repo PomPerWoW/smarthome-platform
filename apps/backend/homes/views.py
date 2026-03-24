@@ -1338,6 +1338,78 @@ class VoiceCommandViewSet(viewsets.ViewSet):
         except Exception as e:
             return Response({"error": f"Transcription failed: {str(e)}"}, status=500)
 
+class NPCChatViewSet(viewsets.ViewSet):
+    """NPC conversational chat powered by LLM."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    @action(detail=False, methods=['post'])
+    def chat(self, request):
+        """
+        Send a message to an NPC and get an LLM-powered response.
+
+        Body: {"npc_id": "npc1", "message": "Hey, what's up?"}
+        Returns: {"npc_id": str, "npc_name": str, "response": str, "goodbye": bool}
+        """
+        from .npc_chat import chat_with_npc
+
+        npc_id = request.data.get('npc_id')
+        message = request.data.get('message')
+        if not npc_id or not message:
+            return Response({"error": "npc_id and message are required."}, status=400)
+
+        result = chat_with_npc(npc_id, message)
+        return Response(result)
+
+    @action(detail=False, methods=['post'])
+    def reset(self, request):
+        """
+        Reset conversation history for an NPC.
+
+        Body: {"npc_id": "npc1"}
+        """
+        from .npc_chat import reset_history
+
+        npc_id = request.data.get('npc_id')
+        if not npc_id:
+            return Response({"error": "npc_id is required."}, status=400)
+
+        reset_history(npc_id)
+        return Response({"status": "reset", "npc_id": npc_id})
+
+    @action(detail=False, methods=['post'])
+    def greeting(self, request):
+        """
+        Get an instant greeting for an NPC (no LLM call).
+
+        Body: {"npc_id": "npc1"}
+        """
+        from .npc_chat import get_greeting
+
+        npc_id = request.data.get('npc_id')
+        if not npc_id:
+            return Response({"error": "npc_id is required."}, status=400)
+
+        greeting_text = get_greeting(npc_id)
+        return Response({"npc_id": npc_id, "greeting": greeting_text})
+
+    @action(detail=False, methods=['post'])
+    def farewell(self, request):
+        """
+        Get an instant farewell for an NPC (no LLM call).
+
+        Body: {"npc_id": "npc1"}
+        """
+        from .npc_chat import get_farewell, reset_history
+
+        npc_id = request.data.get('npc_id')
+        if not npc_id:
+            return Response({"error": "npc_id is required."}, status=400)
+
+        farewell_text = get_farewell(npc_id)
+        reset_history(npc_id)
+        return Response({"npc_id": npc_id, "farewell": farewell_text})
+
+
 class AutomationViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing Automations.

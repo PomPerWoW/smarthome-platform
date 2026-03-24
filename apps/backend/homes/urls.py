@@ -5,6 +5,7 @@ from .views import (
     AirConditionerViewSet, FanViewSet, LightbulbViewSet, TelevisionViewSet,
     FurnitureViewSet,
     VoiceCommandViewSet,
+    NPCChatViewSet,
     AutomationViewSet,
     SmartMeterViewSet, 
     VoiceCommandViewSet, 
@@ -22,6 +23,7 @@ router.register(r'tvs', TelevisionViewSet, basename='television')
 router.register(r'furniture', FurnitureViewSet, basename='furniture')
 router.register(r'smartmeters', SmartMeterViewSet, basename='smartmeter')
 router.register(r'voice', VoiceCommandViewSet, basename='voice')
+router.register(r'npc-chat', NPCChatViewSet, basename='npc-chat')
 router.register(r'automations', AutomationViewSet, basename='automation')
 
 urlpatterns = [

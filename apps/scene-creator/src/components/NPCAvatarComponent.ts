@@ -9,4 +9,13 @@ export const NPCAvatarComponent = createComponent("NPCAvatarComponent", {
 
     // Position tracking
     baseY: { type: Types.Float32, default: 0 },
+
+    // Proximity state: "idle" | "engaged" | "waving_hello" | "waving_goodbye"
+    proximityState: { type: Types.String, default: "idle" },
+
+    // Whether the user is currently within range
+    userInRange: { type: Types.Boolean, default: false },
+
+    // Chat state: "idle" | "greeting" | "listening" | "thinking" | "speaking" | "farewell"
+    chatState: { type: Types.String, default: "idle" },
 });

@@ -351,6 +351,38 @@ export class BackendApiClient {
     });
     return response.data;
   }
+  
+  // ===== NPC Chat =====
+  async sendNPCChat(
+    npcId: string,
+    message: string,
+  ): Promise<{ npc_id: string; npc_name: string; response: string; goodbye: boolean }> {
+    const response = await api.post<any>("/api/homes/npc-chat/chat/", {
+      npc_id: npcId,
+      message,
+    });
+    return response.data;
+  }
+
+  async getNPCGreeting(npcId: string): Promise<string> {
+    const response = await api.post<any>("/api/homes/npc-chat/greeting/", {
+      npc_id: npcId,
+    });
+    return response.data.greeting;
+  }
+
+  async getNPCFarewell(npcId: string): Promise<string> {
+    const response = await api.post<any>("/api/homes/npc-chat/farewell/", {
+      npc_id: npcId,
+    });
+    return response.data.farewell;
+  }
+
+  async resetNPCChat(npcId: string): Promise<void> {
+    await api.post<any>("/api/homes/npc-chat/reset/", {
+      npc_id: npcId,
+    });
+  }
 }
 
 export const getApiClient = (): BackendApiClient => {
