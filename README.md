@@ -91,7 +91,7 @@ npm run makemigrations --filter=@smarthome/backend
 | ------------- | ---- | ---------------------- |
 | Frontend      | 5173 | http://localhost:5173  |
 | Landing Page  | 5174 | http://localhost:5174  |
-| Scene Creator | 8081 | https://localhost:8081 |
+| Scene Creator | 3003 | https://localhost:3003 |
 | Backend       | 5500 | http://localhost:5500  |
 | PostgreSQL    | 5432 | -                      |
 

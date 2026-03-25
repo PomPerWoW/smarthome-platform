@@ -116,14 +116,14 @@ CORS_ALLOWED_ORIGINS = [
     "https://localhost:5173",
     "http://localhost:5174",
     "https://localhost:5174",
-    "https://localhost:8081",
+    "https://localhost:3003",
     "http://127.0.0.1:5173",
     "https://127.0.0.1:5173",
     "http://127.0.0.1:5174",
     "https://127.0.0.1:5174",
-    "https://127.0.0.1:8081",
+    "https://127.0.0.1:3003",
     "https://192.168.89.100:5173", # Change to your actual local IP
-    "https://192.168.89.100:8081", # Change to your actual local IP
+    "https://192.168.89.100:3003", # Change to your actual local IP
     "https://localhost:3000",
     "https://localhost:3003",
 ]
@@ -131,7 +131,7 @@ CORS_ALLOWED_ORIGINS = [
 if HOST_IP:
     CORS_ALLOWED_ORIGINS.extend([
         f"https://{HOST_IP}:5173",
-        f"https://{HOST_IP}:8081",
+        f"https://{HOST_IP}:3003",
     ])
 
 CORS_ALLOW_CREDENTIALS = True
@@ -158,7 +158,7 @@ CORS_ALLOW_METHODS = [
 ]
 
 # Scene Creator Configuration
-SCENE_CREATOR_URL = get_required_env("SCENE_CREATOR_URL", "https://localhost:8081")
+SCENE_CREATOR_URL = get_required_env("SCENE_CREATOR_URL", "https://localhost:3003")
 
 ROOT_URLCONF = "app.urls"
 

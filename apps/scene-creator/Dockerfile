@@ -23,6 +23,6 @@ COPY --from=builder /app/dist/ /usr/share/nginx/html/smarthome/xr/
 # Copy custom nginx configuration
 COPY apps/scene-creator/nginx.conf /etc/nginx/conf.d/default.conf
 
-EXPOSE 8081
+EXPOSE 3003
 
 CMD ["nginx", "-g", "daemon off;"]

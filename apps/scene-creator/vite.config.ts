@@ -38,7 +38,7 @@ export default defineConfig(({ mode }) => {
       },
       dedupe: ["three", "@pmndrs/uikit"],
     },
-    server: { host: "0.0.0.0", port: 8081, open: false },
+    server: { host: "0.0.0.0", port: 3003, open: false },
     build: {
       outDir: "dist",
       sourcemap: process.env.NODE_ENV !== "production",
