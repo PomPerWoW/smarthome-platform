@@ -467,7 +467,7 @@ export class RobotAssistantSystem extends createSystem({
     const floorY = bounds ? bounds.floorY : 0;
 
     // Hardcoded world-space spawn position
-    return { x: 0.04, y: floorY, z: 1.98 };
+    return { x: -2.78, y: floorY, z: 1.98 };
   }
 
   /**
@@ -1226,10 +1226,13 @@ export class RobotAssistantSystem extends createSystem({
           console.warn(
             `[RobotAssistant] ⏱️ Walk to user timed out after ${walkDuration.toFixed(1)}s — respawning to spawn point and calling callback`,
           );
-          
+
           const spawn = this.findRandomSpawnPosition();
           record.model.position.set(spawn.x, record.model.position.y, spawn.z);
-          const groundedTimeoutY = this.alignRobotFeetToFloor(record.model, spawn.y);
+          const groundedTimeoutY = this.alignRobotFeetToFloor(
+            record.model,
+            spawn.y,
+          );
           record.lastRoomLocalPos = null;
           entity.setValue(RobotAssistantComponent, "targetX", spawn.x);
           entity.setValue(RobotAssistantComponent, "targetZ", spawn.z);
@@ -1564,36 +1567,79 @@ export class RobotAssistantSystem extends createSystem({
               const SCAN_DIST = Math.min(0.5, currentDistanceToTarget);
               const scanLocalX = cLocal.x + record.walkDirection.x * SCAN_DIST;
               const scanLocalZ = cLocal.z + record.walkDirection.z * SCAN_DIST;
-              const scanW = this.roomLocalToWorld(scanLocalX, record.model.position.y, scanLocalZ);
-              
+              const scanW = this.roomLocalToWorld(
+                scanLocalX,
+                record.model.position.y,
+                scanLocalZ,
+              );
+
               const scanConstrained = constrainMovement(
                 new Vector3(constrained.x, constrained.y, constrained.z),
                 new Vector3(scanW.x, scanW.y, scanW.z),
                 ROBOT_RADIUS,
                 ROBOT_HEIGHTS,
               );
-              
-              const blockDist = Math.sqrt((scanW.x - scanConstrained.x) ** 2 + (scanW.z - scanConstrained.z) ** 2);
+
+              const blockDist = Math.sqrt(
+                (scanW.x - scanConstrained.x) ** 2 +
+                  (scanW.z - scanConstrained.z) ** 2,
+              );
               if (blockDist > 0.15) {
                 if (this.walkingToUser) {
-                  if (this.stepAsideAttempts < RobotAssistantSystem.MAX_STEP_ASIDE_ATTEMPTS) {
-                    console.log(`[RobotAssistant] 👁️ Forward scan detected obstacle while walking to user - stepping aside early (attempt ${this.stepAsideAttempts + 1}/${RobotAssistantSystem.MAX_STEP_ASIDE_ATTEMPTS}).`);
+                  if (
+                    this.stepAsideAttempts <
+                    RobotAssistantSystem.MAX_STEP_ASIDE_ATTEMPTS
+                  ) {
+                    console.log(
+                      `[RobotAssistant] 👁️ Forward scan detected obstacle while walking to user - stepping aside early (attempt ${this.stepAsideAttempts + 1}/${RobotAssistantSystem.MAX_STEP_ASIDE_ATTEMPTS}).`,
+                    );
                     this.stepAsideAttempts++;
-                    this.triggerStepAside(record, entity, cLocal.x, cLocal.z, dx, dz, targetX, targetZ);
+                    this.triggerStepAside(
+                      record,
+                      entity,
+                      cLocal.x,
+                      cLocal.z,
+                      dx,
+                      dz,
+                      targetX,
+                      targetZ,
+                    );
                     collisionCooldown = 0.5;
-                    entity.setValue(RobotAssistantComponent, "collisionCooldown", collisionCooldown);
+                    entity.setValue(
+                      RobotAssistantComponent,
+                      "collisionCooldown",
+                      collisionCooldown,
+                    );
                   }
                 } else {
-                  console.log(`[RobotAssistant] 👁️ Forward scan detected obstacle - repathing early.`);
+                  console.log(
+                    `[RobotAssistant] 👁️ Forward scan detected obstacle - repathing early.`,
+                  );
                   this.consecutiveRepaths++;
                   this.lastRepathTime = this.timeElapsed;
                   const newTarget = this.pickSmartWaypoint(cLocal.x, cLocal.z);
-                  entity.setValue(RobotAssistantComponent, "targetX", newTarget.x);
-                  entity.setValue(RobotAssistantComponent, "targetZ", newTarget.z);
-                  entity.setValue(RobotAssistantComponent, "hasReachedTarget", false);
+                  entity.setValue(
+                    RobotAssistantComponent,
+                    "targetX",
+                    newTarget.x,
+                  );
+                  entity.setValue(
+                    RobotAssistantComponent,
+                    "targetZ",
+                    newTarget.z,
+                  );
+                  entity.setValue(
+                    RobotAssistantComponent,
+                    "hasReachedTarget",
+                    false,
+                  );
                   entity.setValue(RobotAssistantComponent, "stuckTime", 0);
                   collisionCooldown = 0.5;
-                  entity.setValue(RobotAssistantComponent, "collisionCooldown", collisionCooldown);
+                  entity.setValue(
+                    RobotAssistantComponent,
+                    "collisionCooldown",
+                    collisionCooldown,
+                  );
                 }
               }
             }
@@ -1811,14 +1857,18 @@ export class RobotAssistantSystem extends createSystem({
 
           if (this.consecutiveRepaths >= MAX_REPATHS_BEFORE_RESPAWN) {
             const spawn = this.findRandomSpawnPosition();
-            record.model.position.set(spawn.x, record.model.position.y, spawn.z);
+            record.model.position.set(
+              spawn.x,
+              record.model.position.y,
+              spawn.z,
+            );
             const groundedRespawnY = this.alignRobotFeetToFloor(
               record.model,
               spawn.y,
             );
             record.lastRoomLocalPos = null;
             this.consecutiveRepaths = 0;
-            
+
             // Give it a fresh waypoint from the spawn point
             const newTarget = this.pickSmartWaypoint(spawn.x, spawn.z);
             entity.setValue(RobotAssistantComponent, "targetX", newTarget.x);
@@ -1826,7 +1876,7 @@ export class RobotAssistantSystem extends createSystem({
             entity.setValue(RobotAssistantComponent, "hasReachedTarget", false);
             entity.setValue(RobotAssistantComponent, "baseY", groundedRespawnY);
             entity.setValue(RobotAssistantComponent, "stuckTime", 0);
-            
+
             console.log(
               `[RobotAssistant] 🚨 Permanently stuck after ${this.consecutiveRepaths} repaths — forcefully respawned to (${spawn.x.toFixed(2)}, ${spawn.z.toFixed(2)})`,
             );

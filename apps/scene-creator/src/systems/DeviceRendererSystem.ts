@@ -166,6 +166,7 @@ export class DeviceRendererSystem extends createSystem({
 
     const model = result.model.clone();
     model.scale.setScalar(device.getScale());
+    let furnitureFloorOffsetY = 0;
 
     if (Array.isArray(data.position) && data.position.length >= 3) {
       let posX = data.position[0];
@@ -207,7 +208,18 @@ export class DeviceRendererSystem extends createSystem({
         }
       }
 
+      // Furniture is spawned at floor height (y=0), so keep each model's base
+      // aligned with the floor regardless of source pivot/origin in GLTF.
+      if (isFurnitureType(data.type)) {
+        const modelBox = new Box3().setFromObject(model);
+        furnitureFloorOffsetY = -modelBox.min.y;
+      }
+
       model.position.set(posX, posY, posZ);
+      if (furnitureFloorOffsetY !== 0) {
+        model.position.y += furnitureFloorOffsetY;
+        model.userData.__furnitureFloorOffsetY = furnitureFloorOffsetY;
+      }
     } else {
       console.warn(
         `[DeviceRenderer] Invalid or missing position for device ${data.id}, defaulting to 0,0,0`,
@@ -639,6 +651,8 @@ export class DeviceRendererSystem extends createSystem({
 
     // The position and rotation are already local to LabPlan if it's a child.
     const pos = record.entity.object3D.position;
+    const furnitureFloorOffsetY =
+      (record.entity.object3D as any).userData?.__furnitureFloorOffsetY ?? 0;
     const rotationYDeg = (record.entity.object3D.rotation.y * 180) / Math.PI;
     console.log(
       `[DeviceRenderer] Saving local position for ${deviceId}:`,
@@ -651,7 +665,7 @@ export class DeviceRendererSystem extends createSystem({
       await getStore().updateFurniturePosition(
         deviceId,
         pos.x,
-        pos.y,
+        pos.y - furnitureFloorOffsetY,
         pos.z,
         rotationYDeg,
       );

@@ -21,6 +21,7 @@ import {
   Texture,
   Object3D,
   Material,
+  BufferGeometry as ThreeBufferGeometry,
 } from "three";
 
 import { getAvailableWalls, WallInfo } from "../utils/wallDetection";
@@ -55,8 +56,8 @@ const _planeRecords = new Map<string, PlaneRecord>();
 /** Room-model meshes whose material was replaced so we can restore them later. */
 let _paintedMeshes: PaintedMeshRecord[] = [];
 
-/** The shared texture instance currently painted onto room meshes (if any). */
-let _activePaintTexture: Texture | null = null;
+/** Texture instances currently painted onto room meshes (if any). */
+let _activePaintTextures: Texture[] = [];
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  ① Primary path — paint texture directly onto room-model wall meshes
@@ -87,15 +88,29 @@ export function applyTextureToRoomWalls(imageDataUrl: string): number {
   // Always restore previous paint first so we don't stack materials
   restoreRoomWallMaterials();
 
-  const texture = loadTexture(imageDataUrl);
-  _activePaintTexture = texture;
-
   let count = 0;
 
   labModel.traverse((child) => {
     const mesh = child as Mesh;
     if (!mesh.isMesh || !mesh.material) return;
     if (!isLikelyWallMesh(mesh)) return;
+    if (!hasUsableUVs(mesh.geometry as ThreeBufferGeometry)) {
+      console.warn(
+        `[WallpaperRenderer] Skipping wall mesh "${mesh.name || "(unnamed)"}" due to missing/degenerate UVs`,
+      );
+      return;
+    }
+    const bbox = new Box3().setFromObject(mesh);
+    const size = new Vector3();
+    bbox.getSize(size);
+    const wallWidth = Math.max(size.x, size.z);
+    const wallHeight = size.y;
+    const texture = loadTexture(imageDataUrl, {
+      targetWidth: wallWidth,
+      targetHeight: wallHeight,
+      fitMode: "cover",
+    });
+    _activePaintTextures.push(texture);
 
     // Clone the material so we never modify a shared instance
     const originalMaterial = Array.isArray(mesh.material)
@@ -132,10 +147,10 @@ export function restoreRoomWallMaterials(): void {
   }
   _paintedMeshes = [];
 
-  if (_activePaintTexture) {
-    _activePaintTexture.dispose();
-    _activePaintTexture = null;
+  for (const texture of _activePaintTextures) {
+    texture.dispose();
   }
+  _activePaintTextures = [];
 
   console.log("[WallpaperRenderer] Restored original wall materials");
 }
@@ -174,7 +189,7 @@ export function createPlanesOnAllWalls(
 
   console.log(
     `[WallpaperRenderer] Created ${ids.length} wallpaper plane(s) ` +
-      `covering walls: ${walls.map((w) => w.id).join(", ")}`,
+    `covering walls: ${walls.map((w) => w.id).join(", ")}`,
   );
 
   return ids;
@@ -215,9 +230,22 @@ export function removeAllWallpaperPlanes(): void {
 export function applyWallpaperToAll(
   imageDataUrl: string,
   idPrefix: string = "wallpaper",
+  options?: {
+    /**
+     * Force plane-overlay rendering instead of painting room wall meshes.
+     * Useful for uploaded images when source mesh UVs are unreliable.
+     */
+    preferPlane?: boolean;
+  },
 ): "mesh" | "plane" | "none" {
   // Always clear any previous planes before applying new wallpaper
   removeAllWallpaperPlanes();
+
+  if (options?.preferPlane) {
+    restoreRoomWallMaterials();
+    const forcedPlaneIds = createPlanesOnAllWalls(imageDataUrl, idPrefix);
+    return forcedPlaneIds.length > 0 ? "plane" : "none";
+  }
 
   const painted = applyTextureToRoomWalls(imageDataUrl);
   if (painted > 0) {
@@ -232,7 +260,7 @@ export function applyWallpaperToAll(
 
   console.warn(
     "[WallpaperRenderer] applyWallpaperToAll: both paths produced nothing — " +
-      "room model may not be loaded yet",
+    "room model may not be loaded yet",
   );
   return "none";
 }
@@ -265,7 +293,11 @@ export function createWallpaperMesh(
   const { width, height, center, wallNormal } = wallInfo;
 
   const geometry = new PlaneGeometry(width, height);
-  const texture = loadTexture(imageDataUrl);
+  const texture = loadTexture(imageDataUrl, {
+    targetWidth: width,
+    targetHeight: height,
+    fitMode: "cover",
+  });
 
   const material = new MeshBasicMaterial({
     map: texture,
@@ -302,8 +334,8 @@ export function createWallpaperMesh(
 
   console.log(
     `[WallpaperRenderer] Plane "${id}" created ` +
-      `(${width.toFixed(2)}m × ${height.toFixed(2)}m) ` +
-      `at (${center[0].toFixed(2)}, ${center[1].toFixed(2)}, ${center[2].toFixed(2)})`,
+    `(${width.toFixed(2)}m × ${height.toFixed(2)}m) ` +
+    `at (${center[0].toFixed(2)}, ${center[1].toFixed(2)}, ${center[2].toFixed(2)})`,
   );
 
   return mesh;
@@ -522,6 +554,36 @@ function isLikelyWallMesh(mesh: Mesh): boolean {
   return isThin && isWide;
 }
 
+/**
+ * Validate geometry UVs before texture-painting room meshes.
+ * If UVs are missing or collapsed to a line/point, texture sampling often
+ * clamps to one edge and appears as a stretched flat color.
+ */
+function hasUsableUVs(geometry: BufferGeometry): boolean {
+  const uv = geometry.getAttribute("uv");
+  if (!uv || uv.itemSize < 2 || uv.count < 3) return false;
+
+  let minU = Number.POSITIVE_INFINITY;
+  let maxU = Number.NEGATIVE_INFINITY;
+  let minV = Number.POSITIVE_INFINITY;
+  let maxV = Number.NEGATIVE_INFINITY;
+
+  for (let i = 0; i < uv.count; i++) {
+    const u = uv.getX(i);
+    const v = uv.getY(i);
+    if (!Number.isFinite(u) || !Number.isFinite(v)) return false;
+    if (u < minU) minU = u;
+    if (u > maxU) maxU = u;
+    if (v < minV) minV = v;
+    if (v > maxV) maxV = v;
+  }
+
+  const spanU = maxU - minU;
+  const spanV = maxV - minV;
+  const MIN_SPAN = 0.01;
+  return spanU > MIN_SPAN && spanV > MIN_SPAN;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 //  Private helpers
 // ─────────────────────────────────────────────────────────────────────────────
@@ -534,22 +596,76 @@ function getLabModel(): Object3D | null {
  * Load a texture from a data-URL or any URL recognised by `TextureLoader`.
  * Colour-space, filtering, and wrapping are configured for best visual output.
  */
-function loadTexture(dataUrl: string): Texture {
+function loadTexture(
+  dataUrl: string,
+  fit?: {
+    targetWidth: number;
+    targetHeight: number;
+    fitMode?: "cover";
+  },
+): Texture {
   const url = dataUrl.startsWith("data:")
     ? dataUrl
     : `data:image/png;base64,${dataUrl}`;
 
   const loader = new TextureLoader();
-  const texture = loader.load(url);
+  const texture = loader.load(url, (loadedTexture) => {
+    if (fit) applyTextureFit(loadedTexture, fit.targetWidth, fit.targetHeight);
+  });
 
   texture.wrapS = ClampToEdgeWrapping;
   texture.wrapT = ClampToEdgeWrapping;
   texture.minFilter = LinearFilter;
   texture.magFilter = LinearFilter;
   texture.colorSpace = SRGBColorSpace;
+  if (fit) applyTextureFit(texture, fit.targetWidth, fit.targetHeight);
   texture.needsUpdate = true;
 
   return texture;
+}
+
+/**
+ * Configure UV transform so image fills the target rectangle without stretch.
+ * "cover" behavior: image keeps aspect ratio and is center-cropped if needed.
+ */
+function applyTextureFit(
+  texture: Texture,
+  targetWidth: number,
+  targetHeight: number,
+): void {
+  const image = texture.image as
+    | { width?: number; height?: number }
+    | undefined;
+  const imageWidth = image?.width ?? 0;
+  const imageHeight = image?.height ?? 0;
+  if (
+    imageWidth <= 0 ||
+    imageHeight <= 0 ||
+    targetWidth <= 0 ||
+    targetHeight <= 0
+  ) {
+    return;
+  }
+
+  const imageAspect = imageWidth / imageHeight;
+  const targetAspect = targetWidth / targetHeight;
+
+  texture.center.set(0.5, 0.5);
+  texture.repeat.set(1, 1);
+  texture.offset.set(0, 0);
+
+  // Keep image aspect ratio while covering full target area.
+  if (imageAspect > targetAspect) {
+    // Image is wider than target -> crop left/right.
+    texture.repeat.x = targetAspect / imageAspect;
+    texture.offset.x = (1 - texture.repeat.x) * 0.5;
+  } else if (imageAspect < targetAspect) {
+    // Image is taller than target -> crop top/bottom.
+    texture.repeat.y = imageAspect / targetAspect;
+    texture.offset.y = (1 - texture.repeat.y) * 0.5;
+  }
+
+  texture.needsUpdate = true;
 }
 
 /**

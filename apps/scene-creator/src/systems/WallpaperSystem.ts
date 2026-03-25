@@ -335,8 +335,12 @@ export class WallpaperSystem extends createSystem({}) {
 export async function applyWallpaperToAllWalls(
   imageDataUrl: string,
   name: string = "Wallpaper",
+  options?: {
+    /** Force reliable plane-overlay rendering (used for uploaded images). */
+    preferPlane?: boolean;
+  },
 ): Promise<void> {
-  const result = applyWallpaperToAll(imageDataUrl, `wp-${Date.now()}`);
+  const result = applyWallpaperToAll(imageDataUrl, `wp-${Date.now()}`, options);
 
   if (result === "none") {
     sceneNotify({
@@ -412,7 +416,8 @@ export async function pickAndApplyWallpaper(): Promise<void> {
     console.log("[WallpaperSystem] Image picker cancelled");
     return;
   }
-  await applyWallpaperToAllWalls(dataUrl, "Custom Image");
+  // Uploaded images use plane overlays for predictable UV mapping.
+  await applyWallpaperToAllWalls(dataUrl, "Custom Image", { preferPlane: true });
 }
 
 /**

@@ -221,6 +221,54 @@ async function main(): Promise<void> {
 
   let currentRoomModel: any = null;
 
+  const buildRoomModelUrlCandidates = (modelFileUrl: string): string[] => {
+    const candidates: string[] = [];
+
+    const toAbsoluteUrl = (url: string): string => {
+      if (url.startsWith("http://") || url.startsWith("https://")) return url;
+
+      const backendUrl = config.BACKEND_URL.replace(/\/$/, "");
+      const normalizedPath = url.startsWith("/") ? url : `/${url}`;
+      return `${backendUrl}${normalizedPath}`;
+    };
+
+    const absoluteBase = toAbsoluteUrl(modelFileUrl);
+    candidates.push(absoluteBase);
+
+    try {
+      const parsed = new URL(absoluteBase);
+      const path = parsed.pathname;
+
+      // Support deployments that expose media on different prefixes.
+      if (path.startsWith("/smarthome/api/media/")) {
+        candidates.push(
+          `${parsed.origin}${path.replace("/smarthome/api/media/", "/api/media/")}`,
+        );
+        candidates.push(
+          `${parsed.origin}${path.replace("/smarthome/api/media/", "/media/")}`,
+        );
+      } else if (path.startsWith("/api/media/")) {
+        candidates.push(
+          `${parsed.origin}${path.replace("/api/media/", "/smarthome/api/media/")}`,
+        );
+        candidates.push(
+          `${parsed.origin}${path.replace("/api/media/", "/media/")}`,
+        );
+      } else if (path.startsWith("/media/")) {
+        candidates.push(
+          `${parsed.origin}${path.replace("/media/", "/smarthome/api/media/")}`,
+        );
+        candidates.push(
+          `${parsed.origin}${path.replace("/media/", "/api/media/")}`,
+        );
+      }
+    } catch {
+      // Keep only the resolved absolute URL if parsing fails.
+    }
+
+    return Array.from(new Set(candidates));
+  };
+
   const loadRoomScene = async (
     modelName: string,
     modelFileUrl?: string | null,
@@ -237,49 +285,43 @@ async function main(): Promise<void> {
     if (modelFileUrl) {
       console.log(`📦 Loading room model from URL: ${modelFileUrl}`);
       try {
-        // Ensure URL is absolute - if relative, prepend backend URL
-        let absoluteUrl = modelFileUrl;
-        if (
-          !modelFileUrl.startsWith("http://") &&
-          !modelFileUrl.startsWith("https://")
-        ) {
-          // Get backend URL from config
-          const backendUrl = config.BACKEND_URL;
-          // Remove trailing slash from backend URL and leading slash from modelFileUrl
-          const cleanBackendUrl = backendUrl.replace(/\/$/, "");
-          const cleanModelUrl = modelFileUrl.startsWith("/")
-            ? modelFileUrl
-            : `/${modelFileUrl}`;
-          absoluteUrl = `${cleanBackendUrl}${cleanModelUrl}`;
-          console.log(`🔗 Converted relative URL to absolute: ${absoluteUrl}`);
-        }
-
-        // Log the URL we're trying to load
-        console.log(`🔍 Attempting to load model from: ${absoluteUrl}`);
-
-        // Verify URL is accessible (optional check - will fail gracefully if not)
-        try {
-          const response = await fetch(absoluteUrl, { method: "HEAD" });
-          if (!response.ok) {
-            console.warn(
-              `⚠️ Model file returned status ${response.status}, but attempting to load anyway...`,
-            );
-          } else {
-            console.log(`✅ Model file is accessible (${response.status})`);
-          }
-        } catch (fetchError) {
-          console.warn(
-            `⚠️ Could not verify model file accessibility: ${fetchError}, but attempting to load anyway...`,
-          );
-        }
+        const candidateUrls = buildRoomModelUrlCandidates(modelFileUrl);
+        console.log(`🔍 Attempting ${candidateUrls.length} model URL(s):`, candidateUrls);
 
         const loader = new GLTFLoader();
-        // Configure loader to handle CORS if needed
         loader.setCrossOrigin("anonymous");
 
-        const gltf = await loader.loadAsync(absoluteUrl);
-        roomModel = gltf.scene;
-        console.log(`✅ Room model loaded from URL: ${absoluteUrl}`);
+        let lastError: unknown = null;
+        for (const candidateUrl of candidateUrls) {
+          try {
+            // Best-effort accessibility check (still try loadAsync even if non-OK).
+            try {
+              const response = await fetch(candidateUrl, { method: "HEAD" });
+              if (!response.ok) {
+                console.warn(
+                  `⚠️ Model URL responded ${response.status}: ${candidateUrl}`,
+                );
+              }
+            } catch (fetchError) {
+              console.warn(
+                `⚠️ Could not verify model URL (${candidateUrl}): ${fetchError}`,
+              );
+            }
+
+            console.log(`🔍 Attempting to load model from: ${candidateUrl}`);
+            const gltf = await loader.loadAsync(candidateUrl);
+            roomModel = gltf.scene;
+            console.log(`✅ Room model loaded from URL: ${candidateUrl}`);
+            break;
+          } catch (candidateError) {
+            lastError = candidateError;
+            console.warn(`⚠️ Failed model URL candidate: ${candidateUrl}`);
+          }
+        }
+
+        if (!roomModel) {
+          throw lastError ?? new Error("No room model URL candidates succeeded");
+        }
       } catch (error) {
         console.error(
           `❌ Failed to load room model from URL: ${modelFileUrl}`,
