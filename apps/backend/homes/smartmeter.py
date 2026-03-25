@@ -1,82 +1,47 @@
-# homes/smartmeter.py
-"""
-SmartmeterManager – singleton that manages the smartmeter WebSocket connection.
-
-Mirrors the ScadaManager pattern but connects to the smartmeter SCADA server
-and broadcasts meter readings (v, i, P, Q, S, PF, KWH, KVARH) to frontends
-via Django Channels.
-"""
-import json
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
-from .scada_ws import WebSocket2Scada
+from .base_scada import BaseScadaManager
 
-# ── Smartmeter connection settings ──────────────────────────────────────────
-SMARTMETER_TARGET = "loopvr.net:50203"
-SMARTMETER_LOGIN = "scada"
-SMARTMETER_PASSWORD = "scadatest1234"
-SMARTMETER_TOKEN = "535a4d29f85c1c851eb81843ea89b951011ffd58"
-
-SMARTMETER_TAG_SUFFIXES = [
-    "v", "i", "P", "Q", "S", "PF", "KWH", "KVARH"
-]
-
-class SmartmeterManager:
-    _instance = None
-
+class SmartmeterManager(BaseScadaManager):
     def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super(SmartmeterManager, cls).__new__(cls)
-            cls._instance.client = None
-            cls._instance.latest: dict[str, dict] = {}  # tag -> {value, time}
-        return cls._instance
+        # Override __new__ to initialize the latest cache
+        instance = super(SmartmeterManager, cls).__new__(cls)
+        if not hasattr(instance, 'latest'):
+            instance.latest = {}  # tag -> {value, time}
+        return instance
 
-    # ── lifecycle ────────────────────────────────────────────────────────────
-    def start(self):
-        """Initialize and start the smartmeter WebSocket connection."""
-        if self.client and self.client.is_connected():
-            return
-
+    def _get_connection_params(self):
         from .models import SmartMeter
+        
         # Build the dynamic list of tags for all SmartMeters that are turned on
         active_meters = SmartMeter.objects.filter(is_on=True).exclude(tag__isnull=True).exclude(tag__exact='')
         if not active_meters.exists():
             print("[SMARTMETER] ℹ️ No active smart meters found. Not connecting.")
-            return
+            return None
 
+        suffixes = ["v", "i", "P", "Q", "S", "PF", "KWH", "KVARH"]
         tags_to_subscribe = []
         for meter in active_meters:
-            for suffix in SMARTMETER_TAG_SUFFIXES:
+            for suffix in suffixes:
                 tags_to_subscribe.append(f"{meter.tag}.{suffix}")
 
-        print(f"[SMARTMETER] 🔌 Starting Smartmeter Connection for {len(tags_to_subscribe)} tags…")
-        self.client = WebSocket2Scada(
-            target=SMARTMETER_TARGET,
-            login=SMARTMETER_LOGIN,
-            password=SMARTMETER_PASSWORD,
-            token=SMARTMETER_TOKEN,
-            tags=tags_to_subscribe,
-            on_tag=self._handle_tag_update,
-            verify_tls=False,
-        )
-        ok = self.client.start()
-        if ok:
-            print("[SMARTMETER] ✅ Connection started")
-        else:
-            print("[SMARTMETER] ❌ Failed to start connection")
+        return {
+            "target": "loopvr.net:50203",
+            "login": "scada",
+            "password": "scadatest1234",
+            "token": "535a4d29f85c1c851eb81843ea89b951011ffd58",
+            "tags": tags_to_subscribe,
+            "verify_tls": False
+        }
 
-    # ── incoming data ────────────────────────────────────────────────────────
-    def _handle_tag_update(self, tag: str, value, at: str):
+    def handle_tag_update(self, tag: str, value, at: str):
         """
         Callback fired by WebSocket2Scada when a notify_tag message arrives.
-
-        1. Cache the latest value so REST endpoints can query it.
-        2. Broadcast to the 'homes_group' channel layer so all connected
-           frontends receive the reading in real-time.
+        We broadcast this to the 'homes_group' so all connected frontends receive the update.
         """
         print(f"[SMARTMETER] 📊 {tag} = {value}  @ {at}")
 
-        # 1. Cache
+        # 1. Cache the latest value so REST endpoints can query it.
         self.latest[tag] = {"value": value, "time": at}
 
         # 2. Broadcast via Channels
@@ -91,17 +56,9 @@ class SmartmeterManager:
             },
         )
 
-    # ── helpers ──────────────────────────────────────────────────────────────
     def get_latest(self) -> dict[str, dict]:
         """Return a snapshot of the most recent smartmeter readings."""
         return dict(self.latest)
-
-    def send_value(self, tag: str, value):
-        """Write a value to the smartmeter (e.g. relay control)."""
-        if self.client and self.client.is_connected():
-            self.client.send_value(tag, value)
-        else:
-            print("[SMARTMETER] ⚠️ Not connected, cannot send value")
 
     def close(self):
         """Shut down the smartmeter connection if no meters are active."""
@@ -111,7 +68,4 @@ class SmartmeterManager:
             print(f"[SMARTMETER] ℹ️ Not closing. {active_meters.count()} meters still active.")
             return
 
-        if self.client:
-            self.client.close()
-            self.client = None
-        print("[SMARTMETER] Connection closed")
+        super().close()
