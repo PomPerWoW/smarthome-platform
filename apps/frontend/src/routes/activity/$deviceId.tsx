@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Activity, Lightbulb, ArrowLeft, Tv, Fan, Snowflake, BarChart3, PieChart, CalendarDays } from 'lucide-react'
+import { Activity, Lightbulb, ArrowLeft, Tv, Fan, Snowflake, BarChart3, PieChart, CalendarDays, Zap } from 'lucide-react'
 import { useMemo, useRef, useState } from 'react'
 import { clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
@@ -22,6 +22,7 @@ const deviceIcons = {
     [DeviceType.Television]: Tv,
     [DeviceType.Fan]: Fan,
     [DeviceType.AirConditioner]: Snowflake,
+    [DeviceType.SmartMeter]: Zap,
 }
 
 // --- Chart Components --- //
@@ -518,6 +519,28 @@ function DeviceActivityPage() {
                 pieCenterValue = topVol.toString()
                 pieCenterLabel = "Most Used"
             }
+        }
+        else if (type === DeviceType.SmartMeter) {
+            lineTitle = "Power Usage (W)"
+            lineColor = "#fbbf24"
+            lineYMax = 2000
+            valKey = (l) => l.onoff && l.power ? l.power : (l.onoff ? 150 : 0) // Fallback for mock/base data
+
+            barTitle = "Energy Consumption (kWh)"
+            barColor = "#fbbf24"
+            // Use static mock values for energy consumption distribution
+            barValues = [12, 18, 15, 10, 22, 14, 11]
+            barLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+            barMax = 25
+
+            pieTitle = "Usage by Period"
+            pieData = [
+                { label: 'Morning', value: 30, color: '#fbbf24' },
+                { label: 'Afternoon', value: 45, color: '#f59e0b' },
+                { label: 'Evening', value: 25, color: '#d97706' },
+            ]
+            pieCenterValue = "85"
+            pieCenterLabel = "Total kWh"
         }
 
         return {

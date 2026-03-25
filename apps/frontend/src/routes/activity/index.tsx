@@ -2,7 +2,7 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { DeviceService } from '@/services/DeviceService'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Activity, Lightbulb, Tv, Fan, Snowflake, ArrowRight, DoorOpen, CalendarDays, Trophy } from 'lucide-react'
+import { Activity, Lightbulb, Tv, Fan, Snowflake, ArrowRight, DoorOpen, CalendarDays, Trophy, Zap } from 'lucide-react'
 import { DeviceModel3D } from '@/components/devices/models/DeviceModel3D'
 import { DeviceType } from '@/types/device.types'
 import { useMemo, useState } from 'react'
@@ -17,6 +17,7 @@ const deviceIcons = {
   [DeviceType.Television]: Tv,
   [DeviceType.Fan]: Fan,
   [DeviceType.AirConditioner]: Snowflake,
+  [DeviceType.SmartMeter]: Zap,
 }
 
 const RING_PALETTE = [

@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Lightbulb, Filter, Tv, Fan, Snowflake } from "lucide-react";
+import { ArrowLeft, Lightbulb, Filter, Tv, Fan, Snowflake, Zap } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -44,6 +44,7 @@ const deviceIcons = {
   [DeviceType.Television]: Tv,
   [DeviceType.Fan]: Fan,
   [DeviceType.AirConditioner]: Snowflake,
+  [DeviceType.SmartMeter]: Zap,
 };
 
 function DevicesPage() {
@@ -200,6 +201,7 @@ function DevicesPage() {
             <SelectItem value={DeviceType.Television}>TVs</SelectItem>
             <SelectItem value={DeviceType.Fan}>Fans</SelectItem>
             <SelectItem value={DeviceType.AirConditioner}>ACs</SelectItem>
+            <SelectItem value={DeviceType.SmartMeter}>Smart Meters</SelectItem>
           </SelectContent>
         </Select>
       </div>

@@ -189,6 +189,7 @@ export class DeviceService {
       [DeviceType.Television]: '/api/homes/tvs/getTVLog/',
       [DeviceType.Fan]: '/api/homes/fans/getFanLog/',
       [DeviceType.AirConditioner]: '/api/homes/acs/getACLog/',
+      [DeviceType.SmartMeter]: '/api/homes/smartmeters/getSmartMeterLog/',
     };
     const url = endpointMap[type] || endpointMap[DeviceType.Lightbulb];
     return this.api.get<{ device_name: string; data: any[] }>(`${url}?date=${date}`);

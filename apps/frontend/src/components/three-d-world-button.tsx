@@ -57,7 +57,7 @@ export function ThreeDWorldButton() {
   const rooms = allRooms.filter((r) => r.homeId === selectedHomeId);
 
   const handleEnter = () => {
-    let url = `https://${window.location.hostname}:8081/`;
+    let url = `https://${window.location.hostname}:3003/`;
     if (selectedHomeId && selectedRoomId) {
       url += `?homeId=${selectedHomeId}&roomId=${selectedRoomId}`;
     }
@@ -86,7 +86,7 @@ export function ThreeDWorldButton() {
               : "Select a home and room to enter the 3D scene creator with the room's devices and furniture."}
           </p>
         </DialogHeader>
-        
+
         {!hasNoHome ? (
           <>
             <div className="grid gap-4 py-4">
