@@ -9,12 +9,14 @@ export enum DeviceType {
   Chair4 = "Chair4",
   Chair5 = "Chair5",
   Chair6 = "Chair6",
+  SmartMeter = "SmartMeter",
 }
 
 export interface DeviceBase {
   id: string;
   name: string;
   type: DeviceType;
+  tag?: string;
   is_on: boolean;
   position: [number, number, number];
   rotation_y: number;
@@ -76,6 +78,10 @@ export interface Chair6Device extends DeviceBase {
   type: DeviceType.Chair6;
 }
 
+export interface SmartMeter extends DeviceBase {
+  type: DeviceType.SmartMeter;
+}
+
 export type Device =
   | Lightbulb
   | Television
@@ -86,7 +92,8 @@ export type Device =
   | Chair3Device
   | Chair4Device
   | Chair5Device
-  | Chair6Device;
+  | Chair6Device
+  | SmartMeter;
 
 export interface LightbulbProperties {
   brightness: number;

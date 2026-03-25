@@ -428,6 +428,7 @@ class VoiceAssistantService:
         if hasattr(device, 'television'): return "television"
         if hasattr(device, 'fan'): return "fan"
         if hasattr(device, 'airconditioner'): return "air_conditioner"
+        if hasattr(device, 'smartmeter'): return "smartmeter"
         return "generic_device"
 
     def _get_device_state(self, device: Device) -> Dict[str, Any]:
@@ -544,6 +545,7 @@ class VoiceAssistantService:
         if hasattr(device, 'television'): return device.television
         if hasattr(device, 'fan'): return device.fan
         if hasattr(device, 'airconditioner'): return device.airconditioner
+        if hasattr(device, 'smartmeter'): return device.smartmeter
         return device
 
     def _generate_device_info_response(self, question: str, devices_context: List[Dict[str, Any]], device_count: int) -> str:

@@ -12,6 +12,9 @@ import {
   AnimationMixer,
   AnimationClip,
   LoopRepeat,
+  BoxGeometry,
+  MeshBasicMaterial,
+  Mesh,
 } from "@iwsdk/core";
 
 import { Vector3 as TV3, Mesh, Intersection } from "three";
@@ -242,6 +245,29 @@ export class DeviceRendererSystem extends createSystem({
     } else {
       this.world.scene.add(model);
     }
+    // For extremely small-scaled models (like SmartMeter at 0.0005), the mesh
+    // triangles are too tiny for the raycaster's bounding-sphere broad phase.
+    // We add an invisible interaction proxy box whose dimensions are inverse-
+    // scaled so it ends up at ~0.3m in world space, giving the raycaster a
+    // target it can actually hit.
+    if (data.type === DeviceType.SmartMeter) {
+      const scale = device.getScale();
+      const proxySize = 0.3 / scale; // results in 0.3m world-space box
+      const proxyGeo = new BoxGeometry(proxySize, proxySize, proxySize);
+      const proxyMat = new MeshBasicMaterial({
+        visible: false,
+        transparent: true,
+        opacity: 0,
+      });
+      const proxyMesh = new Mesh(proxyGeo, proxyMat);
+      proxyMesh.name = "InteractionProxy";
+      model.add(proxyMesh);
+      console.log(
+        `[DeviceRenderer] Added interaction proxy for SmartMeter (proxySize=${proxySize})`,
+      );
+    }
+
+    this.world.scene.add(model);
 
     const entity = this.world.createTransformEntity(model);
 
@@ -371,6 +397,7 @@ export class DeviceRendererSystem extends createSystem({
       [DeviceType.Chair4]: null,
       [DeviceType.Chair5]: null,
       [DeviceType.Chair6]: null,
+      [DeviceType.SmartMeter]: "./ui/smartmeter-panel.json",
     };
     return panelConfigs[deviceType] ?? null;
   }

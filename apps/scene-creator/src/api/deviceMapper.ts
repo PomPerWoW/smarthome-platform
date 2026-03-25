@@ -30,6 +30,7 @@ const DEFAULT_POSITIONS: Record<DeviceType, [number, number, number]> = {
   [DeviceType.Chair4]: [0, 0, -1.5],
   [DeviceType.Chair5]: [0, 0, -1.5],
   [DeviceType.Chair6]: [0, 0, -1.5],
+  [DeviceType.SmartMeter]: [0.6, 2.0, -0.8],
 };
 
 export function mapRawDeviceToDevice(raw: RawDeviceResponse): Device {
@@ -46,6 +47,7 @@ export function mapRawDeviceToDevice(raw: RawDeviceResponse): Device {
     id: raw.id,
     name: raw.device_name || "Unnamed Device",
     type: deviceType,
+    tag: raw.tag || "",
     is_on: raw.is_on ?? true,
     position,
     rotation_y: raw.device_rotation?.y ?? 0,
@@ -90,6 +92,11 @@ export function mapRawDeviceToDevice(raw: RawDeviceResponse): Device {
       return {
         ...base,
         type: DeviceType.Chair,
+      };
+    case DeviceType.SmartMeter:
+      return {
+        ...base,
+        type: DeviceType.SmartMeter,
       };
     default:
       // Fallback for unknown types — treat as Chair (generic)

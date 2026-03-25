@@ -11,12 +11,14 @@ import type {
   Television,
   Fan,
   AirConditioner,
+  SmartMeter,
 } from "@/models";
 import { DeviceType } from "@/types/device.types";
 import { LightbulbControl } from "./LightbulbControl";
 import { TelevisionControl } from "./TelevisionControl";
 import { FanControl } from "./FanControl";
 import { AirConditionerControl } from "./AirConditionerControl";
+import { SmartMeterControl } from "./SmartMeterControl";
 
 interface DeviceControlDrawerProps {
   device: BaseDevice | null;
@@ -52,6 +54,13 @@ export function DeviceControlDrawer({
         return (
           <AirConditionerControl
             device={device as AirConditioner}
+            onUpdate={onUpdate}
+          />
+        );
+      case DeviceType.SmartMeter:
+        return (
+          <SmartMeterControl
+            device={device as SmartMeter}
             onUpdate={onUpdate}
           />
         );

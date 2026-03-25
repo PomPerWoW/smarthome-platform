@@ -5,6 +5,7 @@ import { Television } from "./Television";
 import { Fan } from "./Fan";
 import { AirConditioner } from "./AirConditioner";
 import { GenericDevice } from "./GenericDevice";
+import { SmartMeter } from "./SmartMeter";
 
 export class DeviceFactory {
   static create(data: DeviceDTO | any): BaseDevice {
@@ -17,6 +18,8 @@ export class DeviceFactory {
         return new Fan(data);
       case "AirConditioner":
         return new AirConditioner(data);
+      case "SmartMeter":
+        return new SmartMeter(data as any);
       default:
         console.warn(`Unknown device type encountered: ${data.type}`);
         return new GenericDevice(data);

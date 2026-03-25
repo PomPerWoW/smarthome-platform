@@ -95,6 +95,10 @@ class Furniture(models.Model):
 
     def __str__(self):
         return self.furniture_name
+        
+class SmartMeter(Device):
+    pass
+
 
 class Automation(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

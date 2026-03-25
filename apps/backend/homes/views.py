@@ -14,6 +14,7 @@ from .scada import ScadaManager
 
 from datetime import datetime, timedelta
 import requests
+import random
 import os
 import zipfile
 import shutil
@@ -467,7 +468,19 @@ class BaseDeviceViewSet(viewsets.ModelViewSet):
         
         # Check if is_on changed
         if hasattr(instance, 'is_on') and getattr(instance, 'is_on') != old_is_on:
-             if instance.tag:
+             if hasattr(instance, 'smartmeter'):
+                 from .smartmeter import SmartmeterManager
+                 # Let the manager decide whether to actually start/stop based on global state
+                 if instance.is_on:
+                     SmartmeterManager().start()
+                 else:
+                     SmartmeterManager().close()
+
+                 if instance.tag:
+                     value = 1 if instance.is_on else 0
+                     ScadaManager().send_command(f"{instance.tag}.onoff", value)
+                     
+             elif instance.tag:
                  value = 1 if instance.is_on else 0
                  
                  suffix = "onoff" # Default for Lightbulb and AirConditioner
@@ -661,6 +674,65 @@ class AirConditionerViewSet(BaseDeviceViewSet):
             return Response({"status": "temperature set", "current_temp": ac.temperature})
         return Response({"error": "temp parameter missing"}, status=400)
 
+    @action(detail=False, methods=['get'], url_path='getACLog')
+    def getACLog(self, request):
+        """
+        Retrieves mock AC logs for a specific date.
+        
+        URL: GET /api/homes/acs/getACLog/?date=YYYY-MM-DD
+        """
+        date_str = request.query_params.get('date')
+        if not date_str:
+            return Response({"error": "date parameter is required (YYYY-MM-DD)"}, status=400)
+            
+        try:
+            target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+        except ValueError:
+            return Response({"error": "Invalid date format. Use YYYY-MM-DD"}, status=400)
+
+        # Seed random for deterministic results per date
+        random.seed(f"ac-{date_str}")
+
+        data = []
+        # Generate 288 entries (every 5 min for 24 hours)
+        for i in range(288):
+            hour = 23 - (i * 5) // 60
+            minute = 55 - (i * 5) % 60
+            if minute < 0:
+                minute += 60
+                hour -= 1
+            if hour < 0:
+                break
+            ts = f"{date_str} {hour:02d}:{minute:02d}:00"
+
+            # Realistic AC pattern:
+            # Off at night (00:00-06:59), on during hot afternoon (11:00-16:59) at lower temps,
+            # on in evening (19:00-22:59) at comfortable temp, off late night (23:00+)
+            if 11 <= hour <= 16:
+                onoff = True
+                temperature = random.choice([24, 25, 25, 26])
+            elif 19 <= hour <= 22:
+                onoff = True
+                temperature = random.choice([26, 27, 27, 28])
+            elif 7 <= hour <= 10:
+                # Morning — sometimes on briefly
+                onoff = random.random() < 0.2
+                temperature = 26 if onoff else None
+            else:
+                onoff = False
+                temperature = None
+
+            data.append({
+                "timestamp": ts,
+                "onoff": onoff,
+                "temperature": temperature
+            })
+
+        return Response({
+            "device_name": "SmartAC01",
+            "data": data
+        })
+
     def perform_update(self, serializer):
         """
         Intercepts the update to check for 'is_on' changes and trigger SCADA.
@@ -704,6 +776,72 @@ class FanViewSet(BaseDeviceViewSet):
 
             return Response({"status": "speed set", "current_speed": fan.speed})
         return Response({"error": "speed parameter missing"}, status=400)
+
+    @action(detail=False, methods=['get'], url_path='getFanLog')
+    def getFanLog(self, request):
+        """
+        Retrieves mock Fan logs for a specific date.
+        
+        URL: GET /api/homes/fans/getFanLog/?date=YYYY-MM-DD
+        """
+        date_str = request.query_params.get('date')
+        if not date_str:
+            return Response({"error": "date parameter is required (YYYY-MM-DD)"}, status=400)
+            
+        try:
+            target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+        except ValueError:
+            return Response({"error": "Invalid date format. Use YYYY-MM-DD"}, status=400)
+
+        random.seed(f"fan-{date_str}")
+
+        data = []
+        for i in range(288):
+            hour = 23 - (i * 5) // 60
+            minute = 55 - (i * 5) % 60
+            if minute < 0:
+                minute += 60
+                hour -= 1
+            if hour < 0:
+                break
+            ts = f"{date_str} {hour:02d}:{minute:02d}:00"
+
+            # Realistic fan pattern:
+            # On at night for sleeping (21:00-06:59) low speed, swing off
+            # On during hot afternoon (12:00-17:59) medium-high speed, swing on
+            # Off during morning/evening transitions
+            if 21 <= hour <= 23:
+                onoff = True
+                speed = random.choice([1, 1, 2])
+                swing = random.random() < 0.3
+            elif 0 <= hour <= 6:
+                onoff = True
+                speed = 1
+                swing = False
+            elif 12 <= hour <= 17:
+                onoff = True
+                speed = random.choice([2, 3, 3])
+                swing = random.random() < 0.7
+            elif 7 <= hour <= 8:
+                onoff = random.random() < 0.4
+                speed = 2 if onoff else None
+                swing = False
+            else:
+                onoff = False
+                speed = None
+                swing = False
+
+            data.append({
+                "timestamp": ts,
+                "onoff": onoff,
+                "speed": speed,
+                "swing": swing
+            })
+
+        return Response({
+            "device_name": "SmartFan01",
+            "data": data
+        })
 
     @action(detail=True, methods=['post'])
     def set_swing(self, request, pk=None):
@@ -773,9 +911,9 @@ class LightbulbViewSet(BaseDeviceViewSet):
     @action(detail=False, methods=['get'], url_path='getLightbulbLog')
     def getLightbulbLog(self, request):
         """
-        Retrieves lightbulb logs for a specific date by aggregating data from an external API.
+        Retrieves mock lightbulb logs for a specific date.
         
-        URL: GET /api/homes/devices/getLightbulbLog/?date=YYYY-MM-DD
+        URL: GET /api/homes/lightbulbs/getLightbulbLog/?date=YYYY-MM-DD
         """
         date_str = request.query_params.get('date')
         if not date_str:
@@ -786,97 +924,62 @@ class LightbulbViewSet(BaseDeviceViewSet):
         except ValueError:
             return Response({"error": "Invalid date format. Use YYYY-MM-DD"}, status=400)
 
-        # Define time range for the day
-        start_dt = datetime.combine(target_date, datetime.min.time())
-        end_dt = datetime.combine(target_date, datetime.max.time())
-        
-        # Start iterating from the end of the day backwards
-        # The API returns the last 100 minutes from end_datetime.
-        # We align to 5-minute intervals roughly.
-        # Starting at 23:55:00 covers up to 23:59 roughly if buckets are 5 mins.
-        curr_end = start_dt.replace(hour=23, minute=55, second=0)
-        
-        aggregated_data = {} # Use dict to dedup by timestamp
-        device_name = "Unknown"
-        
-        # Loop until we cover the start of the day
-        # We go backwards. The last fetch should cover 00:00.
-        # 100 mins step.
-        while curr_end >= start_dt:
-            # Format datetime for API: 2026-01-24T18:30:00
-            end_str = curr_end.strftime("%Y-%m-%dT%H:%M:%S")
-            url = f"https://171.102.128.142:6443/restapi/tag/get_log_data/?template_id=4&end_datetime={end_str}"
-            
-            try:
-                # SSL Verify False as it might be a private/self-signed endpoint
-                resp = requests.get(url, verify=False, timeout=10)
-                if resp.status_code == 200:
-                    data_json = resp.json()
-                    
-                    # Extract device name from header if not yet found
-                    if device_name == "Unknown" and "header" in data_json and len(data_json["header"]) > 0:
-                        device_name = data_json["header"][0].get("big_column_name", "Unknown")
-                    
-                    # Process rows
-                    # Row format: [Timestamp, onoff("1"|"-"), brightness("54"|"-"), color("#.."|"-")]
-                    rows = data_json.get("data", [])
-                    for row in rows:
-                        if len(row) < 4:
-                            continue
-                        
-                        ts_str = row[0]
-                        onoff_raw = row[1]
-                        bright_raw = row[2]
-                        color_raw = row[3]
-                        
-                        # Parse timestamp to ensure it's within the requested day (API might return outside range?)
-                        try:
-                            ts = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S")
-                            if ts.date() != target_date:
-                                continue # Skip if outside the day
-                        except ValueError:
-                            continue
+        random.seed(f"light-{date_str}")
 
-                        # Map values
-                        onoff = True if onoff_raw == "1" else False
-                        
-                        brightness = None
-                        if bright_raw != "-" and bright_raw is not None:
-                            try:
-                                brightness = int(bright_raw)
-                            except ValueError:
-                                pass
-                                
-                        color = None
-                        if color_raw != "-" and color_raw is not None:
-                            color = color_raw
-                            
-                        entry = {
-                            "timestamp": ts_str,
-                            "onoff": onoff,
-                            "brightness": brightness,
-                            "color": color
-                        }
-                        
-                        aggregated_data[ts_str] = entry
-                
-            except requests.RequestException:
-                # Log error or continue? We should probably continue to try to get partial data
-                pass
-            
-            # Move back 100 minutes
-            curr_end = curr_end - timedelta(minutes=100)
-            
-            # Safety break if we go way back (shouldn't happen with while condition)
-            if curr_end < start_dt - timedelta(hours=2):
+        # Color palette for realistic smart bulb usage
+        colors = ["#FFFFFF", "#FFD700", "#FFA500", "#FF6347", "#00FF00", "#49c0efff", "#8A2BE2", "#FF69B4"]
+        warm_colors = ["#FFFFFF", "#FFD700", "#FFA500"]  # Warm tones for evening
+        cool_colors = ["#FFFFFF", "#49c0efff"]  # Cool tones for daytime
+
+        data = []
+        for i in range(288):
+            hour = 23 - (i * 5) // 60
+            minute = 55 - (i * 5) % 60
+            if minute < 0:
+                minute += 60
+                hour -= 1
+            if hour < 0:
                 break
+            ts = f"{date_str} {hour:02d}:{minute:02d}:00"
 
-        # Convert to list and sort
-        sorted_data = sorted(aggregated_data.values(), key=lambda x: x['timestamp'], reverse=True)
-        
+            # Realistic lightbulb pattern:
+            # Off late night/early morning (00:00-05:59)
+            # Brief on for morning routine (06:00-07:59) bright, cool white
+            # Off during daytime (08:00-17:59) — people are at work/school
+            # On for evening (18:00-22:59) — warm tones, varying brightness
+            # Off before bed (23:00+)
+            if 6 <= hour <= 7:
+                onoff = True
+                brightness = random.choice([70, 75, 80, 85])
+                color = random.choice(cool_colors)
+            elif 18 <= hour <= 20:
+                onoff = True
+                brightness = random.choice([50, 55, 60, 65, 70])
+                color = random.choice(warm_colors)
+            elif 21 <= hour <= 22:
+                onoff = True
+                brightness = random.choice([20, 25, 30, 35])
+                color = random.choice(["#FFD700", "#FFA500", "#FF69B4", "#8A2BE2"])
+            elif hour == 17:
+                # Coming home, light starts turning on
+                onoff = random.random() < 0.5
+                brightness = 60 if onoff else None
+                color = "#FFFFFF" if onoff else None
+            else:
+                onoff = False
+                brightness = None
+                color = None
+
+            data.append({
+                "timestamp": ts,
+                "onoff": onoff,
+                "brightness": brightness,
+                "color": color
+            })
+
         return Response({
-            "device_name": device_name,
-            "data": sorted_data
+            "device_name": "HueLight01",
+            "data": data
         })
 
 
@@ -986,7 +1089,7 @@ class TelevisionViewSet(BaseDeviceViewSet):
     @action(detail=False, methods=['get'], url_path='getTVLog')
     def getTVLog(self, request):
         """
-        Retrieves TV logs for a specific date by aggregating data from an external API.
+        Retrieves mock TV logs for a specific date.
         
         URL: GET /api/homes/tvs/getTVLog/?date=YYYY-MM-DD
         """
@@ -999,88 +1102,69 @@ class TelevisionViewSet(BaseDeviceViewSet):
         except ValueError:
             return Response({"error": "Invalid date format. Use YYYY-MM-DD"}, status=400)
 
-        # Define time range for the day
-        start_dt = datetime.combine(target_date, datetime.min.time())
-        
-        # Start iterating from the end of the day backwards
-        curr_end = start_dt.replace(hour=23, minute=55, second=0)
-        
-        aggregated_data = {} 
-        device_name = "Unknown"
-        
-        while curr_end >= start_dt:
-            end_str = curr_end.strftime("%Y-%m-%dT%H:%M:%S")
-            # Template ID 7 for TV
-            url = f"https://171.102.128.142:6443/restapi/tag/get_log_data/?template_id=7&end_datetime={end_str}"
-            
-            try:
-                resp = requests.get(url, verify=False, timeout=10)
-                if resp.status_code == 200:
-                    data_json = resp.json()
-                    
-                    if device_name == "Unknown" and "header" in data_json and len(data_json["header"]) > 0:
-                        device_name = data_json["header"][0].get("big_column_name", "Unknown")
-                    
-                    rows = data_json.get("data", [])
-                    for row in rows:
-                        if len(row) < 5:
-                            continue
-                        
-                        ts_str = row[0]
-                        # Parsing logic
-                        on_raw = row[1]
-                        channel_raw = row[2]
-                        volume_raw = row[3]
-                        mute_raw = row[4]
-                        
-                        try:
-                            ts = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S")
-                            if ts.date() != target_date:
-                                continue 
-                        except ValueError:
-                            continue
+        random.seed(f"tv-{date_str}")
 
-                        onoff = True if on_raw == "1" else False
-                        
-                        channel = None
-                        if channel_raw != "-" and channel_raw is not None:
-                             try:
-                                 channel = int(channel_raw)
-                             except ValueError:
-                                 pass
-                                 
-                        volume = None
-                        if volume_raw != "-" and volume_raw is not None:
-                             try:
-                                 volume = int(volume_raw)
-                             except ValueError:
-                                 pass
-                        
-                        mute = True if mute_raw == "1" else False
+        # Realistic channel list (news, sports, movies, kids, documentary)
+        morning_channels = [3, 5, 7]       # Morning news channels
+        afternoon_channels = [12, 15, 20]  # Daytime/kids channels
+        evening_channels = [1, 2, 5, 7, 8, 10, 139]  # Prime time channels
 
-                        entry = {
-                            "timestamp": ts_str,
-                            "onoff": onoff,
-                            "channel": channel,
-                            "volume": volume,
-                            "mute": mute
-                        }
-                        
-                        aggregated_data[ts_str] = entry
-                
-            except requests.RequestException:
-                pass
-            
-            curr_end = curr_end - timedelta(minutes=100)
-            
-            if curr_end < start_dt - timedelta(hours=2):
+        data = []
+        for i in range(288):
+            hour = 23 - (i * 5) // 60
+            minute = 55 - (i * 5) % 60
+            if minute < 0:
+                minute += 60
+                hour -= 1
+            if hour < 0:
                 break
+            ts = f"{date_str} {hour:02d}:{minute:02d}:00"
 
-        sorted_data = sorted(aggregated_data.values(), key=lambda x: x['timestamp'], reverse=True)
-        
+            # Realistic TV pattern:
+            # Off late night (00:00-06:59)
+            # Morning news (07:00-08:29) moderate volume
+            # Off during work hours (08:30-11:59)
+            # Afternoon casual viewing (12:00-13:29) — lunch break
+            # Off (13:30-17:59)
+            # Evening prime time (18:00-23:30) — most active period
+            if 7 <= hour <= 8 and (hour != 8 or minute < 30):
+                onoff = True
+                volume = random.choice([20, 25, 25, 30])
+                channel = random.choice(morning_channels)
+                is_mute = random.random() < 0.05
+            elif hour == 12 or (hour == 13 and minute < 30):
+                onoff = True
+                volume = random.choice([25, 30, 35])
+                channel = random.choice(afternoon_channels)
+                is_mute = random.random() < 0.1
+            elif 18 <= hour <= 23:
+                if hour == 23 and minute > 30:
+                    onoff = False
+                    volume = 0
+                    channel = random.choice(evening_channels)
+                    is_mute = False
+                else:
+                    onoff = True
+                    volume = random.choice([30, 35, 40, 45, 50, 55])
+                    channel = random.choice(evening_channels)
+                    is_mute = random.random() < 0.08
+            else:
+                onoff = False
+                volume = 0
+                channel = random.choice(morning_channels)
+                is_mute = False
+
+            data.append({
+                "timestamp": ts,
+                "onoff": onoff,
+                "volume": volume,
+                "channel": channel,
+                "is_mute": is_mute
+            })
+
         return Response({
-            "device_name": device_name,
-            "data": sorted_data
+            "device_name": "SmartTV01",
+            "data": data
         })
 
 
@@ -1153,6 +1237,32 @@ class FurnitureViewSet(viewsets.ModelViewSet):
             "x": None, "y": None, "z": None,
             "rotation": {"y": obj.rotation_y}
         })
+        
+class SmartMeterViewSet(BaseDeviceViewSet):
+    """
+    ViewSet for SmartMeter devices.
+    """
+    queryset = SmartMeter.objects.all()
+    serializer_class = SmartMeterSerializer
+
+    def perform_update(self, serializer):
+        old_instance = self.get_object()
+        old_is_on = old_instance.is_on
+        
+        instance = serializer.save()
+        
+        if instance.is_on != old_is_on:
+            # 1. Start or Stop the periodic feed over WebSocket2Scada
+            from .smartmeter import SmartmeterManager
+            if instance.is_on:
+                SmartmeterManager().start()
+            else:
+                SmartmeterManager().close()
+
+            # 2. Forward the onoff command to SCADA hardware directly
+            if instance.tag:
+                value = 1 if instance.is_on else 0
+                ScadaManager().send_command(f"{instance.tag}.onoff", value)
 
 
 class VoiceCommandViewSet(viewsets.ViewSet):
@@ -1227,6 +1337,78 @@ class VoiceCommandViewSet(viewsets.ViewSet):
             return Response({"error": "groq package not installed."}, status=500)
         except Exception as e:
             return Response({"error": f"Transcription failed: {str(e)}"}, status=500)
+
+class NPCChatViewSet(viewsets.ViewSet):
+    """NPC conversational chat powered by LLM."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    @action(detail=False, methods=['post'])
+    def chat(self, request):
+        """
+        Send a message to an NPC and get an LLM-powered response.
+
+        Body: {"npc_id": "npc1", "message": "Hey, what's up?"}
+        Returns: {"npc_id": str, "npc_name": str, "response": str, "goodbye": bool}
+        """
+        from .npc_chat import chat_with_npc
+
+        npc_id = request.data.get('npc_id')
+        message = request.data.get('message')
+        if not npc_id or not message:
+            return Response({"error": "npc_id and message are required."}, status=400)
+
+        result = chat_with_npc(npc_id, message)
+        return Response(result)
+
+    @action(detail=False, methods=['post'])
+    def reset(self, request):
+        """
+        Reset conversation history for an NPC.
+
+        Body: {"npc_id": "npc1"}
+        """
+        from .npc_chat import reset_history
+
+        npc_id = request.data.get('npc_id')
+        if not npc_id:
+            return Response({"error": "npc_id is required."}, status=400)
+
+        reset_history(npc_id)
+        return Response({"status": "reset", "npc_id": npc_id})
+
+    @action(detail=False, methods=['post'])
+    def greeting(self, request):
+        """
+        Get an instant greeting for an NPC (no LLM call).
+
+        Body: {"npc_id": "npc1"}
+        """
+        from .npc_chat import get_greeting
+
+        npc_id = request.data.get('npc_id')
+        if not npc_id:
+            return Response({"error": "npc_id is required."}, status=400)
+
+        greeting_text = get_greeting(npc_id)
+        return Response({"npc_id": npc_id, "greeting": greeting_text})
+
+    @action(detail=False, methods=['post'])
+    def farewell(self, request):
+        """
+        Get an instant farewell for an NPC (no LLM call).
+
+        Body: {"npc_id": "npc1"}
+        """
+        from .npc_chat import get_farewell, reset_history
+
+        npc_id = request.data.get('npc_id')
+        if not npc_id:
+            return Response({"error": "npc_id is required."}, status=400)
+
+        farewell_text = get_farewell(npc_id)
+        reset_history(npc_id)
+        return Response({"npc_id": npc_id, "farewell": farewell_text})
+
 
 class AutomationViewSet(viewsets.ModelViewSet):
     """
