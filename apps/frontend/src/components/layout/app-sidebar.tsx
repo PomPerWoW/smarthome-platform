@@ -14,7 +14,6 @@ import {
   Bell,
   LogOut,
   Activity,
-  Leaf,
   Zap,
 } from "lucide-react";
 import {
@@ -48,7 +47,6 @@ const mainNavItems = [
   { title: "Furniture", url: "/furniture", icon: Armchair },
   { title: "Automation", url: "/automation", icon: Zap },
   { title: "Activity", url: "/activity", icon: Activity },
-  { title: "Energy", url: "/energy", icon: Leaf },
 ];
 
 const bottomNavItems = [
