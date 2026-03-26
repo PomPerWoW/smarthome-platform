@@ -15,7 +15,7 @@ import {
   Lightbulb,
   X,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -75,6 +75,7 @@ import {
   type UpdateAutomationDTO,
 } from "@/types/automation.types";
 import { DeviceType } from "@/types/device.types";
+import { useUIStore } from "@/stores/ui_store";
 
 export const Route = createFileRoute("/automation")({
   component: AutomationPage,
@@ -109,6 +110,13 @@ function AutomationPage() {
   );
   const [deletingAutomation, setDeletingAutomation] =
     useState<Automation | null>(null);
+
+  const setModalOpen = useUIStore((s) => s.set_modal_open);
+
+  useEffect(() => {
+    setModalOpen(isSheetOpen || !!deletingAutomation);
+    return () => setModalOpen(false);
+  }, [isSheetOpen, deletingAutomation, setModalOpen]);
 
   const queryClient = useQueryClient();
 
@@ -535,10 +543,6 @@ function AutomationSheet({
       : undefined,
   });
 
-  // Reset form when sheet is fully closed or opened for creation
-  // `automation` prop going to null signals creation
-  // We use key inside the Sheet content wrapper below instead of useEffect
-
   const { watch, setValue } = form;
   const isSunriseSunset = watch("sunrise_sunset");
   const repeatDays = watch("repeat_days");
@@ -566,7 +570,7 @@ function AutomationSheet({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="overflow-y-auto w-full sm:max-w-md">
-        <SheetHeader>
+        <SheetHeader className="mb-4">
           <SheetTitle>
             {automation ? "Edit Automation" : "Create Automation"}
           </SheetTitle>
@@ -575,14 +579,14 @@ function AutomationSheet({
           </SheetDescription>
         </SheetHeader>
 
-        {/* Use a key prop to force re-render/reset form on create */}
         <form
           key={automation ? automation.id : "new"}
           onSubmit={form.handleSubmit(onSubmit)}
-          className="space-y-6 py-6"
+          className="flex flex-col gap-5 px-4 py-2 pb-8"
         >
-          <div className="space-y-2">
-            <Label>Title</Label>
+          {/* Title */}
+          <div className="flex flex-col gap-2">
+            <Label className="font-semibold">Title</Label>
             <Input {...form.register("title")} placeholder="My Scene" />
             {form.formState.errors.title && (
               <p className="text-xs text-red-500">
@@ -591,8 +595,9 @@ function AutomationSheet({
             )}
           </div>
 
-          <div className="space-y-2">
-            <Label>Device</Label>
+          {/* Device */}
+          <div className="flex flex-col gap-2">
+            <Label className="font-semibold">Device</Label>
             <Select
               onValueChange={(val) => setValue("device", val)}
               value={watch("device")}
@@ -615,24 +620,25 @@ function AutomationSheet({
             )}
           </div>
 
-          <div className="space-y-4 border p-4 rounded-md">
+          {/* Trigger Block */}
+          <div className="flex flex-col gap-4 border p-4 rounded-xl bg-card">
             <div className="flex items-center justify-between">
-              <Label>Trigger</Label>
+              <h4 className="text-sm font-semibold">Trigger</h4>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">Time</span>
+                <span className="text-xs text-muted-foreground mr-1">Time</span>
                 <Switch
                   checked={isSunriseSunset}
                   onCheckedChange={(checked) =>
                     setValue("sunrise_sunset", checked)
                   }
                 />
-                <span className="text-xs text-muted-foreground">Sun Event</span>
+                <span className="text-xs text-muted-foreground ml-1">Sun Event</span>
               </div>
             </div>
 
             {isSunriseSunset ? (
-              <div className="space-y-2">
-                <Label>Event</Label>
+              <div className="flex flex-col gap-2">
+                <Label className="text-sm text-muted-foreground">Event</Label>
                 <Select
                   onValueChange={(val) =>
                     setValue("solar_event", val as SolarEvent)
@@ -649,22 +655,22 @@ function AutomationSheet({
                 </Select>
               </div>
             ) : (
-              <div className="space-y-2">
-                <Label>Time</Label>
+              <div className="flex flex-col gap-2">
+                <Label className="text-sm text-muted-foreground">Time</Label>
                 <Input type="time" step="1" {...form.register("time")} />
               </div>
             )}
 
-            <div className="space-y-2">
-              <Label>Repeat Days</Label>
-              <div className="flex flex-wrap gap-1">
+            <div className="flex flex-col gap-2">
+              <Label className="text-sm text-muted-foreground">Repeat Days</Label>
+              <div className="flex flex-wrap gap-1.5 mt-1">
                 {days.map((day) => (
                   <Button
                     key={day}
                     type="button"
                     variant={repeatDays?.includes(day) ? "default" : "outline"}
                     size="sm"
-                    className="w-10 h-10 p-0"
+                    className="w-10 h-10 p-0 rounded-lg shrink-0"
                     onClick={() => toggleDay(day)}
                   >
                     {day.charAt(0).toUpperCase()}
@@ -674,14 +680,15 @@ function AutomationSheet({
             </div>
           </div>
 
-          <div className="space-y-4 border p-4 rounded-md">
-            <Label>Action</Label>
+          {/* Action Block */}
+          <div className="flex flex-col gap-4 border p-4 rounded-xl bg-card">
+            <h4 className="text-sm font-semibold">Action</h4>
 
             <div className="flex items-center justify-between">
-              <Label className="font-normal">Turn the device</Label>
-              <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Turn the device</span>
+              <div className="flex items-center gap-3">
                 <span
-                  className={`text-sm ${watch("action.is_on") === false ? "font-bold" : "text-muted-foreground"}`}
+                  className={`text-xs ${watch("action.is_on") === false ? "font-bold text-foreground" : "text-muted-foreground"}`}
                 >
                   OFF
                 </span>
@@ -692,7 +699,7 @@ function AutomationSheet({
                   }
                 />
                 <span
-                  className={`text-sm ${watch("action.is_on") !== false ? "font-bold" : "text-muted-foreground"}`}
+                  className={`text-xs ${watch("action.is_on") !== false ? "font-bold text-foreground" : "text-muted-foreground"}`}
                 >
                   ON
                 </span>
@@ -701,12 +708,12 @@ function AutomationSheet({
 
             {/* Lightbulb Controls */}
             {selectedDevice?.type === DeviceType.Lightbulb && (
-              <div className="space-y-4 pt-2">
-                <div className="space-y-2">
+              <div className="flex flex-col gap-5 pt-2 border-t mt-1">
+                <div className="flex flex-col gap-3">
                   <div className="flex justify-between items-center">
-                    <Label>Brightness</Label>
+                    <span className="text-sm text-muted-foreground">Brightness</span>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-xs font-medium">
                         {watch("action.brightness") !== undefined ? `${watch("action.brightness")}%` : "Not set"}
                       </span>
                       <Button
@@ -728,11 +735,11 @@ function AutomationSheet({
                     onValueChange={([val]) => setValue("action.brightness", val)}
                   />
                 </div>
-                <div className="space-y-2">
+                <div className="flex flex-col gap-2">
                   <div className="flex justify-between items-center">
-                    <Label>Color</Label>
+                    <span className="text-sm text-muted-foreground">Color</span>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-xs font-medium uppercase">
                         {watch("action.color") || "Not set"}
                       </span>
                       <Button
@@ -751,7 +758,7 @@ function AutomationSheet({
                     type="color"
                     value={watch("action.color") || "#ffffff"}
                     onChange={(e) => setValue("action.color", e.target.value)}
-                    className="h-10 w-full"
+                    className="h-10 w-full cursor-pointer p-1"
                   />
                 </div>
               </div>
@@ -759,12 +766,12 @@ function AutomationSheet({
 
             {/* AC Controls */}
             {selectedDevice?.type === DeviceType.AirConditioner && (
-              <div className="space-y-4 pt-2">
-                <div className="space-y-2">
+              <div className="flex flex-col gap-5 pt-2 border-t mt-1">
+                <div className="flex flex-col gap-2">
                   <div className="flex justify-between items-center">
-                    <Label>Temperature (°C)</Label>
+                    <span className="text-sm text-muted-foreground">Temperature (°C)</span>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-xs font-medium">
                         {watch("action.temperature") !== undefined ? watch("action.temperature") : "Not set"}
                       </span>
                       <Button
@@ -793,12 +800,12 @@ function AutomationSheet({
 
             {/* Fan Controls */}
             {selectedDevice?.type === DeviceType.Fan && (
-              <div className="space-y-4 pt-2">
-                <div className="space-y-2">
+              <div className="flex flex-col gap-5 pt-2 border-t mt-1">
+                <div className="flex flex-col gap-3">
                   <div className="flex justify-between items-center">
-                    <Label>Speed (1-5)</Label>
+                    <span className="text-sm text-muted-foreground">Speed (1-5)</span>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-xs font-medium">
                         {watch("action.speed") !== undefined ? watch("action.speed") : "Not set"}
                       </span>
                       <Button
@@ -822,9 +829,9 @@ function AutomationSheet({
                   />
                 </div>
                 <div className="flex items-center justify-between">
-                  <Label>Swing</Label>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground mr-2">
+                  <span className="text-sm text-muted-foreground">Swing</span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-medium">
                       {watch("action.swing") !== undefined ? (watch("action.swing") ? "On" : "Off") : "Not set"}
                     </span>
                     <Switch
@@ -835,7 +842,7 @@ function AutomationSheet({
                       type="button"
                       variant="ghost"
                       size="icon"
-                      className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                      className="h-6 w-6 text-muted-foreground hover:text-destructive ml-1"
                       onClick={() => clearActionValue("swing")}
                       title="Clear swing"
                     >
@@ -848,12 +855,12 @@ function AutomationSheet({
 
             {/* TV Controls */}
             {selectedDevice?.type === DeviceType.Television && (
-              <div className="space-y-4 pt-2">
-                <div className="space-y-2">
+              <div className="flex flex-col gap-5 pt-2 border-t mt-1">
+                <div className="flex flex-col gap-3">
                   <div className="flex justify-between items-center">
-                    <Label>Volume</Label>
+                    <span className="text-sm text-muted-foreground">Volume</span>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-xs font-medium">
                         {watch("action.volume") !== undefined ? watch("action.volume") : "Not set"}
                       </span>
                       <Button
@@ -876,11 +883,11 @@ function AutomationSheet({
                     onValueChange={([val]) => setValue("action.volume", val)}
                   />
                 </div>
-                <div className="space-y-2">
+                <div className="flex flex-col gap-2">
                   <div className="flex justify-between items-center">
-                    <Label>Channel</Label>
+                    <span className="text-sm text-muted-foreground">Channel</span>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-xs font-medium">
                         {watch("action.channel") !== undefined ? watch("action.channel") : "Not set"}
                       </span>
                       <Button
@@ -907,16 +914,16 @@ function AutomationSheet({
 
           </div>
 
-          <div className="flex items-center justify-between border p-4 rounded-md">
-            <Label>Automation Active</Label>
+          <div className="flex items-center justify-between border p-4 rounded-xl bg-card">
+            <h4 className="text-sm font-semibold">Automation Active</h4>
             <Switch
               checked={watch("is_active")}
               onCheckedChange={(checked) => setValue("is_active", checked)}
             />
           </div>
 
-          <SheetFooter>
-            <Button type="submit" disabled={isPending}>
+          <SheetFooter className="mt-2 p-0">
+            <Button type="submit" disabled={isPending} className="w-full sm:w-auto">
               {isPending ? "Saving..." : automation ? "Save Changes" : "Create"}
             </Button>
           </SheetFooter>
@@ -925,3 +932,4 @@ function AutomationSheet({
     </Sheet>
   );
 }
+
