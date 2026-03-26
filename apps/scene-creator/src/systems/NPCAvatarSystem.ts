@@ -19,19 +19,17 @@ import { BackendApiClient } from "../api/BackendApiClient";
 const FADE_DURATION = 0.25;
 const ENGAGEMENT_RADIUS = 1.2;
 const DISENGAGE_RADIUS = 1.8;
-const LOOK_AT_SPEED = 0.08;
-const RETURN_ROTATION_SPEED = 0.05;
 const WAVE_COOLDOWN = 5.0;
 const LISTEN_START_DELAY_MS = 600;
 const MAX_RECORDING_DURATION = 15000;
 const SILENCE_DURATION = 1200;
 
-// Per-NPC voice variation
-const NPC_VOICE_CONFIG: Record<string, { pitch: number; rate: number }> = {
-    npc1: { pitch: 1.3, rate: 1.05 },
-    npc2: { pitch: 0.85, rate: 0.95 },
-    npc3: { pitch: 1.15, rate: 1.1 },
-    npc4: { pitch: 0.95, rate: 0.85 },
+// Update this once you see the voice list in console
+const NPC_VOICE_CONFIG: Record<string, { pitch: number; rate: number; voiceIndex?: number }> = {
+    npc1: { pitch: 1.0, rate: 1.0, voiceIndex: 182 }, // Alice - Google UK English Female
+    npc2: { pitch: 1.0, rate: 1.0, voiceIndex: 183 }, // Bob - Google UK English Male
+    npc3: { pitch: 1.0, rate: 1.0, voiceIndex: 181 }, // Carol - Google US English
+    npc4: { pitch: 0.8, rate: 0.9, voiceIndex: 183 }, // Mike - Google UK English Male (Deeper/Slower)
 };
 
 // PROCEDURAL VISEME SYSTEM
@@ -84,11 +82,9 @@ interface NPCAvatarRecord {
     lastRoomLocalPos: { x: number; y: number; z: number } | null;
     isPlayingWave: boolean;
     lastWaveTime: number;
-    // Lip-sync
     morphTargetMeshes: SkinnedMesh[];
     lipSync: ProceduralLipSync;
     isSpeaking: boolean;
-    // Conversation
     isInConversation: boolean;
     mediaRecorder: MediaRecorder | null;
     audioChunks: Blob[];
@@ -107,6 +103,23 @@ export class NPCAvatarSystem extends createSystem({
 
     init() {
         console.log("[NPCAvatar] System initialized (stationary NPCs with LLM chat + procedural lip-sync)");
+
+        // List all available voices for the user
+        if (typeof window !== "undefined" && window.speechSynthesis) {
+            const listVoices = () => {
+                const voices = window.speechSynthesis.getVoices();
+                console.log("[NPCAvatar] 🎙️ Available System Voices:");
+                voices.forEach((v, i) => {
+                    console.log(`[${i}] ${v.name} (${v.lang}) - ${v.localService ? "Local" : "Remote"}`);
+                });
+                console.log("[NPCAvatar] ^^^ Copy the index or name above into NPC_VOICE_CONFIG to change NPC voices! ^^^");
+            };
+            if (window.speechSynthesis.getVoices().length > 0) {
+                listVoices();
+            } else {
+                window.speechSynthesis.onvoiceschanged = listVoices;
+            }
+        }
     }
 
     // ── Room-local ↔ world helpers ──────────────────────────────────────
@@ -161,11 +174,18 @@ export class NPCAvatarSystem extends createSystem({
 
     // ── TTS with lip-sync events ────────────────────────────────────────
 
-    private getVoice(): SpeechSynthesisVoice | null {
+    private getVoice(npcId: string): SpeechSynthesisVoice | null {
         if (typeof window === "undefined" || !window.speechSynthesis) return null;
-        const voices = window.speechSynthesis.getVoices()
-            .filter(v => (v.lang === "en-US" || v.lang.startsWith("en-US")) && v.localService === true);
-        return voices.find(v => v.name === "Samantha") || voices[0] || null;
+        const voices = window.speechSynthesis.getVoices();
+        if (voices.length === 0) return null;
+
+        const config = NPC_VOICE_CONFIG[npcId];
+        if (config && config.voiceIndex !== undefined && voices[config.voiceIndex]) {
+            return voices[config.voiceIndex];
+        }
+
+        const enVoices = voices.filter(v => v.lang.startsWith("en-"));
+        return enVoices[0] || voices[0];
     }
 
     // Convert a word into a sequence of visemes.
@@ -200,13 +220,7 @@ export class NPCAvatarSystem extends createSystem({
             let voiceReadyTimer: ReturnType<typeof setTimeout> | null = null;
 
             const doSpeak = () => {
-                if (spoke) return;
-                spoke = true;
-                if (voiceReadyTimer) {
-                    clearTimeout(voiceReadyTimer);
-                    voiceReadyTimer = null;
-                }
-                const voice = this.getVoice();
+                const voice = this.getVoice(npcId);
                 synth.cancel();
                 try {
                     synth.resume();
@@ -215,8 +229,11 @@ export class NPCAvatarSystem extends createSystem({
                 }
 
                 const u = new SpeechSynthesisUtterance(text);
-                u.lang = "en-US";
-                if (voice) u.voice = voice;
+                if (voice) {
+                    u.voice = voice;
+                    u.lang = voice.lang;
+                    console.log(`[NPCAvatar] 🗣️ ${npcId} speaking with voice: ${voice.name}`);
+                }
                 u.volume = 1;
                 u.rate = voiceConfig.rate;
                 u.pitch = voiceConfig.pitch;
@@ -732,13 +749,6 @@ export class NPCAvatarSystem extends createSystem({
         console.log(`[NPCAvatar] 👋 ${npcId} waving (${reason})`);
     }
 
-    private lerpRotationY(model: Object3D, targetAngle: number, speed: number): void {
-        let diff = targetAngle - model.rotation.y;
-        while (diff > Math.PI) diff -= Math.PI * 2;
-        while (diff < -Math.PI) diff += Math.PI * 2;
-        model.rotation.y += diff * speed;
-    }
-
     // ── UPDATE LOOP ─────────────────────────────────────────────────────
 
     update(dt: number): void {
@@ -753,7 +763,7 @@ export class NPCAvatarSystem extends createSystem({
         for (const [npcId, record] of this.npcRecords) {
             record.mixer.update(dt);
 
-            // ── Procedural lip-sync (every frame) ──
+            // Procedural lip-sync (every frame)
             this.processProceduralLipSync(record, dt);
 
             const entity = record.entity;
@@ -810,20 +820,13 @@ export class NPCAvatarSystem extends createSystem({
                 }
             }
 
-            // Look-at
+            // Update proximity state (no rotation tracking)
             if (isNowInRange) {
-                const dx = userLocal.x - record.model.position.x;
-                const dz = userLocal.z - record.model.position.z;
-                const targetAngle = Math.atan2(dx, dz) + Math.PI;
-                this.lerpRotationY(record.model, targetAngle, LOOK_AT_SPEED);
-
                 const ps = entity.getValue(NPCAvatarComponent, "proximityState") as string;
                 if (ps === "waving_hello" && !record.isPlayingWave) {
                     entity.setValue(NPCAvatarComponent, "proximityState", "engaged");
                 }
             } else {
-                this.lerpRotationY(record.model, record.originalRotationY, RETURN_ROTATION_SPEED);
-
                 const ps = entity.getValue(NPCAvatarComponent, "proximityState") as string;
                 if (ps === "waving_goodbye" && !record.isPlayingWave) {
                     entity.setValue(NPCAvatarComponent, "proximityState", "idle");

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useUIStore } from "@/stores/ui_store";
 import {
   useNotificationStore,
   type AppNotification,
@@ -365,6 +366,13 @@ export function NotificationSidebar() {
   const unreadCount = useNotificationStore((s) => s.unreadCount);
   const markAllAsRead = useNotificationStore((s) => s.markAllAsRead);
   const clearAll = useNotificationStore((s) => s.clearAll);
+
+  const setModalOpen = useUIStore((s) => s.set_modal_open);
+
+  useEffect(() => {
+    setModalOpen(isOpen);
+    return () => setModalOpen(false);
+  }, [isOpen, setModalOpen]);
 
   const [activeFilter, setActiveFilter] = useState<FilterValue>("all");
 
