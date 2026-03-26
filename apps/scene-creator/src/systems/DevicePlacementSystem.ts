@@ -1,277 +1,407 @@
-import { createSystem, Entity, AssetManager, XRPlane } from "@iwsdk/core";
-import { PhysicsSystem } from "./PhysicsSystem";
+import { createSystem, AssetManager } from "@iwsdk/core";
 import { DeviceType } from "../types";
-import { getStore } from "../store/DeviceStore";
-import { Vector3, Quaternion, Raycaster, Matrix4, Group, Mesh, MeshStandardMaterial } from "three";
-import { GamepadWrapper, XR_BUTTONS, AXES } from "gamepad-wrapper";
+import { getStore, isFurnitureType } from "../store/DeviceStore";
+import { Vector3, Raycaster, Mesh, Intersection, Object3D, Box3 } from "three";
+import { getRoomBounds, clampToWalkableArea, isPositionWalkable } from "../config/navmesh";
+import { constrainDeviceMovement, DEVICE_RADIUS } from "../config/collision";
 
-export class DevicePlacementSystem extends createSystem({
-  planes: { required: [XRPlane] }
-}) {
-  private physicsSystem!: PhysicsSystem;
-  private currentGhost: Entity | null = null;
-  private currentGhostBody: any | null = null; // Rapier RigidBody
-  private currentDeviceType: DeviceType | null = null;
+export class DevicePlacementSystem extends createSystem({}) {
+  private placementCounter = 0;
 
-  private rightGamepad: GamepadWrapper | null = null;
-  private raycaster = new Raycaster();
-
-  // Placement state
-  private targetPosition = new Vector3();
-  private targetRotationY = 0;
-
-  // PD Controller gains
-  private kp = 50;  // Proportional gain (spring) — reduced to avoid Rapier crash
-  private kd = 10;  // Derivative gain (damper)
-
-  init() {
-    this.physicsSystem = this.world.getSystem(PhysicsSystem)!;
-  }
-
-  update(dt: number) {
+  update(_dt: number) {
     const store = getStore();
     const placementMode = store.placementMode;
 
-    this.updateController();
-
-    // 1. Handle Entering/Exiting Placement Mode
-    if (placementMode && !this.currentGhost) {
-      this.startPlacement(placementMode);
-    } else if (!placementMode && this.currentGhost) {
-      this.stopPlacement();
-    }
-
-    // 2. Update Placement Loop
-    if (this.currentGhost && this.currentGhostBody && this.physicsSystem.RAPIER && this.physicsSystem.physicsWorld) {
-      this.handlePlacementLogic(dt);
+    if (placementMode) {
+      store.setPlacementMode(null);
+      this.spawnDevice(placementMode);
     }
   }
 
-  private updateController() {
-    const session = this.renderer.xr.getSession();
-    if (!session) return;
+  /**
+   * Compute a room-local spawn position that is guaranteed to be inside the
+   * LabPlan model.
+   *
+   * Strategy:
+   *  1. Project 2 m in front of the camera (world space, horizontal only).
+   *  2. Convert that world-space target into room-local space via
+   *     `labModel.worldToLocal()`.
+   *  3. Clamp XZ to the room-local walkable area (navmesh bounds) with a
+   *     small margin so devices never end up inside walls.
+   *  4. Override Y with a device-specific height.
+   *
+   * If the camera projects way outside the room (e.g. viewing from afar) the
+   * clamp naturally snaps the position to the closest point inside.
+   */
+  private async spawnDevice(type: DeviceType) {
+    const camera = this.world.camera;
+    const labModel = (globalThis as any).__labRoomModel;
 
-    // We assume RIGHT hand is for placement (pointer), LEFT for menu.
-    if (session.inputSources) {
-      for (const source of session.inputSources) {
-        if (source.handedness === 'right' && source.gamepad) {
-          if (!this.rightGamepad || this.rightGamepad.gamepad !== source.gamepad) {
-            this.rightGamepad = new GamepadWrapper(source.gamepad);
-          } else {
-            this.rightGamepad.update();
+    const spawnPos = new Vector3();
+    const roomBounds = getRoomBounds();
+
+    if (labModel && roomBounds) {
+      // 1. World-space target: 2 m in front of the camera (flat on XZ plane)
+      const forward = new Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+      forward.y = 0;
+      forward.normalize();
+
+      const worldTarget = new Vector3()
+        .copy(camera.position)
+        .addScaledVector(forward, 2.0);
+
+      // 2. Convert to room-local space
+      spawnPos.copy(labModel.worldToLocal(worldTarget.clone()));
+
+      // 3. Apply a small inward margin so devices don't sit exactly on the wall
+      const MARGIN = 0.3;
+      const minX = roomBounds.minX + MARGIN;
+      const maxX = roomBounds.maxX - MARGIN;
+      const minZ = roomBounds.minZ + MARGIN;
+      const maxZ = roomBounds.maxZ - MARGIN;
+
+      // 4. Clamp XZ to room walkable area (room-local bounds)
+      spawnPos.x = Math.max(minX, Math.min(maxX, spawnPos.x));
+      spawnPos.z = Math.max(minZ, Math.min(maxZ, spawnPos.z));
+
+      // 5. Verify position is walkable (inside room bounds) - if not, use room center
+      if (!isPositionWalkable(spawnPos.x, spawnPos.z)) {
+        console.warn(
+          `[DevicePlacement] Position (${spawnPos.x.toFixed(2)}, ${spawnPos.z.toFixed(2)}) is outside walkable area, finding safe position`,
+        );
+        const safePos = this.findSafeSpawnPosition(spawnPos, roomBounds);
+        spawnPos.x = safePos.x;
+        spawnPos.z = safePos.z;
+      }
+
+      // 6. Check collision with room geometry and find a collision-free position
+      const worldSpawnPos = new Vector3();
+      worldSpawnPos.copy(labModel.localToWorld(spawnPos.clone()));
+
+      // Check if initial position collides with room geometry
+      if (this.isPositionColliding(worldSpawnPos, spawnPos.y, labModel)) {
+        console.log(
+          `[DevicePlacement] Initial position collides with room geometry, finding collision-free position`,
+        );
+        const collisionFreePos = this.findCollisionFreePosition(
+          spawnPos,
+          roomBounds,
+          labModel,
+        );
+        spawnPos.x = collisionFreePos.x;
+        spawnPos.z = collisionFreePos.z;
+      } else {
+        // Double-check with constrainDeviceMovement
+        const constrainedWorldPos = constrainDeviceMovement(
+          worldSpawnPos,
+          worldSpawnPos,
+          DEVICE_RADIUS,
+        );
+
+        // If position was adjusted due to collision, find alternative
+        if (
+          Math.abs(constrainedWorldPos.x - worldSpawnPos.x) > 0.01 ||
+          Math.abs(constrainedWorldPos.z - worldSpawnPos.z) > 0.01
+        ) {
+          console.log(
+            `[DevicePlacement] Position adjusted due to collision, finding alternative position`,
+          );
+          const collisionFreePos = this.findCollisionFreePosition(
+            spawnPos,
+            roomBounds,
+            labModel,
+          );
+          spawnPos.x = collisionFreePos.x;
+          spawnPos.z = collisionFreePos.z;
+        }
+      }
+
+      // 7. Final verification: ensure position is still within bounds
+      spawnPos.x = Math.max(minX, Math.min(maxX, spawnPos.x));
+      spawnPos.z = Math.max(minZ, Math.min(maxZ, spawnPos.z));
+
+      // 8. Double-check: if still outside bounds, use room center as fallback
+      if (!isPositionWalkable(spawnPos.x, spawnPos.z)) {
+        console.warn(
+          `[DevicePlacement] Position still outside bounds after clamping, using room center`,
+        );
+        const centerX = (minX + maxX) * 0.5;
+        const centerZ = (minZ + maxZ) * 0.5;
+        spawnPos.x = centerX;
+        spawnPos.z = centerZ;
+      }
+    } else if (labModel && !roomBounds) {
+      // labModel exists but roomBounds not initialized - use room center as fallback
+      console.warn(
+        `[DevicePlacement] Room bounds not initialized, using room center`,
+      );
+      const bbox = new Box3().setFromObject(labModel);
+      const center = bbox.getCenter(new Vector3());
+      spawnPos.copy(center);
+      spawnPos.y = 0; // Will be overridden by device-specific height
+    } else {
+      // No labModel — try to use room center if bounds are available, otherwise use camera-relative position
+      if (roomBounds) {
+        console.warn(
+          `[DevicePlacement] No labModel but roomBounds available, using room center`,
+        );
+        const centerX = (roomBounds.minX + roomBounds.maxX) * 0.5;
+        const centerZ = (roomBounds.minZ + roomBounds.maxZ) * 0.5;
+        spawnPos.set(centerX, 0, centerZ);
+      } else {
+        // Last resort: spawn in world space in front of the camera
+        const forward = new Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+        forward.y = 0;
+        forward.normalize();
+        spawnPos.copy(camera.position).addScaledVector(forward, 2.0);
+        console.warn(
+          `[DevicePlacement] No labModel or roomBounds, spawning in world space`,
+        );
+      }
+    }
+
+    // 9. Device-specific Y height (room-local space, floor = 0)
+    switch (type) {
+      case DeviceType.Lightbulb:
+        spawnPos.y = 2.5; // Ceiling lamp hangs high
+        break;
+      case DeviceType.AirConditioner:
+        spawnPos.y = 2.2; // Wall-mounted high
+        break;
+      case DeviceType.Television:
+        spawnPos.y = 1.0; // Eye-level on a stand
+        break;
+      case DeviceType.Fan:
+      case DeviceType.Chair:
+      case DeviceType.Chair2:
+      case DeviceType.Chair3:
+      case DeviceType.Chair4:
+      case DeviceType.Chair5:
+      case DeviceType.Chair6:
+        spawnPos.y = 0.0; // Floor standing / furniture
+        break;
+      default:
+        spawnPos.y = 0.0;
+    }
+
+    // Generate a unique name
+    this.placementCounter++;
+    const name = `${type} ${this.placementCounter}`;
+
+    console.log(
+      `[DevicePlacement] ✨ Spawning "${name}" at local pos ` +
+      `(${spawnPos.x.toFixed(2)}, ${spawnPos.y.toFixed(2)}, ${spawnPos.z.toFixed(2)})`,
+    );
+
+    const store = getStore();
+    try {
+      if (isFurnitureType(type)) {
+        await store.createFurniture(
+          type,
+          name,
+          [spawnPos.x, spawnPos.y, spawnPos.z],
+          0,
+        );
+        console.log(`[DevicePlacement] ✅ "${name}" saved as furniture`);
+      } else {
+        await store.createDevice(
+          type,
+          name,
+          [spawnPos.x, spawnPos.y, spawnPos.z],
+          0,
+        );
+        console.log(`[DevicePlacement] ✅ "${name}" saved to backend`);
+      }
+    } catch (err) {
+      console.error(`[DevicePlacement] ❌ Failed to create "${name}":`, err);
+    }
+  }
+
+  /**
+   * Find a safe spawn position inside the room bounds if the initial position is outside.
+   * Tries positions near the room center or along the bounds.
+   */
+  private findSafeSpawnPosition(
+    initialPos: Vector3,
+    roomBounds: { minX: number; maxX: number; minZ: number; maxZ: number },
+  ): Vector3 {
+    const MARGIN = 0.3;
+    const minX = roomBounds.minX + MARGIN;
+    const maxX = roomBounds.maxX - MARGIN;
+    const minZ = roomBounds.minZ + MARGIN;
+    const maxZ = roomBounds.maxZ - MARGIN;
+
+    // Try room center first
+    const centerX = (minX + maxX) * 0.5;
+    const centerZ = (minZ + maxZ) * 0.5;
+    if (isPositionWalkable(centerX, centerZ)) {
+      return new Vector3(centerX, initialPos.y, centerZ);
+    }
+
+    // Try positions along the bounds (closest valid point)
+    const clampedX = Math.max(minX, Math.min(maxX, initialPos.x));
+    const clampedZ = Math.max(minZ, Math.min(maxZ, initialPos.z));
+
+    // If clamped position is valid, use it
+    if (isPositionWalkable(clampedX, clampedZ)) {
+      return new Vector3(clampedX, initialPos.y, clampedZ);
+    }
+
+    // Last resort: use a random position within bounds
+    const randomX = minX + Math.random() * (maxX - minX);
+    const randomZ = minZ + Math.random() * (maxZ - minZ);
+    console.warn(
+      `[DevicePlacement] Using random safe position: (${randomX.toFixed(2)}, ${randomZ.toFixed(2)})`,
+    );
+    return new Vector3(randomX, initialPos.y, randomZ);
+  }
+
+  /**
+   * Check if a world position collides with room geometry.
+   * Uses raycasting to detect if the position is too close to walls/furniture.
+   */
+  private isPositionColliding(
+    worldPos: Vector3,
+    height: number,
+    roomModel: Object3D,
+  ): boolean {
+    // Get collision meshes from room model
+    const collisionMeshes: Mesh[] = [];
+    roomModel.traverse((child: any) => {
+      if (child.isMesh && child.geometry) {
+        collisionMeshes.push(child);
+      }
+    });
+
+    if (collisionMeshes.length === 0) return false;
+
+    // Use original raycast method (bypass any overrides)
+    const originalRaycast = (Mesh.prototype as any).raycast;
+    const raycaster = new Raycaster();
+
+    // Check at multiple heights around the device
+    const checkHeights = [height - 0.1, height, height + 0.1, height + 0.2];
+    const checkRadius = DEVICE_RADIUS * 1.5; // Slightly larger radius for safety
+    const testDirections = [
+      new Vector3(1, 0, 0),   // Right
+      new Vector3(-1, 0, 0),  // Left
+      new Vector3(0, 0, 1),  // Forward
+      new Vector3(0, 0, -1), // Back
+      new Vector3(0.707, 0, 0.707),   // Diagonal
+      new Vector3(-0.707, 0, 0.707),  // Diagonal
+      new Vector3(0.707, 0, -0.707),  // Diagonal
+      new Vector3(-0.707, 0, -0.707), // Diagonal
+    ];
+
+    for (const h of checkHeights) {
+      const testOrigin = new Vector3(worldPos.x, worldPos.y + h, worldPos.z);
+
+      for (const dir of testDirections) {
+        raycaster.set(testOrigin, dir);
+        raycaster.far = checkRadius;
+        raycaster.near = 0;
+
+        const hits: Intersection[] = [];
+        for (const mesh of collisionMeshes) {
+          originalRaycast.call(mesh, raycaster, hits);
+        }
+
+        if (hits.length > 0) {
+          hits.sort((a, b) => a.distance - b.distance);
+          if (hits[0].distance < checkRadius) {
+            // Position is too close to room geometry
+            return true;
           }
         }
       }
     }
+
+    return false;
   }
 
-  private async startPlacement(type: DeviceType) {
-    console.log(`[DevicePlacement] Starting placement for ${type}`);
-    this.currentDeviceType = type;
+  /**
+   * Find a collision-free position by trying multiple candidate positions.
+   * Tests positions in a spiral pattern from the initial position.
+   */
+  private findCollisionFreePosition(
+    initialPos: Vector3,
+    roomBounds: { minX: number; maxX: number; minZ: number; maxZ: number },
+    roomModel: Object3D,
+  ): Vector3 {
+    const MARGIN = 0.3;
+    const minX = roomBounds.minX + MARGIN;
+    const maxX = roomBounds.maxX - MARGIN;
+    const minZ = roomBounds.minZ + MARGIN;
+    const maxZ = roomBounds.maxZ - MARGIN;
 
-    // Create ghost entity
-    this.currentGhost = this.world.createTransformEntity();
+    // Try multiple candidate positions in a spiral pattern
+    const candidates = [
+      // Start with initial position (already clamped)
+      { x: initialPos.x, z: initialPos.z },
+      // Room center
+      { x: (minX + maxX) * 0.5, z: (minZ + maxZ) * 0.5 },
+      // Around initial position (spiral pattern)
+      { x: initialPos.x + 0.5, z: initialPos.z },
+      { x: initialPos.x - 0.5, z: initialPos.z },
+      { x: initialPos.x, z: initialPos.z + 0.5 },
+      { x: initialPos.x, z: initialPos.z - 0.5 },
+      { x: initialPos.x + 0.7, z: initialPos.z + 0.7 },
+      { x: initialPos.x - 0.7, z: initialPos.z + 0.7 },
+      { x: initialPos.x + 0.7, z: initialPos.z - 0.7 },
+      { x: initialPos.x - 0.7, z: initialPos.z - 0.7 },
+      // Further positions
+      { x: initialPos.x + 1.0, z: initialPos.z },
+      { x: initialPos.x - 1.0, z: initialPos.z },
+      { x: initialPos.x, z: initialPos.z + 1.0 },
+      { x: initialPos.x, z: initialPos.z - 1.0 },
+    ];
 
-    // Load model
-    // TODO: Centralize model paths. For now, map manually implies duplication.
-    // Better: use DeviceRendererSystem's map or store's data?
-    // Store has `devices`, but we need a template.
-    // Let's use the hardcoded paths from index.ts/AssetManifest for now.
+    for (const candidate of candidates) {
+      // Clamp to bounds
+      const clampedX = Math.max(minX, Math.min(maxX, candidate.x));
+      const clampedZ = Math.max(minZ, Math.min(maxZ, candidate.z));
 
-    let assetId = "";
-    switch (type) {
-      case DeviceType.Lightbulb: assetId = "lightbulb"; break;
-      case DeviceType.Fan: assetId = "fan"; break;
-      case DeviceType.Television: assetId = "television"; break;
-      case DeviceType.AirConditioner: assetId = "air_conditioner"; break;
+      // Check if position is walkable
+      if (!isPositionWalkable(clampedX, clampedZ)) continue;
+
+      // Convert to world space and check collision
+      const worldPos = roomModel.localToWorld(
+        new Vector3(clampedX, initialPos.y, clampedZ),
+      );
+
+      if (!this.isPositionColliding(worldPos, initialPos.y, roomModel)) {
+        // Found a collision-free position
+        return new Vector3(clampedX, initialPos.y, clampedZ);
+      }
     }
 
-    const gltf = AssetManager.getGLTF(assetId);
-    if (gltf) {
-      const model = gltf.scene.clone();
-      this.currentGhost.object3D!.add(model);
+    // If no collision-free position found, try random positions
+    for (let i = 0; i < 20; i++) {
+      const randomX = minX + Math.random() * (maxX - minX);
+      const randomZ = minZ + Math.random() * (maxZ - minZ);
 
-      // Apply Ghost Visuals (Transparency)
-      model.traverse((child: any) => {
-        if (child.isMesh) {
-          // clone material to modify
-          child.material = child.material.clone();
-          child.material.transparent = true;
-          child.material.opacity = 0.7;
-          child.material.emissive.setHex(0xaaaaaa);
-          child.material.emissiveIntensity = 0.2;
-        }
-      });
+      if (!isPositionWalkable(randomX, randomZ)) continue;
+
+      const worldPos = roomModel.localToWorld(
+        new Vector3(randomX, initialPos.y, randomZ),
+      );
+
+      if (!this.isPositionColliding(worldPos, initialPos.y, roomModel)) {
+        console.log(
+          `[DevicePlacement] Found collision-free random position: (${randomX.toFixed(2)}, ${randomZ.toFixed(2)})`,
+        );
+        return new Vector3(randomX, initialPos.y, randomZ);
+      }
     }
 
-    // Create Physics Body
-    this.createPhysicsBody();
-
-    // Initial pos: in front of user
-    const startPos = new Vector3(0, 1.0, -1.0).applyMatrix4(this.world.camera.matrixWorld as any);
-    this.currentGhostBody.setTranslation({ x: startPos.x, y: startPos.y, z: startPos.z }, true);
-
-    this.targetRotationY = 0;
-  }
-
-  private createPhysicsBody() {
-    if (!this.physicsSystem.RAPIER || !this.physicsSystem.physicsWorld || !this.currentGhost) return;
-
-    const RAPIER = this.physicsSystem.RAPIER;
-    const world = this.physicsSystem.physicsWorld;
-
-    // Dynamic body
-    const rigidBodyDesc = RAPIER.RigidBodyDesc.dynamic()
-      .setCanSleep(false)
-      .setLinearDamping(0.5)
-      .setAngularDamping(0.5);
-
-    this.currentGhostBody = world.createRigidBody(rigidBodyDesc);
-
-    // Collider: approximated Box or Ball
-    // Ideally matches model size.
-    // For now, fixed size 0.5m box
-    const colliderDesc = RAPIER.ColliderDesc.cuboid(0.2, 0.2, 0.2);
-    world.createCollider(colliderDesc, this.currentGhostBody);
-  }
-
-  private stopPlacement() {
-    console.log("[DevicePlacement] Stopping placement");
-    if (this.currentGhost) {
-      this.currentGhost.destroy();
-      this.currentGhost = null;
-    }
-
-    if (this.currentGhostBody && this.physicsSystem.physicsWorld) {
-      this.physicsSystem.physicsWorld.removeRigidBody(this.currentGhostBody);
-      this.currentGhostBody = null;
-    }
-    this.currentDeviceType = null;
-  }
-
-  private handlePlacementLogic(dt: number) {
-    if (!this.rightGamepad) return; // Need controller to drag
-
-    // 1. Raycast to find target
-    // Get controller pointer pose
-    // In Three, we can use renderer.xr.getController(0) for ray?
-    // 0 = Right usually.
-    const controller = this.renderer.xr.getController(0);
-
-    // Create ray from controller
-    const tempMatrix = new Matrix4();
-    tempMatrix.identity().extractRotation(controller.matrixWorld as any);
-
-    // Ray origin and direction
-    const origin = new Vector3().setFromMatrixPosition(controller.matrixWorld as any);
-    const direction = new Vector3(0, 0, -1).applyMatrix4(tempMatrix).normalize();
-
-    // Cast ray against Room Colliders (Rapier)
-    // physicsSystem.physicsWorld.castRay
-    const ray = new this.physicsSystem.RAPIER!.Ray({ x: origin.x, y: origin.y, z: origin.z }, { x: direction.x, y: direction.y, z: direction.z });
-    const hit = this.physicsSystem.physicsWorld!.castRayAndGetNormal(ray, 10.0, true);
-
-    if (hit) {
-      // Target position is hit point + offset (half height)
-      // Normal allows us to orient if needed (e.g. wall placement)
-      const toi = (hit as any).toi;
-      const hitPoint = ray.pointAt(toi);
-      // RAPIER 0.11+ ray.pointAt helper? Or manual: origin + dir * toi
-      const target = origin.clone().add(direction.clone().multiplyScalar(toi));
-
-      // Add offset to avoid sinking (0.2m up)
-      // Should depend on device type (Floor vs Wall)
-      // For now, float slightly
-      this.targetPosition.copy(target).add(new Vector3(0, 0.2, 0));
-
-      // Debug visual?
-    } else {
-      // Floating in air at 2m distance
-      this.targetPosition.copy(origin).add(direction.clone().multiplyScalar(2.0));
-    }
-
-    // 2. Apply Forces (PD Controller)
-    const currentPos = this.currentGhostBody.translation(); // {x, y, z}
-    const currentVel = this.currentGhostBody.linvel();      // {x, y, z}
-
-    const clamp = (v: number, max: number) => Math.max(-max, Math.min(max, v));
-    const MAX_FORCE = 100;
-
-    const force = {
-      x: clamp(this.kp * (this.targetPosition.x - currentPos.x) - this.kd * currentVel.x, MAX_FORCE),
-      y: clamp(this.kp * (this.targetPosition.y - currentPos.y) - this.kd * currentVel.y, MAX_FORCE),
-      z: clamp(this.kp * (this.targetPosition.z - currentPos.z) - this.kd * currentVel.z, MAX_FORCE),
-    };
-
-    // Sanity check: skip if any component is NaN
-    if (isNaN(force.x) || isNaN(force.y) || isNaN(force.z)) return;
-
-    // Wake up
-    this.currentGhostBody.wakeUp();
-    this.currentGhostBody.addForce(force, true);
-
-    // 3. Handle Rotation
-    // Thumbstick X rotates
-    const stickX = this.rightGamepad.getAxis(AXES.XR_STANDARD.THUMBSTICK_X);
-    if (Math.abs(stickX) > 0.2) {
-      this.targetRotationY -= stickX * 2.0 * dt;
-    }
-
-    // Set rotation (Kinematic-ish for rotation, we want it snappy)
-    // Or use torque?
-    // Let's just set rotation directly for responsiveness, or use torque.
-    // Direct set is safer for aligning.
-    // But we want it to react to collisions...
-    // Let's use torque PD too? Or just setNextKinematicRotation if it was kinematic?
-    // It's Dynamic.
-    // Let's simple: set rotation to targetRotationY, ignore physics rotation for now (lock it)
-    const q = new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), this.targetRotationY);
-    this.currentGhostBody.setRotation({ x: q.x, y: q.y, z: q.z, w: q.w }, true);
-    this.currentGhostBody.setAngvel({ x: 0, y: 0, z: 0 }, true);
-
-    // Sync Visuals
-    const p = this.currentGhostBody.translation();
-    const r = this.currentGhostBody.rotation();
-    this.currentGhost!.object3D!.position.set(p.x, p.y, p.z);
-    this.currentGhost!.object3D!.quaternion.set(r.x, r.y, r.z, r.w);
-
-    // 4. Finalize
-    if (this.rightGamepad.getButtonDown(XR_BUTTONS.TRIGGER)) {
-      this.placeDevice();
-    }
-  }
-
-  private async placeDevice() {
-    if (!this.currentDeviceType || !this.currentGhost) return;
-
-    const pos = this.currentGhost.object3D!.position;
-    const rot = this.currentGhost.object3D!.rotation; // Euler
-
-    console.log(`[DevicePlacement] Placing ${this.currentDeviceType} at`, pos);
-
-    // Wait, we need to call backend to create device.
-    // DeviceStore doesn't have createDevice?
-    // It has `api` access internally.
-    // Let's check DeviceStore actions.
-
-    // We might need to add `createDevice` to store.
-    // For now, mock it or use interact.
-
-    // Assuming we just clear mode locally for now, 
-    // but ideally we persist.
-    const store = getStore();
-
-    // HACK: Since we don't have createDevice in store interface yet,
-    // we'll just log it.
-    // But user wants "real" placement.
-    // I should add `addDevice` to store.
-
-    // Clear mode
-    store.setPlacementMode(null);
-
-    // Trigger haptic
-    if (this.rightGamepad && this.rightGamepad.gamepad && this.rightGamepad.gamepad.hapticActuators) {
-      this.rightGamepad.gamepad.hapticActuators[0].pulse(1.0, 100);
-    }
+    // Last resort: return room center (even if it might collide, it's better than nothing)
+    console.warn(
+      `[DevicePlacement] Could not find collision-free position, using room center`,
+    );
+    return new Vector3(
+      (minX + maxX) * 0.5,
+      initialPos.y,
+      (minZ + maxZ) * 0.5,
+    );
   }
 }

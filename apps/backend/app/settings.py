@@ -83,7 +83,7 @@ INSTALLED_APPS = [
 ]
 
 # Set the ASGI application
-ASGI_APPLICATION = 'config.asgi.application'
+ASGI_APPLICATION = "app.asgi.application"
 
 # Configure Channel Layer (uses in-memory for dev, Redis for production)
 CHANNEL_LAYERS = {
@@ -116,21 +116,36 @@ CORS_ALLOWED_ORIGINS = [
     "https://localhost:5173",
     "http://localhost:5174",
     "https://localhost:5174",
-    "https://localhost:8081",
+    "https://localhost:3003",
     "http://127.0.0.1:5173",
     "https://127.0.0.1:5173",
     "http://127.0.0.1:5174",
     "https://127.0.0.1:5174",
-    "https://127.0.0.1:8081",
-    "https://192.168.89.104:5173", # Change to your actual local IP
-    "https://192.168.89.104:8081", # Change to your actual local IP
+    "https://127.0.0.1:3003",
+    "https://192.168.89.100:5173", # Change to your actual local IP
+    "https://192.168.89.100:3003", # Change to your actual local IP
+    "https://localhost:3000",
+    "https://localhost:3003",
 ]
 
 if HOST_IP:
     CORS_ALLOWED_ORIGINS.extend([
         f"https://{HOST_IP}:5173",
-        f"https://{HOST_IP}:8081",
+        f"https://{HOST_IP}:3003",
     ])
+
+_extra_cors = get_required_env("CORS_ALLOWED_ORIGINS", "")
+if _extra_cors:
+    CORS_ALLOWED_ORIGINS.extend(
+        [o.strip() for o in _extra_cors.split(",") if o.strip()]
+    )
+
+CSRF_TRUSTED_ORIGINS = []
+_csrf_extra = get_required_env("CSRF_TRUSTED_ORIGINS", "")
+if _csrf_extra:
+    CSRF_TRUSTED_ORIGINS = [
+        o.strip() for o in _csrf_extra.split(",") if o.strip()
+    ]
 
 CORS_ALLOW_CREDENTIALS = True
 
@@ -156,7 +171,7 @@ CORS_ALLOW_METHODS = [
 ]
 
 # Scene Creator Configuration
-SCENE_CREATOR_URL = get_required_env("SCENE_CREATOR_URL", "https://localhost:8081")
+SCENE_CREATOR_URL = get_required_env("SCENE_CREATOR_URL", "https://localhost:3003")
 
 ROOT_URLCONF = "app.urls"
 
@@ -182,8 +197,8 @@ elif sys.platform == "darwin":
     GDAL_LIBRARY_PATH = "/opt/homebrew/opt/gdal/lib/libgdal.dylib"
     GEOS_LIBRARY_PATH = "/opt/homebrew/opt/geos/lib/libgeos_c.dylib"
 elif sys.platform == "linux":
-    GDAL_LIBRARY_PATH = "/usr/lib/x86_64-linux-gnu/libgdal.so"
-    GEOS_LIBRARY_PATH = "/usr/lib/x86_64-linux-gnu/libgeos_c.so"
+    GDAL_LIBRARY_PATH = os.environ.get("GDAL_LIBRARY_PATH", "/usr/lib/x86_64-linux-gnu/libgdal.so")
+    GEOS_LIBRARY_PATH = os.environ.get("GEOS_LIBRARY_PATH", "/usr/lib/x86_64-linux-gnu/libgeos_c.so")
 
 WSGI_APPLICATION = "app.wsgi.application"
 
@@ -241,8 +256,19 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = "static/"
+# When set (e.g. "smarthome/api"), HTTP routes are mounted under /{API_PREFIX}/...
+# Leave empty for local dev (paths like /api/auth/ at site root).
+API_PREFIX = (get_required_env("API_PREFIX", "") or "").strip().strip("/")
+
+_prefix = f"/{API_PREFIX}" if API_PREFIX else ""
+FORCE_SCRIPT_NAME = _prefix or None
+
+STATIC_URL = f"{_prefix}/static/" if _prefix else "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
+# Media files (User uploaded content)
+MEDIA_URL = f"{_prefix}/media/" if _prefix else "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

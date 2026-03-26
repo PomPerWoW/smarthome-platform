@@ -1,31 +1,15 @@
-# homes/scada.py
-import json
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
-from .scada_ws import WebSocket2Scada  # Your provided file
+from .base_scada import BaseScadaManager
 
-class ScadaManager:
-    _instance = None
-
-    def __new__(cls):
-        # Singleton pattern to ensure only one connection exists
-        if cls._instance is None:
-            cls._instance = super(ScadaManager, cls).__new__(cls)
-            cls._instance.client = None
-        return cls._instance
-
-    def start(self):
-        """Initialize and start the SCADA connection"""
-        if self.client and self.client.is_connected():
-            return
-
-        print("[SCADA_MANAGER] 🔌 Starting SCADA Connection...")
-        self.client = WebSocket2Scada(
-            target="171.102.128.142:6443", # Replace with your config
-            login="bingo",
-            password="BPS12345",
-            token="535a4d29f85c1c851eb81843ea89b951011ffd58",
-            tags=[
+class ScadaManager(BaseScadaManager):
+    def _get_connection_params(self):
+        return {
+            "target": "171.102.128.142:6443", # Replace with your config
+            "login": "bingo",
+            "password": "BPS12345",
+            "token": "535a4d29f85c1c851eb81843ea89b951011ffd58",
+            "tags": [
                 "passion.HueLight01.onoff",
                 "passion.HueLight01.Color",
                 "passion.HueLight01.Brightness",
@@ -35,12 +19,9 @@ class ScadaManager:
                 "passion.HueLight03.onoff",
                 "passion.HueLight03.Color",
                 "passion.HueLight03.Brightness",
-                
-            ],  # Subscribe to updates
-            on_tag=self.handle_tag_update, # Hook the callback
-            verify_tls=False
-        )
-        self.client.start()
+            ],
+            "verify_tls": False
+        }
 
     def handle_tag_update(self, tag, value, at):
         """
@@ -135,13 +116,6 @@ class ScadaManager:
                      # Save parent if needed (for is_on)
                      if saved:
                          device.save()
-                         
+                          
         except Exception as e:
             print(f"[SCADA_MANAGER] Error syncing tag {tag}: {e}")
-
-    def send_command(self, tag, value):
-        """Forward command to SCADA"""
-        if self.client and self.client.is_connected():
-            self.client.send_value(tag, value)
-        else:
-            print("[SCADA_MANAGER] ⚠️ SCADA not connected, cannot send command")

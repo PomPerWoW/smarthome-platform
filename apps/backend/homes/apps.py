@@ -21,8 +21,13 @@ class HomesConfig(AppConfig):
             from .scheduler import Scheduler
             Scheduler().start()
             
-            from .smartmeter import SmartmeterManager
-            SmartmeterManager().start()
+            try:
+                from .models import SmartMeter
+                from .smartmeter import SmartmeterManager
+                if SmartMeter.objects.filter(is_on=True).exists():
+                    SmartmeterManager().start()
+            except Exception:
+                pass
             
         elif any('gunicorn' in arg for arg in sys.argv) or 'daphne' in sys.argv[0] or 'uvicorn' in sys.argv[0]:
              from .scheduler import Scheduler

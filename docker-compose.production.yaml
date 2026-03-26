@@ -1,15 +1,25 @@
 # ============================================================================
-# SmartHome Platform Production Docker Compose Configuration
+# SmartHome Platform — production Docker Compose
 # ============================================================================
-# Usage: docker-compose -f docker-compose.production.yml --env-file .env.production up -d
+# Usage:
+#   docker compose -f docker-compose.production.yaml --env-file .env.production up -d --build
+#
+# Services listen on HTTP inside the stack; publish ${FRONTEND_PORT}, ${SCENE_CREATOR_PORT},
+# ${BACKEND_PORT} to the host. Terminate TLS and route paths on your host reverse proxy
+# (e.g. nginx/Caddy) — no in-compose HTTPS proxy here.
 # ============================================================================
-
-version: "3.8"
 
 services:
   db:
-    image: postgis/postgis:17-3.5-alpine
+    image: postgis/postgis:17-3.6-alpine
+    platform: linux/amd64
     container_name: smarthome_postgres
+    env_file:
+      - .env.production
+    environment:
+      POSTGRES_USER: ${DATABASE_USER}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+      POSTGRES_DB: ${DATABASE_NAME}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
@@ -18,23 +28,26 @@ services:
       - smarthome_network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      test: ["CMD-SHELL", 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
       interval: 10s
       timeout: 5s
       retries: 5
 
   backend:
     build:
-      context: ./apps/backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/backend/Dockerfile
     container_name: smarthome_backend
-    command: gunicorn app.wsgi:application --bind 0.0.0.0:5500 --workers 4 --timeout 120
+    env_file:
+      - .env.production
+    environment:
+      DATABASE_HOST: smarthome_postgres
+      DATABASE_PORT: 5432
     volumes:
-      - ./apps/backend:/app
       - backend_static:/app/staticfiles
       - backend_media:/app/media
-    ports:
-      - "${BACKEND_PORT}:5500"
+    expose:
+      - "5500"
     networks:
       - smarthome_network
     depends_on:
@@ -42,51 +55,88 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "${BACKEND_URL}/health/"]
+      test:
+        [
+          "CMD-SHELL",
+          "curl -sf -o /dev/null http://127.0.0.1:5500/smarthome/admin/login/ || exit 1",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 50s
 
   frontend:
     build:
-      context: ./apps/frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/frontend/Dockerfile
+      args:
+        VITE_BACKEND_URL: ${VITE_BACKEND_URL}
+        VITE_SCENE_CREATOR_URL: ${VITE_SCENE_CREATOR_URL}
+        VITE_HOST_IP: ${VITE_HOST_IP}
     container_name: smarthome_frontend
-    ports:
-      - "${FRONTEND_PORT}:3000"
-      - "${FRONTEND_BACKEND_PORT}:8000"
+    env_file:
+      - .env.production
+    expose:
+      - "3000"
     networks:
       - smarthome_network
     depends_on:
       - backend
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "${FRONTEND_URL}"]
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:3000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
 
-  landing-page:
-    build:
-      context: ./apps/landing-page
-      dockerfile: Dockerfile
-    container_name: smarthome_landing
-    ports:
-      - "${LANDING_PAGE_PORT}:5173"
-    networks:
-      - smarthome_network
-    restart: unless-stopped
-
   scene-creator:
     build:
-      context: ./apps/scene-creator
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/scene-creator/Dockerfile
+      args:
+        VITE_BACKEND_URL: ${VITE_BACKEND_URL}
+        VITE_FRONTEND_URL: ${VITE_FRONTEND_URL}
+        VITE_DASHBOARD_URL: ${VITE_DASHBOARD_URL}
+        VITE_HOST_IP: ${VITE_HOST_IP}
     container_name: smarthome_scene_creator
-    ports:
-      - "${SCENE_CREATOR_PORT}:80"
+    env_file:
+      - .env.production
+    expose:
+      - "3003"
     networks:
       - smarthome_network
     depends_on:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:3003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  https-proxy:
+    image: nginx:alpine
+    container_name: smarthome_https_proxy
+    ports:
+      - "${FRONTEND_PORT}:3000"
+      - "${SCENE_CREATOR_PORT}:3003"
+      - "${BACKEND_PORT}:5500"
+    volumes:
+      - ./docker/proxy/nginx.production.conf:/etc/nginx/nginx.conf:ro
+      - proxy_certs:/etc/nginx/certs
+    command: >
+      sh -c "
+      apk add --no-cache openssl &&
+      if [ ! -f /etc/nginx/certs/cert.pem ]; then
+        openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /etc/nginx/certs/key.pem -out /etc/nginx/certs/cert.pem -subj '/CN=turing.se.kmitl.ac.th';
+      fi &&
+      nginx -g 'daemon off;'
+      "
+    networks:
+      - smarthome_network
+    depends_on:
+      - frontend
+      - scene-creator
       - backend
     restart: unless-stopped
 
@@ -97,7 +147,10 @@ volumes:
     driver: local
   backend_media:
     driver: local
+  proxy_certs:
+    driver: local
 
 networks:
   smarthome_network:
     driver: bridge
+    name: smarthome_network_production

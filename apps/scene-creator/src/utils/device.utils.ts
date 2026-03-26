@@ -45,5 +45,12 @@ export function getDeviceProperties(device: Device): Record<string, unknown> {
       return {
         temperature: device.temperature,
       } satisfies AirConditionerProperties;
+    case DeviceType.Chair:
+    case DeviceType.Chair2:
+    case DeviceType.Chair3:
+    case DeviceType.Chair4:
+    case DeviceType.Chair5:
+    case DeviceType.Chair6:
+      return {};
   }
 }

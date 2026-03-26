@@ -6,10 +6,14 @@
     height: auto;
     display: flex;
     flex-direction: column;
-    background-color: #09090b;
-    border-color: #27272a;
+    background-color: rgba(226, 232, 240, 0.34);
+    backdrop-filter: blur(72px) saturate(160%);
+    -webkit-backdrop-filter: blur(72px) saturate(160%);
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    border-color: rgba(255, 255, 255, 0.14);
     border-width: 0.15;
     border-radius: 2;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06);
   }
 
   .header-section {
@@ -30,7 +34,7 @@
   .device-icon-off {
     width: 4;
     height: 4;
-    color: #71717a;
+    color: #475569;
   }
 
   .header-text {
@@ -42,23 +46,23 @@
   .device-name {
     font-size: 2.5;
     font-weight: bold;
-    color: #fafafa;
+    color: #0f172a;
   }
 
   .device-location {
     font-size: 1.6;
-    color: #71717a;
+    color: #475569;
   }
 
   .device-position {
     font-size: 1.4;
-    color: #52525b;
+    color: #64748b;
   }
 
   .divider {
     height: 0.1;
     width: 100%;
-    background-color: #27272a;
+    background-color: rgba(255, 255, 255, 0.20);
     margin: 1.5 0;
   }
 
@@ -80,12 +84,13 @@
   .control-icon {
     width: 2.5;
     height: 2.5;
-    color: #a1a1aa;
+    color: #475569;
   }
 
   .control-label {
     font-size: 1.8;
-    color: #a1a1aa;
+    font-weight: 500;
+    color: #334155;
     width: 12;
   }
 
@@ -93,7 +98,7 @@
     width: 5;
     height: 5;
     border-radius: 2.5;
-    background-color: #27272a;
+    background-color: rgba(255, 255, 255, 0.08);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -114,7 +119,7 @@
   .power-icon {
     width: 2.5;
     height: 2.5;
-    color: #fafafa;
+    color: #0f172a;
   }
 
   .brightness-container {
@@ -128,7 +133,7 @@
   .brightness-track {
     flex: 1;
     height: 1;
-    background-color: #27272a;
+    background-color: rgba(255, 255, 255, 0.08);
     border-radius: 0.5;
     overflow: hidden;
   }
@@ -140,7 +145,7 @@
 
   .brightness-value {
     font-size: 1.6;
-    color: #fafafa;
+    color: #0f172a;
     width: 5;
     text-align: right;
   }
@@ -155,7 +160,7 @@
     width: 3.5;
     height: 3.5;
     border-radius: 0.5;
-    background-color: #27272a;
+    background-color: rgba(255, 255, 255, 0.08);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -165,7 +170,7 @@
   .brightness-btn-icon {
     width: 2;
     height: 2;
-    color: #fafafa;
+    color: #0f172a;
   }
 
   .color-section {
@@ -201,7 +206,7 @@
   }
 
   .color-btn-selected {
-    border-color: #fafafa;
+    border-color: #0f172a;
     border-width: 0.25;
   }
 
@@ -226,7 +231,7 @@
     margin-top: 1.5;
     padding-top: 1.5;
     border-top-width: 0.1;
-    border-top-color: #27272a;
+    border-top-color: rgba(255, 255, 255, 0.20);
   }
 
   .status-dot {
@@ -240,16 +245,16 @@
     width: 1;
     height: 1;
     border-radius: 0.5;
-    background-color: #71717a;
+    background-color: #475569;
   }
 
   .status-text {
     font-size: 1.4;
-    color: #71717a;
+    color: #475569;
   }
 
   .graph-row {
-    margin-top: 5;
+    margin-top: 0;
   }
 </style>
 
@@ -337,15 +342,14 @@
       </div>
       <span class="control-label">Position</span>
       <div class="brightness-container">
-        <button class="brightness-btn" id="get-position-btn" style="width: 8; background-color: #3f3f46;">
-          <span style="font-size: 1.4; color: #fafafa;">Get</span>
+        <button class="brightness-btn" id="get-position-btn" style="width: 8; background-color: rgba(255, 255, 255, 0.18);">
+          <span style="font-size: 1.4; color: #0f172a;">Get</span>
         </button>
-        <button class="brightness-btn" id="save-position-btn" style="width: 8; background-color: #3f3f46;">
-          <span style="font-size: 1.4; color: #fafafa;">Save</span>
+        <button class="brightness-btn" id="save-position-btn" style="width: 8; background-color: rgba(255, 255, 255, 0.18);">
+          <span style="font-size: 1.4; color: #0f172a;">Save</span>
         </button>
       </div>
     </div>
-  </div>
     <!-- Graph Control -->
     <div class="control-row graph-row">
       <div>

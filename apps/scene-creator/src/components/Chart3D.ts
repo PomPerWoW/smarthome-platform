@@ -7,18 +7,15 @@ import {
     BoxGeometry,
     CylinderGeometry,
     SphereGeometry,
-    Color,
     Group,
     LineBasicMaterial,
     Line,
     Vector3,
-    CatmullRomCurve3,
     TubeGeometry,
     DoubleSide,
-    PlaneGeometry,
-    MeshBasicMaterial,
     CurvePath,
     LineCurve3,
+    Color,
 } from "@iwsdk/core";
 import {
     CanvasTexture,
@@ -26,6 +23,10 @@ import {
     Sprite,
     BufferGeometry,
     Vector3 as ThreeVector3,
+    CircleGeometry,
+    BufferAttribute,
+    Shape,
+    ExtrudeGeometry,
 } from "three";
 import { DeviceType } from "../types";
 import {
@@ -35,7 +36,7 @@ import {
     MOCK_TV_DEVICE_LOGS,
 } from "../data/mockData";
 
-export type ChartType = "bar" | "line" | "pie";
+export type ChartType = "bar" | "line" | "pie" | "gauge";
 
 const COLORS = {
     blue: "#3b82f6",
@@ -43,10 +44,13 @@ const COLORS = {
     orange: "#f97316",
     purple: "#a855f7",
     red: "#ef4444",
-    yellow: "#eab308",
+    yellow: "#facc15",
     cyan: "#06b6d4",
+    pink: "#f472b6",
     grid: "#3f3f46",
-    text: "#ffffff",
+    label: "#000000",
+    value: "#000000",
+    gaugeBdrop: "#f4f4f5",
 };
 
 export class Chart3D {
@@ -68,6 +72,13 @@ export class Chart3D {
             case DeviceType.Television:
                 this.createTVChart(container, type);
                 break;
+            case DeviceType.SmartMeter:
+                if (type === "gauge") {
+                    this.createSmartMeterDashboard(container);
+                } else {
+                    this.createEmptyChart(container, "Unsupported Chart");
+                }
+                break;
             default:
                 this.createEmptyChart(container, "Unknown Device");
         }
@@ -81,24 +92,18 @@ export class Chart3D {
     }
 
     private createLightbulbChart(container: Group, type: ChartType) {
-        // Lightbulb Data: 1 hour intervals or raw logs. MOCK data has 5-min intervals.
-        // We'll take last 288 points (approx 24 hours).
         const logs = MOCK_LIGHTBULB_DEVICE_LOGS.data.slice(0, 288).reverse();
 
         if (type === "line") {
-            // Line: Brightness (0 if off)
             const values = logs.map(l => (l.onoff && l.brightness ? l.brightness : 0));
-            // Custom labels for 00.00, 06.00, 12.00, 18.00, 24.00
             const axisLabels = ["00.00", "06.00", "12.00", "18.00", "24.00"];
             this.createLineChart(container, values, [], "Brightness", COLORS.blue, 100, false, axisLabels);
         } else if (type === "bar") {
-            // Bar: On vs Off count (using full dataset for better stats)
             const allLogs = MOCK_LIGHTBULB_DEVICE_LOGS.data;
             const onCount = allLogs.filter(l => l.onoff).length;
             const offCount = allLogs.filter(l => !l.onoff).length;
             this.createBarChartSimple(container, [onCount, offCount], ["On", "Off"], [COLORS.green, COLORS.red], "Hours On/Off");
         } else if (type === "pie") {
-            // Pie: Time spent on each color
             const allLogs = MOCK_LIGHTBULB_DEVICE_LOGS.data;
             const colorMap = new Map<string, number>();
             allLogs.forEach(l => {
@@ -114,12 +119,10 @@ export class Chart3D {
         const logs = MOCK_AC_DEVICE_LOGS.data.slice(0, 288).reverse();
 
         if (type === "line") {
-            // Line: Temp (0 if off)
             const values = logs.map(l => (l.onoff && l.temperature ? l.temperature : 0));
             const axisLabels = ["00.00", "06.00", "12.00", "18.00", "24.00"];
             this.createLineChart(container, values, [], "Temperature (°C)", COLORS.cyan, 30, false, axisLabels);
         } else if (type === "bar") {
-            // Bar: On vs Off
             const allLogs = MOCK_AC_DEVICE_LOGS.data;
             const onCount = allLogs.filter(l => l.onoff).length;
             const offCount = allLogs.filter(l => !l.onoff).length;
@@ -133,12 +136,10 @@ export class Chart3D {
         const logs = MOCK_FAN_DEVICE_LOGS.data.slice(0, 288).reverse();
 
         if (type === "line") {
-            // Line: Speed (0 if off)
             const values = logs.map(l => (l.onoff && l.speed ? l.speed : 0));
             const axisLabels = ["00.00", "06.00", "12.00", "18.00", "24.00"];
             this.createLineChart(container, values, [], "Speed", COLORS.green, 5, false, axisLabels);
         } else if (type === "bar") {
-            // Bar: Swing vs No Swing
             const allLogs = MOCK_FAN_DEVICE_LOGS.data;
             const swingCount = allLogs.filter(l => l.onoff && l.swing).length;
             const noSwingCount = allLogs.filter(l => l.onoff && !l.swing).length;
@@ -152,12 +153,10 @@ export class Chart3D {
         const logs = MOCK_TV_DEVICE_LOGS.data.slice(0, 288).reverse();
 
         if (type === "line") {
-            // Line: On/Off (0 or 1)
             const values = logs.map(l => (l.onoff ? 1 : 0));
             const axisLabels = ["00.00", "06.00", "12.00", "18.00", "24.00"];
             this.createLineChart(container, values, [], "Status", COLORS.purple, 1.2, false, axisLabels);
         } else if (type === "bar") {
-            // Bar: Time spent on each channel
             const allLogs = MOCK_TV_DEVICE_LOGS.data;
             const channelMap = new Map<number, number>();
             allLogs.forEach(l => {
@@ -165,17 +164,14 @@ export class Chart3D {
                     channelMap.set(l.channel, (channelMap.get(l.channel) || 0) + 1);
                 }
             });
-            // Convert to arrays, sort by channel
             const sorted = Array.from(channelMap.entries()).sort((a, b) => a[0] - b[0]);
             const labels = sorted.map(s => `Ch ${s[0]}`);
             const values = sorted.map(s => s[1]);
-            // Limit to top 5 or so if too many
             const limit = 8;
             this.createBarChartSimple(container, values.slice(0, limit), labels.slice(0, limit), [COLORS.blue], "Channel Usage");
         } else if (type === "pie") {
-            // Pie: Volume categories 0-25, 26-50, 51-75, 76-100
             const allLogs = MOCK_TV_DEVICE_LOGS.data;
-            const ranges = [0, 0, 0, 0]; // 0-25, 26-50, 51-75, 76+
+            const ranges = [0, 0, 0, 0];
             allLogs.forEach(l => {
                 if (l.onoff && l.volume !== null) {
                     if (l.volume <= 25) ranges[0]++;
@@ -194,7 +190,237 @@ export class Chart3D {
         }
     }
 
-    // --- Chart Primitives ---
+    private createSmartMeterDashboard(container: Group) {
+        const gaugeConfigs = [
+            { key: "v", title: "VOLTAGE", unit: "Volt", max: 250, color: COLORS.blue },
+            { key: "i", title: "CURRENT", unit: "Ampere", max: 50, color: COLORS.red },
+            { key: "P", title: "ACTIVE POWER", unit: "kW", max: 1000, color: COLORS.green },
+            { key: "Q", title: "REACTIVE POWER", unit: "kVAR", max: 1000, color: COLORS.orange },
+            { key: "S", title: "APPARENT POWER", unit: "kVA", max: 1000, color: COLORS.purple },
+            { key: "PF", title: "POWER FACTOR", unit: "", max: 1, color: COLORS.cyan },
+            { key: "KWH", title: "ACTIVE ENERGY", unit: "kWh", max: 5000, color: COLORS.yellow },
+            { key: "KVARH", title: "REACTIVE ENERGY", unit: "kVARh", max: 5000, color: COLORS.pink }
+        ];
+
+        const dashboard = new Group();
+
+        dashboard.scale.setScalar(0.5);
+        container.add(dashboard);
+
+        const cols = 2;
+
+        const spacingX = 2.4;
+        const spacingY = 2.8;
+
+        const startX = -spacingX / 2;
+        const startY = (spacingY * 3) / 2;
+
+        const updateHandlers: Record<string, (val: number) => void> = {};
+
+        gaugeConfigs.forEach((cfg, index) => {
+            const col = index % cols;
+            const row = Math.floor(index / cols);
+
+            const { group, updateFn } = this.createCardGauge(cfg.title, cfg.unit, cfg.max, cfg.color);
+            group.position.set(startX + col * spacingX, startY - row * spacingY, 0);
+            dashboard.add(group);
+            updateHandlers[cfg.key.toLowerCase()] = updateFn;
+        });
+
+        container.userData.updateGauge = (key: string, value: number) => {
+            const handler = updateHandlers[key.toLowerCase()];
+            if (handler) {
+                handler(value);
+            }
+        };
+    }
+
+    private createCardGauge(title: string, unit: string, maxVal: number, primaryColor: string) {
+        const group = new Group();
+
+        // 3D Extrusion settings
+        const innerRadius = 0.75;
+        const outerRadius = 0.95;
+        const midRadius = (innerRadius + outerRadius) / 2;
+        const trackThickness = (outerRadius - innerRadius) / 2;
+        const backdropDepth = 0.08;
+        const progressDepth = 0.12;
+
+        const startAngle = Math.PI + Math.PI / 6;
+        const totalAngleSweep = Math.PI + Math.PI / 3;
+        const endAngle = startAngle - totalAngleSweep;
+
+        const createThickArc = (startA: number, endA: number, depth: number, segments: number) => {
+            const shape = new Shape();
+            shape.absarc(0, 0, outerRadius, startA, endA, true);
+            shape.lineTo(Math.cos(endA) * innerRadius, Math.sin(endA) * innerRadius);
+            shape.absarc(0, 0, innerRadius, endA, startA, false);
+            shape.lineTo(Math.cos(startA) * outerRadius, Math.sin(startA) * outerRadius);
+
+            const geo = new ExtrudeGeometry(shape, { depth: depth, bevelEnabled: false, curveSegments: segments });
+            geo.translate(0, 0, -depth / 2);
+            return geo;
+        };
+
+        const applyGradient = (geo: BufferGeometry, startA: number, endA: number, hexColor: string) => {
+            const count = geo.attributes.position.count;
+            const colors = new Float32Array(count * 3);
+            const targetColor = new Color(hexColor);
+            const baseColor = new Color(COLORS.gaugeBdrop).lerp(targetColor, 0.15);
+
+            const normalize = (a: number) => (a % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+            const sA = normalize(startA);
+            const eA = normalize(endA);
+
+            let totalSweep = sA - eA;
+            if (totalSweep <= 0) totalSweep += 2 * Math.PI;
+
+            const pos = geo.attributes.position;
+            for (let i = 0; i < count; i++) {
+                const x = pos.getX(i);
+                const y = pos.getY(i);
+
+                let a = normalize(Math.atan2(y, x));
+                let swept = sA - a;
+                if (swept < 0) swept += 2 * Math.PI;
+
+                let u = totalSweep === 0 ? 1 : swept / totalSweep;
+                u = Math.max(0, Math.min(1, u));
+
+                const lerped = baseColor.clone().lerp(targetColor, u);
+                colors[i * 3] = lerped.r;
+                colors[i * 3 + 1] = lerped.g;
+                colors[i * 3 + 2] = lerped.b;
+            }
+            geo.setAttribute('color', new BufferAttribute(colors, 3));
+        };
+
+        // --- 1. Backdrop Track ---
+        const bdropGeo = createThickArc(startAngle, endAngle, backdropDepth, 64);
+        const bdropMat = new MeshStandardMaterial({ color: COLORS.gaugeBdrop, roughness: 0.6, metalness: 0.1 });
+
+        // Assert as 'any' to bypass missing SDK-specific BufferGeometry properties like 'computeBoundsTree'
+        const backdropArc = new Mesh(bdropGeo as any, bdropMat);
+        group.add(backdropArc);
+
+        const capGeoBdrop = new CylinderGeometry(trackThickness * 0.98, trackThickness * 0.98, backdropDepth, 32);
+        capGeoBdrop.rotateX(Math.PI / 2);
+
+        const bdropStartCap = new Mesh(capGeoBdrop, bdropMat);
+        bdropStartCap.position.set(Math.cos(startAngle) * midRadius, Math.sin(startAngle) * midRadius, 0);
+        group.add(bdropStartCap);
+
+        const bdropEndCap = new Mesh(capGeoBdrop, bdropMat);
+        bdropEndCap.position.set(Math.cos(endAngle) * midRadius, Math.sin(endAngle) * midRadius, 0);
+        group.add(bdropEndCap);
+
+        // --- 2. Progress Track ---
+        const initialProgressGeo = createThickArc(startAngle, startAngle - 0.001, progressDepth, 32);
+        applyGradient(initialProgressGeo, startAngle, startAngle - 0.001, primaryColor);
+        const progressMat = new MeshStandardMaterial({ vertexColors: true, roughness: 0.4, metalness: 0.2 });
+
+        // Assert as 'any' to bypass strict TS check
+        const progressArc = new Mesh(initialProgressGeo as any, progressMat);
+        progressArc.position.z = 0.01;
+        group.add(progressArc);
+
+        const capGeoProg = new CylinderGeometry(trackThickness * 0.98, trackThickness * 0.98, progressDepth, 32);
+        capGeoProg.rotateX(Math.PI / 2);
+
+        const baseColor = new Color(COLORS.gaugeBdrop).lerp(new Color(primaryColor), 0.15);
+        const baseCapMat = new MeshStandardMaterial({ color: baseColor, roughness: 0.4, metalness: 0.2 });
+        const baseCap = new Mesh(capGeoProg, baseCapMat);
+        baseCap.position.set(Math.cos(startAngle) * midRadius, Math.sin(startAngle) * midRadius, 0.01);
+        group.add(baseCap);
+
+        const tipCapMat = new MeshStandardMaterial({ color: primaryColor, roughness: 0.4, metalness: 0.2 });
+        const tipCap = new Mesh(capGeoProg, tipCapMat);
+        tipCap.position.set(Math.cos(startAngle) * midRadius, Math.sin(startAngle) * midRadius, 0.01);
+        group.add(tipCap);
+
+        // --- 3. 3D Needle ---
+        const pivotGroup = new Group();
+        pivotGroup.position.set(0, 0, 0.08);
+
+        const dotGeo = new CylinderGeometry(0.12, 0.12, 0.06, 32).rotateX(Math.PI / 2);
+        const dot = new Mesh(dotGeo, new MeshStandardMaterial({ color: primaryColor, roughness: 0.4 }));
+        pivotGroup.add(dot);
+
+        const needleShape = new Shape();
+        const nW = 0.15;
+        const nL = innerRadius - 0.05;
+        needleShape.moveTo(-nW / 2, 0);
+        needleShape.lineTo(nW / 2, 0);
+        needleShape.lineTo(0, nL);
+        needleShape.lineTo(-nW / 2, 0);
+
+        const needleGeo = new ExtrudeGeometry(needleShape, { depth: 0.04, bevelEnabled: true, bevelThickness: 0.01, bevelSize: 0.01, bevelSegments: 2 });
+        needleGeo.translate(0, 0, -0.02);
+
+        // Assert as 'any' to bypass strict TS check
+        const needleMesh = new Mesh(needleGeo as any, new MeshStandardMaterial({ color: primaryColor, roughness: 0.4 }));
+        pivotGroup.add(needleMesh);
+
+        group.add(pivotGroup);
+
+        const needleStartRot = startAngle - Math.PI / 2;
+        pivotGroup.rotation.z = needleStartRot;
+
+        // --- 4. Synchronized Label Sizes ---
+        const LABEL_SIZES = { title: 0.25, value: 0.3, unit: 0.2 };
+
+        const titleSprite = this.addLabelWithColor(group, title, 0, 1.3, LABEL_SIZES.title, COLORS.label);
+        const valueSprite = this.addLabelWithColor(group, "0.00", 0, -0.3, LABEL_SIZES.value, COLORS.value, true);
+        const unitSprite = this.addLabelWithColor(group, unit, 0, -0.8, LABEL_SIZES.unit, COLORS.label);
+
+        // --- 5. Update & Animation Logic ---
+        const updateFn = (value: number) => {
+            const clamped = Math.max(0, Math.min(value, maxVal));
+            const t = clamped / maxVal;
+            const targetTotalAngle = Math.max(0.001, t * totalAngleSweep);
+            const targetNeedleAngle = needleStartRot - targetTotalAngle;
+
+            const animateElements = () => {
+                const angleDiff = targetNeedleAngle - pivotGroup.rotation.z;
+
+                if (Math.abs(angleDiff) > 0.005) {
+                    pivotGroup.rotation.z += angleDiff * 0.1;
+
+                    const currentArcLen = Math.max(0.001, needleStartRot - pivotGroup.rotation.z);
+                    const currentEndAngle = startAngle - currentArcLen;
+
+                    progressArc.geometry.dispose();
+                    progressArc.geometry = createThickArc(startAngle, currentEndAngle, progressDepth, 32) as any;
+                    applyGradient(progressArc.geometry as any, startAngle, currentEndAngle, primaryColor);
+
+                    tipCap.position.x = Math.cos(currentEndAngle) * midRadius;
+                    tipCap.position.y = Math.sin(currentEndAngle) * midRadius;
+
+                    requestAnimationFrame(animateElements);
+                } else {
+                    pivotGroup.rotation.z = targetNeedleAngle;
+                    const finalEndAngle = startAngle - targetTotalAngle;
+
+                    progressArc.geometry.dispose();
+                    progressArc.geometry = createThickArc(startAngle, finalEndAngle, progressDepth, 32) as any;
+                    applyGradient(progressArc.geometry as any, startAngle, finalEndAngle, primaryColor);
+
+                    tipCap.position.x = Math.cos(finalEndAngle) * midRadius;
+                    tipCap.position.y = Math.sin(finalEndAngle) * midRadius;
+                }
+            };
+            animateElements();
+
+            const text = value.toFixed(2);
+            const texture = this.createLabelTexture(text, true, COLORS.value);
+            (valueSprite.material as SpriteMaterial).map = texture;
+            const aspect = texture.image.width / texture.image.height;
+
+            valueSprite.scale.set(LABEL_SIZES.value * aspect, LABEL_SIZES.value, 1);
+        };
+
+        return { group, updateFn };
+    }
 
     private createLineChart(
         container: Group,
@@ -210,12 +436,10 @@ export class Chart3D {
         const width = 3;
         const height = 1.5;
 
-        // X Scale: map index to range [-width/2, width / 2]
         const xScale = d3.scaleLinear()
             .domain([0, Math.max(values.length - 1, 1)])
             .range([-width / 2, width / 2]);
 
-        // Y Scale: map value to range [0, height]
         const yScale = d3.scaleLinear()
             .domain([0, maxValue])
             .range([0, height]);
@@ -226,7 +450,6 @@ export class Chart3D {
 
         if (points.length < 2) return;
 
-        // Use CurvePath with LineCurve3 for straight segments to avoid overshooting
         const curvePath = new CurvePath<Vector3>();
         for (let i = 0; i < points.length - 1; i++) {
             curvePath.add(new LineCurve3(points[i], points[i + 1]));
@@ -246,7 +469,6 @@ export class Chart3D {
         });
         container.add(new Mesh(tubeGeo, tubeMat));
 
-        // Points
         if (showPoints) {
             values.forEach((v, i) => {
                 const p = points[i];
@@ -264,25 +486,20 @@ export class Chart3D {
                 sphere.position.copy(p);
                 container.add(sphere);
 
-                // Label every 4th point if no custom axis labels
                 if (!axisLabels && i % 4 === 0 && labels[i]) {
                     this.addLabel(container, labels[i], p.x, -0.2, 0.15);
                 }
             });
         }
 
-        // Custom Axis Labels
         if (axisLabels) {
             axisLabels.forEach((label, i) => {
-                // Distribute evenly based on chart width range
                 const progress = i / (axisLabels.length - 1);
-                // Map progress to data index domain
                 const dataIndex = progress * (values.length - 1);
                 const x = xScale(dataIndex);
                 this.addLabel(container, label, x, -0.2, 0.15);
             });
         } else if (!showPoints) {
-            // If points hidden but no custom axis labels, show default labels spaced out
             values.forEach((v, i) => {
                 if (i % Math.ceil(values.length / 5) === 0 && labels[i]) {
                     const p = points[i];
@@ -299,7 +516,6 @@ export class Chart3D {
         const height = 1.5;
         const chartWidth = 2.5;
 
-        // X Scale: Band scale for bars
         const xScale = d3.scaleBand()
             .domain(values.map((_, i) => i.toString()))
             .range([-chartWidth / 2, chartWidth / 2])
@@ -307,7 +523,6 @@ export class Chart3D {
 
         const barWidth = xScale.bandwidth();
 
-        // Y Scale
         const yScale = d3.scaleLinear()
             .domain([0, maxValue])
             .range([0, height]);
@@ -316,7 +531,6 @@ export class Chart3D {
             const h = yScale(v);
             const c = colors.length > 1 ? colors[i % colors.length] : colors[0];
 
-            // iOS Liquid Glass style material
             const geo = new BoxGeometry(barWidth, h, barWidth);
             const mat = new MeshPhysicalMaterial({
                 color: c,
@@ -331,7 +545,6 @@ export class Chart3D {
             });
             const mesh = new Mesh(geo, mat);
 
-            // Calculate x position centered
             const x = (xScale(i.toString()) || 0) + barWidth / 2;
 
             mesh.position.set(x, h / 2, 0);
@@ -341,7 +554,6 @@ export class Chart3D {
             this.addLabel(container, this.formatDuration(v), mesh.position.x, h + 0.1, 0.15);
         });
 
-        // Add axes for better context - 24h scale (288 * 5min = 1440min = 24h)
         const dayMax = 288;
         this.addAxes(container, chartWidth, height, title, dayMax, (val) => this.formatDuration(val));
     }
@@ -366,7 +578,6 @@ export class Chart3D {
         const radius = 0.8;
         const height = 0.2;
 
-        // D3 Pie Generator
         const entries = Array.from(data.entries());
         const pie = d3.pie<[string, number]>()
             .sort(null)
@@ -375,7 +586,7 @@ export class Chart3D {
         const pieData = pie(entries);
 
         const isHex = (s: string) => s.startsWith("#");
-        const palette = [COLORS.blue, COLORS.green, COLORS.orange, COLORS.purple, COLORS.red, COLORS.yellow, COLORS.cyan];
+        const palette = [COLORS.blue, COLORS.green, COLORS.orange, COLORS.purple, COLORS.red, COLORS.yellow, COLORS.cyan, COLORS.pink];
 
         pieData.forEach((d, i) => {
             const [key, val] = d.data;
@@ -383,7 +594,6 @@ export class Chart3D {
 
             const color = isHex(key) ? key : palette[i % palette.length];
 
-            // Note: CylinderGeometry 0 starts at +X.
             const geo = new CylinderGeometry(radius, radius, height, 32, 1, false, d.startAngle, angle);
             const mat = new MeshPhysicalMaterial({
                 color,
@@ -400,12 +610,8 @@ export class Chart3D {
             mesh.position.y = height / 2;
             container.add(mesh);
 
-            // Label position
             const midAngle = (d.startAngle + d.endAngle) / 2;
             const labelR = radius + 0.3;
-            // Standard polar coordinates on XZ plane (y is up)
-            // x = R * cos(theta), z = R = sin(theta) - wait, CylinderGeometry rotates CCW around Y?
-            // Yes.
             const lx = Math.cos(midAngle) * labelR;
             const lz = Math.sin(midAngle) * labelR;
 
@@ -418,28 +624,22 @@ export class Chart3D {
         this.addLabel(container, text, 0, 0.5, 0.3);
     }
 
-    // --- Helpers ---
-
     private addAxes(container: Group, width: number, height: number, title: string, maxValue?: number, labelFormatter?: (v: number) => string) {
-        // X axis
         const points = [new ThreeVector3(-width / 2, 0, 0), new ThreeVector3(width / 2, 0, 0)];
         const geo = new BufferGeometry().setFromPoints(points as any);
         const xGeo = new Line(geo as any, new LineBasicMaterial({ color: COLORS.grid }));
         container.add(xGeo);
 
-        // Y axis
         const yPoints = [new ThreeVector3(-width / 2, 0, 0), new ThreeVector3(-width / 2, height, 0)];
         const yGeo = new BufferGeometry().setFromPoints(yPoints as any);
         const yLine = new Line(yGeo as any, new LineBasicMaterial({ color: COLORS.grid }));
         container.add(yLine);
 
-        // Y axis labels
         if (maxValue !== undefined) {
-            const steps = 3; // 0, 8h, 16h, 24h for 24h scale
+            const steps = 3;
             for (let i = 0; i <= steps; i++) {
                 const y = (i / steps) * height;
                 const rawValue = (i / steps) * maxValue;
-                // Use formatter if provided, otherwise round to string
                 const label = labelFormatter ? labelFormatter(rawValue) : Math.round(rawValue).toString();
                 this.addLabel(container, label, -width / 2 - 0.4, y, 0.12);
             }
@@ -450,42 +650,53 @@ export class Chart3D {
         this.addLabel(container, text, 0, y, 0.25);
     }
 
-    private addLabel(container: Group, text: string, x: number, y: number, size: number, z: number = 0) {
-        const texture = this.createLabelTexture(text);
+    private addLabelWithColor(container: Group, text: string, x: number, y: number, size: number, color: string, isValueText = false, z = 0.1) {
+        const texture = this.createLabelTexture(text, isValueText, color);
         const mat = new SpriteMaterial({ map: texture, transparent: true });
         const sprite = new Sprite(mat);
         sprite.position.set(x, y, z);
         const aspect = texture.image.width / texture.image.height;
         sprite.scale.set(size * aspect, size, 1);
-        sprite.raycast = () => { }; // Disable raycasting for labels
+        sprite.raycast = () => { };
         container.add(sprite as any);
+        return sprite;
     }
 
-    private createLabelTexture(text: string): CanvasTexture {
+    private addLabel(container: Group, text: string, x: number, y: number, size: number, z: number = 0) {
+        this.addLabelWithColor(container, text, x, y, size, "#ffffff", false, z);
+    }
+
+    private createLabelTexture(text: string, isValueText = false, color = "#000000", bgColor = "rgba(0,0,0,0)", fontSizeMult = 1): CanvasTexture {
         const canvas = document.createElement("canvas");
         const ctx = canvas.getContext("2d");
         if (!ctx) return new CanvasTexture(canvas);
 
-        const fontSize = 48;
+        const resolutionMultiplier = 4;
+        const baseFontSize = (isValueText ? 64 : 48) * fontSizeMult;
+        const fontSize = baseFontSize * resolutionMultiplier;
+
         ctx.font = `bold ${fontSize}px sans-serif`;
         const metrics = ctx.measureText(text);
-        const width = metrics.width + 20;
-        const height = fontSize + 20;
+
+        const padding = 20 * resolutionMultiplier;
+        const width = metrics.width + padding;
+        const height = fontSize + padding;
 
         canvas.width = width;
         canvas.height = height;
 
-        // Reset context after resize
-        ctx.font = `bold ${fontSize}px Arial`; // Use Arial for better compatibility
-        ctx.fillStyle = "rgba(0,0,0,0)"; // Transparent background
+        ctx.font = `bold ${fontSize}px sans-serif`;
+        ctx.fillStyle = bgColor;
         ctx.fillRect(0, 0, width, height);
 
-        ctx.fillStyle = "#ffffff";
+        ctx.fillStyle = color;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText(text, width / 2, height / 2);
 
-        return new CanvasTexture(canvas);
+        const texture = new CanvasTexture(canvas);
+        texture.anisotropy = 16;
+        return texture;
     }
 }
 

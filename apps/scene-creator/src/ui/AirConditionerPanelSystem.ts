@@ -10,6 +10,8 @@ import {
   Euler,
 } from "@iwsdk/core";
 
+import { Vector3 } from "three";
+
 import { DeviceComponent } from "../components/DeviceComponent";
 import { deviceStore, getStore } from "../store/DeviceStore";
 import { DeviceType } from "../types";
@@ -167,10 +169,12 @@ export class AirConditionerPanelSystem extends createSystem({
     const store = getStore();
     const device = store.getAirConditioner(deviceId);
 
-    // Get world matrix rotation (accounts for parent transforms)
+    // Get world matrix rotation for debugging/display
     object3D.updateMatrixWorld(true);
     const worldQuaternion = object3D.getWorldQuaternion(new Quaternion());
-    const worldEuler = new Euler().setFromQuaternion(worldQuaternion);
+    const worldEuler = new Euler().setFromQuaternion(worldQuaternion as any);
+    const worldPos = new Vector3();
+    object3D.getWorldPosition(worldPos as any);
 
     // Convert rotation from radians to degrees for readability
     const radToDeg = (rad: number) => (rad * 180) / Math.PI;
@@ -182,10 +186,17 @@ export class AirConditionerPanelSystem extends createSystem({
     console.log(
       `╠══════════════════════════════════════════════════════════════╣`,
     );
-    console.log(`║ 📍 POSITION (World Coordinates)`);
+    console.log(`║ 📍 POSITION (Local Coordinates)`);
     console.log(`║    X: ${pos.x.toFixed(3)}`);
     console.log(`║    Y: ${pos.y.toFixed(3)}`);
     console.log(`║    Z: ${pos.z.toFixed(3)}`);
+    console.log(
+      `╠══════════════════════════════════════════════════════════════╣`,
+    );
+    console.log(`║ 🌍 POSITION (World Coordinates)`);
+    console.log(`║    X: ${worldPos.x.toFixed(3)}`);
+    console.log(`║    Y: ${worldPos.y.toFixed(3)}`);
+    console.log(`║    Z: ${worldPos.z.toFixed(3)}`);
     console.log(
       `╠══════════════════════════════════════════════════════════════╣`,
     );
@@ -237,12 +248,12 @@ export class AirConditionerPanelSystem extends createSystem({
       scale: { x: scale.x, y: scale.y, z: scale.z },
       properties: device
         ? {
-          is_on: device.is_on,
-          temperature: device.temperature,
-          room: device.room_name,
-          floor: device.floor_name,
-          home: device.home_name,
-        }
+            is_on: device.is_on,
+            temperature: device.temperature,
+            room: device.room_name,
+            floor: device.floor_name,
+            home: device.home_name,
+          }
         : null,
     });
   }
@@ -260,15 +271,12 @@ export class AirConditionerPanelSystem extends createSystem({
     const object3D = record.entity.object3D;
     const pos = object3D.position;
 
-    // Get world rotation Y (accounts for parent transforms)
-    object3D.updateMatrixWorld(true);
-    const worldQuaternion = object3D.getWorldQuaternion(new Quaternion());
-    const worldEuler = new Euler().setFromQuaternion(worldQuaternion);
-    const rotationY = (worldEuler.y * 180) / Math.PI;
+    // We now use local rotation
+    const rotationY = (object3D.rotation.y * 180) / Math.PI;
 
     console.log(
-      `[ACPanel] Saving position for device ${deviceId}:`,
-      `x: ${pos.x.toFixed(3)}, y: ${pos.y.toFixed(3)}, z: ${pos.z.toFixed(3)}, rotation_y: ${rotationY.toFixed(2)}° (world)`,
+      `[ACPanel] Saving local position for device ${deviceId}:`,
+      `x: ${pos.x.toFixed(3)}, y: ${pos.y.toFixed(3)}, z: ${pos.z.toFixed(3)}, rotation_y: ${rotationY.toFixed(2)}° (local)`,
     );
 
     try {

@@ -13,12 +13,13 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as HomesRouteImport } from './routes/homes'
-import { Route as EnergyRouteImport } from './routes/energy'
+import { Route as FurnitureRouteImport } from './routes/furniture'
 import { Route as DevicesRouteImport } from './routes/devices'
 import { Route as AutomationRouteImport } from './routes/automation'
-import { Route as ActivityRouteImport } from './routes/activity'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ActivityIndexRouteImport } from './routes/activity/index'
 import { Route as HomesHomeIdRouteImport } from './routes/homes.$homeId'
+import { Route as ActivityDeviceIdRouteImport } from './routes/activity/$deviceId'
 
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
@@ -40,9 +41,9 @@ const HomesRoute = HomesRouteImport.update({
   path: '/homes',
   getParentRoute: () => rootRouteImport,
 } as any)
-const EnergyRoute = EnergyRouteImport.update({
-  id: '/energy',
-  path: '/energy',
+const FurnitureRoute = FurnitureRouteImport.update({
+  id: '/furniture',
+  path: '/furniture',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DevicesRoute = DevicesRouteImport.update({
@@ -55,14 +56,14 @@ const AutomationRoute = AutomationRouteImport.update({
   path: '/automation',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ActivityRoute = ActivityRouteImport.update({
-  id: '/activity',
-  path: '/activity',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ActivityIndexRoute = ActivityIndexRouteImport.update({
+  id: '/activity/',
+  path: '/activity/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HomesHomeIdRoute = HomesHomeIdRouteImport.update({
@@ -70,93 +71,105 @@ const HomesHomeIdRoute = HomesHomeIdRouteImport.update({
   path: '/$homeId',
   getParentRoute: () => HomesRoute,
 } as any)
+const ActivityDeviceIdRoute = ActivityDeviceIdRouteImport.update({
+  id: '/activity/$deviceId',
+  path: '/activity/$deviceId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/activity': typeof ActivityRoute
   '/automation': typeof AutomationRoute
   '/devices': typeof DevicesRoute
-  '/energy': typeof EnergyRoute
+  '/furniture': typeof FurnitureRoute
   '/homes': typeof HomesRouteWithChildren
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/settings': typeof SettingsRoute
+  '/activity/$deviceId': typeof ActivityDeviceIdRoute
   '/homes/$homeId': typeof HomesHomeIdRoute
+  '/activity/': typeof ActivityIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/activity': typeof ActivityRoute
   '/automation': typeof AutomationRoute
   '/devices': typeof DevicesRoute
-  '/energy': typeof EnergyRoute
+  '/furniture': typeof FurnitureRoute
   '/homes': typeof HomesRouteWithChildren
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/settings': typeof SettingsRoute
+  '/activity/$deviceId': typeof ActivityDeviceIdRoute
   '/homes/$homeId': typeof HomesHomeIdRoute
+  '/activity': typeof ActivityIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/activity': typeof ActivityRoute
   '/automation': typeof AutomationRoute
   '/devices': typeof DevicesRoute
-  '/energy': typeof EnergyRoute
+  '/furniture': typeof FurnitureRoute
   '/homes': typeof HomesRouteWithChildren
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/settings': typeof SettingsRoute
+  '/activity/$deviceId': typeof ActivityDeviceIdRoute
   '/homes/$homeId': typeof HomesHomeIdRoute
+  '/activity/': typeof ActivityIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/activity'
     | '/automation'
     | '/devices'
-    | '/energy'
+    | '/furniture'
     | '/homes'
     | '/login'
     | '/register'
     | '/settings'
+    | '/activity/$deviceId'
     | '/homes/$homeId'
+    | '/activity/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/activity'
     | '/automation'
     | '/devices'
-    | '/energy'
+    | '/furniture'
     | '/homes'
     | '/login'
     | '/register'
     | '/settings'
+    | '/activity/$deviceId'
     | '/homes/$homeId'
+    | '/activity'
   id:
     | '__root__'
     | '/'
-    | '/activity'
     | '/automation'
     | '/devices'
-    | '/energy'
+    | '/furniture'
     | '/homes'
     | '/login'
     | '/register'
     | '/settings'
+    | '/activity/$deviceId'
     | '/homes/$homeId'
+    | '/activity/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  ActivityRoute: typeof ActivityRoute
   AutomationRoute: typeof AutomationRoute
   DevicesRoute: typeof DevicesRoute
-  EnergyRoute: typeof EnergyRoute
+  FurnitureRoute: typeof FurnitureRoute
   HomesRoute: typeof HomesRouteWithChildren
   LoginRoute: typeof LoginRoute
   RegisterRoute: typeof RegisterRoute
   SettingsRoute: typeof SettingsRoute
+  ActivityDeviceIdRoute: typeof ActivityDeviceIdRoute
+  ActivityIndexRoute: typeof ActivityIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -189,11 +202,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HomesRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/energy': {
-      id: '/energy'
-      path: '/energy'
-      fullPath: '/energy'
-      preLoaderRoute: typeof EnergyRouteImport
+    '/furniture': {
+      id: '/furniture'
+      path: '/furniture'
+      fullPath: '/furniture'
+      preLoaderRoute: typeof FurnitureRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/devices': {
@@ -210,18 +223,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AutomationRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/activity': {
-      id: '/activity'
-      path: '/activity'
-      fullPath: '/activity'
-      preLoaderRoute: typeof ActivityRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/': {
       id: '/'
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/activity/': {
+      id: '/activity/'
+      path: '/activity'
+      fullPath: '/activity/'
+      preLoaderRoute: typeof ActivityIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/homes/$homeId': {
@@ -230,6 +243,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/homes/$homeId'
       preLoaderRoute: typeof HomesHomeIdRouteImport
       parentRoute: typeof HomesRoute
+    }
+    '/activity/$deviceId': {
+      id: '/activity/$deviceId'
+      path: '/activity/$deviceId'
+      fullPath: '/activity/$deviceId'
+      preLoaderRoute: typeof ActivityDeviceIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
   }
 }
@@ -246,14 +266,15 @@ const HomesRouteWithChildren = HomesRoute._addFileChildren(HomesRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  ActivityRoute: ActivityRoute,
   AutomationRoute: AutomationRoute,
   DevicesRoute: DevicesRoute,
-  EnergyRoute: EnergyRoute,
+  FurnitureRoute: FurnitureRoute,
   HomesRoute: HomesRouteWithChildren,
   LoginRoute: LoginRoute,
   RegisterRoute: RegisterRoute,
   SettingsRoute: SettingsRoute,
+  ActivityDeviceIdRoute: ActivityDeviceIdRoute,
+  ActivityIndexRoute: ActivityIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

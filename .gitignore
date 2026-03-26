@@ -117,7 +117,11 @@ venv.bak/
 .dmypy.json
 dmypy.json
 .pyre/
+# Django media files (user uploads)
 media/
+apps/backend/media/
+# Room model uploads
+**/room_models/
 staticfiles/
 
 # ===== Nx / Turborepo =====
@@ -181,4 +185,5 @@ apps/*/certs/
 # ===== Scene Creator =====
 apps/scene-creator/scripts/
 apps/scene-creator/room-scans/
-chairs-etc/
+webxr-showcases-main/
+python-talk-main/

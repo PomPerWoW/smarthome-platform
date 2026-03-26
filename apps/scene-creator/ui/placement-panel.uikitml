@@ -1,0 +1,221 @@
+<style>
+  .panel-container {
+    align-items: flex-start;
+    padding: 2;
+    width: 46;
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    background-color: rgba(226, 232, 240, 0.34);
+    backdrop-filter: blur(72px) saturate(160%);
+    -webkit-backdrop-filter: blur(72px) saturate(160%);
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    border-color: rgba(255, 255, 255, 0.14);
+    border-width: 0.15;
+    border-radius: 2.2;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    overflow: hidden;
+  }
+
+  .top-accent {
+    height: 0.35;
+    width: 100%;
+    background-color: #3b82f6;
+    border-radius: 0.3;
+    margin-bottom: 1.2;
+  }
+
+  .panel-header {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 1;
+    margin-bottom: 0.5;
+    width: 100%;
+  }
+
+  .heading {
+    font-size: 2.6;
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  .panel-sub {
+    font-size: 1.45;
+    color: #64748b;
+    margin-bottom: 1.2;
+    line-height: 1.35;
+    width: 100%;
+  }
+
+  .section-label {
+    font-size: 1.35;
+    font-weight: 700;
+    color: #475569;
+    letter-spacing: 0.12;
+    text-transform: uppercase;
+    margin-top: 1.2;
+    margin-bottom: 0.6;
+    width: 100%;
+  }
+
+  .item-grid {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 1;
+    width: 100%;
+  }
+
+  .item-btn {
+    width: 19;
+    padding: 1.2;
+    background-color: rgba(255, 255, 255, 0.18);
+    border-radius: 1.5;
+    border-width: 0.1;
+    border-color: rgba(255, 255, 255, 0.30);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5;
+    cursor: pointer;
+  }
+
+  .item-btn:hover {
+    background-color: rgba(255, 255, 255, 0.26);
+    border-color: rgba(37, 99, 235, 0.42);
+  }
+
+  .item-icon {
+    width: 4;
+    height: 4;
+    object-fit: contain;
+  }
+
+  .item-label {
+    font-size: 1.4;
+    color: #334155;
+    text-align: center;
+  }
+
+  .close-btn {
+    width: 100%;
+    padding: 1;
+    background-color: rgba(255, 255, 255, 0.18);
+    border-width: 0.1;
+    border-color: rgba(255, 255, 255, 0.30);
+    border-radius: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 2;
+    cursor: pointer;
+  }
+
+  .close-btn:hover {
+    background-color: rgba(255, 255, 255, 0.26);
+  }
+
+  .close-text {
+    font-size: 1.6;
+    color: #0f172a;
+  }
+</style>
+
+<div class="panel-container">
+  <div class="top-accent"></div>
+  <div class="panel-header">
+    <PackageIcon class="heading" style="width: 3.2; height: 3.2; color: #60a5fa;" />
+    <span class="heading">Place items</span>
+  </div>
+  <span class="panel-sub">Spawn devices, furniture, and wallpaper into the room. Open from the main portal.</span>
+
+  <span class="section-label">Smart devices</span>
+  <div class="item-grid">
+    <div class="item-btn" id="place-lightbulb">
+      <img class="item-icon" src="./ui/thumbnails/lightbulb.png"></img>
+      <span class="item-label">Light</span>
+    </div>
+    <div class="item-btn" id="place-television">
+      <img class="item-icon" src="./ui/thumbnails/television.png"></img>
+      <span class="item-label">TV</span>
+    </div>
+    <div class="item-btn" id="place-fan">
+      <img class="item-icon" src="./ui/thumbnails/fan.png"></img>
+      <span class="item-label">Fan</span>
+    </div>
+    <div class="item-btn" id="place-ac">
+      <img class="item-icon" src="./ui/thumbnails/ac.png"></img>
+      <span class="item-label">AC</span>
+    </div>
+  </div>
+
+  <span class="section-label">Furniture</span>
+  <div class="item-grid">
+    <div class="item-btn" id="place-chair">
+      <img class="item-icon" src="./ui/thumbnails/chair.png"></img>
+      <span class="item-label">Chair</span>
+    </div>
+    <div class="item-btn" id="place-chair2">
+      <img class="item-icon" src="./ui/thumbnails/chair.png"></img>
+      <span class="item-label">Chair 2</span>
+    </div>
+    <div class="item-btn" id="place-chair3">
+      <img class="item-icon" src="./ui/thumbnails/chair.png"></img>
+      <span class="item-label">Chair 3</span>
+    </div>
+    <div class="item-btn" id="place-chair4">
+      <img class="item-icon" src="./ui/thumbnails/chair.png"></img>
+      <span class="item-label">Chair 4</span>
+    </div>
+    <div class="item-btn" id="place-chair5">
+      <img class="item-icon" src="./ui/thumbnails/chair.png"></img>
+      <span class="item-label">Chair 5</span>
+    </div>
+    <div class="item-btn" id="place-chair6">
+      <img class="item-icon" src="./ui/thumbnails/chair.png"></img>
+      <span class="item-label">Chair 6</span>
+    </div>
+  </div>
+
+  <span class="section-label">Wallpaper</span>
+  <div class="item-grid">
+    <div class="item-btn" id="place-wallpaper-upload">
+      <span class="item-label" style="font-size: 2.5;">🖼</span>
+      <span class="item-label">Upload Image</span>
+    </div>
+    <div class="item-btn" id="place-wallpaper-white">
+      <span class="item-label" style="font-size: 2.5; color: #f8f8f8;">■</span>
+      <span class="item-label">White</span>
+    </div>
+    <div class="item-btn" id="place-wallpaper-cream">
+      <span class="item-label" style="font-size: 2.5; color: #fdf6e3;">■</span>
+      <span class="item-label">Cream</span>
+    </div>
+    <div class="item-btn" id="place-wallpaper-sky">
+      <span class="item-label" style="font-size: 2.5; color: #bfdbfe;">■</span>
+      <span class="item-label">Sky Blue</span>
+    </div>
+    <div class="item-btn" id="place-wallpaper-sage">
+      <span class="item-label" style="font-size: 2.5; color: #bbf7d0;">■</span>
+      <span class="item-label">Sage</span>
+    </div>
+    <div class="item-btn" id="place-wallpaper-blush">
+      <span class="item-label" style="font-size: 2.5; color: #fecdd3;">■</span>
+      <span class="item-label">Blush</span>
+    </div>
+    <div class="item-btn" id="place-wallpaper-lavender">
+      <span class="item-label" style="font-size: 2.5; color: #ddd6fe;">■</span>
+      <span class="item-label">Lavender</span>
+    </div>
+  </div>
+
+  <div class="close-btn" id="remove-wallpaper" style="margin-top: 1; background-color: rgba(239, 68, 68, 0.18); border-color: rgba(239, 68, 68, 0.38);">
+    <span class="close-text" style="color: #7f1d1d;">🗑 Remove Wallpaper</span>
+  </div>
+
+  <div class="close-btn" id="close-placement">
+    <span class="close-text">Close</span>
+  </div>
+</div>

@@ -4,7 +4,7 @@ import { useGLTF, OrbitControls, Environment, Center } from "@react-three/drei";
 import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 
-const ROOM_MODEL_PATH = "/models/rooms/modern_dining_room/scene.gltf";
+const ROOM_MODEL_PATH = `${import.meta.env.BASE_URL}models/rooms/modern_dining_room/scene.gltf`;
 
 // Rotation limits (180 degrees = PI radians, centered around the front view)
 const MIN_AZIMUTH = -Math.PI / 2; // -90 degrees

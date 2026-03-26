@@ -6,10 +6,15 @@ export class WebSocketClient {
   private static instance: WebSocketClient;
   private socket: WebSocket | null = null;
   private listeners: Set<MessageHandler> = new Set();
+  private connectCallbacks: Set<() => void> = new Set();
+  private disconnectCallbacks: Set<() => void> = new Set();
   private reconnectInterval: number = 3000;
   private shouldReconnect: boolean = true;
   private reconnectAttempts: number = 0;
   private maxReconnectAttempts: number = 10;
+  private pingInterval: any = null;
+
+  private cachedToken: string | null = null;
 
   private constructor() {}
 
@@ -20,7 +25,9 @@ export class WebSocketClient {
     return WebSocketClient.instance;
   }
 
-  connect(): void {
+  connect(token?: string): void {
+    if (token) this.cachedToken = token;
+
     if (
       this.socket?.readyState === WebSocket.OPEN ||
       this.socket?.readyState === WebSocket.CONNECTING
@@ -32,7 +39,12 @@ export class WebSocketClient {
     this.shouldReconnect = true;
     const backendUrl = config.BACKEND_URL;
     // Convert https:// to wss:// or http:// to ws://
-    const wsUrl = backendUrl.replace(/^http/, "ws") + "/ws/homes/";
+    let wsUrl = backendUrl.replace(/^http/, "ws") + "/ws/homes/";
+
+    // Append token as query parameter for reliable cross-origin auth
+    if (this.cachedToken) {
+      wsUrl += `?token=${this.cachedToken}`;
+    }
 
     console.log("[WebSocket] Connecting to:", wsUrl);
 
@@ -41,6 +53,8 @@ export class WebSocketClient {
     this.socket.onopen = () => {
       console.log("[WebSocket] Connected successfully");
       this.reconnectAttempts = 0;
+      this.startHeartbeat();
+      this.connectCallbacks.forEach((cb) => cb());
     };
 
     this.socket.onmessage = (event) => {
@@ -55,6 +69,7 @@ export class WebSocketClient {
 
     this.socket.onclose = (event) => {
       console.log("[WebSocket] Disconnected:", event.code, event.reason);
+      this.stopHeartbeat();
       this.socket = null;
 
       if (
@@ -65,6 +80,7 @@ export class WebSocketClient {
         console.log(
           `[WebSocket] Reconnecting in ${this.reconnectInterval}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`,
         );
+        this.disconnectCallbacks.forEach((cb) => cb());
         setTimeout(() => this.connect(), this.reconnectInterval);
       }
     };
@@ -78,6 +94,7 @@ export class WebSocketClient {
   disconnect(): void {
     console.log("[WebSocket] Disconnecting...");
     this.shouldReconnect = false;
+    this.stopHeartbeat();
     this.socket?.close();
     this.socket = null;
   }
@@ -87,12 +104,37 @@ export class WebSocketClient {
     return () => this.listeners.delete(handler);
   }
 
+  /** Register a callback that fires once the WebSocket connection is established. */
+  onConnect(callback: () => void): () => void {
+    this.connectCallbacks.add(callback);
+    return () => this.connectCallbacks.delete(callback);
+  }
+
+  /** Register a callback that fires when the WebSocket connection is lost (before reconnect). */
+  onDisconnect(callback: () => void): () => void {
+    this.disconnectCallbacks.add(callback);
+    return () => this.disconnectCallbacks.delete(callback);
+  }
+
   private notifyListeners(data: any): void {
     this.listeners.forEach((handler) => handler(data));
   }
 
   isConnected(): boolean {
     return this.socket?.readyState === WebSocket.OPEN;
+  }
+
+  private startHeartbeat(): void {
+    this.stopHeartbeat();
+    this.pingInterval = setInterval(() => {
+      if (this.socket?.readyState === WebSocket.OPEN) {
+        this.socket.send(JSON.stringify({ action: "ping" }));
+      }
+    }, 30000); // 30 seconds
+  }
+
+  private stopHeartbeat(): void {
+    if (this.pingInterval) clearInterval(this.pingInterval);
   }
 }
 

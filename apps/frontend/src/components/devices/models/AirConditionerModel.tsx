@@ -12,7 +12,7 @@ export function AirConditionerModel({
   temperature,
 }: AirConditionerModelProps) {
   const groupRef = useRef<THREE.Group>(null);
-  const { scene } = useGLTF("/models/devices/air_conditioner/scene.gltf");
+  const { scene } = useGLTF(`${import.meta.env.BASE_URL}models/devices/air_conditioner/scene.gltf`);
 
   // Calculate color based on temperature (cold = blue, warm = orange)
   const normalizedTemp = Math.max(0, Math.min(1, (temperature - 16) / 14));
@@ -48,4 +48,4 @@ export function AirConditionerModel({
   );
 }
 
-useGLTF.preload("/models/devices/air_conditioner/scene.gltf");
+useGLTF.preload(`${import.meta.env.BASE_URL}models/devices/air_conditioner/scene.gltf`);

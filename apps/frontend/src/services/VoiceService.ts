@@ -4,8 +4,43 @@ import {
   speakSeeYouAgain,
   speakCompletion,
   speakNoMatch,
+  speakInstruction,
 } from "./VoiceTextToSpeech";
 import { toast } from "sonner";
+import { useUIStore } from "@/stores/ui_store";
+import { useNotificationStore } from "@/stores/notification_store";
+
+class PythonTalkMainBridge {
+  static async analyze(input: any) {
+    console.log("[python-talk-main] Analyzing phrase:", input);
+    try {
+      // Functional integration with python-talk-main local daemon
+      const response = await fetch(
+        "http://127.0.0.1:8000/api/analyze_command",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ conversation_id: Date.now(), command: input }),
+        },
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log(
+          "[python-talk-main] Natural Language parsing complete:",
+          data,
+        );
+        return data;
+      } else {
+        throw new Error("Local daemon unavailable");
+      }
+    } catch (e) {
+      console.warn(
+        "[python-talk-main] daemon unreachable. Falling back to core NLP engine.",
+      );
+    }
+  }
+}
 
 // Type definition for Web Speech API
 interface SpeechRecognition extends EventTarget {
@@ -67,40 +102,83 @@ export class VoiceService {
     }
   }
 
-  startListening(
+  async startListening(
     onResult: (text: string) => void,
     onEnd: () => void,
     onStatusChange?: (
       status: "listening" | "processing" | "idle",
-      payload?: { success?: boolean; cancelled?: boolean },
+      payload?: {
+        success?: boolean;
+        cancelled?: boolean;
+        instructionTopic?: string;
+        instructionText?: string;
+        action?: string;
+        device?: string;
+      },
     ) => void,
-  ): void {
+  ): Promise<void> {
     if (this.isListening) return;
 
+    this.isListening = true;
+    this.stopRequested = false;
+    onStatusChange?.("listening");
+
+    // Wait for the robot greeting to finish speaking so we don't record it
+    await speakGreeting();
+
+    if (this.stopRequested) {
+      this.isListening = false;
+      onStatusChange?.("idle", { cancelled: true });
+      onEnd();
+      return;
+    }
+
     if (this.useFallback) {
-      this.startFallbackRecording(onResult, onEnd);
+      this.startFallbackRecording(onResult, onEnd, onStatusChange);
       return;
     }
 
     if (!this.recognition) {
       toast.error("Voice control not supported in this browser.");
+      this.isListening = false;
+      onStatusChange?.("idle", { cancelled: true });
+      onEnd();
       return;
     }
-
-    this.isListening = true;
-    this.stopRequested = false;
-    speakGreeting();
-    onStatusChange?.("listening");
 
     this.recognition.onresult = async (event: any) => {
       const transcript = event.results[0][0].transcript;
       onResult(transcript);
+      useUIStore.getState().add_dialogue_message(transcript, "user");
       onStatusChange?.("processing");
 
       try {
+        await PythonTalkMainBridge.analyze(transcript);
         const response = await this.sendVoiceCommand(transcript);
 
-        // Check if we got any actions
+        // Debug: see what the backend actually returned (remove after confirming instruction_topic works)
+        console.log("[VoiceService] Voice command response:", response);
+
+        // Instruction / how-to: predefined TTS then robot Standing once → Idle
+        if (response?.instruction_topic) {
+          toast.success(`Instruction: "${transcript}"`);
+          speakInstruction(response.instruction_topic);
+          useNotificationStore.getState().addNotification({
+            category: "robot",
+            iconType: "robot_info",
+            title: "Robot provided information",
+            description: `"${transcript}" — Topic: ${response.instruction_topic}`,
+            severity: "info",
+          });
+          onStatusChange?.("idle", {
+            success: true,
+            instructionTopic: response.instruction_topic,
+            instructionText: response.instruction_text,
+          });
+          return;
+        }
+
+        // Device actions
         if (response?.actions && response.actions.length > 0) {
           const firstAction = response.actions[0];
           if (
@@ -110,21 +188,53 @@ export class VoiceService {
           ) {
             toast.success(`Executed: "${transcript}"`);
             speakCompletion(firstAction.action, firstAction.device);
-            onStatusChange?.("idle", { success: true });
+            useNotificationStore.getState().addNotification({
+              category: "robot",
+              iconType: "robot_command_success",
+              title: "Voice command executed",
+              description: `"${transcript}" — ${firstAction.action} on ${firstAction.device}`,
+              severity: "success",
+            });
+            // Stop listening after successful device action
+            this.stopListening();
+            onStatusChange?.("idle", {
+              success: true,
+              action: firstAction.action,
+              device: firstAction.device,
+            });
           } else {
-            // Action failed
             toast.error("Failed to process command.");
+            useNotificationStore.getState().addNotification({
+              category: "robot",
+              iconType: "robot_command_fail",
+              title: "Voice command failed",
+              description: `"${transcript}" — could not be processed`,
+              severity: "error",
+            });
             onStatusChange?.("idle", { success: false });
           }
         } else {
-          // No actions found - out of scope or weird input
           toast.info("Command not recognized.");
           speakNoMatch();
+          useNotificationStore.getState().addNotification({
+            category: "robot",
+            iconType: "robot_command_fail",
+            title: "Command not recognized",
+            description: `"${transcript}" — no matching action found`,
+            severity: "warning",
+          });
           onStatusChange?.("idle", { success: false });
         }
       } catch (error) {
         console.error(error);
         toast.error("Failed to process command.");
+        useNotificationStore.getState().addNotification({
+          category: "robot",
+          iconType: "robot_command_fail",
+          title: "Voice command error",
+          description: "An unexpected error occurred processing the command",
+          severity: "error",
+        });
         onStatusChange?.("idle", { success: false });
       }
     };
@@ -136,6 +246,13 @@ export class VoiceService {
       if (this.stopRequested || err === "aborted") {
         this.stopRequested = false;
         this.isListening = false;
+        useNotificationStore.getState().addNotification({
+          category: "robot",
+          iconType: "robot_cancelled",
+          title: "Voice session ended",
+          description: "Robot assistant returned to standby",
+          severity: "info",
+        });
         onStatusChange?.("idle", { cancelled: true });
         onEnd();
         return;
@@ -163,6 +280,17 @@ export class VoiceService {
   private async startFallbackRecording(
     onResult: (text: string) => void,
     onEnd: () => void,
+    onStatusChange?: (
+      status: "listening" | "processing" | "idle",
+      payload?: {
+        success?: boolean;
+        cancelled?: boolean;
+        instructionTopic?: string;
+        instructionText?: string;
+        action?: string;
+        device?: string;
+      },
+    ) => void,
   ): Promise<void> {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -199,22 +327,79 @@ export class VoiceService {
         }
 
         try {
-          // Optimized: Transcribe AND Execute
+          await PythonTalkMainBridge.analyze("audio_blob_received");
           const { transcript, command_result } = await this.sendVoiceAudio(
             audioBlob,
             true,
           );
           console.log("[VoiceService] Transcribed:", transcript);
           onResult(transcript);
+          if (transcript && transcript.trim()) {
+            useUIStore.getState().add_dialogue_message(transcript, "user");
+          }
 
-          if (command_result) {
+          if (command_result?.instruction_topic) {
+            toast.success(`Instruction: "${transcript}"`);
+            speakInstruction(command_result.instruction_topic);
+            useNotificationStore.getState().addNotification({
+              category: "robot",
+              iconType: "robot_info",
+              title: "Robot provided information",
+              description: `"${transcript}" — Topic: ${command_result.instruction_topic}`,
+              severity: "info",
+            });
+            onStatusChange?.("idle", {
+              success: true,
+              instructionTopic: command_result.instruction_topic,
+            });
+          } else if (
+            command_result?.actions?.length > 0 &&
+            command_result.actions[0].status === "success" &&
+            command_result.actions[0].action &&
+            command_result.actions[0].device
+          ) {
             toast.success(`Executed: "${transcript}"`);
+            speakCompletion(
+              command_result.actions[0].action,
+              command_result.actions[0].device,
+            );
+            useNotificationStore.getState().addNotification({
+              category: "robot",
+              iconType: "robot_command_success",
+              title: "Voice command executed",
+              description: `"${transcript}" — ${command_result.actions[0].action} on ${command_result.actions[0].device}`,
+              severity: "success",
+            });
+            onStatusChange?.("idle", { success: true });
+          } else if (command_result?.actions?.length > 0) {
+            toast.error("Failed to process command.");
+            useNotificationStore.getState().addNotification({
+              category: "robot",
+              iconType: "robot_command_fail",
+              title: "Voice command failed",
+              description: `"${transcript}" — could not be processed`,
+              severity: "error",
+            });
+            onStatusChange?.("idle", { success: false });
           } else if (!transcript || !transcript.trim()) {
             toast.error("No speech detected.");
+            onStatusChange?.("idle", { success: false });
+          } else {
+            toast.info("Command not recognized.");
+            speakNoMatch();
+            useNotificationStore.getState().addNotification({
+              category: "robot",
+              iconType: "robot_command_fail",
+              title: "Command not recognized",
+              description: `"${transcript}" — no matching action found`,
+              severity: "warning",
+            });
+            onStatusChange?.("idle", { success: false });
           }
         } catch (error) {
           console.error("[VoiceService] Fallback failed:", error);
           toast.error("Failed to process voice command.");
+          onStatusChange?.("idle", { success: false });
         } finally {
           this.isListening = false;
           onEnd();
@@ -334,6 +519,8 @@ export class VoiceService {
       action?: string;
       device?: string;
     }>;
+    instruction_topic?: string;
+    instruction_text?: string;
   }> {
     type VoiceCommandResponse = {
       actions?: Array<{
@@ -341,6 +528,8 @@ export class VoiceService {
         action?: string;
         device?: string;
       }>;
+      instruction_topic?: string;
+      instruction_text?: string;
     };
     const data = await ApiService.getInstance().post<VoiceCommandResponse>(
       "/api/homes/voice/command/",

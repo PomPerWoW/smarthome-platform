@@ -9,73 +9,74 @@ services:
       - "${DB_EXTERNAL_PORT}:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d smarthome_db"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
     networks:
-      - smarthome-network
+      - smarthome-network-dev
 
   backend:
     build:
-      context: ./apps/backend
-      dockerfile: Dockerfile
-    container_name: smarthome-backend
-    ports:
-      - "${BACKEND_PORT}:5500"
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    container_name: smarthome-backend-dev
     volumes:
-      - ./apps/backend:/app
       - backend-data:/app/data
     networks:
-      - smarthome-network
+      - smarthome-network-dev
     env_file:
       - .env
     depends_on:
-      db:
-        condition: service_healthy
+      - db
 
   frontend:
     build:
-      context: ./apps/frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/frontend/Dockerfile
+      args:
+        VITE_BACKEND_URL: ${VITE_BACKEND_URL}
+        VITE_SCENE_CREATOR_URL: ${VITE_SCENE_CREATOR_URL}
+        VITE_HOST_IP: ${VITE_HOST_IP}
     container_name: smarthome-frontend
-    ports:
-      - "${FRONTEND_PORT}:3000"
-      - "${FRONTEND_BACKEND_PORT}:8000"
     env_file:
       - .env
     networks:
-      - smarthome-network
+      - smarthome-network-dev
     depends_on:
       - backend
 
-  landing-page:
-    build:
-      context: ./apps/landing-page
-      dockerfile: Dockerfile
-    container_name: smarthome-landing
-    ports:
-      - "${LANDING_PAGE_PORT}:5173"
-    env_file:
-      - .env
-    networks:
-      - smarthome-network
-    depends_on:
-      - frontend
-
   scene-creator:
     build:
-      context: ./apps/scene-creator
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/scene-creator/Dockerfile
     container_name: smarthome-scene-creator
     env_file:
       - .env
-    ports:
-      - "${SCENE_CREATOR_PORT}:80"
     networks:
-      - smarthome-network
+      - smarthome-network-dev
     depends_on:
+      - backend
+
+  https-proxy:
+    image: nginx:alpine
+    container_name: smarthome-https-proxy
+    ports:
+      - "${FRONTEND_PORT}:3000"
+      - "${SCENE_CREATOR_PORT}:3003"
+      - "${BACKEND_PORT}:5500"
+    volumes:
+      - ./docker/proxy/nginx.conf:/etc/nginx/nginx.conf:ro
+      - proxy_certs:/etc/nginx/certs
+    command: >
+      sh -c "
+      apk add --no-cache openssl &&
+      if [ ! -f /etc/nginx/certs/cert.pem ]; then
+        openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /etc/nginx/certs/key.pem -out /etc/nginx/certs/cert.pem -subj '/CN=localhost';
+      fi &&
+      nginx -g 'daemon off;'
+      "
+    networks:
+      - smarthome-network-dev
+    depends_on:
+      - frontend
+      - scene-creator
       - backend
 
 volumes:
@@ -83,8 +84,10 @@ volumes:
     name: smarthome-backend-data
   db_data:
     name: smarthome-db-data
+  proxy_certs:
+    name: smarthome-proxy-certs
 
 networks:
-  smarthome-network:
+  smarthome-network-dev:
     driver: bridge
-    name: smarthome-network
+    name: smarthome-network-dev

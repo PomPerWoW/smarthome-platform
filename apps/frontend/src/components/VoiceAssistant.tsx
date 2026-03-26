@@ -1,16 +1,33 @@
 import React, { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Mic, MicOff, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { voiceService } from "@/services/VoiceService";
 import { cn } from "@/lib/utils";
 import { useUIStore } from "@/stores/ui_store";
+import { useHomeStore } from "@/stores/home_store";
 
 export const VoiceAssistant: React.FC = () => {
   const [isListening, setIsListening] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const setAvatarListening = useUIStore((s) => s.set_avatar_listening);
   const setVoiceStatus = useUIStore((s) => s.set_voice_status);
+  const queryClient = useQueryClient();
+  const { homes, isLoadingHomes, fetchHomes } = useHomeStore();
 
-  const handleToggle = () => {
+  const handleToggle = async () => {
+    if (homes.length === 0) {
+      if (!isLoadingHomes) {
+        await fetchHomes();
+      }
+
+      const { homes: latestHomes } = useHomeStore.getState();
+      if (latestHomes.length === 0) {
+      toast.error("Please create a home first to use Voice Commands");
+      return;
+      }
+    }
+    
     if (isListening) {
       voiceService.stopListening();
       setIsListening(false);
@@ -33,7 +50,14 @@ export const VoiceAssistant: React.FC = () => {
         (status, payload) => {
           if (status === "listening") setVoiceStatus("listening");
           else if (status === "processing") setVoiceStatus("processing");
-          else setVoiceStatus("idle", payload);
+          else {
+            setVoiceStatus("idle", payload);
+            // Device action success: refresh device lists so UI updates without manual reload
+            if (status === "idle" && payload?.success && !payload?.instructionTopic) {
+              queryClient.invalidateQueries({ queryKey: ["home-devices"] });
+              queryClient.invalidateQueries({ queryKey: ["devices"] });
+            }
+          }
         },
       );
     }

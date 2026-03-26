@@ -6,7 +6,7 @@ import { clone as cloneSkinned } from "three/addons/utils/SkeletonUtils.js";
 import { LoopOnce, LoopRepeat } from "three";
 import { useUIStore } from "@/stores/ui_store";
 
-const AVATAR_URL = "/models/avatar/assistant/robot_3D_scene.glb";
+const AVATAR_URL = `${import.meta.env.BASE_URL}models/avatar/assistant/robot_3D_scene.glb`;
 
 const DEFAULT_ANIMATION = "Idle";
 const FADE_DURATION = 0.25;
@@ -144,12 +144,15 @@ function RobotAssistantScene() {
       return;
     }
 
-    // 2) Finished: success → Yes then ThumbsUp
+    // 2) Finished: instruction → Standing once then Idle; device success → Yes then ThumbsUp
     // 3) Cancel (toggle off) → Wave
     if (voiceStatus === "idle" && voicePayload) {
       if (voicePayload.cancelled) {
         clearVoicePayload();
         playEmoteSequence([EMOTE_WAVE]);
+      } else if (voicePayload.success === true && voicePayload.instructionTopic) {
+        clearVoicePayload();
+        playEmoteSequence([VOICE_STANDING]);
       } else if (voicePayload.success === true) {
         clearVoicePayload();
         playEmoteSequence([EMOTE_YES, EMOTE_THUMBS_UP]);

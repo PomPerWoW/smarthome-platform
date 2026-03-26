@@ -70,7 +70,10 @@ export class ApiService {
 
   private handleUnauthorized(): void {
     const currentPath = window.location.pathname;
-    if (currentPath === "/login" || currentPath === "/register") {
+    const loginPath = import.meta.env.BASE_URL + "login";
+    const registerPath = import.meta.env.BASE_URL + "register";
+
+    if (currentPath === loginPath || currentPath === registerPath) {
       return;
     }
 
@@ -87,7 +90,7 @@ export class ApiService {
         });
       }
 
-      window.location.href = "/login";
+      window.location.href = loginPath;
     });
   }
 
@@ -116,7 +119,17 @@ export class ApiService {
     data?: unknown,
     config?: AxiosRequestConfig,
   ): Promise<T> {
-    const response = await this.client.post<T>(url, data, config);
+    const isFormData = data instanceof FormData;
+    const finalConfig = isFormData
+      ? {
+        ...config,
+        headers: {
+          ...config?.headers,
+          "Content-Type": undefined, // Remove Content-Type to let axios set it
+        },
+      }
+      : config;
+    const response = await this.client.post<T>(url, data, finalConfig);
     return response.data;
   }
 

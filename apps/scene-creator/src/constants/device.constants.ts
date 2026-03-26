@@ -5,6 +5,13 @@ export const DEVICE_SCALES: Record<DeviceType, number> = {
   [DeviceType.Television]: 0.4,
   [DeviceType.Fan]: 0.25,
   [DeviceType.AirConditioner]: 0.2,
+  [DeviceType.Chair]: 0.85,
+  [DeviceType.Chair2]: 0.85,
+  [DeviceType.Chair3]: 0.85,
+  [DeviceType.Chair4]: 0.85,
+  [DeviceType.Chair5]: 0.85,
+  [DeviceType.Chair6]: 0.85,
+  [DeviceType.SmartMeter]: 0.0005,
 };
 
 export const DEVICE_ICONS: Record<DeviceType, string> = {
@@ -12,6 +19,13 @@ export const DEVICE_ICONS: Record<DeviceType, string> = {
   [DeviceType.Television]: "📺",
   [DeviceType.Fan]: "🌀",
   [DeviceType.AirConditioner]: "❄️",
+  [DeviceType.Chair]: "🪑",
+  [DeviceType.Chair2]: "🪑",
+  [DeviceType.Chair3]: "🪑",
+  [DeviceType.Chair4]: "🪑",
+  [DeviceType.Chair5]: "🪑",
+  [DeviceType.Chair6]: "🪑",
+  [DeviceType.SmartMeter]: "⚡",
 };
 
 export const DEVICE_TYPE_LABELS: Record<DeviceType, string> = {
@@ -19,6 +33,13 @@ export const DEVICE_TYPE_LABELS: Record<DeviceType, string> = {
   [DeviceType.Television]: "📺 Smart TV",
   [DeviceType.Fan]: "🌀 Tower Fan",
   [DeviceType.AirConditioner]: "❄️ Air Conditioner",
+  [DeviceType.Chair]: "🪑 Chair",
+  [DeviceType.Chair2]: "🪑 Velvet Chair",
+  [DeviceType.Chair3]: "🪑 Leather Chair",
+  [DeviceType.Chair4]: "🪑 Accent Chair",
+  [DeviceType.Chair5]: "🪑 Wingback Chair",
+  [DeviceType.Chair6]: "🪑 Tufted Chair",
+  [DeviceType.SmartMeter]: "⚡ Smart Meter",
 };
 
 export const LIGHTBULB_COLORS = [
@@ -53,4 +74,11 @@ export const DEVICE_ASSET_KEYS: Record<DeviceType, string> = {
   [DeviceType.Television]: "television",
   [DeviceType.Fan]: "fan",
   [DeviceType.AirConditioner]: "air_conditioner",
+  [DeviceType.Chair]: "chair",
+  [DeviceType.Chair2]: "chair2",
+  [DeviceType.Chair3]: "chair3",
+  [DeviceType.Chair4]: "chair4",
+  [DeviceType.Chair5]: "chair5",
+  [DeviceType.Chair6]: "chair6",
+  [DeviceType.SmartMeter]: "smartmeter",
 };

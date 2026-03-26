@@ -9,7 +9,7 @@ interface LightbulbModelProps {
 
 export function LightbulbModel({ brightness, colour }: LightbulbModelProps) {
   const groupRef = useRef<THREE.Group>(null);
-  const { scene } = useGLTF("/models/devices/lightbulb/scene.gltf");
+  const { scene } = useGLTF(`${import.meta.env.BASE_URL}models/devices/lightbulb/scene.gltf`);
 
   const glowIntensity = brightness / 100;
   const glowColor = new THREE.Color(colour);
@@ -55,4 +55,4 @@ export function LightbulbModel({ brightness, colour }: LightbulbModelProps) {
   );
 }
 
-useGLTF.preload("/models/devices/lightbulb/scene.gltf");
+useGLTF.preload(`${import.meta.env.BASE_URL}models/devices/lightbulb/scene.gltf`);

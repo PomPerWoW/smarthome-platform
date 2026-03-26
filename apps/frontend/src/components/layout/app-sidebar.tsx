@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import {
   Home,
   Lightbulb,
+  Armchair,
   Settings,
   HelpCircle,
   Search,
@@ -13,7 +14,6 @@ import {
   Bell,
   LogOut,
   Activity,
-  Leaf,
   Zap,
 } from "lucide-react";
 import {
@@ -44,9 +44,9 @@ import { VoiceAssistant } from "@/components/VoiceAssistant";
 const mainNavItems = [
   { title: "Dashboard", url: "/", icon: Home },
   { title: "Devices", url: "/devices", icon: Lightbulb },
+  { title: "Furniture", url: "/furniture", icon: Armchair },
   { title: "Automation", url: "/automation", icon: Zap },
   { title: "Activity", url: "/activity", icon: Activity },
-  { title: "Energy", url: "/energy", icon: Leaf },
 ];
 
 const bottomNavItems = [

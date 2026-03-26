@@ -15,9 +15,15 @@ import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { AuthService } from "@/services/AuthService";
 import { useAuthStore } from "@/stores/auth";
 import { useUIStore } from "@/stores/ui_store";
+import { useNotificationStore } from "@/stores/notification_store";
 import { ThreeDWorldButton } from "@/components/three-d-world-button";
 import { RobotAssistant } from "@/components/RobotAssistant";
+import { Dialogue } from "@/components/Dialogue";
 import { WebSocketService } from "@/services/WebSocketService";
+import {
+  NotificationSidebar,
+  NotificationBellButton,
+} from "@/components/layout/notification-sidebar";
 import { useEffect } from "react";
 
 const queryClient = new QueryClient({
@@ -31,15 +37,15 @@ const queryClient = new QueryClient({
 
 export const Route = createRootRoute({
   beforeLoad: async () => {
-    const user = await AuthService.getInstance().whoami();
+    const result = await AuthService.getInstance().whoami();
 
-    if (user) {
-      useAuthStore.getState().setUser(user);
+    if (result) {
+      useAuthStore.getState().setUser(result.user, result.token);
     } else {
       useAuthStore.getState().logout();
     }
 
-    return { user };
+    return { user: result?.user ?? null };
   },
   component: RootLayout,
   notFoundComponent: NotFound,
@@ -75,6 +81,16 @@ function RootLayout() {
         if (data.type === "device_update") {
           console.log("Device update received, refreshing data...");
           queryClient.invalidateQueries({ queryKey: ["home-devices"] });
+          queryClient.invalidateQueries({ queryKey: ["devices"] });
+          useNotificationStore.getState().addNotification({
+            category: "system",
+            iconType: "device_update",
+            title: "Device state updated",
+            description: data.device_name
+              ? `'${data.device_name}' was changed externally`
+              : "A device was updated outside the app",
+            severity: "info",
+          });
         }
       });
 
@@ -103,15 +119,26 @@ function RootLayout() {
               <header className="relative z-10 flex shrink-0 items-center justify-between border-b px-2 py-2">
                 <SidebarTrigger className="size-12" />
                 <ThreeDWorldButton />
-                <ModeToggle />
+                <div className="flex items-center gap-1">
+                  <NotificationBellButton />
+                  <ModeToggle />
+                </div>
               </header>
-              <main className="relative z-10 flex-1 p-4">
+              <main className="relative z-10 flex-1 overflow-y-auto p-4">
                 <Outlet />
               </main>
-              {!isAnyModalOpen && <RobotAssistant />}
+              {!isAnyModalOpen && (
+                <>
+                  <Dialogue />
+                  <RobotAssistant />
+                </>
+              )}
             </SidebarInset>
           </SidebarProvider>
         )}
+
+        {/* Notification sidebar – rendered outside SidebarProvider so it sits above everything */}
+        <NotificationSidebar />
 
         {/* Toast notifications */}
         <Toaster richColors position="top-right" />

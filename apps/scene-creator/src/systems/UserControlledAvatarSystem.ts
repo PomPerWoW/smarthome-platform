@@ -10,8 +10,12 @@ import {
 import { Box3, Quaternion, Vector3 } from "three";
 import { SkeletonUtils } from "three-stdlib";
 import { UserControlledAvatarComponent } from "../components/UserControlledAvatarComponent";
-import { clampToWalkableArea, getRoomBounds } from "../config/navmesh";
-import { constrainMovement, AVATAR_COLLISION_RADIUS } from "../config/collision";
+import { clampToWalkableAreaWorld, getRoomBounds } from "../config/navmesh";
+import {
+  constrainMovement,
+  AVATAR_RADIUS,
+  AVATAR_HEIGHTS,
+} from "../config/collision";
 
 // ============================================================================
 // CONFIG
@@ -290,26 +294,25 @@ export class UserControlledAvatarSystem extends createSystem({
 
       const oldX = record.model.position.x;
       const oldZ = record.model.position.z;
-      const nextX = oldX + moveX;
-      const nextZ = oldZ + moveZ;
+      record.model.position.x += moveX;
+      record.model.position.z += moveZ;
 
-      // Collision check against lab model meshes
-      const constrained = constrainMovement(
-        oldX, oldZ, nextX, nextZ,
-        record.model.position.y,
-        AVATAR_COLLISION_RADIUS
-      );
+      // Collision check against room geometry (world space)
+      const fromPos = new Vector3(oldX, record.model.position.y, oldZ);
+      const toPos = new Vector3(record.model.position.x, record.model.position.y, record.model.position.z);
+      const constrained = constrainMovement(fromPos, toPos, AVATAR_RADIUS, AVATAR_HEIGHTS);
       record.model.position.x = constrained.x;
       record.model.position.z = constrained.z;
 
-      const [clampedX, clampedZ] = clampToWalkableArea(
+      // Use world-space clamp (accounts for room alignment transform)
+      const [clampedX, clampedZ] = clampToWalkableAreaWorld(
         record.model.position.x,
         record.model.position.z
       );
       record.model.position.x = clampedX;
       record.model.position.z = clampedZ;
 
-      this.updateCameraTarget(record, moveX, moveZ);
+      this.updateCameraTarget(record, record.model.position.x - oldX, record.model.position.z - oldZ);
     }
 
     const isJumping = record.entity.getValue(UserControlledAvatarComponent, "isJumping") as boolean;

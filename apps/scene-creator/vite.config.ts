@@ -34,11 +34,11 @@ export default defineConfig(({ mode }) => {
     ],
     resolve: {
       alias: {
-        three: "three", // standard alias, path based looked complex and might be fragile if not needed
+        three: "three",
       },
       dedupe: ["three", "@pmndrs/uikit"],
     },
-    server: { host: "0.0.0.0", port: 8081, open: false },
+    server: { host: "0.0.0.0", port: 3003, open: false },
     build: {
       outDir: "dist",
       sourcemap: process.env.NODE_ENV !== "production",
@@ -51,13 +51,18 @@ export default defineConfig(({ mode }) => {
       esbuildOptions: { target: "esnext" },
     },
     publicDir: "public",
-    base: "./",
+    base: "/smarthome/xr/",
     define: {
       "process.env.VITE_BACKEND_URL": JSON.stringify(
         env.VITE_BACKEND_URL || "https://localhost:5500",
       ),
       "process.env.VITE_FRONTEND_URL": JSON.stringify(
         env.VITE_FRONTEND_URL || "https://localhost:5173",
+      ),
+      "process.env.VITE_DASHBOARD_URL": JSON.stringify(
+        env.VITE_DASHBOARD_URL ||
+          env.VITE_FRONTEND_URL ||
+          "https://localhost:3000",
       ),
     },
   };

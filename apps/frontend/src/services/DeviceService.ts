@@ -25,7 +25,7 @@ export class DeviceService {
   private static instance: DeviceService;
   private api = ApiService.getInstance();
 
-  private constructor() {}
+  private constructor() { }
 
   static getInstance(): DeviceService {
     if (!DeviceService.instance) {
@@ -181,9 +181,23 @@ export class DeviceService {
     await this.api.post(`/api/homes/acs/${id}/set_temperature/`, { temp });
   }
 
+  // === Device Logs ===
+
+  async getDeviceLog(type: DeviceType, date: string): Promise<{ device_name: string; data: any[] }> {
+    const endpointMap: Record<string, string> = {
+      [DeviceType.Lightbulb]: '/api/homes/lightbulbs/getLightbulbLog/',
+      [DeviceType.Television]: '/api/homes/tvs/getTVLog/',
+      [DeviceType.Fan]: '/api/homes/fans/getFanLog/',
+      [DeviceType.AirConditioner]: '/api/homes/acs/getACLog/',
+      [DeviceType.SmartMeter]: '/api/homes/smartmeters/getSmartMeterLog/',
+    };
+    const url = endpointMap[type] || endpointMap[DeviceType.Lightbulb];
+    return this.api.get<{ device_name: string; data: any[] }>(`${url}?date=${date}`);
+  }
+
   // === Helpers ===
 
-  private getTypeEndpoint(type: DeviceType): string {
+  private getTypeEndpoint(type: DeviceType | string): string {
     switch (type) {
       case DeviceType.Lightbulb:
         return "lightbulbs";
@@ -193,6 +207,8 @@ export class DeviceService {
         return "fans";
       case DeviceType.AirConditioner:
         return "acs";
+      default:
+        return "devices"; // Fallback for GenericDevice (e.g., Chair) deletion and positioning
     }
   }
 

@@ -3,12 +3,20 @@ export enum DeviceType {
   Television = "Television",
   Fan = "Fan",
   AirConditioner = "AirConditioner",
+  Chair = "Chair",
+  Chair2 = "Chair2",
+  Chair3 = "Chair3",
+  Chair4 = "Chair4",
+  Chair5 = "Chair5",
+  Chair6 = "Chair6",
+  SmartMeter = "SmartMeter",
 }
 
 export interface DeviceBase {
   id: string;
   name: string;
   type: DeviceType;
+  tag?: string;
   is_on: boolean;
   position: [number, number, number];
   rotation_y: number;
@@ -46,7 +54,46 @@ export interface AirConditioner extends DeviceBase {
   max_temp?: number;
 }
 
-export type Device = Lightbulb | Television | Fan | AirConditioner;
+export interface ChairDevice extends DeviceBase {
+  type: DeviceType.Chair;
+}
+
+export interface Chair2Device extends DeviceBase {
+  type: DeviceType.Chair2;
+}
+
+export interface Chair3Device extends DeviceBase {
+  type: DeviceType.Chair3;
+}
+
+export interface Chair4Device extends DeviceBase {
+  type: DeviceType.Chair4;
+}
+
+export interface Chair5Device extends DeviceBase {
+  type: DeviceType.Chair5;
+}
+
+export interface Chair6Device extends DeviceBase {
+  type: DeviceType.Chair6;
+}
+
+export interface SmartMeter extends DeviceBase {
+  type: DeviceType.SmartMeter;
+}
+
+export type Device =
+  | Lightbulb
+  | Television
+  | Fan
+  | AirConditioner
+  | ChairDevice
+  | Chair2Device
+  | Chair3Device
+  | Chair4Device
+  | Chair5Device
+  | Chair6Device
+  | SmartMeter;
 
 export interface LightbulbProperties {
   brightness: number;

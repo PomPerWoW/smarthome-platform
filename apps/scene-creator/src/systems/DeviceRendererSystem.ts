@@ -12,19 +12,26 @@ import {
   AnimationMixer,
   AnimationClip,
   LoopRepeat,
+  BoxGeometry,
+  MeshBasicMaterial,
+  Mesh,
 } from "@iwsdk/core";
 
-import { deviceStore, getStore } from "../store/DeviceStore";
+import { Vector3 as TV3, Mesh, Intersection } from "three";
+import {
+  deviceStore,
+  getStore,
+  FurnitureItem,
+  isFurnitureType,
+} from "../store/DeviceStore";
 import { Device, DeviceType, DeviceRecord, Fan } from "../types";
 import { DeviceComponent } from "../components/DeviceComponent";
 import { BaseDevice, DeviceFactory } from "../entities";
 import { DEVICE_ASSET_KEYS } from "../constants";
-import {
-  constrainMovement,
-  DEVICE_COLLISION_RADIUS,
-  clampDeviceY,
-} from "../config/collision";
 import { chart3D, ChartType } from "../components/Chart3D";
+import { constrainDeviceMovement, DEVICE_RADIUS } from "../config/collision";
+import { Vector3 as ThreeVector3, Raycaster, Intersection } from "three";
+import { getRoomBounds, clampToWalkableArea, isPositionWalkable } from "../config/navmesh";
 
 export class DeviceRendererSystem extends createSystem({
   devices: {
@@ -34,43 +41,69 @@ export class DeviceRendererSystem extends createSystem({
   private deviceRecords: Map<string, DeviceRecord> = new Map();
   private modelCache: Map<DeviceType, Object3D> = new Map();
   private animationCache: Map<DeviceType, AnimationClip[]> = new Map();
-  // Track last valid position per device for collision detection during grab
-  private lastValidPositions: Map<string, { x: number; y: number; z: number }> =
-    new Map();
   private initialized = false;
   private unsubscribe?: () => void;
+
+  /** Track each device's last valid world-space position for collision. */
+  private lastValidWorldPos: Map<string, TV3> = new Map();
 
   init() {
     console.log("[DeviceRenderer] System initialized");
 
     this.unsubscribe = deviceStore.subscribe(
-      (state) => state.devices,
-      (devices) => {
+      (state) => [state.devices, state.furniture] as const,
+      ([devices, furniture]) => {
         if (this.initialized) {
-          this.syncDevicesWithScene(devices);
+          // Merge furniture into device format for rendering
+          const furnitureAsDevices = furniture.map(this.furnitureToDevice);
+          this.syncDevicesWithScene([...devices, ...furnitureAsDevices]);
         }
       },
     );
   }
 
-  async initializeDevices(): Promise<void> {
-    const devices = getStore().devices;
+  private furnitureToDevice(f: FurnitureItem): Device {
+    return {
+      id: f.id,
+      name: f.furniture_name,
+      type: f.furniture_type as DeviceType,
+      is_on: true,
+      position: f.position,
+      rotation_y: f.rotation_y,
+      home_id: "",
+      home_name: "",
+      floor_id: "",
+      floor_name: "",
+      room_id: "",
+      room_name: f.room,
+    } as any;
+  }
 
-    if (devices.length === 0) {
-      console.log("[DeviceRenderer] No devices to render");
+  async initializeDevices(): Promise<void> {
+    const store = getStore();
+    const devices = store.devices;
+    const furniture = store.furniture;
+
+    const furnitureAsDevices = furniture.map(this.furnitureToDevice);
+    const allItems = [...devices, ...furnitureAsDevices];
+
+    if (allItems.length === 0) {
+      console.log("[DeviceRenderer] No devices or furniture to render");
       return;
     }
 
-    console.log(`[DeviceRenderer] Initializing ${devices.length} devices...`);
+    console.log(
+      `[DeviceRenderer] Initializing ${devices.length} devices + ${furniture.length} furniture...`,
+    );
     console.log("[DeviceRenderer] Using preloaded models from AssetManager");
 
-    for (const device of devices) {
-      this.createDeviceEntity(device);
+    for (const item of allItems) {
+      this.createDeviceEntity(item);
     }
 
     this.initialized = true;
     console.log(
-      `[DeviceRenderer] Initialized ${this.deviceRecords.size} device entities`,
+      `[DeviceRenderer] Initialized ${this.deviceRecords.size} entities`,
     );
   }
 
@@ -136,9 +169,60 @@ export class DeviceRendererSystem extends createSystem({
 
     const model = result.model.clone();
     model.scale.setScalar(device.getScale());
+    let furnitureFloorOffsetY = 0;
 
     if (Array.isArray(data.position) && data.position.length >= 3) {
-      model.position.set(data.position[0], data.position[1], data.position[2]);
+      let posX = data.position[0];
+      let posY = data.position[1];
+      let posZ = data.position[2];
+
+      // For furniture, ensure position is within room bounds (defensive check)
+      if (isFurnitureType(data.type)) {
+        const roomBounds = getRoomBounds();
+        if (roomBounds) {
+          const MARGIN = 0.3;
+          const minX = roomBounds.minX + MARGIN;
+          const maxX = roomBounds.maxX - MARGIN;
+          const minZ = roomBounds.minZ + MARGIN;
+          const maxZ = roomBounds.maxZ - MARGIN;
+
+          // Clamp position to room bounds
+          const clampedX = Math.max(minX, Math.min(maxX, posX));
+          const clampedZ = Math.max(minZ, Math.min(maxZ, posZ));
+
+          // If position was outside bounds, log a warning and use clamped position
+          if (posX !== clampedX || posZ !== clampedZ) {
+            console.warn(
+              `[DeviceRenderer] Furniture "${data.name}" position was outside room bounds, clamping: ` +
+              `(${posX.toFixed(2)}, ${posZ.toFixed(2)}) -> (${clampedX.toFixed(2)}, ${clampedZ.toFixed(2)})`,
+            );
+            posX = clampedX;
+            posZ = clampedZ;
+          }
+
+          // Verify position is walkable - if not, use room center
+          if (!isPositionWalkable(posX, posZ)) {
+            console.warn(
+              `[DeviceRenderer] Furniture "${data.name}" position not walkable, using room center`,
+            );
+            posX = (minX + maxX) * 0.5;
+            posZ = (minZ + maxZ) * 0.5;
+          }
+        }
+      }
+
+      // Furniture is spawned at floor height (y=0), so keep each model's base
+      // aligned with the floor regardless of source pivot/origin in GLTF.
+      if (isFurnitureType(data.type)) {
+        const modelBox = new Box3().setFromObject(model);
+        furnitureFloorOffsetY = -modelBox.min.y;
+      }
+
+      model.position.set(posX, posY, posZ);
+      if (furnitureFloorOffsetY !== 0) {
+        model.position.y += furnitureFloorOffsetY;
+        model.userData.__furnitureFloorOffsetY = furnitureFloorOffsetY;
+      }
     } else {
       console.warn(
         `[DeviceRenderer] Invalid or missing position for device ${data.id}, defaulting to 0,0,0`,
@@ -155,9 +239,43 @@ export class DeviceRendererSystem extends createSystem({
       );
     }
 
+    const labModel = (globalThis as any).__labRoomModel as Object3D | undefined;
+    if (labModel) {
+      labModel.add(model);
+    } else {
+      this.world.scene.add(model);
+    }
+    // For extremely small-scaled models (like SmartMeter at 0.0005), the mesh
+    // triangles are too tiny for the raycaster's bounding-sphere broad phase.
+    // We add an invisible interaction proxy box whose dimensions are inverse-
+    // scaled so it ends up at ~0.3m in world space, giving the raycaster a
+    // target it can actually hit.
+    if (data.type === DeviceType.SmartMeter) {
+      const scale = device.getScale();
+      const proxySize = 0.3 / scale; // results in 0.3m world-space box
+      const proxyGeo = new BoxGeometry(proxySize, proxySize, proxySize);
+      const proxyMat = new MeshBasicMaterial({
+        visible: false,
+        transparent: true,
+        opacity: 0,
+      });
+      const proxyMesh = new Mesh(proxyGeo, proxyMat);
+      proxyMesh.name = "InteractionProxy";
+      model.add(proxyMesh);
+      console.log(
+        `[DeviceRenderer] Added interaction proxy for SmartMeter (proxySize=${proxySize})`,
+      );
+    }
+
     this.world.scene.add(model);
 
     const entity = this.world.createTransformEntity(model);
+
+    // Re-ensure the device is a child of labRoomModel because createTransformEntity
+    // might have reparented it to the root scene.
+    if (labModel && model.parent !== labModel) {
+      labModel.add(model);
+    }
 
     entity.addComponent(DeviceComponent, {
       deviceId: data.id,
@@ -268,11 +386,18 @@ export class DeviceRendererSystem extends createSystem({
   }
 
   private getPanelConfig(deviceType: DeviceType): string | null {
-    const panelConfigs: Record<DeviceType, string> = {
+    const panelConfigs: Record<DeviceType, string | null> = {
       [DeviceType.Lightbulb]: "./ui/lightbulb-panel.json",
       [DeviceType.Television]: "./ui/television-panel.json",
       [DeviceType.Fan]: "./ui/fan-panel.json",
       [DeviceType.AirConditioner]: "./ui/ac-panel.json",
+      [DeviceType.Chair]: null,
+      [DeviceType.Chair2]: null,
+      [DeviceType.Chair3]: null,
+      [DeviceType.Chair4]: null,
+      [DeviceType.Chair5]: null,
+      [DeviceType.Chair6]: null,
+      [DeviceType.SmartMeter]: "./ui/smartmeter-panel.json",
     };
     return panelConfigs[deviceType] ?? null;
   }
@@ -464,6 +589,7 @@ export class DeviceRendererSystem extends createSystem({
         }
         record.entity.destroy();
         this.deviceRecords.delete(id);
+        this.lastValidWorldPos.delete(id);
       }
     }
 
@@ -550,16 +676,40 @@ export class DeviceRendererSystem extends createSystem({
     const record = this.deviceRecords.get(deviceId);
     if (!record?.entity.object3D) return;
 
+    // The position and rotation are already local to LabPlan if it's a child.
     const pos = record.entity.object3D.position;
+    const furnitureFloorOffsetY =
+      (record.entity.object3D as any).userData?.__furnitureFloorOffsetY ?? 0;
+    const rotationYDeg = (record.entity.object3D.rotation.y * 180) / Math.PI;
     console.log(
-      `[DeviceRenderer] Saving position for ${deviceId}:`,
+      `[DeviceRenderer] Saving local position for ${deviceId}:`,
       pos.toArray(),
+      `local rotation_y: ${rotationYDeg.toFixed(1)}°`,
     );
 
-    await getStore().updateDevicePosition(deviceId, pos.x, pos.y, pos.z);
+    // Check if this is a furniture item by looking at its device type
+    if (isFurnitureType(record.device.type)) {
+      await getStore().updateFurniturePosition(
+        deviceId,
+        pos.x,
+        pos.y - furnitureFloorOffsetY,
+        pos.z,
+        rotationYDeg,
+      );
+    } else {
+      await getStore().updateDevicePosition(
+        deviceId,
+        pos.x,
+        pos.y,
+        pos.z,
+        rotationYDeg,
+      );
+    }
   }
 
   update(dt: number): void {
+    const labModel = (globalThis as any).__labRoomModel as Object3D | undefined;
+
     // Update panel positions to follow their devices and update animation mixers
     for (const [deviceId, record] of this.deviceRecords) {
       if (record.mixer) {
@@ -574,39 +724,59 @@ export class DeviceRendererSystem extends createSystem({
           rot.x = 0;
           rot.z = 0;
         }
+      }
 
-        // Collision check for grabbed/moved devices
-        const pos = record.entity.object3D.position;
-        const lastValid = this.lastValidPositions.get(deviceId);
-        if (lastValid) {
-          // XZ collision constraint (walls, desk edges, furniture)
-          const constrained = constrainMovement(
-            lastValid.x,
-            lastValid.z,
-            pos.x,
-            pos.z,
-            pos.y,
-            DEVICE_COLLISION_RADIUS,
-          );
-          if (pos.x !== lastValid.x || pos.z !== lastValid.z) {
-            pos.x = constrained.x;
-            pos.z = constrained.z;
+      // ── Collision constraint for grabbed / moved devices ────────────
+      if (record.entity.object3D) {
+        const obj = record.entity.object3D;
+        const worldPos = new TV3();
+        (obj as any).getWorldPosition(worldPos);
+
+        let lastPos = this.lastValidWorldPos.get(deviceId);
+        if (!lastPos) {
+          // First frame — initialise and skip constraint
+          lastPos = worldPos.clone();
+          this.lastValidWorldPos.set(deviceId, lastPos);
+        } else {
+          // Check if the device actually moved (> 0.5mm)
+          const movedDist = worldPos.distanceTo(lastPos);
+          if (movedDist > 0.0005) {
+            const constrained = constrainDeviceMovement(
+              lastPos,
+              worldPos,
+              DEVICE_RADIUS,
+            );
+
+            // If constrained position differs from the current world pos,
+            // convert it back to local space and apply.
+            const constrainedDist = constrained.distanceTo(worldPos);
+            if (constrainedDist > 0.001) {
+              // Convert constrained world pos → local pos relative to parent
+              if (obj.parent) {
+                (obj.parent as any).worldToLocal(constrained);
+              }
+              obj.position.set(constrained.x, constrained.y, constrained.z);
+              // Re-read the world position after correction
+              (obj as any).getWorldPosition(worldPos);
+            }
+
+            // Update the last valid position
+            lastPos.copy(worldPos);
           }
-          // Y collision constraint (floor and ceiling)
-          pos.y = clampDeviceY(pos.y);
         }
-        // Store current position as last valid
-        this.lastValidPositions.set(deviceId, { x: pos.x, y: pos.y, z: pos.z });
       }
 
       if (record.panelEntity?.object3D && record.entity.object3D) {
-        const devicePos = record.entity.object3D.position;
         const yOffset = 0;
-        // Position panel to the right of device
+        const worldPos = new Vector3();
+        record.entity.object3D.getWorldPosition(worldPos);
+
+        // Find a safe position for the panel (collision-aware)
+        const safePanelPos = this.findSafePanelPosition(worldPos, yOffset);
         record.panelEntity.object3D.position.set(
-          devicePos.x + 0.5,
-          devicePos.y + yOffset,
-          devicePos.z,
+          safePanelPos.x,
+          safePanelPos.y,
+          safePanelPos.z,
         );
 
         // Make panel face the camera
@@ -615,12 +785,18 @@ export class DeviceRendererSystem extends createSystem({
           record.panelEntity.object3D.lookAt(camera.position);
         }
 
-        // Position graph panel to the right of the control panel
+        // Position graph panel relative to the control panel
         if (record.graphPanelEntity?.object3D && record.graphPanelVisible) {
+          // Try to position graph panel to the right of control panel, or find safe position
+          const graphPanelPos = this.findSafePanelPosition(
+            safePanelPos,
+            0,
+            0.5, // Offset from control panel
+          );
           record.graphPanelEntity.object3D.position.set(
-            devicePos.x + 1.0, // Further right than the control panel
-            devicePos.y,
-            devicePos.z,
+            graphPanelPos.x,
+            graphPanelPos.y,
+            graphPanelPos.z,
           );
 
           // Make graph panel face the camera
@@ -630,6 +806,138 @@ export class DeviceRendererSystem extends createSystem({
         }
       }
     }
+  }
+
+  /**
+   * Find a safe position for a panel that doesn't collide with room geometry.
+   * Tries multiple positions around the device (right, left, front, back, etc.)
+   * 
+   * @param deviceWorldPos World position of the device
+   * @param yOffset Vertical offset for the panel
+   * @param baseOffset Base horizontal offset from device (default 0.5m)
+   * @returns Safe world position for the panel
+   */
+  private findSafePanelPosition(
+    deviceWorldPos: Vector3,
+    yOffset: number,
+    baseOffset: number = 0.5,
+  ): Vector3 {
+    const roomModel = (globalThis as any).__labRoomModel as Object3D | undefined;
+    if (!roomModel) {
+      // No room model - use default position
+      return new Vector3(
+        deviceWorldPos.x + baseOffset,
+        deviceWorldPos.y + yOffset,
+        deviceWorldPos.z,
+      );
+    }
+
+    // Panel dimensions (approximate - panels are roughly 0.4m x 0.55m)
+    const PANEL_RADIUS = 0.3; // Conservative radius for collision checking
+    const PANEL_HEIGHTS = [0.1, 0.3, 0.5]; // Check at different heights
+
+    // Try multiple positions: right, left, front, back, and variations
+    const candidateOffsets = [
+      // Default: right of device
+      { x: baseOffset, z: 0 },
+      // Left of device
+      { x: -baseOffset, z: 0 },
+      // Front of device
+      { x: 0, z: baseOffset },
+      // Back of device
+      { x: 0, z: -baseOffset },
+      // Diagonal positions
+      { x: baseOffset * 0.7, z: baseOffset * 0.7 },
+      { x: -baseOffset * 0.7, z: baseOffset * 0.7 },
+      { x: baseOffset * 0.7, z: -baseOffset * 0.7 },
+      { x: -baseOffset * 0.7, z: -baseOffset * 0.7 },
+      // Closer positions
+      { x: baseOffset * 0.5, z: 0 },
+      { x: -baseOffset * 0.5, z: 0 },
+      { x: 0, z: baseOffset * 0.5 },
+      { x: 0, z: -baseOffset * 0.5 },
+      // Further positions
+      { x: baseOffset * 1.2, z: 0 },
+      { x: -baseOffset * 1.2, z: 0 },
+    ];
+
+    // Get collision meshes from room model (same approach as collision system)
+    const collisionMeshes: any[] = [];
+    roomModel.traverse((child: any) => {
+      if (child.isMesh && child.geometry) {
+        collisionMeshes.push(child);
+      }
+    });
+
+    // Use original raycast method (bypass any overrides, same as collision system)
+    const originalRaycast = (Mesh.prototype as any).raycast;
+
+    const raycaster = new Raycaster();
+    const testDirections = [
+      new ThreeVector3(1, 0, 0),   // Right
+      new ThreeVector3(-1, 0, 0),  // Left
+      new ThreeVector3(0, 0, 1),   // Forward
+      new ThreeVector3(0, 0, -1),  // Back
+      new ThreeVector3(0, 1, 0),   // Up
+      new ThreeVector3(0, -1, 0),  // Down
+    ];
+
+    // Try each candidate position
+    for (const offset of candidateOffsets) {
+      const candidatePos = new ThreeVector3(
+        deviceWorldPos.x + offset.x,
+        deviceWorldPos.y + yOffset,
+        deviceWorldPos.z + offset.z,
+      );
+
+      // Check if this position is safe by casting rays in multiple directions
+      let isSafe = true;
+      for (const height of PANEL_HEIGHTS) {
+        const testOrigin = new ThreeVector3(
+          candidatePos.x,
+          candidatePos.y + height,
+          candidatePos.z,
+        );
+
+        for (const dir of testDirections) {
+          raycaster.set(testOrigin, dir);
+          raycaster.far = PANEL_RADIUS;
+          raycaster.near = 0;
+
+          // Use original raycast to check collisions (same as collision system)
+          const hits: Intersection[] = [];
+          for (const mesh of collisionMeshes) {
+            originalRaycast.call(mesh, raycaster, hits);
+          }
+
+          if (hits.length > 0) {
+            hits.sort((a, b) => a.distance - b.distance);
+            if (hits[0].distance < PANEL_RADIUS) {
+              // Position is too close to room geometry
+              isSafe = false;
+              break;
+            }
+          }
+        }
+
+        if (!isSafe) break;
+      }
+
+      if (isSafe) {
+        // Found a safe position
+        return new Vector3(candidatePos.x, candidatePos.y, candidatePos.z);
+      }
+    }
+
+    // If no safe position found, use default position anyway (better than nothing)
+    console.warn(
+      `[DeviceRenderer] Could not find collision-free position for panel, using default`,
+    );
+    return new Vector3(
+      deviceWorldPos.x + baseOffset,
+      deviceWorldPos.y + yOffset,
+      deviceWorldPos.z,
+    );
   }
 
   destroy(): void {
@@ -647,6 +955,7 @@ export class DeviceRendererSystem extends createSystem({
     this.deviceRecords.clear();
     this.modelCache.clear();
     this.animationCache.clear();
+    this.lastValidWorldPos.clear();
     console.log("[DeviceRenderer] System destroyed");
   }
 }

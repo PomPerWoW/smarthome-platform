@@ -1,10 +1,12 @@
 import { ApiService } from "./ApiService";
 import { Home, Room, DeviceFactory, type BaseDevice } from "@/models";
+import type { FurnitureItem } from "@/models/Room";
 import type {
   HomeDTO,
   RoomDTO,
   CreateHomeDTO,
   CreateRoomDTO,
+  FurnitureDTO,
 } from "@/types/home.types";
 import type { DeviceDTO } from "@/types/device.types";
 
@@ -75,10 +77,19 @@ export class HomeService {
     return Room.fromApi(data);
   }
 
-  async createRoom(name: string, homeId: string): Promise<Room> {
+  async createRoom(name: string, homeId: string, roomModel?: string): Promise<Room> {
     const payload: CreateRoomDTO = { room_name: name, home: homeId };
+    if (roomModel) {
+      payload.room_model = roomModel;
+    }
     const data = await this.api.post<RoomDTO>("/api/homes/rooms/", payload);
     return Room.fromApi(data);
+  }
+
+  async uploadRoomModel(roomId: string, file: File): Promise<void> {
+    const formData = new FormData();
+    formData.append("file", file);
+    await this.api.post(`/api/homes/rooms/${roomId}/upload_model/`, formData);
   }
 
   async deleteRoom(id: string): Promise<void> {
@@ -97,5 +108,39 @@ export class HomeService {
       `/api/homes/rooms/${roomId}/get_devices/`,
     );
     return data.map((dto) => DeviceFactory.create(dto));
+  }
+
+  // === Furniture ===
+
+  async getRoomFurniture(roomId: string): Promise<FurnitureItem[]> {
+    const data = await this.api.get<FurnitureDTO[]>(
+      `/api/homes/rooms/${roomId}/get_furniture/`,
+    );
+    return data.map((dto) => ({
+      id: dto.id,
+      name: dto.furniture_name,
+      type: dto.furniture_type,
+      roomName: dto.room,
+    }));
+  }
+
+  async getAllFurniture(): Promise<FurnitureItem[]> {
+    const data = await this.api.get<FurnitureDTO[]>("/api/homes/furniture/");
+    return data.map((dto) => ({
+      id: dto.id,
+      name: dto.furniture_name,
+      type: dto.furniture_type,
+      roomName: dto.room,
+    }));
+  }
+
+  async renameFurniture(id: string, name: string): Promise<void> {
+    await this.api.patch(`/api/homes/furniture/${id}/`, {
+      furniture_name: name,
+    });
+  }
+
+  async deleteFurniture(id: string): Promise<void> {
+    await this.api.delete(`/api/homes/furniture/${id}/`);
   }
 }

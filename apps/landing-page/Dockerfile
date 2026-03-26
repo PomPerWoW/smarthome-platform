@@ -2,7 +2,7 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-ARG VITE_REFLEX_URL=http://localhost:3000
+ARG VITE_REFLEX_URL=https://localhost:3000
 
 ENV VITE_REFLEX_URL=$VITE_REFLEX_URL
 

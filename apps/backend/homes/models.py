@@ -11,11 +11,24 @@ class Home(models.Model):
     def __str__(self):
         return self.home_name
 
+def room_model_upload_path(instance, filename):
+    """Generate upload path for room model files"""
+    return f"room_models/{instance.id}/{filename}"
+
 class Room(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     
     home = models.ForeignKey(Home, on_delete=models.CASCADE, related_name='rooms')
     room_name = models.CharField(max_length=255)
+    room_model = models.CharField(max_length=255, default='LabPlan', help_text="3D model identifier for the room scene (e.g. LabPlan)")
+    room_model_file = models.FileField(upload_to=room_model_upload_path, null=True, blank=True, help_text="Uploaded 3D model file (GLTF/GLB)")
+
+    position_x = models.FloatField(default=0.0)
+    position_y = models.FloatField(default=0.0)
+    position_z = models.FloatField(default=0.0)
+    rotation_y = models.FloatField(default=0.0)
+    
+    anchor_uuid = models.CharField(max_length=255, null=True, blank=True, help_text="WebXR persistent anchor UUID for restoring room position")
 
     def __str__(self):
         return f"{self.room_name} ({self.home.home_name})"
@@ -68,6 +81,23 @@ class Television(Device):
     volume = models.IntegerField(default=20)
     channel = models.IntegerField(default=1)
     is_mute = models.BooleanField(default=False)
+
+class Furniture(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    furniture_name = models.CharField(max_length=255)
+    furniture_type = models.CharField(max_length=50, default='Chair')
+    room = models.ForeignKey(Room, on_delete=models.SET_NULL, null=True, blank=True, related_name='furniture')
+    device_pos = models.PointField(dim=3, srid=4326, null=True, blank=True)
+    rotation_x = models.FloatField(default=0.0)
+    rotation_y = models.FloatField(default=0.0)
+    rotation_z = models.FloatField(default=0.0)
+
+    def __str__(self):
+        return self.furniture_name
+        
+class SmartMeter(Device):
+    pass
 
 
 class Automation(models.Model):
