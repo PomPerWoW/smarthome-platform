@@ -18,6 +18,7 @@ import {
 } from "../config/navmesh";
 import {
   constrainMovement,
+  isInTableKeepOutZone,
   ROBOT_RADIUS,
   ROBOT_HEIGHTS,
 } from "../config/collision";
@@ -66,6 +67,7 @@ const MAX_REPATHS_BEFORE_RESPAWN = 6;
 const IDLE_PAUSE_SEC = 6.0;
 /** Number of candidate directions to evaluate when repathing. */
 const REPATH_CANDIDATES = 12;
+const ROBOT_KEEP_OUT_EXTRA = 0.1;
 
 /** Number of random positions to try when finding a collision-free spawn. */
 const SPAWN_CANDIDATES = 100; // Increased for better collision avoidance
@@ -612,10 +614,15 @@ export class RobotAssistantSystem extends createSystem({
 
     const nearUserX = userLocal.x + dirX * VOICE_SNAP_NEAR_USER_DISTANCE;
     const nearUserZ = userLocal.z + dirZ * VOICE_SNAP_NEAR_USER_DISTANCE;
-    const [clampedX, clampedZ] = clampToWalkableArea(nearUserX, nearUserZ);
+    const safeTarget = this.resolveSafeLocalTarget(
+      record.model.position.x,
+      record.model.position.z,
+      nearUserX,
+      nearUserZ,
+    );
 
-    record.entity.setValue(RobotAssistantComponent, "targetX", clampedX);
-    record.entity.setValue(RobotAssistantComponent, "targetZ", clampedZ);
+    record.entity.setValue(RobotAssistantComponent, "targetX", safeTarget.x);
+    record.entity.setValue(RobotAssistantComponent, "targetZ", safeTarget.z);
     record.entity.setValue(RobotAssistantComponent, "hasReachedTarget", false);
     this.walkingToUser = true;
     this.walkToUserStartTime = this.timeElapsed;
@@ -625,7 +632,7 @@ export class RobotAssistantSystem extends createSystem({
     record.entity.setValue(RobotAssistantComponent, "currentState", "Walking");
 
     console.log(
-      `[RobotAssistant] 🚶 Walking near user target at (${clampedX.toFixed(2)}, ${clampedZ.toFixed(2)})`,
+      `[RobotAssistant] 🚶 Walking near user target at (${safeTarget.x.toFixed(2)}, ${safeTarget.z.toFixed(2)})`,
     );
   }
 
@@ -646,12 +653,26 @@ export class RobotAssistantSystem extends createSystem({
       // Pick a random waypoint to resume patrol
       const bounds = getRoomBounds();
       if (bounds) {
-        const newTargetX =
-          bounds.minX + Math.random() * (bounds.maxX - bounds.minX);
-        const newTargetZ =
-          bounds.minZ + Math.random() * (bounds.maxZ - bounds.minZ);
-        record.entity.setValue(RobotAssistantComponent, "targetX", newTargetX);
-        record.entity.setValue(RobotAssistantComponent, "targetZ", newTargetZ);
+          const newTargetX =
+            bounds.minX + Math.random() * (bounds.maxX - bounds.minX);
+          const newTargetZ =
+            bounds.minZ + Math.random() * (bounds.maxZ - bounds.minZ);
+          const safeTarget = this.resolveSafeLocalTarget(
+            record.model.position.x,
+            record.model.position.z,
+            newTargetX,
+            newTargetZ,
+          );
+          record.entity.setValue(
+            RobotAssistantComponent,
+            "targetX",
+            safeTarget.x,
+          );
+          record.entity.setValue(
+            RobotAssistantComponent,
+            "targetZ",
+            safeTarget.z,
+          );
         record.entity.setValue(
           RobotAssistantComponent,
           "hasReachedTarget",
@@ -960,6 +981,52 @@ export class RobotAssistantSystem extends createSystem({
     if (this.recentBlockedDirs.length > 6) this.recentBlockedDirs.shift();
   }
 
+  private isLocalPointInKeepOut(localX: number, localZ: number): boolean {
+    const world = this.roomLocalToWorld(localX, 0, localZ);
+    return isInTableKeepOutZone(world.x, world.z, ROBOT_KEEP_OUT_EXTRA + ROBOT_RADIUS);
+  }
+
+  private doesLocalSegmentCrossKeepOut(
+    fromX: number,
+    fromZ: number,
+    toX: number,
+    toZ: number,
+  ): boolean {
+    const segDx = toX - fromX;
+    const segDz = toZ - fromZ;
+    const dist = Math.sqrt(segDx * segDx + segDz * segDz);
+    if (dist < 1e-4) return this.isLocalPointInKeepOut(toX, toZ);
+
+    const step = 0.12;
+    const steps = Math.max(2, Math.ceil(dist / step));
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const x = fromX + segDx * t;
+      const z = fromZ + segDz * t;
+      if (this.isLocalPointInKeepOut(x, z)) return true;
+    }
+    return false;
+  }
+
+  private resolveSafeLocalTarget(
+    fromX: number,
+    fromZ: number,
+    desiredX: number,
+    desiredZ: number,
+  ): { x: number; z: number } {
+    let [clampedX, clampedZ] = clampToWalkableArea(desiredX, desiredZ);
+    if (
+      !this.isLocalPointInKeepOut(clampedX, clampedZ) &&
+      !this.doesLocalSegmentCrossKeepOut(fromX, fromZ, clampedX, clampedZ)
+    ) {
+      return { x: clampedX, z: clampedZ };
+    }
+
+    const detour = this.pickSmartWaypoint(fromX, fromZ);
+    [clampedX, clampedZ] = clampToWalkableArea(detour.x, detour.z);
+    return { x: clampedX, z: clampedZ };
+  }
+
   /**
    * Pick a nearby waypoint that avoids ALL recently-blocked directions.
    *
@@ -995,6 +1062,14 @@ export class RobotAssistantSystem extends createSystem({
         const candZ = fromZ + dirZ * dist;
 
         let score = 0;
+
+        // Hard reject desk/table keep-out zones and segments crossing them.
+        if (
+          this.isLocalPointInKeepOut(candX, candZ) ||
+          this.doesLocalSegmentCrossKeepOut(fromX, fromZ, candX, candZ)
+        ) {
+          score -= 200;
+        }
 
         // 1. Penalise alignment with ALL recently blocked directions
         for (const bd of this.recentBlockedDirs) {
@@ -1291,19 +1366,39 @@ export class RobotAssistantSystem extends createSystem({
                 targetX + (dxTarget / distToTarget) * maxUpdate;
               const newTargetZ =
                 targetZ + (dzTarget / distToTarget) * maxUpdate;
-              entity.setValue(RobotAssistantComponent, "targetX", newTargetX);
-              entity.setValue(RobotAssistantComponent, "targetZ", newTargetZ);
-            } else {
-              // User moved a small amount, update directly
+              const safeTarget = this.resolveSafeLocalTarget(
+                record.model.position.x,
+                record.model.position.z,
+                newTargetX,
+                newTargetZ,
+              );
               entity.setValue(
                 RobotAssistantComponent,
                 "targetX",
-                currentUserLocal.x,
+                safeTarget.x,
               );
               entity.setValue(
                 RobotAssistantComponent,
                 "targetZ",
+                safeTarget.z,
+              );
+            } else {
+              // User moved a small amount, update directly
+              const safeTarget = this.resolveSafeLocalTarget(
+                record.model.position.x,
+                record.model.position.z,
+                currentUserLocal.x,
                 currentUserLocal.z,
+              );
+              entity.setValue(
+                RobotAssistantComponent,
+                "targetX",
+                safeTarget.x,
+              );
+              entity.setValue(
+                RobotAssistantComponent,
+                "targetZ",
+                safeTarget.z,
               );
             }
           }
@@ -1831,9 +1926,15 @@ export class RobotAssistantSystem extends createSystem({
         const newTargetZ = bounds
           ? bounds.minZ + Math.random() * (bounds.maxZ - bounds.minZ)
           : record.model.position.z + (Math.random() - 0.5) * 4;
+        const safeTarget = this.resolveSafeLocalTarget(
+          record.model.position.x,
+          record.model.position.z,
+          newTargetX,
+          newTargetZ,
+        );
 
-        entity.setValue(RobotAssistantComponent, "targetX", newTargetX);
-        entity.setValue(RobotAssistantComponent, "targetZ", newTargetZ);
+        entity.setValue(RobotAssistantComponent, "targetX", safeTarget.x);
+        entity.setValue(RobotAssistantComponent, "targetZ", safeTarget.z);
         entity.setValue(RobotAssistantComponent, "hasReachedTarget", false);
         entity.setValue(
           RobotAssistantComponent,
@@ -1841,7 +1942,7 @@ export class RobotAssistantSystem extends createSystem({
           this.timeElapsed + WAYPOINT_INTERVAL + Math.random() * 4.0,
         );
         console.log(
-          `[RobotAssistant] 🎯 New waypoint: (${newTargetX.toFixed(2)}, ${newTargetZ.toFixed(2)})`,
+          `[RobotAssistant] 🎯 New waypoint: (${safeTarget.x.toFixed(2)}, ${safeTarget.z.toFixed(2)})`,
         );
       }
 
@@ -2168,6 +2269,17 @@ export class RobotAssistantSystem extends createSystem({
             candidateX,
             candidateZ,
           );
+          if (
+            this.isLocalPointInKeepOut(clampedX, clampedZ) ||
+            this.doesLocalSegmentCrossKeepOut(
+              currentX,
+              currentZ,
+              clampedX,
+              clampedZ,
+            )
+          ) {
+            continue;
+          }
 
           // Skip if clamped position is too close to current position
           const distToTarget = Math.sqrt(
@@ -2253,6 +2365,12 @@ export class RobotAssistantSystem extends createSystem({
         let newTargetX = currentX + perpX * fallbackDist;
         let newTargetZ = currentZ + perpZ * fallbackDist;
         let [clampedX, clampedZ] = clampToWalkableArea(newTargetX, newTargetZ);
+        if (
+          this.isLocalPointInKeepOut(clampedX, clampedZ) ||
+          this.doesLocalSegmentCrossKeepOut(currentX, currentZ, clampedX, clampedZ)
+        ) {
+          continue;
+        }
 
         // Calculate progress toward user
         const fallbackDistToUser = Math.sqrt(
@@ -2290,12 +2408,17 @@ export class RobotAssistantSystem extends createSystem({
       } else {
         // Last resort: do not wander randomly. Keep target on the user.
         // This guarantees the path objective remains "walk to user".
-        const [clampedX, clampedZ] = clampToWalkableArea(userTargetX, userTargetZ);
-        this.stepAsideTarget = { x: clampedX, z: clampedZ };
-        entity.setValue(RobotAssistantComponent, "targetX", clampedX);
-        entity.setValue(RobotAssistantComponent, "targetZ", clampedZ);
+        const safeTarget = this.resolveSafeLocalTarget(
+          currentX,
+          currentZ,
+          userTargetX,
+          userTargetZ,
+        );
+        this.stepAsideTarget = { x: safeTarget.x, z: safeTarget.z };
+        entity.setValue(RobotAssistantComponent, "targetX", safeTarget.x);
+        entity.setValue(RobotAssistantComponent, "targetZ", safeTarget.z);
         console.log(
-          `[RobotAssistant] ⚠️ No good detour found, retrying direct walk-to-user target: (${clampedX.toFixed(2)}, ${clampedZ.toFixed(2)})`,
+          `[RobotAssistant] ⚠️ No good detour found, retrying safe walk-to-user target: (${safeTarget.x.toFixed(2)}, ${safeTarget.z.toFixed(2)})`,
         );
       }
     }

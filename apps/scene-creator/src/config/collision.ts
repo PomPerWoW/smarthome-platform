@@ -48,6 +48,9 @@ let _tableTopZones: TableTopZone[] = [];
 /** Extra margin (metres) around each table zone to prevent clipping. */
 const TABLE_ZONE_MARGIN = 0.05;
 
+/** Extra navigation buffer to keep robot farther from desk edges. */
+const TABLE_KEEP_OUT_MARGIN = 0.25;
+
 // ── Preset height arrays for different entity types ────────────────────────
 
 /** Robot assistant (scaled 0.2, ~30 cm tall): check near the ground. */
@@ -488,6 +491,29 @@ export function constrainMovement(
 
   // Fully blocked — stay at current XZ, keep intended Y
   return new Vector3(from.x, to.y, from.z);
+}
+
+/**
+ * Check whether a world-space XZ lies in an expanded desk/table keep-out zone.
+ */
+export function isInTableKeepOutZone(
+  x: number,
+  z: number,
+  extraMargin = 0,
+): boolean {
+  if (_tableTopZones.length === 0) return false;
+  const margin = TABLE_KEEP_OUT_MARGIN + Math.max(0, extraMargin);
+  for (const zone of _tableTopZones) {
+    if (
+      x >= zone.minX - margin &&
+      x <= zone.maxX + margin &&
+      z >= zone.minZ - margin &&
+      z <= zone.maxZ + margin
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 
 // ── 3D Device collision ────────────────────────────────────────────────────
