@@ -1,12 +1,12 @@
 import {
   DoorOpen,
-  Activity,
   Lightbulb,
   Tv,
   Fan,
   Snowflake,
   Pencil,
   Trash2,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -26,7 +26,7 @@ const deviceIcons = {
   [DeviceType.Television]: Tv,
   [DeviceType.Fan]: Fan,
   [DeviceType.AirConditioner]: Snowflake,
-  [DeviceType.SmartMeter]: Activity,
+  [DeviceType.SmartMeter]: Zap,
 };
 
 export function RoomBlock({
