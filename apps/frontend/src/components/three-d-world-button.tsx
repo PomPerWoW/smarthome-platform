@@ -57,11 +57,28 @@ export function ThreeDWorldButton() {
   const rooms = allRooms.filter((r) => r.homeId === selectedHomeId);
 
   const handleEnter = () => {
-    let url = `https://${window.location.hostname}:8081/`;
-    if (selectedHomeId && selectedRoomId) {
-      url += `?homeId=${selectedHomeId}&roomId=${selectedRoomId}`;
+    // Use the Scene Creator base URL from env.
+    const sceneCreatorBaseUrl =
+      import.meta.env.VITE_SCENE_CREATOR_URL ||
+      `https://${window.location.hostname}:3003/smarthome/xr/`;
+
+    // Production serves Scene Creator under `/smarthome/xr/` (see nginx configs).
+    // Normalize so we don't accidentally hit `/` which may redirect and drop query params.
+    const url = new URL(sceneCreatorBaseUrl);
+    url.port = "3003";
+    if (!url.pathname || url.pathname === "/" || url.pathname === "") {
+      url.pathname = "/smarthome/xr/";
     }
-    window.open(url, "_blank", "noopener,noreferrer");
+    if (url.pathname === "/smarthome/xr") {
+      url.pathname = "/smarthome/xr/";
+    }
+
+    if (selectedHomeId && selectedRoomId) {
+      url.searchParams.set("homeId", selectedHomeId);
+      url.searchParams.set("roomId", selectedRoomId);
+    }
+
+    window.open(url.toString(), "_blank", "noopener,noreferrer");
     setOpen(false);
   };
 
@@ -86,7 +103,7 @@ export function ThreeDWorldButton() {
               : "Select a home and room to enter the 3D scene creator with the room's devices and furniture."}
           </p>
         </DialogHeader>
-        
+
         {!hasNoHome ? (
           <>
             <div className="grid gap-4 py-4">

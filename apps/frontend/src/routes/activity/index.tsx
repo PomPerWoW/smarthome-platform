@@ -17,6 +17,7 @@ const deviceIcons = {
   [DeviceType.Television]: Tv,
   [DeviceType.Fan]: Fan,
   [DeviceType.AirConditioner]: Snowflake,
+  [DeviceType.SmartMeter]: Activity,
 }
 
 const RING_PALETTE = [

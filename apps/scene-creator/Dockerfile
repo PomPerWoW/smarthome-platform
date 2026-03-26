@@ -12,7 +12,11 @@ COPY apps/scene-creator/ .
 RUN rm -f /app/public/models
 COPY packages/assets/models/ /app/public/models/
 
+RUN chmod -R a+rX /app/public/models
+
 RUN npm run build
+
+RUN chmod -R a+rX /app/dist/models || true
 
 FROM nginx:stable-alpine
 
