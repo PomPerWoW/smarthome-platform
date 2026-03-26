@@ -11,7 +11,7 @@ import {
 import { Box3, MathUtils, SkinnedMesh } from "three";
 import { SkeletonUtils } from "three-stdlib";
 import { NPCAvatarComponent } from "../components/NPCAvatarComponent";
-import { getRoomBounds } from "../config/navmesh";
+import { getRoomBounds, getWorldFloorY, roomLocalToWorld } from "../config/navmesh";
 import { BackendApiClient } from "../api/BackendApiClient";
 
 // CONFIG
@@ -117,10 +117,17 @@ export class NPCAvatarSystem extends createSystem({
         const rotY = roomModel.rotation.y;
         const cosR = Math.cos(rotY);
         const sinR = Math.sin(rotY);
+        const roomScale =
+            Math.abs((roomModel.scale?.x as number) ?? 1) > 1e-6
+                ? (roomModel.scale.x as number)
+                : 1;
+        const sx = lx * roomScale;
+        const sy = ly * roomScale;
+        const sz = lz * roomScale;
         return {
-            x: roomModel.position.x + lx * cosR - lz * sinR,
-            y: roomModel.position.y + ly,
-            z: roomModel.position.z + lx * sinR + lz * cosR,
+            x: roomModel.position.x + sx * cosR - sz * sinR,
+            y: roomModel.position.y + sy,
+            z: roomModel.position.z + sx * sinR + sz * cosR,
         };
     }
 
@@ -131,11 +138,16 @@ export class NPCAvatarSystem extends createSystem({
         const cosR = Math.cos(-rotY);
         const sinR = Math.sin(-rotY);
         const dx = wx - roomModel.position.x;
+        const dy = wy - roomModel.position.y;
         const dz = wz - roomModel.position.z;
+        const roomScale =
+            Math.abs((roomModel.scale?.x as number) ?? 1) > 1e-6
+                ? (roomModel.scale.x as number)
+                : 1;
         return {
-            x: dx * cosR - dz * sinR,
-            y: wy - roomModel.position.y,
-            z: dx * sinR + dz * cosR,
+            x: (dx * cosR - dz * sinR) / roomScale,
+            y: dy / roomScale,
+            z: (dx * sinR + dz * cosR) / roomScale,
         };
     }
 
@@ -184,10 +196,23 @@ export class NPCAvatarSystem extends createSystem({
 
             const synth = window.speechSynthesis;
             const voiceConfig = NPC_VOICE_CONFIG[npcId] || { pitch: 1, rate: 1 };
+            let spoke = false;
+            let voiceReadyTimer: ReturnType<typeof setTimeout> | null = null;
 
             const doSpeak = () => {
+                if (spoke) return;
+                spoke = true;
+                if (voiceReadyTimer) {
+                    clearTimeout(voiceReadyTimer);
+                    voiceReadyTimer = null;
+                }
                 const voice = this.getVoice();
                 synth.cancel();
+                try {
+                    synth.resume();
+                } catch {
+                    // no-op
+                }
 
                 const u = new SpeechSynthesisUtterance(text);
                 u.lang = "en-US";
@@ -253,6 +278,9 @@ export class NPCAvatarSystem extends createSystem({
                 doSpeak();
             } else {
                 synth.addEventListener("voiceschanged", doSpeak, { once: true });
+                voiceReadyTimer = setTimeout(() => {
+                    doSpeak();
+                }, 600);
             }
         });
     }
@@ -578,9 +606,12 @@ export class NPCAvatarSystem extends createSystem({
             if (roomBounds) {
                 const centerX = (roomBounds.minX + roomBounds.maxX) * 0.5;
                 const centerZ = (roomBounds.minZ + roomBounds.maxZ) * 0.5;
-                finalX = centerX + position[0];
-                finalZ = centerZ + position[2];
-                finalY = roomBounds.floorY + position[1];
+                const localX = centerX + position[0];
+                const localZ = centerZ + position[2];
+                const [worldX, worldZ] = roomLocalToWorld(localX, localZ);
+                finalX = worldX;
+                finalZ = worldZ;
+                finalY = getWorldFloorY() + position[1];
             }
 
             const npcModel = SkeletonUtils.clone(gltf.scene) as Object3D;
@@ -590,7 +621,7 @@ export class NPCAvatarSystem extends createSystem({
             npcModel.visible = true;
             this.world.scene.add(npcModel);
 
-            const targetFloorY = roomBounds ? roomBounds.floorY : finalY;
+            const targetFloorY = roomBounds ? getWorldFloorY() : finalY;
             const feetY = this.alignFeetToFloor(npcModel, targetFloorY);
 
             // Animations

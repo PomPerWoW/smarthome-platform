@@ -63,15 +63,15 @@ export class DialogueOverlay {
         right: 24px;
         width: 370px;
         max-height: 520px;
-        background: rgba(12, 12, 22, 0.93);
-        backdrop-filter: blur(24px);
-        -webkit-backdrop-filter: blur(24px);
+        background: rgba(15, 23, 42, 0.88);
+        backdrop-filter: blur(40px);
+        -webkit-backdrop-filter: blur(40px);
         border-radius: 22px;
-        border: 1px solid rgba(255,255,255,0.08);
+        border: 1px solid rgba(255, 255, 255, 0.14);
         box-shadow:
-          0 10px 40px rgba(0,0,0,0.5),
-          0 0 0 1px rgba(255,255,255,0.04) inset;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          0 24px 64px rgba(0, 0, 0, 0.45),
+          inset 0 1px 0 rgba(255, 255, 255, 0.06);
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         z-index: 100000;
         display: flex;
         flex-direction: column;
@@ -92,8 +92,8 @@ export class DialogueOverlay {
         align-items: center;
         gap: 12px;
         padding: 16px 20px;
-        border-bottom: 1px solid rgba(255,255,255,0.06);
-        background: rgba(255,255,255,0.025);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.04);
       }
       .da-avatar {
         width: 44px; height: 44px;
@@ -106,7 +106,7 @@ export class DialogueOverlay {
       }
       .da-info   { flex: 1; }
       .da-name   {
-        color: #f0f0f5; font-weight: 600; font-size: 15px;
+        color: #f8fafc; font-weight: 600; font-size: 15px;
         letter-spacing: -0.3px;
       }
       .da-status {
@@ -144,16 +144,16 @@ export class DialogueOverlay {
         word-wrap: break-word;
       }
       .da-msg-assistant {
-        background: rgba(59,130,246,0.14);
-        border: 1px solid rgba(59,130,246,0.18);
-        color: #d0d4f0;
+        background: rgba(59, 130, 246, 0.22);
+        border: 1px solid rgba(96, 165, 250, 0.35);
+        color: #f1f5f9;
         align-self: flex-start;
         border-bottom-left-radius: 6px;
       }
       .da-msg-user {
-        background: rgba(139,92,246,0.18);
-        border: 1px solid rgba(139,92,246,0.18);
-        color: #e0d4f0;
+        background: rgba(139, 92, 246, 0.24);
+        border: 1px solid rgba(167, 139, 250, 0.4);
+        color: #faf5ff;
         align-self: flex-end;
         border-bottom-right-radius: 6px;
       }
@@ -185,7 +185,7 @@ export class DialogueOverlay {
       .da-typing span.da-dot-anim:nth-child(2) { animation-delay: 0.15s; }
       .da-typing span.da-dot-anim:nth-child(3) { animation-delay: 0.3s; }
       .da-typing-label {
-        color: rgba(255,255,255,0.35);
+        color: #cbd5e1;
         font-size: 11.5px;
         margin-left: 5px;
       }

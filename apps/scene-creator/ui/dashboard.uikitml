@@ -1,0 +1,905 @@
+<style>
+  /* ──────────────────────────────────────────────
+     Dashboard Container
+     ────────────────────────────────────────────── */
+  .dashboard-container {
+    width: 80;
+    display: flex;
+    flex-direction: column;
+    gap: 0.8;
+    padding: 1.2;
+    background-color: rgba(226, 232, 240, 0.34);
+    backdrop-filter: blur(72px) saturate(160%);
+    -webkit-backdrop-filter: blur(72px) saturate(160%);
+    border-color: rgba(255, 255, 255, 0.2);
+    border-width: 0.15;
+    border-radius: 2.5;
+    box-shadow: 0 20px 56px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    position: relative;
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+
+  /* ──────────────────────────────────────────────
+     Close Button (absolute top-right)
+     ────────────────────────────────────────────── */
+  .close-btn {
+    width: 3.4;
+    height: 3.4;
+    border-radius: 1.1;
+    background-color: rgba(239, 68, 68, 0.18);
+    border-width: 0.1;
+    border-color: rgba(239, 68, 68, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  .close-icon {
+    width: 1.4;
+    height: 1.4;
+    color: #dc2626;
+  }
+
+  /* ──────────────────────────────────────────────
+     Header Bar
+     ────────────────────────────────────────────── */
+  .header-bar {
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.6 0.8;
+    background-color: rgba(255, 255, 255, 0.14);
+    border-radius: 1.8;
+    border-width: 0.1;
+    border-color: rgba(255, 255, 255, 0.28);
+  }
+
+  .header-left {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.7;
+  }
+
+  .avatar-circle {
+    width: 3.6;
+    height: 3.6;
+    border-radius: 1.8;
+    background-color: rgba(99, 102, 241, 0.32);
+    border-width: 0.12;
+    border-color: rgba(99, 102, 241, 0.56);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .avatar-icon {
+    width: 1.8;
+    height: 1.8;
+    color: #312e81;
+  }
+
+  .welcome-text {
+    font-size: 1.5;
+    font-weight: 600;
+    color: #0f172a;
+  }
+
+  .header-right {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.4;
+  }
+
+
+  .theme-toggle {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.4;
+    padding: 0.5 1;
+    background-color: rgba(255, 255, 255, 0.24);
+    border-radius: 1.2;
+    border-width: 0.1;
+    border-color: rgba(255, 255, 255, 0.38);
+    cursor: pointer;
+  }
+
+  .theme-icon {
+    width: 1.3;
+    height: 1.3;
+    color: #f59e0b;
+  }
+
+  .theme-text {
+    font-size: 1.05;
+    font-weight: 500;
+    color: #334155;
+  }
+
+  /* ──────────────────────────────────────────────
+     Main Body (sidebar + content)
+     ────────────────────────────────────────────── */
+  .main-body {
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    gap: 0.8;
+    flex: 1;
+  }
+
+  .voice-assistant-panel {
+    width: 24;
+    display: none;
+    flex-direction: column;
+    gap: 0.5;
+    padding: 0.65 0.8;
+    background-color: rgba(15, 23, 42, 0.28);
+    border-radius: 1.4;
+    border-width: 0.1;
+    border-color: rgba(148, 163, 184, 0.35);
+    flex-shrink: 0;
+  }
+
+  .voice-assistant-header {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .voice-assistant-title {
+    font-size: 1.1;
+    font-weight: 600;
+    color: #f8fafc;
+  }
+
+  .voice-status {
+    font-size: 0.95;
+    color: #cbd5e1;
+  }
+
+  .voice-command-btn {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35;
+    padding: 0.45 0.9;
+    border-radius: 1.1;
+    background-color: rgba(37, 99, 235, 0.38);
+    border-width: 0.1;
+    border-color: rgba(96, 165, 250, 0.5);
+    cursor: pointer;
+  }
+
+  .voice-command-btn-text {
+    font-size: 0.95;
+    font-weight: 600;
+    color: #eff6ff;
+  }
+
+  .voice-dialogue-box {
+    width: 100%;
+    min-height: 5.4;
+    max-height: 9;
+    padding: 0.5 0.6;
+    border-radius: 1;
+    background-color: rgba(15, 23, 42, 0.36);
+    border-width: 0.08;
+    border-color: rgba(148, 163, 184, 0.28);
+  }
+
+  .voice-dialogue-text {
+    font-size: 0.88;
+    color: #e2e8f0;
+  }
+
+  /* ──────────────────────────────────────────────
+     Left Navigation Rail
+     ────────────────────────────────────────────── */
+  .nav-rail {
+    width: 5.8;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.6;
+    padding: 0.8 0.45;
+    background-color: rgba(255, 255, 255, 0.18);
+    border-radius: 1.8;
+    border-width: 0.1;
+    border-color: rgba(255, 255, 255, 0.32);
+  }
+
+  .rail-btn {
+    width: 4;
+    height: 4;
+    border-radius: 2;
+    border-width: 0.1;
+    border-color: rgba(255, 255, 255, 0.35);
+    background-color: rgba(255, 255, 255, 0.22);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  .rail-btn-active {
+    background-color: rgba(37, 99, 235, 0.34);
+    border-color: rgba(37, 99, 235, 0.56);
+  }
+
+  .rail-icon {
+    width: 1.7;
+    height: 1.7;
+    color: #1e293b;
+  }
+
+  /* ──────────────────────────────────────────────
+     Content Area / Device Grid
+     ────────────────────────────────────────────── */
+  .content-area {
+    flex: 1;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: 0.8;
+    padding: 0.4;
+  }
+
+  .dashboard-section {
+    flex: 1;
+    display: none;
+    flex-direction: column;
+    gap: 0.65;
+    padding: 0.6;
+    min-height: 0;
+  }
+
+  .section-card {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45;
+    padding: 0.8;
+    background-color: rgba(255, 255, 255, 0.18);
+    border-radius: 1.4;
+    border-width: 0.1;
+    border-color: rgba(255, 255, 255, 0.32);
+    flex: 1;
+    min-height: 0;
+  }
+
+  .section-title {
+    font-size: 1.25;
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  .section-sub {
+    font-size: 1;
+    color: #475569;
+  }
+
+  .section-grid {
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.45;
+    justify-content: space-between;
+    align-content: stretch;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .section-btn {
+    width: 24%;
+    min-width: 24%;
+    max-width: 24%;
+    min-height: 6.8;
+    padding: 0.55 0.6;
+    background-color: rgba(255, 255, 255, 0.18);
+    border-width: 0.1;
+    border-color: rgba(255, 255, 255, 0.35);
+    border-radius: 1;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.2;
+  }
+
+  .section-btn-icon {
+    width: 2.8;
+    height: 2.8;
+    object-fit: contain;
+  }
+
+  .section-btn-swatch {
+    width: 2.6;
+    height: 2.6;
+    border-radius: 0.45;
+    border-width: 0.08;
+    border-color: rgba(15, 23, 42, 0.2);
+  }
+
+  .section-btn-text {
+    font-size: 0.96;
+    font-weight: 600;
+    color: #1e293b;
+    text-align: center;
+  }
+
+  /* ──────────────────────────────────────────────
+     Device Card
+     ────────────────────────────────────────────── */
+  .device-card {
+    width: 17;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5;
+    padding: 0.9;
+    background-color: rgba(255, 255, 255, 0.18);
+    border-radius: 1.5;
+    border-width: 0.1;
+    border-color: rgba(255, 255, 255, 0.32);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  }
+
+  .card-header {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5;
+    width: 100%;
+  }
+
+  .card-icon-wrap {
+    width: 3.2;
+    height: 3.2;
+    border-radius: 1;
+    background-color: rgba(99, 102, 241, 0.18);
+    border-width: 0.08;
+    border-color: rgba(99, 102, 241, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .card-icon {
+    width: 1.6;
+    height: 1.6;
+    color: #4f46e5;
+  }
+
+  .card-icon-light {
+    color: #eab308;
+  }
+
+  .card-icon-tv {
+    color: #3b82f6;
+  }
+
+  .card-icon-fan {
+    color: #06b6d4;
+  }
+
+  .card-icon-ac {
+    color: #0ea5e9;
+  }
+
+  .card-icon-meter {
+    color: #10b981;
+  }
+
+  .card-icon-wrap-light {
+    background-color: rgba(234, 179, 8, 0.16);
+    border-color: rgba(234, 179, 8, 0.3);
+  }
+
+  .card-icon-wrap-tv {
+    background-color: rgba(59, 130, 246, 0.16);
+    border-color: rgba(59, 130, 246, 0.3);
+  }
+
+  .card-icon-wrap-fan {
+    background-color: rgba(6, 182, 212, 0.16);
+    border-color: rgba(6, 182, 212, 0.3);
+  }
+
+  .card-icon-wrap-ac {
+    background-color: rgba(14, 165, 233, 0.16);
+    border-color: rgba(14, 165, 233, 0.3);
+  }
+
+  .card-icon-wrap-meter {
+    background-color: rgba(16, 185, 129, 0.16);
+    border-color: rgba(16, 185, 129, 0.3);
+  }
+
+  .card-name {
+    flex: 1;
+    font-size: 1.15;
+    font-weight: 600;
+    color: #1e293b;
+  }
+
+  .card-toggle {
+    width: 2.8;
+    height: 2.8;
+    min-width: 2.8;
+    min-height: 2.8;
+    max-width: 2.8;
+    max-height: 2.8;
+    border-radius: 1.4;
+    padding: 0;
+    background-color: rgba(100, 116, 139, 0.2);
+    border-width: 0.08;
+    border-color: rgba(100, 116, 139, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  .card-toggle-on {
+    background-color: rgba(34, 197, 94, 0.3);
+    border-color: rgba(34, 197, 94, 0.56);
+  }
+
+  .toggle-icon {
+    width: 1.2;
+    height: 1.2;
+    color: #475569;
+  }
+
+  .toggle-icon-on {
+    color: #16a34a;
+  }
+
+  .card-body {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 0.3 0.1;
+  }
+
+  .card-value {
+    font-size: 1.65;
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  .card-controls {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25;
+  }
+
+  .card-ctrl-btn {
+    width: 2.4;
+    height: 2.4;
+    border-radius: 0.7;
+    background-color: rgba(255, 255, 255, 0.32);
+    border-width: 0.08;
+    border-color: rgba(255, 255, 255, 0.48);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  .ctrl-icon {
+    width: 1.1;
+    height: 1.1;
+    color: #334155;
+  }
+
+  .card-status {
+    font-size: 0.95;
+    font-weight: 500;
+    color: #64748b;
+    padding: 0.15 0;
+  }
+
+  .card-status-on {
+    color: #16a34a;
+  }
+
+  /* ──────────────────────────────────────────────
+     Bottom Room Tabs Bar
+     ────────────────────────────────────────────── */
+  .room-tabs-bar {
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5;
+    padding: 0.5 0.6;
+    background-color: rgba(255, 255, 255, 0.14);
+    border-radius: 1.6;
+    border-width: 0.1;
+    border-color: rgba(255, 255, 255, 0.28);
+    overflow-x: auto;
+  }
+
+  .room-tab {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6;
+    padding: 0.5 1.1;
+    border-radius: 1.2;
+    background-color: rgba(255, 255, 255, 0.2);
+    border-width: 0.08;
+    border-color: rgba(255, 255, 255, 0.32);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .room-tab-active {
+    background-color: rgba(37, 99, 235, 0.3);
+    border-color: rgba(37, 99, 235, 0.52);
+  }
+
+  .room-tab-text {
+    font-size: 1.05;
+    font-weight: 500;
+    color: #334155;
+  }
+
+  .room-tab-text-active {
+    color: #1e40af;
+    font-weight: 600;
+  }
+
+  .room-guide-text {
+    font-size: 0.92;
+    color: #475569;
+    font-weight: 500;
+  }
+
+</style>
+
+<!-- ═══════════════════════════════════════════════
+     VR Smart Home Dashboard Panel
+     ═══════════════════════════════════════════════ -->
+<div class="dashboard-container">
+
+  <!-- ─── Top Header Bar ─────────────────────── -->
+  <div class="header-bar">
+    <div class="header-left">
+      <div class="avatar-circle" id="user-avatar">
+        <UserIcon class="avatar-icon" />
+      </div>
+      <span class="welcome-text" id="welcome-text">Welcome, User</span>
+    </div>
+
+    <div class="header-right">
+      <button class="theme-toggle" id="light-dark-toggle">
+        <SunIcon class="theme-icon" />
+        <span class="theme-text">Light</span>
+      </button>
+      <button class="close-btn" id="close-dashboard-btn" title="Close dashboard">
+        <XIcon class="close-icon" />
+      </button>
+    </div>
+  </div>
+
+  <!-- ─── Main Body ──────────────────────────── -->
+  <div class="main-body">
+
+    <!-- Left Navigation Rail -->
+    <div class="nav-rail">
+      <button class="rail-btn rail-btn-active" id="rail-home-btn">
+        <HouseIcon class="rail-icon" />
+      </button>
+      <button class="rail-btn" id="rail-devices-btn">
+        <LayoutGridIcon class="rail-icon" />
+      </button>
+      <button class="rail-btn" id="rail-align-room-btn">
+        <MoveIcon class="rail-icon" />
+      </button>
+      <button class="rail-btn" id="rail-refresh-btn">
+        <RefreshCwIcon class="rail-icon" />
+      </button>
+      <button class="rail-btn" id="rail-mic-btn">
+        <MicIcon class="rail-icon" />
+      </button>
+      <button class="rail-btn" id="rail-xr-btn">
+        <GlassesIcon class="rail-icon" />
+      </button>
+    </div>
+
+    <!-- Content Area — Device Cards Grid -->
+    <div class="content-area" id="device-grid">
+
+      <!-- ── Card 0: Smart Light ──────────────── -->
+      <div class="device-card" id="device-card-0">
+        <div class="card-header">
+          <div class="card-icon-wrap card-icon-wrap-light">
+            <LightbulbIcon class="card-icon card-icon-light" id="card-icon-0" />
+          </div>
+          <span class="card-name" id="card-name-0">Smart Light</span>
+          <button class="card-toggle" id="card-toggle-0">
+            <PowerIcon class="toggle-icon" />
+          </button>
+        </div>
+        <div class="card-body">
+          <span class="card-value" id="card-value-0">75%</span>
+          <div class="card-controls">
+            <button class="card-ctrl-btn" id="card-up-0">
+              <ChevronUpIcon class="ctrl-icon" />
+            </button>
+            <button class="card-ctrl-btn" id="card-down-0">
+              <ChevronDownIcon class="ctrl-icon" />
+            </button>
+          </div>
+        </div>
+        <span class="card-status" id="card-status-0">Off</span>
+      </div>
+
+      <!-- ── Card 1: Smart TV ─────────────────── -->
+      <div class="device-card" id="device-card-1">
+        <div class="card-header">
+          <div class="card-icon-wrap card-icon-wrap-tv">
+            <TvIcon class="card-icon card-icon-tv" id="card-icon-1" />
+          </div>
+          <span class="card-name" id="card-name-1">Smart TV</span>
+          <button class="card-toggle" id="card-toggle-1">
+            <PowerIcon class="toggle-icon" />
+          </button>
+        </div>
+        <div class="card-body">
+          <span class="card-value" id="card-value-1">Vol 40</span>
+          <div class="card-controls">
+            <button class="card-ctrl-btn" id="card-up-1">
+              <ChevronUpIcon class="ctrl-icon" />
+            </button>
+            <button class="card-ctrl-btn" id="card-down-1">
+              <ChevronDownIcon class="ctrl-icon" />
+            </button>
+          </div>
+        </div>
+        <span class="card-status" id="card-status-1">Off</span>
+      </div>
+
+      <!-- ── Card 2: Fan ──────────────────────── -->
+      <div class="device-card" id="device-card-2">
+        <div class="card-header">
+          <div class="card-icon-wrap card-icon-wrap-fan">
+            <FanIcon class="card-icon card-icon-fan" id="card-icon-2" />
+          </div>
+          <span class="card-name" id="card-name-2">Fan</span>
+          <button class="card-toggle" id="card-toggle-2">
+            <PowerIcon class="toggle-icon" />
+          </button>
+        </div>
+        <div class="card-body">
+          <span class="card-value" id="card-value-2">Speed 3</span>
+          <div class="card-controls">
+            <button class="card-ctrl-btn" id="card-up-2">
+              <ChevronUpIcon class="ctrl-icon" />
+            </button>
+            <button class="card-ctrl-btn" id="card-down-2">
+              <ChevronDownIcon class="ctrl-icon" />
+            </button>
+          </div>
+        </div>
+        <span class="card-status" id="card-status-2">Off</span>
+      </div>
+
+      <!-- ── Card 3: Air Conditioner ──────────── -->
+      <div class="device-card" id="device-card-3">
+        <div class="card-header">
+          <div class="card-icon-wrap card-icon-wrap-ac">
+            <AirVentIcon class="card-icon card-icon-ac" id="card-icon-3" />
+          </div>
+          <span class="card-name" id="card-name-3">Air Conditioner</span>
+          <button class="card-toggle" id="card-toggle-3">
+            <PowerIcon class="toggle-icon" />
+          </button>
+        </div>
+        <div class="card-body">
+          <span class="card-value" id="card-value-3">24°C</span>
+          <div class="card-controls">
+            <button class="card-ctrl-btn" id="card-up-3">
+              <ChevronUpIcon class="ctrl-icon" />
+            </button>
+            <button class="card-ctrl-btn" id="card-down-3">
+              <ChevronDownIcon class="ctrl-icon" />
+            </button>
+          </div>
+        </div>
+        <span class="card-status" id="card-status-3">Off</span>
+      </div>
+
+      <!-- ── Card 4: Smart Meter ──────────────── -->
+      <div class="device-card" id="device-card-4">
+        <div class="card-header">
+          <div class="card-icon-wrap card-icon-wrap-meter">
+            <ActivityIcon class="card-icon card-icon-meter" id="card-icon-4" />
+          </div>
+          <span class="card-name" id="card-name-4">Smart Meter</span>
+          <button class="card-toggle" id="card-toggle-4">
+            <PowerIcon class="toggle-icon" />
+          </button>
+        </div>
+        <div class="card-body">
+          <span class="card-value" id="card-value-4">--</span>
+          <div class="card-controls">
+            <button class="card-ctrl-btn" id="card-up-4">
+              <ChevronUpIcon class="ctrl-icon" />
+            </button>
+            <button class="card-ctrl-btn" id="card-down-4">
+              <ChevronDownIcon class="ctrl-icon" />
+            </button>
+          </div>
+        </div>
+        <span class="card-status" id="card-status-4">Off</span>
+      </div>
+
+      <!-- ── Card 5: Smart Light 2 ───────────── -->
+      <div class="device-card" id="device-card-5">
+        <div class="card-header">
+          <div class="card-icon-wrap card-icon-wrap-light">
+            <LightbulbIcon class="card-icon card-icon-light" id="card-icon-5" />
+          </div>
+          <span class="card-name" id="card-name-5">Device</span>
+          <button class="card-toggle" id="card-toggle-5">
+            <PowerIcon class="toggle-icon" />
+          </button>
+        </div>
+        <div class="card-body">
+          <span class="card-value" id="card-value-5">--</span>
+          <div class="card-controls">
+            <button class="card-ctrl-btn" id="card-up-5">
+              <ChevronUpIcon class="ctrl-icon" />
+            </button>
+            <button class="card-ctrl-btn" id="card-down-5">
+              <ChevronDownIcon class="ctrl-icon" />
+            </button>
+          </div>
+        </div>
+        <span class="card-status" id="card-status-5">Off</span>
+      </div>
+
+      <!-- ── Card 6: Device Slot ──────────────── -->
+      <div class="device-card" id="device-card-6">
+        <div class="card-header">
+          <div class="card-icon-wrap">
+            <LightbulbIcon class="card-icon" id="card-icon-6" />
+          </div>
+          <span class="card-name" id="card-name-6">Device</span>
+          <button class="card-toggle" id="card-toggle-6">
+            <PowerIcon class="toggle-icon" />
+          </button>
+        </div>
+        <div class="card-body">
+          <span class="card-value" id="card-value-6">--</span>
+          <div class="card-controls">
+            <button class="card-ctrl-btn" id="card-up-6">
+              <ChevronUpIcon class="ctrl-icon" />
+            </button>
+            <button class="card-ctrl-btn" id="card-down-6">
+              <ChevronDownIcon class="ctrl-icon" />
+            </button>
+          </div>
+        </div>
+        <span class="card-status" id="card-status-6">Off</span>
+      </div>
+
+      <!-- ── Card 7: Device Slot ──────────────── -->
+      <div class="device-card" id="device-card-7">
+        <div class="card-header">
+          <div class="card-icon-wrap">
+            <LightbulbIcon class="card-icon" id="card-icon-7" />
+          </div>
+          <span class="card-name" id="card-name-7">Device</span>
+          <button class="card-toggle" id="card-toggle-7">
+            <PowerIcon class="toggle-icon" />
+          </button>
+        </div>
+        <div class="card-body">
+          <span class="card-value" id="card-value-7">--</span>
+          <div class="card-controls">
+            <button class="card-ctrl-btn" id="card-up-7">
+              <ChevronUpIcon class="ctrl-icon" />
+            </button>
+            <button class="card-ctrl-btn" id="card-down-7">
+              <ChevronDownIcon class="ctrl-icon" />
+            </button>
+          </div>
+        </div>
+        <span class="card-status" id="card-status-7">Off</span>
+      </div>
+
+    </div>
+
+    <div class="dashboard-section" id="placement-section">
+      <div class="section-card">
+        <span class="section-title">Place Items</span>
+        <span class="section-sub">Choose what to place in room.</span>
+        <div class="section-grid">
+          <button class="section-btn" id="place-lightbulb"><img class="section-btn-icon" src="./ui/thumbnails/lightbulb.png"></img><span class="section-btn-text">Light</span></button>
+          <button class="section-btn" id="place-television"><img class="section-btn-icon" src="./ui/thumbnails/television.png"></img><span class="section-btn-text">TV</span></button>
+          <button class="section-btn" id="place-fan"><img class="section-btn-icon" src="./ui/thumbnails/fan.png"></img><span class="section-btn-text">Fan</span></button>
+          <button class="section-btn" id="place-ac"><img class="section-btn-icon" src="./ui/thumbnails/ac.png"></img><span class="section-btn-text">AC</span></button>
+          <button class="section-btn" id="place-chair"><img class="section-btn-icon" src="./ui/thumbnails/chair.png"></img><span class="section-btn-text">Chair</span></button>
+          <button class="section-btn" id="place-chair2"><img class="section-btn-icon" src="./ui/thumbnails/chair.png"></img><span class="section-btn-text">Chair 2</span></button>
+          <button class="section-btn" id="place-chair3"><img class="section-btn-icon" src="./ui/thumbnails/chair.png"></img><span class="section-btn-text">Chair 3</span></button>
+          <button class="section-btn" id="place-chair4"><img class="section-btn-icon" src="./ui/thumbnails/chair.png"></img><span class="section-btn-text">Chair 4</span></button>
+          <button class="section-btn" id="place-chair5"><img class="section-btn-icon" src="./ui/thumbnails/chair.png"></img><span class="section-btn-text">Chair 5</span></button>
+          <button class="section-btn" id="place-chair6"><img class="section-btn-icon" src="./ui/thumbnails/chair.png"></img><span class="section-btn-text">Chair 6</span></button>
+        </div>
+      </div>
+      <div class="section-card">
+        <span class="section-title">Wallpaper</span>
+        <div class="section-grid">
+          <button class="section-btn" id="place-wallpaper-upload"><ImageIcon class="section-btn-icon" /><span class="section-btn-text">Upload</span></button>
+          <button class="section-btn" id="place-wallpaper-white"><div class="section-btn-swatch" style="background-color: #f8f8f8;"></div><span class="section-btn-text">White</span></button>
+          <button class="section-btn" id="place-wallpaper-cream"><div class="section-btn-swatch" style="background-color: #fdf6e3;"></div><span class="section-btn-text">Cream</span></button>
+          <button class="section-btn" id="place-wallpaper-sky"><div class="section-btn-swatch" style="background-color: #bfdbfe;"></div><span class="section-btn-text">Sky</span></button>
+          <button class="section-btn" id="place-wallpaper-sage"><div class="section-btn-swatch" style="background-color: #bbf7d0;"></div><span class="section-btn-text">Sage</span></button>
+          <button class="section-btn" id="place-wallpaper-blush"><div class="section-btn-swatch" style="background-color: #fecdd3;"></div><span class="section-btn-text">Blush</span></button>
+          <button class="section-btn" id="place-wallpaper-lavender"><div class="section-btn-swatch" style="background-color: #ddd6fe;"></div><span class="section-btn-text">Lavender</span></button>
+          <button class="section-btn" id="remove-wallpaper"><Trash2Icon class="section-btn-icon" /><span class="section-btn-text">Remove</span></button>
+        </div>
+      </div>
+    </div>
+
+    <div class="dashboard-section" id="alignment-section">
+      <div class="section-card">
+        <span class="section-title">Room Alignment</span>
+        <span class="section-sub" id="alignment-status">P: (0, 0, 0) R: 0deg</span>
+        <div class="section-grid">
+          <button class="section-btn" id="btn-move-fwd"><span class="section-btn-text">Forward</span></button>
+          <button class="section-btn" id="btn-move-back"><span class="section-btn-text">Back</span></button>
+          <button class="section-btn" id="btn-move-left"><span class="section-btn-text">Left</span></button>
+          <button class="section-btn" id="btn-move-right"><span class="section-btn-text">Right</span></button>
+          <button class="section-btn" id="btn-move-up"><span class="section-btn-text">Up</span></button>
+          <button class="section-btn" id="btn-move-down"><span class="section-btn-text">Down</span></button>
+          <button class="section-btn" id="btn-rot-left"><span class="section-btn-text">Rotate CCW</span></button>
+          <button class="section-btn" id="btn-rot-right"><span class="section-btn-text">Rotate CW</span></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── Voice Assistant Section (open via mic rail button) ─── -->
+    <div class="voice-assistant-panel" id="voice-assistant-panel">
+      <div class="voice-assistant-header">
+        <span class="voice-assistant-title">Voice Assistant</span>
+        <span class="voice-status" id="voice-status-inline">Idle</span>
+      </div>
+      <button class="voice-command-btn" id="voice-command-btn">
+        <MicIcon class="rail-icon" />
+        <span class="voice-command-btn-text">Voice Command</span>
+      </button>
+      <div class="voice-dialogue-box">
+        <span class="voice-dialogue-text" id="voice-dialogue-text">Press "Voice Command" to talk with assistant.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Bottom Room Tabs Bar ───────────────── -->
+  <div class="room-tabs-bar" id="room-tabs">
+    <button class="room-tab room-tab-active" id="room-tab-0">
+      <span class="room-tab-text room-tab-text-active" id="current-room-text">Current Room</span>
+      <span class="room-guide-text" id="room-guide-text">- T: toggle follow | U: toggle panel | Y: summon panel</span>
+    </button>
+  </div>
+
+</div>

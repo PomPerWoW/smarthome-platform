@@ -40,6 +40,9 @@ services:
     container_name: smarthome_backend
     env_file:
       - .env.production
+    environment:
+      DATABASE_HOST: smarthome_postgres
+      DATABASE_PORT: 5432
     volumes:
       - backend_static:/app/staticfiles
       - backend_media:/app/media

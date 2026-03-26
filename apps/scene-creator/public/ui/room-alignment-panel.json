@@ -4,15 +4,48 @@
     "type": "custom",
     "children": [
       {
-        "sourceTag": "span",
+        "sourceTag": "panel",
         "type": "custom",
-        "children": [
-          "Room Alignment"
-        ],
+        "children": [],
         "properties": {
-          "class": "title"
+          "class": "top-accent"
         },
         "dataUid": "uid-2"
+      },
+      {
+        "sourceTag": "panel",
+        "type": "custom",
+        "children": [
+          {
+            "sourceTag": "moveicon",
+            "type": "custom",
+            "children": [
+              {
+                "sourceTag": "span",
+                "type": "custom",
+                "children": [
+                  "Room Alignment"
+                ],
+                "properties": {
+                  "class": "title"
+                },
+                "dataUid": "uid-5"
+              }
+            ],
+            "properties": {
+              "style": {
+                "width": "30",
+                "height": "30",
+                "color": "#3b82f6"
+              }
+            },
+            "dataUid": "uid-4"
+          }
+        ],
+        "properties": {
+          "class": "header-row"
+        },
+        "dataUid": "uid-3"
       },
       {
         "sourceTag": "span",
@@ -24,7 +57,7 @@
           "class": "status",
           "id": "alignment-status"
         },
-        "dataUid": "uid-3"
+        "dataUid": "uid-6"
       },
       {
         "sourceTag": "panel",
@@ -41,7 +74,7 @@
                 "properties": {
                   "class": "dpad-spacer"
                 },
-                "dataUid": "uid-6"
+                "dataUid": "uid-9"
               },
               {
                 "sourceTag": "button",
@@ -53,7 +86,7 @@
                   "class": "dpad-btn",
                   "id": "btn-move-fwd"
                 },
-                "dataUid": "uid-7"
+                "dataUid": "uid-10"
               },
               {
                 "sourceTag": "panel",
@@ -62,13 +95,13 @@
                 "properties": {
                   "class": "dpad-spacer"
                 },
-                "dataUid": "uid-8"
+                "dataUid": "uid-11"
               }
             ],
             "properties": {
               "class": "dpad-row"
             },
-            "dataUid": "uid-5"
+            "dataUid": "uid-8"
           },
           {
             "sourceTag": "panel",
@@ -84,39 +117,8 @@
                   "class": "dpad-btn",
                   "id": "btn-move-left"
                 },
-                "dataUid": "uid-10"
+                "dataUid": "uid-13"
               },
-              {
-                "sourceTag": "panel",
-                "type": "custom",
-                "children": [],
-                "properties": {
-                  "class": "dpad-spacer"
-                },
-                "dataUid": "uid-11"
-              },
-              {
-                "sourceTag": "button",
-                "type": "custom",
-                "children": [
-                  "Right"
-                ],
-                "properties": {
-                  "class": "dpad-btn",
-                  "id": "btn-move-right"
-                },
-                "dataUid": "uid-12"
-              }
-            ],
-            "properties": {
-              "class": "dpad-row"
-            },
-            "dataUid": "uid-9"
-          },
-          {
-            "sourceTag": "panel",
-            "type": "custom",
-            "children": [
               {
                 "sourceTag": "panel",
                 "type": "custom",
@@ -130,13 +132,44 @@
                 "sourceTag": "button",
                 "type": "custom",
                 "children": [
+                  "Right"
+                ],
+                "properties": {
+                  "class": "dpad-btn",
+                  "id": "btn-move-right"
+                },
+                "dataUid": "uid-15"
+              }
+            ],
+            "properties": {
+              "class": "dpad-row"
+            },
+            "dataUid": "uid-12"
+          },
+          {
+            "sourceTag": "panel",
+            "type": "custom",
+            "children": [
+              {
+                "sourceTag": "panel",
+                "type": "custom",
+                "children": [],
+                "properties": {
+                  "class": "dpad-spacer"
+                },
+                "dataUid": "uid-17"
+              },
+              {
+                "sourceTag": "button",
+                "type": "custom",
+                "children": [
                   "Back"
                 ],
                 "properties": {
                   "class": "dpad-btn",
                   "id": "btn-move-back"
                 },
-                "dataUid": "uid-15"
+                "dataUid": "uid-18"
               },
               {
                 "sourceTag": "panel",
@@ -145,19 +178,19 @@
                 "properties": {
                   "class": "dpad-spacer"
                 },
-                "dataUid": "uid-16"
+                "dataUid": "uid-19"
               }
             ],
             "properties": {
               "class": "dpad-row"
             },
-            "dataUid": "uid-13"
+            "dataUid": "uid-16"
           }
         ],
         "properties": {
           "class": "dpad"
         },
-        "dataUid": "uid-4"
+        "dataUid": "uid-7"
       },
       {
         "sourceTag": "panel",
@@ -173,7 +206,7 @@
               "class": "ctrl-btn",
               "id": "btn-move-up"
             },
-            "dataUid": "uid-18"
+            "dataUid": "uid-21"
           },
           {
             "sourceTag": "button",
@@ -185,13 +218,13 @@
               "class": "ctrl-btn",
               "id": "btn-move-down"
             },
-            "dataUid": "uid-19"
+            "dataUid": "uid-22"
           }
         ],
         "properties": {
           "class": "btn-row"
         },
-        "dataUid": "uid-17"
+        "dataUid": "uid-20"
       },
       {
         "sourceTag": "panel",
@@ -207,7 +240,7 @@
               "class": "ctrl-btn",
               "id": "btn-rot-left"
             },
-            "dataUid": "uid-21"
+            "dataUid": "uid-24"
           },
           {
             "sourceTag": "button",
@@ -219,13 +252,13 @@
               "class": "ctrl-btn",
               "id": "btn-rot-right"
             },
-            "dataUid": "uid-22"
+            "dataUid": "uid-25"
           }
         ],
         "properties": {
           "class": "btn-row"
         },
-        "dataUid": "uid-20"
+        "dataUid": "uid-23"
       },
       {
         "sourceTag": "button",
@@ -237,7 +270,7 @@
           "class": "save-btn",
           "id": "btn-save-alignment"
         },
-        "dataUid": "uid-23"
+        "dataUid": "uid-26"
       }
     ],
     "properties": {
@@ -251,35 +284,55 @@
         "width": "520",
         "height": "480",
         "flexDirection": "column",
-        "backgroundColor": "var(--glass-bg)",
-        "backdropFilter": "blur(18px)",
-        "WebkitBackdropFilter": "blur(18px)",
-        "border": "1px solid var(--glass-border)",
+        "backgroundColor": "rgba(226, 232, 240, 0.34)",
+        "backdropFilter": "blur(72px) saturate(160%)",
+        "WebkitBackdropFilter": "blur(72px) saturate(160%)",
+        "fontFamily": "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif",
+        "border": "1px solid rgba(255, 255, 255, 0.14)",
         "borderRadius": 16,
         "padding": "20",
+        "alignItems": "flex-start",
+        "gap": "8",
+        "boxShadow": "0 24px 64px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06)"
+      }
+    },
+    "top-accent": {
+      "content": {
+        "height": "8",
+        "width": "100%",
+        "backgroundColor": "#3b82f6",
+        "borderRadius": 6,
+        "marginBottom": "10"
+      }
+    },
+    "header-row": {
+      "content": {
+        "width": "100%",
+        "flexDirection": "row",
         "alignItems": "center",
-        "gap": "10",
-        "boxShadow": "0 18px 50px rgba(0, 0, 0, 0.18)"
+        "gap": "10"
       }
     },
     "title": {
       "content": {
-        "fontSize": "36",
-        "color": "#cdd6f4"
+        "fontSize": "34",
+        "fontWeight": "700",
+        "color": "#0f172a"
       }
     },
     "status": {
       "content": {
-        "fontSize": "22",
-        "color": "#6c7086",
-        "marginBottom": "4"
+        "fontSize": "20",
+        "color": "#334155",
+        "marginBottom": "10"
       }
     },
     "dpad": {
       "content": {
+        "width": "100%",
         "flexDirection": "column",
         "alignItems": "center",
-        "gap": "6"
+        "gap": "8"
       }
     },
     "dpad-row": {
@@ -294,10 +347,13 @@
       "content": {
         "width": "100",
         "height": "48",
-        "fontSize": "20",
-        "backgroundColor": "var(--glass-bg-2)",
-        "color": "#cdd6f4",
-        "borderRadius": 10
+        "fontSize": "18",
+        "fontWeight": "700",
+        "backgroundColor": "rgba(255, 255, 255, 0.18)",
+        "color": "#0f172a",
+        "borderWidth": "1",
+        "borderColor": "rgba(255, 255, 255, 0.35)",
+        "borderRadius": 12
       }
     },
     "dpad-spacer": {
@@ -317,17 +373,23 @@
       "content": {
         "width": "100",
         "height": "48",
-        "fontSize": "18",
-        "backgroundColor": "var(--glass-bg-2)",
-        "color": "#cdd6f4",
-        "borderRadius": 10
+        "fontSize": "17",
+        "fontWeight": "700",
+        "backgroundColor": "rgba(255, 255, 255, 0.18)",
+        "color": "#0f172a",
+        "borderWidth": "1",
+        "borderColor": "rgba(255, 255, 255, 0.35)",
+        "borderRadius": 12
       }
     },
     "save-btn": {
       "content": {
         "fontSize": "22",
-        "backgroundColor": "#89b4fa",
-        "color": "#1e1e2e",
+        "fontWeight": "700",
+        "backgroundColor": "rgba(37, 99, 235, 0.36)",
+        "borderWidth": "1",
+        "borderColor": "rgba(37, 99, 235, 0.56)",
+        "color": "#0f172a",
         "padding": "14",
         "borderRadius": 12,
         "width": "472",
@@ -338,331 +400,381 @@
   "ranges": {
     "panel-container": {
       "start": {
-        "line": 9,
+        "line": 1,
         "column": 2
       },
       "end": {
-        "line": 9,
+        "line": 1,
         "column": 18
+      }
+    },
+    "top-accent": {
+      "start": {
+        "line": 17,
+        "column": 2
+      },
+      "end": {
+        "line": 17,
+        "column": 13
+      }
+    },
+    "header-row": {
+      "start": {
+        "line": 25,
+        "column": 2
+      },
+      "end": {
+        "line": 25,
+        "column": 13
       }
     },
     "title": {
       "start": {
-        "line": 24,
+        "line": 32,
         "column": 2
       },
       "end": {
-        "line": 24,
+        "line": 32,
         "column": 8
       }
     },
     "status": {
       "start": {
-        "line": 29,
+        "line": 38,
         "column": 2
       },
       "end": {
-        "line": 29,
+        "line": 38,
         "column": 9
       }
     },
     "dpad": {
       "start": {
-        "line": 35,
+        "line": 44,
         "column": 2
       },
       "end": {
-        "line": 35,
+        "line": 44,
         "column": 7
       }
     },
     "dpad-row": {
       "start": {
-        "line": 41,
+        "line": 51,
         "column": 2
       },
       "end": {
-        "line": 41,
+        "line": 51,
         "column": 11
       }
     },
     "dpad-btn": {
       "start": {
-        "line": 48,
+        "line": 58,
         "column": 2
       },
       "end": {
-        "line": 48,
+        "line": 58,
         "column": 11
       }
     },
     "dpad-spacer": {
       "start": {
-        "line": 57,
+        "line": 70,
         "column": 2
       },
       "end": {
-        "line": 57,
+        "line": 70,
         "column": 14
       }
     },
     "btn-row": {
       "start": {
-        "line": 62,
+        "line": 75,
         "column": 2
       },
       "end": {
-        "line": 62,
+        "line": 75,
         "column": 10
       }
     },
     "ctrl-btn": {
       "start": {
-        "line": 68,
+        "line": 81,
         "column": 2
       },
       "end": {
-        "line": 68,
+        "line": 81,
         "column": 11
       }
     },
     "save-btn": {
       "start": {
-        "line": 77,
+        "line": 93,
         "column": 2
       },
       "end": {
-        "line": 77,
+        "line": 93,
         "column": 11
       }
     },
     "uid-1": {
       "start": {
-        "line": 88,
+        "line": 107,
         "column": 0
       },
       "end": {
-        "line": 120,
+        "line": 143,
         "column": 8
       }
     },
     "uid-2": {
       "start": {
-        "line": 89,
-        "column": 2
-      },
-      "end": {
-        "line": 89,
-        "column": 43
-      }
-    },
-    "uid-3": {
-      "start": {
-        "line": 90,
-        "column": 2
-      },
-      "end": {
-        "line": 90,
-        "column": 69
-      }
-    },
-    "uid-4": {
-      "start": {
-        "line": 92,
+        "line": 108,
         "column": 2
       },
       "end": {
         "line": 108,
+        "column": 36
+      }
+    },
+    "uid-3": {
+      "start": {
+        "line": 109,
+        "column": 2
+      },
+      "end": {
+        "line": 112,
         "column": 10
+      }
+    },
+    "uid-4": {
+      "start": {
+        "line": 110,
+        "column": 4
+      },
+      "end": {
+        "line": 112,
+        "column": 2
       }
     },
     "uid-5": {
       "start": {
-        "line": 93,
+        "line": 111,
         "column": 4
       },
       "end": {
-        "line": 97,
-        "column": 12
+        "line": 111,
+        "column": 45
       }
     },
     "uid-6": {
       "start": {
-        "line": 94,
-        "column": 6
+        "line": 113,
+        "column": 2
       },
       "end": {
-        "line": 94,
-        "column": 41
+        "line": 113,
+        "column": 69
       }
     },
     "uid-7": {
       "start": {
-        "line": 95,
-        "column": 6
+        "line": 115,
+        "column": 2
       },
       "end": {
-        "line": 95,
-        "column": 61
+        "line": 131,
+        "column": 10
       }
     },
     "uid-8": {
       "start": {
-        "line": 96,
-        "column": 6
+        "line": 116,
+        "column": 4
       },
       "end": {
-        "line": 96,
-        "column": 41
+        "line": 120,
+        "column": 12
       }
     },
     "uid-9": {
       "start": {
-        "line": 98,
-        "column": 4
+        "line": 117,
+        "column": 6
       },
       "end": {
-        "line": 102,
-        "column": 12
+        "line": 117,
+        "column": 41
       }
     },
     "uid-10": {
       "start": {
-        "line": 99,
+        "line": 118,
         "column": 6
       },
       "end": {
-        "line": 99,
-        "column": 63
+        "line": 118,
+        "column": 61
       }
     },
     "uid-11": {
       "start": {
-        "line": 100,
+        "line": 119,
         "column": 6
       },
       "end": {
-        "line": 100,
+        "line": 119,
         "column": 41
       }
     },
     "uid-12": {
       "start": {
-        "line": 101,
-        "column": 6
+        "line": 121,
+        "column": 4
       },
       "end": {
-        "line": 101,
-        "column": 65
+        "line": 125,
+        "column": 12
       }
     },
     "uid-13": {
       "start": {
-        "line": 103,
-        "column": 4
+        "line": 122,
+        "column": 6
       },
       "end": {
-        "line": 107,
-        "column": 12
+        "line": 122,
+        "column": 63
       }
     },
     "uid-14": {
       "start": {
-        "line": 104,
+        "line": 123,
         "column": 6
       },
       "end": {
-        "line": 104,
+        "line": 123,
         "column": 41
       }
     },
     "uid-15": {
       "start": {
-        "line": 105,
+        "line": 124,
         "column": 6
       },
       "end": {
-        "line": 105,
-        "column": 63
+        "line": 124,
+        "column": 65
       }
     },
     "uid-16": {
       "start": {
-        "line": 106,
-        "column": 6
+        "line": 126,
+        "column": 4
       },
       "end": {
-        "line": 106,
-        "column": 41
+        "line": 130,
+        "column": 12
       }
     },
     "uid-17": {
       "start": {
-        "line": 110,
-        "column": 2
+        "line": 127,
+        "column": 6
       },
       "end": {
-        "line": 113,
-        "column": 10
+        "line": 127,
+        "column": 41
       }
     },
     "uid-18": {
       "start": {
-        "line": 111,
-        "column": 4
+        "line": 128,
+        "column": 6
       },
       "end": {
-        "line": 111,
-        "column": 57
+        "line": 128,
+        "column": 63
       }
     },
     "uid-19": {
       "start": {
-        "line": 112,
-        "column": 4
+        "line": 129,
+        "column": 6
       },
       "end": {
-        "line": 112,
-        "column": 61
+        "line": 129,
+        "column": 41
       }
     },
     "uid-20": {
       "start": {
-        "line": 114,
+        "line": 133,
         "column": 2
       },
       "end": {
-        "line": 117,
+        "line": 136,
         "column": 10
       }
     },
     "uid-21": {
       "start": {
-        "line": 115,
+        "line": 134,
         "column": 4
       },
       "end": {
-        "line": 115,
-        "column": 59
+        "line": 134,
+        "column": 57
       }
     },
     "uid-22": {
       "start": {
-        "line": 116,
+        "line": 135,
         "column": 4
       },
       "end": {
-        "line": 116,
-        "column": 59
+        "line": 135,
+        "column": 61
       }
     },
     "uid-23": {
       "start": {
-        "line": 119,
+        "line": 137,
         "column": 2
       },
       "end": {
-        "line": 119,
+        "line": 140,
+        "column": 10
+      }
+    },
+    "uid-24": {
+      "start": {
+        "line": 138,
+        "column": 4
+      },
+      "end": {
+        "line": 138,
+        "column": 59
+      }
+    },
+    "uid-25": {
+      "start": {
+        "line": 139,
+        "column": 4
+      },
+      "end": {
+        "line": 139,
+        "column": 59
+      }
+    },
+    "uid-26": {
+      "start": {
+        "line": 142,
+        "column": 2
+      },
+      "end": {
+        "line": 142,
         "column": 74
       }
     }

@@ -47,6 +47,8 @@ const ROTATE_SPEED = 0.15; // Rotation speed for turning
 const WAYPOINT_REACH_DISTANCE = 0.5; // How close to get to waypoint before picking new one
 /** When walking to user, use larger radius so robot reliably stops and speaks (avoids overshoot/oscillation). */
 const REACH_USER_DISTANCE = 1.0;
+/** Snap destination when voice panel requests "come to user". */
+const VOICE_SNAP_NEAR_USER_DISTANCE = 1.1;
 const WAYPOINT_INTERVAL = 8.0; // Pick new waypoint every 8-12 seconds
 /** Maximum time (seconds) the robot will try to walk to user before giving up. */
 const WALK_TO_USER_TIMEOUT_SEC = 30.0;
@@ -113,6 +115,8 @@ export class RobotAssistantSystem extends createSystem({
   },
 }) {
   private robotRecords: Map<string, RobotAssistantRecord> = new Map();
+  /** Reused raycaster for "face the user" checks while walking. */
+  private readonly lookRaycaster: Raycaster = new Raycaster();
   private timeElapsed = 0;
   private voiceActive = false;
   private voiceEmoteSequence: VoiceEmoteSequence | null = null;
@@ -467,7 +471,7 @@ export class RobotAssistantSystem extends createSystem({
     const floorY = bounds ? bounds.floorY : 0;
 
     // Hardcoded world-space spawn position
-    return { x: -2.78, y: floorY, z: 1.98 };
+    return { x: -2.8, y: floorY, z: 0.5 };
   }
 
   /**
@@ -589,18 +593,29 @@ export class RobotAssistantSystem extends createSystem({
       return;
     }
 
-    // Store callback
+    // Store callback and walk toward a point near user.
     this.onReachedUserCallback = onArrived || null;
 
-    // Set target to camera position
     const cam = camera as { position: { x: number; y: number; z: number } };
     const userLocal = this.worldToRoomLocal(
       cam.position.x,
       cam.position.y,
       cam.position.z,
     );
-    record.entity.setValue(RobotAssistantComponent, "targetX", userLocal.x);
-    record.entity.setValue(RobotAssistantComponent, "targetZ", userLocal.z);
+
+    // Choose a point slightly offset from user to avoid overlap.
+    const toRobotX = record.model.position.x - userLocal.x;
+    const toRobotZ = record.model.position.z - userLocal.z;
+    const len = Math.sqrt(toRobotX * toRobotX + toRobotZ * toRobotZ);
+    const dirX = len > 1e-5 ? toRobotX / len : 0;
+    const dirZ = len > 1e-5 ? toRobotZ / len : -1;
+
+    const nearUserX = userLocal.x + dirX * VOICE_SNAP_NEAR_USER_DISTANCE;
+    const nearUserZ = userLocal.z + dirZ * VOICE_SNAP_NEAR_USER_DISTANCE;
+    const [clampedX, clampedZ] = clampToWalkableArea(nearUserX, nearUserZ);
+
+    record.entity.setValue(RobotAssistantComponent, "targetX", clampedX);
+    record.entity.setValue(RobotAssistantComponent, "targetZ", clampedZ);
     record.entity.setValue(RobotAssistantComponent, "hasReachedTarget", false);
     this.walkingToUser = true;
     this.walkToUserStartTime = this.timeElapsed;
@@ -609,13 +624,13 @@ export class RobotAssistantSystem extends createSystem({
     this.fadeToAction(record, "Walking", FADE_DURATION);
     record.entity.setValue(RobotAssistantComponent, "currentState", "Walking");
 
-    console.log("[RobotAssistant] 🚶 Starting walk to user");
+    console.log(
+      `[RobotAssistant] 🚶 Walking near user target at (${clampedX.toFixed(2)}, ${clampedZ.toFixed(2)})`,
+    );
   }
 
   /** Public method: Stop walking to user and return to normal patrol behavior. */
   public returnToPatrol(): void {
-    if (!this.walkingToUser) return;
-
     this.walkingToUser = false;
     this.onReachedUserCallback = null;
     this.pendingInstructionTopic = null;
@@ -854,30 +869,28 @@ export class RobotAssistantSystem extends createSystem({
   // Turn voice-listening mode on or off
   setVoiceListening(active: boolean): void {
     if (active) {
-      // Already in voice mode (e.g. "listening" then "processing") — avoid playing Standing twice
+      // Already in voice mode (e.g. "listening" then "processing")
       if (this.voiceActive) return;
       this.voiceActive = true;
-      for (const record of this.robotRecords.values()) {
-        this.fadeToAction(record, "Standing", FADE_DURATION);
-        record.entity.setValue(
-          RobotAssistantComponent,
-          "currentState",
-          "Standing",
-        );
-      }
-      console.log("[RobotAssistant] 🎤 Voice listening ON — Standing");
+      console.log("[RobotAssistant] 🎤 Voice listening ON");
     } else {
+      if (this.inInstructionSession) {
+        this.voiceActive = false;
+        this.voiceEmoteSequence = null;
+        for (const record of this.robotRecords.values()) {
+          this.fadeToAction(record, "Standing", FADE_DURATION);
+          record.entity.setValue(
+            RobotAssistantComponent,
+            "currentState",
+            "Standing",
+          );
+        }
+        console.log("[RobotAssistant] 🎤 Voice idle — keep standing in session");
+        return;
+      }
       this.voiceActive = false;
       this.voiceEmoteSequence = null;
-      for (const record of this.robotRecords.values()) {
-        this.fadeToAction(record, "Walking", FADE_DURATION);
-        record.entity.setValue(
-          RobotAssistantComponent,
-          "currentState",
-          "Walking",
-        );
-      }
-      console.log("[RobotAssistant] 🎤 Voice listening OFF — resuming walking");
+      console.log("[RobotAssistant] 🎤 Voice listening OFF");
     }
   }
 
@@ -1043,10 +1056,17 @@ export class RobotAssistantSystem extends createSystem({
     const rotY = roomModel.rotation.y;
     const cosR = Math.cos(rotY);
     const sinR = Math.sin(rotY);
+    const roomScale =
+      Math.abs((roomModel.scale?.x as number) ?? 1) > 1e-6
+        ? (roomModel.scale.x as number)
+        : 1;
+    const sx = lx * roomScale;
+    const sy = ly * roomScale;
+    const sz = lz * roomScale;
     return {
-      x: roomModel.position.x + lx * cosR - lz * sinR,
-      y: roomModel.position.y + ly,
-      z: roomModel.position.z + lx * sinR + lz * cosR,
+      x: roomModel.position.x + sx * cosR - sz * sinR,
+      y: roomModel.position.y + sy,
+      z: roomModel.position.z + sx * sinR + sz * cosR,
     };
   }
 
@@ -1062,11 +1082,16 @@ export class RobotAssistantSystem extends createSystem({
     const cosR = Math.cos(-rotY);
     const sinR = Math.sin(-rotY);
     const dx = wx - roomModel.position.x;
+    const dy = wy - roomModel.position.y;
     const dz = wz - roomModel.position.z;
+    const roomScale =
+      Math.abs((roomModel.scale?.x as number) ?? 1) > 1e-6
+        ? (roomModel.scale.x as number)
+        : 1;
     return {
-      x: dx * cosR - dz * sinR,
-      y: wy - roomModel.position.y,
-      z: dx * sinR + dz * cosR,
+      x: (dx * cosR - dz * sinR) / roomScale,
+      y: dy / roomScale,
+      z: (dx * sinR + dz * cosR) / roomScale,
     };
   }
 
@@ -1101,7 +1126,7 @@ export class RobotAssistantSystem extends createSystem({
       if (record.lastRoomLocalPos !== null) {
         const posDiff = Math.sqrt(
           (roomLocal.x - record.lastRoomLocalPos.x) ** 2 +
-            (roomLocal.z - record.lastRoomLocalPos.z) ** 2,
+          (roomLocal.z - record.lastRoomLocalPos.z) ** 2,
         );
 
         // Maximum reasonable movement per frame (based on max velocity + safety margin)
@@ -1135,15 +1160,11 @@ export class RobotAssistantSystem extends createSystem({
       // Undo room rotation so all rotation math is in room-local space
       record.model.rotation.y -= roomRotY;
 
-      // Voice-driven mode: stay Standing (or let emote sequence run), skip movement and random transitions
-      if (this.voiceActive) {
-        // Only force Standing when still Walking/Idle — never re-apply Standing when already Standing
-        // or when about to play Wave/Yes/ThumbsUp (avoids extra Standing before scenario animations)
-        const needStanding =
-          !this.voiceEmoteSequence &&
-          (record.currentAction === "Walking" ||
-            record.currentAction === "Idle");
-        if (needStanding) {
+      // During instruction session, keep robot at current place (no walking),
+      // but still allow emotes to play naturally.
+      if (this.inInstructionSession && !this.walkingToUser) {
+        const isEmotePlaying = EMOTES.includes(record.currentAction);
+        if (!isEmotePlaying && record.currentAction !== "Standing") {
           this.fadeToAction(record, "Standing", FADE_DURATION);
           record.entity.setValue(
             RobotAssistantComponent,
@@ -1151,28 +1172,16 @@ export class RobotAssistantSystem extends createSystem({
             "Standing",
           );
         }
-
-        // Still update head expressions below, then skip the rest
-        if (record.headMesh) {
-          const dict = (record.headMesh as any).morphTargetDictionary;
-          const influences = (record.headMesh as any).morphTargetInfluences;
-          if (dict && influences) {
-            if (dict["angry"] !== undefined) influences[dict["angry"]] = 0.0;
-            if (dict["surprised"] !== undefined)
-              influences[dict["surprised"]] = 0.0;
-            if (dict["sad"] !== undefined) influences[dict["sad"]] = 0.0;
-          }
-        }
-        // Must still apply room transform before continuing
-        const voiceWorldPos = this.roomLocalToWorld(
+        this.faceFirstRobotTowardUser();
+        const sessionWorldPos = this.roomLocalToWorld(
           record.model.position.x,
           record.model.position.y,
           record.model.position.z,
         );
         record.model.position.set(
-          voiceWorldPos.x,
-          voiceWorldPos.y,
-          voiceWorldPos.z,
+          sessionWorldPos.x,
+          sessionWorldPos.y,
+          sessionWorldPos.z,
         );
         record.model.rotation.y += roomRotY;
         continue;
@@ -1468,7 +1477,7 @@ export class RobotAssistantSystem extends createSystem({
       let dz = 0;
       const reachDist =
         (this.walkingToUser && !this.stepAsideTarget) ||
-        this.inInstructionSession
+          this.inInstructionSession
           ? REACH_USER_DISTANCE
           : WAYPOINT_REACH_DISTANCE;
 
@@ -1512,8 +1521,75 @@ export class RobotAssistantSystem extends createSystem({
             dz / currentDistanceToTarget,
           );
 
-          // Normal waypoint navigation - face the waypoint
-          const targetAngle = Math.atan2(dx, dz);
+          // Normal waypoint navigation - face the waypoint.
+          // While walking to the user, prefer rotating to face the user
+          // (so the user doesn't see the robot's back).
+          let targetAngle = Math.atan2(dx, dz);
+          if (this.walkingToUser && this.world.camera) {
+            const cam = this.world.camera as {
+              position: { x: number; y: number; z: number };
+            };
+            const userLocal = this.worldToRoomLocal(
+              cam.position.x,
+              cam.position.y,
+              cam.position.z,
+            );
+
+            const dxUser = userLocal.x - record.model.position.x;
+            const dzUser = userLocal.z - record.model.position.z;
+            const distToUser = Math.sqrt(dxUser * dxUser + dzUser * dzUser);
+            if (distToUser > 1e-3) {
+              const angleToUser = Math.atan2(dxUser, dzUser);
+
+              // Raycast to confirm the user direction isn't blocked by room geometry.
+              // (We can't raycast the camera itself, so we validate line-of-sight to the user ray.)
+              let canSeeUser = true;
+              const roomModel = (globalThis as any).__labRoomModel as
+                | Object3D
+                | undefined;
+
+              if (roomModel) {
+                const originW = this.roomLocalToWorld(
+                  record.model.position.x,
+                  record.model.position.y,
+                  record.model.position.z,
+                );
+                const userW = this.roomLocalToWorld(
+                  userLocal.x,
+                  record.model.position.y,
+                  userLocal.z,
+                );
+                const dirW = new Vector3(
+                  userW.x - originW.x,
+                  0,
+                  userW.z - originW.z,
+                );
+                const dirLen = dirW.length();
+                if (dirLen > 1e-6) {
+                  dirW.normalize();
+                  this.lookRaycaster.set(
+                    new Vector3(originW.x, originW.y + 0.2, originW.z),
+                    dirW,
+                  );
+                  this.lookRaycaster.near = 0;
+                  this.lookRaycaster.far = distToUser + 0.05;
+                  const hits = this.lookRaycaster.intersectObject(
+                    roomModel as any,
+                    true,
+                  );
+                  // If we hit room geometry significantly before reaching user distance,
+                  // consider the view blocked and keep waypoint-facing.
+                  if (hits.length > 0 && hits[0].distance < distToUser - 0.1) {
+                    canSeeUser = false;
+                  }
+                }
+              }
+
+              if (canSeeUser) {
+                targetAngle = angleToUser;
+              }
+            }
+          }
           record.rotateQuaternion.setFromAxisAngle(
             record.rotateAngle,
             targetAngle,
@@ -1582,7 +1658,7 @@ export class RobotAssistantSystem extends createSystem({
 
               const blockDist = Math.sqrt(
                 (scanW.x - scanConstrained.x) ** 2 +
-                  (scanW.z - scanConstrained.z) ** 2,
+                (scanW.z - scanConstrained.z) ** 2,
               );
               if (blockDist > 0.15) {
                 if (this.walkingToUser) {
@@ -2069,6 +2145,8 @@ export class RobotAssistantSystem extends createSystem({
 
     let bestTarget: { x: number; z: number } | null = null;
     let bestScore = -Infinity;
+    let bestProgressTarget: { x: number; z: number } | null = null;
+    let bestProgressScore = -Infinity;
 
     // Try each combination (limited set)
     for (const angle of escapeAngles) {
@@ -2138,6 +2216,11 @@ export class RobotAssistantSystem extends createSystem({
           // Small randomness to break ties
           score += Math.random() * 0.3;
 
+          if (progressTowardUser > 0.05 && score > bestProgressScore) {
+            bestProgressScore = score;
+            bestProgressTarget = { x: clampedX, z: clampedZ };
+          }
+
           if (score > bestScore) {
             bestScore = score;
             bestTarget = { x: clampedX, z: clampedZ };
@@ -2146,19 +2229,22 @@ export class RobotAssistantSystem extends createSystem({
       }
     }
 
-    // Use the best candidate, or fallback to smart perpendicular that still moves toward user
-    if (bestTarget) {
-      this.stepAsideTarget = bestTarget;
-      entity.setValue(RobotAssistantComponent, "targetX", bestTarget.x);
-      entity.setValue(RobotAssistantComponent, "targetZ", bestTarget.z);
+    // Prefer candidates that still make positive progress toward user.
+    // If none are available, use best obstacle-clearing candidate.
+    const chosenTarget = bestProgressTarget ?? bestTarget;
+    if (chosenTarget) {
+      this.stepAsideTarget = chosenTarget;
+      entity.setValue(RobotAssistantComponent, "targetX", chosenTarget.x);
+      entity.setValue(RobotAssistantComponent, "targetZ", chosenTarget.z);
       console.log(
-        `[RobotAssistant] ✅ Selected step-aside path: (${bestTarget.x.toFixed(2)}, ${bestTarget.z.toFixed(2)}) - score: ${bestScore.toFixed(2)}`,
+        `[RobotAssistant] ✅ Selected step-aside path: (${chosenTarget.x.toFixed(2)}, ${chosenTarget.z.toFixed(2)}) - score: ${(bestProgressTarget ? bestProgressScore : bestScore).toFixed(2)}${bestProgressTarget ? " (toward user)" : ""}`,
       );
     } else {
-      // Fallback: try perpendicular directions but prefer the one that gets us closer to user
+      // Fallback: try perpendicular directions but strongly prefer the one that gets us closer to user
       const fallbackDist = 2.0;
       let bestFallback: { x: number; z: number } | null = null;
       let bestFallbackScore = -Infinity;
+      let bestFallbackProgress = -Infinity;
 
       // Try both left and right perpendicular
       for (const sign of [-1, 1]) {
@@ -2185,13 +2271,16 @@ export class RobotAssistantSystem extends createSystem({
         }
         score += Math.random() * 0.1;
 
+        if (fallbackProgress > bestFallbackProgress) {
+          bestFallbackProgress = fallbackProgress;
+        }
         if (score > bestFallbackScore) {
           bestFallbackScore = score;
           bestFallback = { x: clampedX, z: clampedZ };
         }
       }
 
-      if (bestFallback) {
+      if (bestFallback && bestFallbackProgress > -0.05) {
         this.stepAsideTarget = bestFallback;
         entity.setValue(RobotAssistantComponent, "targetX", bestFallback.x);
         entity.setValue(RobotAssistantComponent, "targetZ", bestFallback.z);
@@ -2199,18 +2288,14 @@ export class RobotAssistantSystem extends createSystem({
           `[RobotAssistant] ✅ Fallback step-aside path: (${bestFallback.x.toFixed(2)}, ${bestFallback.z.toFixed(2)})`,
         );
       } else {
-        // Last resort: simple perpendicular (just clear the obstacle)
-        const sign = Math.random() < 0.5 ? 1 : -1;
-        const perpX = -dirZ * sign;
-        const perpZ = dirX * sign;
-        let newTargetX = currentX + perpX * fallbackDist;
-        let newTargetZ = currentZ + perpZ * fallbackDist;
-        let [clampedX, clampedZ] = clampToWalkableArea(newTargetX, newTargetZ);
+        // Last resort: do not wander randomly. Keep target on the user.
+        // This guarantees the path objective remains "walk to user".
+        const [clampedX, clampedZ] = clampToWalkableArea(userTargetX, userTargetZ);
         this.stepAsideTarget = { x: clampedX, z: clampedZ };
         entity.setValue(RobotAssistantComponent, "targetX", clampedX);
         entity.setValue(RobotAssistantComponent, "targetZ", clampedZ);
         console.log(
-          `[RobotAssistant] ⚠️ Last resort step-aside: (${clampedX.toFixed(2)}, ${clampedZ.toFixed(2)})`,
+          `[RobotAssistant] ⚠️ No good detour found, retrying direct walk-to-user target: (${clampedX.toFixed(2)}, ${clampedZ.toFixed(2)})`,
         );
       }
     }

@@ -23,6 +23,7 @@ export class PanelSystem extends createSystem({
   private lastTriggerState: Map<XRInputSource, boolean> = new Map();
   private triggerCooldown = 0;
   private readonly TRIGGER_COOLDOWN_TIME = 0.5; // 500ms cooldown to prevent rapid triggers
+  private welcomeObject3D: any = null;
 
   init() {
     this.queries.welcomePanel.subscribe("qualify", (entity) => {
@@ -32,10 +33,50 @@ export class PanelSystem extends createSystem({
       if (!document) {
         return;
       }
+      this.welcomeObject3D = entity.object3D;
 
       const store = getStore();
       const auth = getAuth();
       const user = auth.getUser();
+
+      const toggleExclusiveRightPanel = (target: "placement") => {
+        const placementEntity = (globalThis as any).__placementPanelEntity;
+
+        const placementObj = placementEntity?.object3D;
+        const targetObj = target === "placement" ? placementObj : undefined;
+        const otherObj = undefined;
+
+        if (!targetObj) return;
+
+        const shouldOpen = !targetObj.visible;
+        if (otherObj) otherObj.visible = false;
+        targetObj.visible = shouldOpen;
+      };
+
+      const railIds = [
+        "rail-home-btn",
+        "rail-devices-btn",
+        "rail-refresh-btn",
+        "rail-mic-btn",
+        "rail-xr-btn",
+      ];
+
+      const setActiveRail = (activeId: string) => {
+        for (const id of railIds) {
+          const btn = document.getElementById(id) as any;
+          if (!btn) continue;
+          btn.setProperties?.({
+            backgroundColor:
+              id === activeId
+                ? "rgba(37, 99, 235, 0.34)"
+                : "rgba(255, 255, 255, 0.22)",
+            borderColor:
+              id === activeId
+                ? "rgba(37, 99, 235, 0.56)"
+                : "rgba(255, 255, 255, 0.35)",
+          });
+        }
+      };
 
       // Update user email
       const userEmail = document.getElementById("user-email") as UIKit.Text;
@@ -125,55 +166,57 @@ export class PanelSystem extends createSystem({
       }
 
       // ── XR Button ────────────────────────────────────────────────────
-      const xrButton = document.getElementById("xr-button") as UIKit.Text;
-      if (xrButton) {
-        xrButton.addEventListener("click", async () => {
-          if (
-            this.world.visibilityState.value === VisibilityState.NonImmersive
-          ) {
-            // Check WebXR availability before attempting to launch
-            if (!navigator.xr) {
+      const handleXrClick = async () => {
+        if (
+          this.world.visibilityState.value === VisibilityState.NonImmersive
+        ) {
+          // Check WebXR availability before attempting to launch
+          if (!navigator.xr) {
+            console.warn(
+              "[Panel] WebXR API not available. Ensure you are using HTTPS and a compatible browser.",
+            );
+            alert(
+              "WebXR is not available.\n\nPlease ensure:\n• You are accessing this page over HTTPS\n• Your browser supports WebXR\n• An XR headset is connected",
+            );
+            return;
+          }
+
+          const sessionMode = isARMode ? "immersive-ar" : "immersive-vr";
+          try {
+            const supported =
+              await navigator.xr.isSessionSupported(sessionMode);
+            if (!supported) {
               console.warn(
-                "[Panel] WebXR API not available. Ensure you are using HTTPS and a compatible browser.",
+                `[Panel] XR session mode "${sessionMode}" is not supported on this device.`,
               );
               alert(
-                "WebXR is not available.\n\nPlease ensure:\n• You are accessing this page over HTTPS\n• Your browser supports WebXR\n• An XR headset is connected",
+                `XR mode "${sessionMode}" is not supported on this device.\n\nPlease ensure:\n• An XR headset is connected\n• Your browser supports the requested XR mode\n• Required permissions are granted`,
               );
               return;
             }
-
-            const sessionMode = isARMode ? "immersive-ar" : "immersive-vr";
-            try {
-              const supported =
-                await navigator.xr.isSessionSupported(sessionMode);
-              if (!supported) {
-                console.warn(
-                  `[Panel] XR session mode "${sessionMode}" is not supported on this device.`,
-                );
-                alert(
-                  `XR mode "${sessionMode}" is not supported on this device.\n\nPlease ensure:\n• An XR headset is connected\n• Your browser supports the requested XR mode\n• Required permissions are granted`,
-                );
-                return;
-              }
-            } catch (checkErr) {
-              console.warn(
-                "[Panel] Could not check XR session support:",
-                checkErr,
-              );
-            }
-
-            try {
-              await this.world.launchXR();
-            } catch (err) {
-              console.error("[Panel] Failed to launch XR session:", err);
-              alert(
-                "Failed to start XR session.\n\nPlease check that:\n• An XR headset is connected and active\n• You are using HTTPS\n• No other XR session is already running",
-              );
-            }
-          } else {
-            this.world.exitXR();
+          } catch (checkErr) {
+            console.warn(
+              "[Panel] Could not check XR session support:",
+              checkErr,
+            );
           }
-        });
+
+          try {
+            await this.world.launchXR();
+          } catch (err) {
+            console.error("[Panel] Failed to launch XR session:", err);
+            alert(
+              "Failed to start XR session.\n\nPlease check that:\n• An XR headset is connected and active\n• You are using HTTPS\n• No other XR session is already running",
+            );
+          }
+        } else {
+          this.world.exitXR();
+        }
+      };
+
+      const xrButton = document.getElementById("xr-button") as UIKit.Text;
+      if (xrButton) {
+        xrButton.addEventListener("click", handleXrClick);
 
         // Set initial text based on visibility state
         const updateButtonText = () => {
@@ -200,6 +243,24 @@ export class PanelSystem extends createSystem({
           updateButtonText();
         });
       }
+      const railXrButton = document.getElementById("rail-xr-btn") as UIKit.Text;
+      if (railXrButton) {
+        railXrButton.addEventListener("click", () => {
+          setActiveRail("rail-xr-btn");
+          handleXrClick();
+        });
+      }
+
+      const railMicButton = document.getElementById("rail-mic-btn") as UIKit.Text;
+      if (railMicButton) {
+        railMicButton.addEventListener("click", () => {
+          setActiveRail("rail-mic-btn");
+          const fn = (globalThis as any).__triggerVoiceAssistant as
+            | (() => void)
+            | undefined;
+          if (fn) fn();
+        });
+      }
 
       // Refresh Button
       const refreshButton = document.getElementById(
@@ -211,6 +272,16 @@ export class PanelSystem extends createSystem({
           await store.refreshDevices();
         });
       }
+      const railRefreshButton = document.getElementById(
+        "rail-refresh-btn",
+      ) as UIKit.Text;
+      if (railRefreshButton) {
+        railRefreshButton.addEventListener("click", async () => {
+          setActiveRail("rail-refresh-btn");
+          await store.refreshDevices();
+          setActiveRail("rail-home-btn");
+        });
+      }
 
       // Devices Button → toggle placement panel
       const devicesButton = document.getElementById(
@@ -219,27 +290,47 @@ export class PanelSystem extends createSystem({
       if (devicesButton) {
         devicesButton.addEventListener("click", () => {
           console.log("[Panel] Toggling placement panel");
+          toggleExclusiveRightPanel("placement");
+        });
+      }
+      const railDevicesButton = document.getElementById(
+        "rail-devices-btn",
+      ) as UIKit.Text;
+      if (railDevicesButton) {
+        railDevicesButton.addEventListener("click", () => {
+          setActiveRail("rail-devices-btn");
+          toggleExclusiveRightPanel("placement");
           const placementEntity = (globalThis as any).__placementPanelEntity;
-          if (placementEntity?.object3D) {
-            placementEntity.object3D.visible =
-              !placementEntity.object3D.visible;
-          }
+          if (!placementEntity?.object3D?.visible) setActiveRail("rail-home-btn");
         });
       }
 
-      // Align Room Button → toggle alignment panel
+      // Room alignment is unplugged from current workflow.
       const alignButton = document.getElementById(
         "align-room-button",
       ) as UIKit.Text;
       if (alignButton) {
-        alignButton.addEventListener("click", () => {
-          console.log("[Panel] Toggling room alignment panel");
-          const alignEntity = (globalThis as any).__alignmentPanelEntity;
-          if (alignEntity?.object3D) {
-            alignEntity.object3D.visible = !alignEntity.object3D.visible;
-          }
+        alignButton.setProperties?.({ display: "none" });
+      }
+      const railAlignButton = document.getElementById(
+        "rail-align-room-btn",
+      ) as UIKit.Text;
+      if (railAlignButton) {
+        railAlignButton.setProperties?.({ display: "none" });
+      }
+
+      const railHomeButton = document.getElementById(
+        "rail-home-btn",
+      ) as UIKit.Text;
+      if (railHomeButton) {
+        railHomeButton.addEventListener("click", () => {
+          setActiveRail("rail-home-btn");
+          const placementEntity = (globalThis as any).__placementPanelEntity;
+          if (placementEntity?.object3D) placementEntity.object3D.visible = false;
+          showWelcomePanel();
         });
       }
+      setActiveRail("rail-home-btn");
 
       // ── Welcome Panel Toggle Function ────────────────────────────────────
       const toggleWelcomePanel = () => {
@@ -251,22 +342,17 @@ export class PanelSystem extends createSystem({
             `[Panel] Welcome panel ${!isVisible ? "shown" : "hidden"}`,
           );
 
-          // Update floating button text/icon if it exists
-          const floatingBtn = document.getElementById(
+          const portalBtn = document.getElementById(
             "welcome-panel-toggle-btn",
-          );
-          if (floatingBtn) {
-            floatingBtn.title = isVisible
-              ? "Show Welcome Panel (Press U)"
-              : "Hide Welcome Panel (Press U)";
-            // Update button visual state to indicate panel visibility
-            if (isVisible) {
-              floatingBtn.style.backgroundColor = "#3b82f6";
-              floatingBtn.style.opacity = "1";
-            } else {
-              floatingBtn.style.backgroundColor = "#7c3aed";
-              floatingBtn.style.opacity = "0.9";
-            }
+          ) as HTMLButtonElement | null;
+          if (portalBtn) {
+            const nowOpen = !isVisible;
+            portalBtn.title = nowOpen
+              ? "Hide main portal"
+              : "Show main portal";
+            portalBtn.style.backgroundColor = nowOpen
+              ? "rgba(124, 58, 237, 0.92)"
+              : "rgba(37, 99, 235, 0.92)";
           }
         } else {
           console.warn("[Panel] Welcome panel entity not found");
@@ -280,14 +366,12 @@ export class PanelSystem extends createSystem({
           welcomeEntity.object3D.visible = true;
           console.log("[Panel] Welcome panel shown");
 
-          // Update floating button
-          const floatingBtn = document.getElementById(
+          const portalBtn = document.getElementById(
             "welcome-panel-toggle-btn",
-          );
-          if (floatingBtn) {
-            floatingBtn.title = "Hide Welcome Panel (Press U)";
-            floatingBtn.style.backgroundColor = "#7c3aed";
-            floatingBtn.style.opacity = "0.9";
+          ) as HTMLButtonElement | null;
+          if (portalBtn) {
+            portalBtn.title = "Hide main portal";
+            portalBtn.style.backgroundColor = "rgba(124, 58, 237, 0.92)";
           }
         }
       };
@@ -329,123 +413,165 @@ export class PanelSystem extends createSystem({
         }
       });
 
-      // ── Create Floating Toggle Button (Always Visible) ──────────────────────
+      // ── Floating portal + voice controls (always on screen) ───────────────
+      const glassButtonBase = (el: HTMLButtonElement) => {
+        el.style.width = "52px";
+        el.style.height = "52px";
+        el.style.borderRadius = "50%";
+        el.style.cursor = "pointer";
+        el.style.display = "flex";
+        el.style.alignItems = "center";
+        el.style.justifyContent = "center";
+        el.style.boxShadow =
+          "0 16px 48px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08)";
+        el.style.transition = "all 0.2s ease";
+        el.style.color = "white";
+        el.style.outline = "none";
+        el.style.border = "1px solid rgba(255, 255, 255, 0.14)";
+        el.style.backdropFilter = "blur(40px)";
+        el.style.webkitBackdropFilter = "blur(40px)";
+        el.style.backgroundColor = "rgba(15, 23, 42, 0.88)";
+      };
+
       const createFloatingButton = () => {
-        // Remove existing button if it exists (to recreate it)
-        const existingBtn = document.getElementById("welcome-panel-toggle-btn");
-        const existingContainer = document.getElementById(
+        const existing = document.getElementById(
           "welcome-panel-toggle-container",
         );
-        if (existingBtn) existingBtn.remove();
-        if (existingContainer) existingContainer.remove();
+        if (existing) existing.remove();
 
         const container = document.createElement("div");
         container.id = "welcome-panel-toggle-container";
         container.style.position = "fixed";
         container.style.top = "20px";
         container.style.right = "20px";
-        container.style.zIndex = "99999"; // Very high z-index to ensure it's always on top
+        container.style.zIndex = "99999";
         container.style.pointerEvents = "auto";
         container.style.display = "flex";
-        container.style.flexDirection = "column";
-        container.style.gap = "8px";
-        container.style.alignItems = "flex-end";
+        container.style.flexDirection = "row";
+        container.style.alignItems = "flex-start";
+        container.style.gap = "12px";
+
+        const voiceBtn = document.createElement("button");
+        voiceBtn.id = "voice-assistant-float-btn";
+        voiceBtn.title = "Voice assistant";
+        voiceBtn.setAttribute("aria-label", "Voice assistant");
+        glassButtonBase(voiceBtn);
+        voiceBtn.innerHTML = `
+          <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+            <line x1="12" y1="19" x2="12" y2="23"/>
+            <line x1="8" y1="23" x2="16" y2="23"/>
+          </svg>`;
+        voiceBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const fn = (globalThis as any).__triggerVoiceAssistant as
+            | (() => void)
+            | undefined;
+          if (fn) fn();
+        });
+        voiceBtn.addEventListener("mouseenter", () => {
+          voiceBtn.style.backgroundColor = "rgba(37, 99, 235, 0.95)";
+          voiceBtn.style.transform = "scale(1.06)";
+        });
+        voiceBtn.addEventListener("mouseleave", () => {
+          voiceBtn.style.backgroundColor = "rgba(15, 23, 42, 0.88)";
+          voiceBtn.style.transform = "scale(1)";
+        });
 
         const button = document.createElement("button");
         button.id = "welcome-panel-toggle-btn";
-        button.title = "Show Welcome Panel (Press U)";
-        button.style.width = "56px";
-        button.style.height = "56px";
-        button.style.borderRadius = "50%";
-        button.style.backgroundColor = "#3b82f6";
-        button.style.border = "3px solid #1e40af";
-        button.style.cursor = "pointer";
-        button.style.display = "flex";
-        button.style.alignItems = "center";
-        button.style.justifyContent = "center";
-        button.style.boxShadow =
-          "0 8px 16px -4px rgba(0, 0, 0, 0.4), 0 4px 8px -2px rgba(0, 0, 0, 0.3)";
-        button.style.transition = "all 0.2s ease";
-        button.style.color = "white";
-        button.style.fontSize = "20px";
-        button.style.fontWeight = "bold";
-        button.style.outline = "none";
-        button.setAttribute("aria-label", "Toggle Welcome Panel");
+        button.title = "Main portal";
+        glassButtonBase(button);
+        button.style.backgroundColor = "rgba(37, 99, 235, 0.92)";
+        button.setAttribute("aria-label", "Toggle main portal");
 
-        // Add hover effects
         button.addEventListener("mouseenter", () => {
-          button.style.backgroundColor = "#2563eb";
-          button.style.transform = "scale(1.15)";
-          button.style.boxShadow =
-            "0 12px 24px -4px rgba(0, 0, 0, 0.5), 0 6px 12px -2px rgba(0, 0, 0, 0.4)";
+          button.style.backgroundColor = "#1d4ed8";
+          button.style.transform = "scale(1.06)";
         });
         button.addEventListener("mouseleave", () => {
           const welcomeEntity = (globalThis as any).__welcomePanelEntity;
           const isVisible = welcomeEntity?.object3D?.visible ?? false;
-          button.style.backgroundColor = isVisible ? "#7c3aed" : "#3b82f6";
+          button.style.backgroundColor = isVisible
+            ? "rgba(124, 58, 237, 0.92)"
+            : "rgba(37, 99, 235, 0.92)";
           button.style.transform = "scale(1)";
-          button.style.boxShadow =
-            "0 8px 16px -4px rgba(0, 0, 0, 0.4), 0 4px 8px -2px rgba(0, 0, 0, 0.3)";
         });
 
-        // Add active/press effect
         button.addEventListener("mousedown", () => {
-          button.style.transform = "scale(0.95)";
+          button.style.transform = "scale(0.96)";
         });
         button.addEventListener("mouseup", () => {
-          button.style.transform = "scale(1.1)";
+          button.style.transform = "scale(1.04)";
         });
 
-        // Add click handler
         button.addEventListener("click", (e) => {
           e.preventDefault();
           e.stopPropagation();
           toggleWelcomePanel();
         });
 
-        // House icon SVG (similar to the welcome panel logo)
         button.innerHTML = `
-          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
             <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
             <polyline points="9 22 9 12 15 12 15 22"></polyline>
           </svg>
         `;
 
-        // Add a small label below the button
+        const labelsCol = document.createElement("div");
+        labelsCol.style.display = "flex";
+        labelsCol.style.flexDirection = "column";
+        labelsCol.style.alignItems = "flex-end";
+        labelsCol.style.gap = "6px";
+
+        const row = document.createElement("div");
+        row.style.display = "flex";
+        row.style.flexDirection = "row";
+        row.style.gap = "10px";
+        row.appendChild(voiceBtn);
+        row.appendChild(button);
+
         const label = document.createElement("div");
-        label.textContent = "Menu";
-        label.style.color = "#fafafa";
-        label.style.fontSize = "12px";
-        label.style.fontWeight = "500";
-        label.style.textAlign = "center";
+        label.style.color = "#e2e8f0";
+        label.style.fontSize = "11px";
+        label.style.fontWeight = "600";
+        label.style.textAlign = "right";
         label.style.pointerEvents = "none";
         label.style.userSelect = "none";
-        label.style.textShadow = "0 2px 4px rgba(0, 0, 0, 0.5)";
+        label.style.textShadow = "0 1px 3px rgba(0,0,0,0.6)";
+        label.style.fontFamily =
+          'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+        label.textContent = "Voice · Portal";
 
-        container.appendChild(button);
-        container.appendChild(label);
+        labelsCol.appendChild(row);
+        labelsCol.appendChild(label);
+        container.appendChild(labelsCol);
         document.body.appendChild(container);
 
-        // Ensure button is always visible, even in immersive mode
-        // The button should work in both 2D and XR contexts
         console.log(
-          "[Panel] ✅ Floating welcome panel toggle button created (always accessible)",
+          "[Panel] ✅ Floating voice + portal controls created (always accessible)",
         );
       };
 
       // Create the floating button immediately and also after a delay as fallback
       createFloatingButton();
       setTimeout(() => {
-        // Ensure it exists even if initial creation failed
-        if (!document.getElementById("welcome-panel-toggle-btn")) {
+        if (
+          !document.getElementById("welcome-panel-toggle-btn") ||
+          !document.getElementById("voice-assistant-float-btn")
+        ) {
           createFloatingButton();
         }
       }, 500);
 
-      // Recreate button if it gets removed (e.g., during page transitions)
-      const observer = new MutationObserver((mutations) => {
-        if (!document.getElementById("welcome-panel-toggle-btn")) {
-          console.log("[Panel] Floating button missing, recreating...");
+      const observer = new MutationObserver(() => {
+        if (
+          !document.getElementById("welcome-panel-toggle-btn") ||
+          !document.getElementById("voice-assistant-float-btn")
+        ) {
+          console.log("[Panel] Floating controls missing, recreating...");
           createFloatingButton();
         }
       });
@@ -454,8 +580,7 @@ export class PanelSystem extends createSystem({
       // ── XR Controller Input Detection (Meta Quest 3 Trigger) ────────────────
       this.setupXRControllerInput();
 
-      console.log("[Panel] Press 'U' to toggle Welcome Panel");
-      console.log("[Panel] Press 'Y' to summon panel in front of you");
+      console.log("[Panel] Main portal toggle & summon shortcuts active");
       console.log("[Panel] Press trigger button in VR to summon panel");
     });
   }
@@ -576,5 +701,24 @@ export class PanelSystem extends createSystem({
     welcomeEntity.object3D.visible = true;
 
     console.log("[Panel] ✅ Panel summoned in front of user");
+  }
+
+  update(dt: number): void {
+    const panel = this.welcomeObject3D;
+    const camera = this.world.camera;
+    if (!panel || !camera || !panel.visible) return;
+
+    // Keep the portal floating in front of user at all times.
+    const forward = new Vector3();
+    camera.getWorldDirection(forward);
+    const targetX = camera.position.x + forward.x * 0.85;
+    const targetY = camera.position.y - 0.18;
+    const targetZ = camera.position.z + forward.z * 0.85;
+
+    const t = Math.min(1, 4.5 * dt);
+    panel.position.x += (targetX - panel.position.x) * t;
+    panel.position.y += (targetY - panel.position.y) * t;
+    panel.position.z += (targetZ - panel.position.z) * t;
+    panel.lookAt(camera.position);
   }
 }

@@ -6,9 +6,6 @@ import {
   AssetManager,
   PanelUI,
   Interactable,
-  ScreenSpace,
-  Follower,
-  FollowBehavior,
 } from "@iwsdk/core";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
@@ -39,18 +36,16 @@ import { VoicePanelSystem } from "./ui/VoicePanelSystem";
 import { RoomScanningSystem } from "./systems/RoomScanningSystem";
 import { LegPoseLoggerSystem } from "./systems/LegPoseLoggerSystem";
 import { setupPCLegPoseSimulator } from "./utils/pcLegPoseSimulator";
-import { LegPosePanelSystem } from "./ui/LegPosePanelSystem";
-import { RoomAlignmentSystem } from "./systems/RoomAlignmentSystem";
 import { DevicePlacementSystem } from "./systems/DevicePlacementSystem";
 import { PlacementPanelSystem } from "./ui/PlacementPanelSystem";
-import { RoomAlignmentPanelSystem } from "./ui/RoomAlignmentPanelSystem";
 import { WelcomePanelGestureSystem } from "./systems/WelcomePanelGestureSystem";
 import { XRInstructionSystem } from "./systems/XRInstructionSystem";
 import { WallpaperSystem } from "./systems/WallpaperSystem";
 import { WallpaperCutoutPanelSystem } from "./ui/WallpaperCutoutPanelSystem";
+import { DashboardPanelSystem } from "./ui/DashboardPanelSystem";
 
-import { initializeNavMesh, getRoomBounds } from "./config/navmesh";
-import { initializeCollision } from "./config/collision";
+import { initializeNavMesh, getRoomBounds, setRoomTransform } from "./config/navmesh";
+import { initializeCollision, updateCollisionTransform } from "./config/collision";
 import { config } from "./config/env";
 import {
   type ControllableAvatarSystem,
@@ -314,7 +309,10 @@ async function main(): Promise<void> {
       console.log(`📦 Loading room model from URL: ${modelFileUrl}`);
       try {
         const candidateUrls = buildRoomModelUrlCandidates(modelFileUrl);
-        console.log(`🔍 Attempting ${candidateUrls.length} model URL(s):`, candidateUrls);
+        console.log(
+          `🔍 Attempting ${candidateUrls.length} model URL(s):`,
+          candidateUrls,
+        );
 
         const loader = new GLTFLoader();
         loader.setCrossOrigin("anonymous");
@@ -348,7 +346,9 @@ async function main(): Promise<void> {
         }
 
         if (!roomModel) {
-          throw lastError ?? new Error("No room model URL candidates succeeded");
+          throw (
+            lastError ?? new Error("No room model URL candidates succeeded")
+          );
         }
       } catch (error) {
         console.error(
@@ -379,7 +379,7 @@ async function main(): Promise<void> {
     }
 
     // Configure the room model
-    roomModel.position.set(0, 0, 0);
+    roomModel.position.set(-5.2, 0, 3);
 
     // Disable raycasting on all room model meshes so they don't block
     // device grab/move interactions. The room is visual-only.
@@ -403,6 +403,14 @@ async function main(): Promise<void> {
     console.log("✅ Collision initialized from room model meshes");
 
     (globalThis as any).__labRoomModel = roomModel;
+    setRoomTransform(
+      roomModel.position.x,
+      roomModel.position.y,
+      roomModel.position.z,
+      roomModel.rotation.y,
+      roomModel.scale.x,
+    );
+    updateCollisionTransform();
   };
 
   // Load room scene with default model (LabPlan) — will be updated after store loads
@@ -420,7 +428,6 @@ async function main(): Promise<void> {
     .registerSystem(RobotAssistantSystem)
     .registerSystem(NPCAvatarSystem)
     .registerSystem(PanelSystem)
-    .registerSystem(LegPosePanelSystem)
     .registerSystem(LightbulbPanelSystem)
     .registerSystem(TelevisionPanelSystem)
     .registerSystem(FanPanelSystem)
@@ -428,8 +435,6 @@ async function main(): Promise<void> {
     .registerSystem(SmartMeterPanelSystem)
     .registerSystem(GraphPanelSystem)
     .registerSystem(RoomScanningSystem)
-    .registerSystem(RoomAlignmentSystem)
-    .registerSystem(RoomAlignmentPanelSystem)
     .registerSystem(LegPoseLoggerSystem)
     .registerSystem(DevicePlacementSystem)
     .registerSystem(VoicePanelSystem)
@@ -437,10 +442,30 @@ async function main(): Promise<void> {
     .registerSystem(WelcomePanelGestureSystem)
     .registerSystem(XRInstructionSystem)
     .registerSystem(WallpaperSystem)
-    .registerSystem(WallpaperCutoutPanelSystem);
+    .registerSystem(WallpaperCutoutPanelSystem)
+    .registerSystem(DashboardPanelSystem);
 
   console.log("✅ Systems registered");
 
+  // ── Dashboard Panel (new unified layout) ─────────────────────────────
+  const dashboardPanel = world
+    .createTransformEntity()
+    .addComponent(PanelUI, {
+      config: "./ui/dashboard.json",
+      maxHeight: 1.0,
+      maxWidth: 1.2,
+    })
+    .addComponent(Interactable);
+
+  dashboardPanel.object3D!.position.set(0, 1.5, -1.0);
+
+  // Store dashboard panel reference globally (replaces old welcome panel ref)
+  (globalThis as any).__dashboardPanelEntity = dashboardPanel;
+  (globalThis as any).__welcomePanelEntity = dashboardPanel; // backward compat
+
+  console.log("✅ Dashboard panel created");
+
+  // ── Legacy Welcome Panel (kept for backward compat, hidden) ──────────
   const welcomePanel = world
     .createTransformEntity()
     .addComponent(PanelUI, {
@@ -448,19 +473,12 @@ async function main(): Promise<void> {
       maxHeight: 0.8,
       maxWidth: 0.5,
     })
-    .addComponent(Interactable)
-    .addComponent(ScreenSpace, {
-      top: "20px",
-      left: "20px",
-      height: "50%",
-    });
+    .addComponent(Interactable);
 
   welcomePanel.object3D!.position.set(0, 1.5, -0.8);
+  welcomePanel.object3D!.visible = false; // hidden — dashboard is the primary UI now
 
-  // Store welcome panel reference globally for gesture system
-  (globalThis as any).__welcomePanelEntity = welcomePanel;
-
-  console.log("✅ Welcome panel created");
+  console.log("✅ Legacy welcome panel created (hidden)");
 
   // Placement Panel (3D floating panel, starts hidden)
   // Position relative to welcome panel so it moves with it
@@ -473,14 +491,14 @@ async function main(): Promise<void> {
     })
     .addComponent(Interactable);
 
-  // Make placement panel a child of welcome panel so it follows its position
-  if (welcomePanel.object3D && placementPanel.object3D) {
-    welcomePanel.object3D.add(placementPanel.object3D);
-    // Position relative to welcome panel (to the left, closer)
-    placementPanel.object3D.position.set(-0.6, 0, 0);
+  // Make placement panel a child of dashboard panel so it follows its position
+  if (dashboardPanel.object3D && placementPanel.object3D) {
+    dashboardPanel.object3D.add(placementPanel.object3D);
+    // Right-side slot (shared with alignment panel; only one open at a time)
+    placementPanel.object3D.position.set(0.75, 0, 0);
   } else {
     // Fallback to absolute positioning if object3D not available
-    placementPanel.object3D!.position.set(-0.6, 1.5, -0.8);
+    placementPanel.object3D!.position.set(0.6, 1.5, -0.8);
   }
   placementPanel.object3D!.visible = false; // Hidden until "Devices" button pressed
   (globalThis as any).__placementPanelEntity = placementPanel;
@@ -501,64 +519,7 @@ async function main(): Promise<void> {
   (globalThis as any).__cutoutPanelEntity = cutoutPanel;
   console.log("✅ Wallpaper cutout panel created (hidden)");
 
-  const legPosePanel = world
-    .createTransformEntity()
-    .addComponent(PanelUI, {
-      config: "./ui/legpose-logger.json",
-      maxHeight: 0.22,
-      maxWidth: 0.4,
-    })
-    .addComponent(Interactable)
-    .addComponent(Follower, {
-      // Follow the camera / HMD so the panel feels like a HUD
-      target: world.camera,
-      // Slightly below and to the left, in front of the view
-      offsetPosition: [-0.3, -0.25, -0.8],
-      behavior: FollowBehavior.PivotY,
-      speed: 5,
-      tolerance: 0.3,
-      maxAngle: 35,
-    });
-  console.log("✅ Leg pose logger panel created (camera-follow HUD)");
-
-  // Voice Panel (3D)
-  const voice3DPanel = world
-    .createTransformEntity()
-    .addComponent(PanelUI, {
-      config: "./ui/voice_panel.json",
-      maxHeight: 0.2, // Small panel
-      maxWidth: 0.3,
-    })
-    .addComponent(Interactable); // No ScreenSpace, so it renders in 3D
-
-  voice3DPanel.object3D!.position.set(0, 1.4, -0.4); // Initial position
-  console.log("✅ Voice 3D Panel created");
-
-  // Room Alignment Panel (3D floating panel, starts hidden)
-  // Position relative to welcome panel so it moves with it
-  const alignmentPanel = world
-    .createTransformEntity()
-    .addComponent(PanelUI, {
-      config: "./ui/room-alignment-panel.json",
-      maxHeight: 0.45,
-      maxWidth: 0.45,
-    })
-    .addComponent(Interactable);
-
-  // Make alignment panel a child of welcome panel so it follows its position
-  if (welcomePanel.object3D && alignmentPanel.object3D) {
-    welcomePanel.object3D.add(alignmentPanel.object3D);
-    // Position relative to welcome panel (to the right, closer)
-    alignmentPanel.object3D.position.set(0.6, 0, 0);
-  } else {
-    // Fallback to absolute positioning if object3D not available
-    alignmentPanel.object3D!.position.set(0.6, 1.5, -0.8);
-  }
-  alignmentPanel.object3D!.visible = false; // Hidden until "Align Room" button pressed
-  (globalThis as any).__alignmentPanelEntity = alignmentPanel;
-  console.log(
-    "✅ Room Alignment panel created (hidden, relative to welcome panel)",
-  );
+  // Voice assistant UI is embedded in welcome.json (VoicePanelSystem)
 
   const store = getStore();
 

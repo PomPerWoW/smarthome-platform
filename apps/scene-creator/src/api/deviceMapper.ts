@@ -7,7 +7,13 @@ interface RawDeviceResponse {
   device_rotation?: { x: number; y: number; z: number }; // Rotation from backend
   type: string;
   tag: string | null;
-  room: string;
+  room?: string;
+  room_id?: string;
+  room_name?: string;
+  home_id?: string;
+  home_name?: string;
+  floor_id?: string;
+  floor_name?: string;
   is_on?: boolean;
   brightness?: number;
   colour?: string;
@@ -33,8 +39,21 @@ const DEFAULT_POSITIONS: Record<DeviceType, [number, number, number]> = {
   [DeviceType.SmartMeter]: [0.6, 2.0, -0.8],
 };
 
+function looksLikeUuid(value: string | undefined): boolean {
+  if (!value) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value,
+  );
+}
+
 export function mapRawDeviceToDevice(raw: RawDeviceResponse): Device {
   const deviceType = raw.type as DeviceType;
+  const roomField = raw.room?.trim();
+  const roomIdCandidate = raw.room_id?.trim() || roomField || "";
+  const resolvedRoomId = looksLikeUuid(roomIdCandidate) ? roomIdCandidate : "";
+  const resolvedRoomName =
+    raw.room_name?.trim() ||
+    (roomField && !looksLikeUuid(roomField) ? roomField : "");
 
   const defaultPos = DEFAULT_POSITIONS[deviceType] || [0, 1, -2];
   const position: [number, number, number] = [
@@ -51,12 +70,12 @@ export function mapRawDeviceToDevice(raw: RawDeviceResponse): Device {
     is_on: raw.is_on ?? true,
     position,
     rotation_y: raw.device_rotation?.y ?? 0,
-    home_id: "",
-    home_name: "",
-    floor_id: "",
-    floor_name: "",
-    room_id: "",
-    room_name: raw.room || "",
+    home_id: raw.home_id ?? "",
+    home_name: raw.home_name ?? "",
+    floor_id: raw.floor_id ?? "",
+    floor_name: raw.floor_name ?? "",
+    room_id: resolvedRoomId,
+    room_name: resolvedRoomName,
   };
 
   switch (deviceType) {

@@ -54,21 +54,24 @@ const CSS = `
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0);
-  backdrop-filter: blur(6px) brightness(0.35);
-  -webkit-backdrop-filter: blur(6px) brightness(0.35);
-  transition: background ${FADE_IN_MS}ms ease, opacity ${FADE_OUT_MS}ms ease;
+  background: rgba(248, 250, 252, 0);
+  backdrop-filter: blur(56px) saturate(160%);
+  -webkit-backdrop-filter: blur(56px) saturate(160%);
+  transition: background ${FADE_IN_MS}ms ease, opacity ${FADE_OUT_MS}ms ease,
+    backdrop-filter ${FADE_IN_MS}ms ease, -webkit-backdrop-filter ${FADE_IN_MS}ms ease;
   opacity: 0;
   padding: 24px 16px;
   box-sizing: border-box;
   overflow-y: auto;
   cursor: default;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
 #${OVERLAY_ID}.xr-ol--visible {
   opacity: 1;
-  background: rgba(0, 0, 0, 0.88);
+  background: rgba(248, 250, 252, 0.35);
+  backdrop-filter: blur(56px) saturate(160%);
+  -webkit-backdrop-filter: blur(56px) saturate(160%);
 }
 
 #${OVERLAY_ID}.xr-ol--fading {
@@ -80,11 +83,15 @@ const CSS = `
 .xr-ol__card {
   width: 100%;
   max-width: 760px;
-  background: rgba(9, 9, 11, 0.72);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(56px) saturate(160%);
+  -webkit-backdrop-filter: blur(56px) saturate(160%);
+  border: 1px solid rgba(148, 163, 184, 0.35);
   border-radius: 20px;
   padding: 36px 40px 28px;
-  box-shadow: 0 32px 64px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255,255,255,0.04) inset;
+  box-shadow:
+    0 24px 64px rgba(15, 23, 42, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
   box-sizing: border-box;
 }
 
@@ -110,7 +117,7 @@ const CSS = `
 }
 
 .xr-ol__title {
-  color: #fafafa;
+  color: #0f172a;
   font-size: 22px;
   font-weight: 700;
   letter-spacing: -0.3px;
@@ -119,7 +126,7 @@ const CSS = `
 }
 
 .xr-ol__subtitle {
-  color: #71717a;
+  color: #475569;
   font-size: 13px;
   font-weight: 400;
   margin: 2px 0 0;
@@ -129,13 +136,13 @@ const CSS = `
 /* ── Divider ─────────────────────────────────────────────────────────────── */
 .xr-ol__divider {
   height: 1px;
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(148, 163, 184, 0.35);
   margin: 22px 0;
 }
 
 /* ── Section label ──────────────────────────────────────────────────────── */
 .xr-ol__section-label {
-  color: #52525b;
+  color: #64748b;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 1.4px;
@@ -153,8 +160,8 @@ const CSS = `
 
 /* ── Individual instruction item ────────────────────────────────────────── */
 .xr-ol__item {
-  background: rgba(255, 255, 255, 0.035);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(148, 163, 184, 0.3);
   border-radius: 12px;
   padding: 14px 16px;
   display: flex;
@@ -164,7 +171,7 @@ const CSS = `
 }
 
 .xr-ol__item:hover {
-  border-color: rgba(255, 255, 255, 0.12);
+  border-color: rgba(100, 116, 139, 0.45);
 }
 
 .xr-ol__item-header {
@@ -192,14 +199,14 @@ const CSS = `
 .xr-ol__item-icon--cyan   { background: rgba(6, 182, 212, 0.18);  color: #22d3ee; }
 
 .xr-ol__item-name {
-  color: #e4e4e7;
+  color: #0f172a;
   font-size: 13px;
   font-weight: 600;
   margin: 0;
 }
 
 .xr-ol__item-desc {
-  color: #71717a;
+  color: #334155;
   font-size: 12px;
   line-height: 1.5;
   margin: 0;
@@ -225,28 +232,28 @@ const CSS = `
 }
 
 .xr-ol__chip--key {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #d4d4d8;
+  background: rgba(226, 232, 240, 0.6);
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  color: #1e293b;
   font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
 }
 
 .xr-ol__chip--gesture {
-  background: rgba(124, 58, 237, 0.15);
-  border: 1px solid rgba(124, 58, 237, 0.25);
-  color: #c4b5fd;
+  background: rgba(124, 58, 237, 0.2);
+  border: 1px solid rgba(124, 58, 237, 0.38);
+  color: #4c1d95;
 }
 
 .xr-ol__chip--controller {
-  background: rgba(59, 130, 246, 0.15);
-  border: 1px solid rgba(59, 130, 246, 0.25);
-  color: #93c5fd;
+  background: rgba(59, 130, 246, 0.2);
+  border: 1px solid rgba(59, 130, 246, 0.38);
+  color: #1e3a8a;
 }
 
 /* ── Highlight "main panel" callout ─────────────────────────────────────── */
 .xr-ol__callout {
-  background: linear-gradient(135deg, rgba(59,130,246,0.12) 0%, rgba(124,58,237,0.12) 100%);
-  border: 1px solid rgba(124, 58, 237, 0.3);
+  background: linear-gradient(135deg, rgba(59,130,246,0.24) 0%, rgba(124,58,237,0.22) 100%);
+  border: 1px solid rgba(99, 102, 241, 0.5);
   border-radius: 12px;
   padding: 14px 18px;
   display: flex;
@@ -270,14 +277,14 @@ const CSS = `
 .xr-ol__callout-body {}
 
 .xr-ol__callout-title {
-  color: #e4e4e7;
+  color: #0f172a;
   font-size: 13px;
   font-weight: 700;
   margin: 0 0 4px;
 }
 
 .xr-ol__callout-desc {
-  color: #a1a1aa;
+  color: #334155;
   font-size: 12px;
   line-height: 1.55;
   margin: 0 0 8px;
@@ -299,14 +306,14 @@ const CSS = `
 }
 
 .xr-ol__progress-label {
-  color: #52525b;
+  color: #475569;
   font-size: 11px;
   margin-bottom: 5px;
 }
 
 .xr-ol__progress-track {
   height: 3px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(148, 163, 184, 0.28);
   border-radius: 99px;
   overflow: hidden;
 }

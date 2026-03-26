@@ -6,13 +6,14 @@
     height: auto;
     display: flex;
     flex-direction: column;
-    background-color: rgba(255, 255, 255, 0.12);
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
-    border-color: rgba(255, 255, 255, 0.20);
+    background-color: rgba(226, 232, 240, 0.34);
+    backdrop-filter: blur(72px) saturate(160%);
+    -webkit-backdrop-filter: blur(72px) saturate(160%);
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    border-color: rgba(255, 255, 255, 0.14);
     border-width: 0.15;
     border-radius: 2;
-    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.18);
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06);
   }
 
   .header-section {
@@ -39,17 +40,17 @@
   .device-name {
     font-size: 2.5;
     font-weight: bold;
-    color: #fafafa;
+    color: #0f172a;
   }
 
   .device-location {
     font-size: 1.6;
-    color: #71717a;
+    color: #475569;
   }
 
   .device-position {
     font-size: 1.4;
-    color: #52525b;
+    color: #64748b;
   }
 
   .divider {
@@ -77,12 +78,13 @@
   .control-icon {
     width: 2.5;
     height: 2.5;
-    color: #a1a1aa;
+    color: #475569;
   }
 
   .control-label {
     font-size: 1.8;
-    color: #a1a1aa;
+    font-weight: 500;
+    color: #334155;
     width: 12;
   }
 
@@ -100,7 +102,7 @@
   .power-icon {
     width: 2.5;
     height: 2.5;
-    color: #fafafa;
+    color: #0f172a;
   }
 
   .temp-container {
@@ -114,14 +116,14 @@
   .temp-value {
     font-size: 3;
     font-weight: bold;
-    color: #fafafa;
+    color: #0f172a;
     width: 8;
     text-align: center;
   }
 
   .temp-unit {
     font-size: 1.8;
-    color: #71717a;
+    color: #475569;
   }
 
   .control-btn {
@@ -138,7 +140,7 @@
   .control-btn-icon {
     width: 2.5;
     height: 2.5;
-    color: #fafafa;
+    color: #0f172a;
   }
 
   .preset-section {
@@ -151,7 +153,7 @@
 
   .preset-label {
     font-size: 1.6;
-    color: #71717a;
+    color: #475569;
   }
 
   .preset-grid {
@@ -178,7 +180,7 @@
 
   .preset-text {
     font-size: 1.4;
-    color: #fafafa;
+    color: #0f172a;
   }
 
   .status-section {
@@ -203,7 +205,7 @@
 
   .status-text {
     font-size: 1.4;
-    color: #71717a;
+    color: #475569;
   }
 
   .graph-row {
@@ -289,10 +291,10 @@
       <span class="control-label">Position</span>
       <div class="temp-container">
         <button class="control-btn" id="get-position-btn" style="width: 8; background-color: rgba(255, 255, 255, 0.18);">
-          <span style="font-size: 1.4; color: #fafafa;">Get</span>
+          <span style="font-size: 1.4; color: #0f172a;">Get</span>
         </button>
         <button class="control-btn" id="save-position-btn" style="width: 8; background-color: rgba(255, 255, 255, 0.18);">
-          <span style="font-size: 1.4; color: #fafafa;">Save</span>
+          <span style="font-size: 1.4; color: #0f172a;">Save</span>
         </button>
       </div>
     </div>

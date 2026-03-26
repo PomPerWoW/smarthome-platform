@@ -5,7 +5,6 @@ import {
   eq,
   UIKitDocument,
   UIKit,
-  Object3D,
 } from "@iwsdk/core";
 
 import { VoiceControlSystem } from "../systems/VoiceControlSystem";
@@ -30,19 +29,27 @@ enum DialogueState {
 
 const CLOSING_DURATION = 1.5; // Seconds in CLOSING state before going IDLE
 
+type DashboardVoiceHooks = {
+  onShow?: () => void;
+  onHide?: () => void;
+  onStatus?: (status: string) => void;
+  onUserMessage?: (message: string) => void;
+  onAssistantMessage?: (message: string) => void;
+  onSystemMessage?: (message: string) => void;
+  onTyping?: (label?: string) => void;
+  onTypingEnd?: () => void;
+};
+
 export class VoicePanelSystem extends createSystem({
   voicePanel: {
     required: [PanelUI, PanelDocument],
-    where: [eq(PanelUI, "config", "./ui/voice_panel.json")],
+    where: [eq(PanelUI, "config", "./ui/welcome.json")],
   },
 }) {
   private voiceSystem!: VoiceControlSystem;
   private _robotSystem: RobotAssistantSystem | null = null;
   private _robotSystemResolved = false;
   private currentStatus: "listening" | "processing" | "idle" = "idle";
-
-  // Follow logic - store reference to the panel's Object3D
-  private panelObject3D: any = null;
 
   // Status reset timer
   private resetStatusTimeout: any = null;
@@ -57,9 +64,12 @@ export class VoicePanelSystem extends createSystem({
   // Track if we're in an active conversation (robot is waiting for user response)
   private inActiveConversation = false;
 
-  // 3D panel status text reference
   private statusTextRef: UIKit.Text | null = null;
   private micButtonRef: UIKit.Container | null = null;
+
+  private get dashboardHooks(): DashboardVoiceHooks | null {
+    return ((globalThis as any).__dashboardVoiceHooks as DashboardVoiceHooks) ?? null;
+  }
 
   /** Lazily resolve RobotAssistantSystem — safe even if called before
    *  the robot entity is created. */
@@ -88,9 +98,6 @@ export class VoicePanelSystem extends createSystem({
         entity.index
       ] as UIKitDocument;
       if (!document) return;
-
-      // Store the Object3D reference for follow behavior
-      this.panelObject3D = entity.object3D;
 
       const micButton = document.getElementById(
         "mic-button",
@@ -127,6 +134,8 @@ export class VoicePanelSystem extends createSystem({
           this.dialogue.hideTyping();
           this.dialogue.addUserMessage(text);
         }
+        this.dashboardHooks?.onTypingEnd?.();
+        this.dashboardHooks?.onUserMessage?.(text);
       });
 
       // ── Voice status listener ────────────────────────────────
@@ -166,17 +175,23 @@ export class VoicePanelSystem extends createSystem({
           if (status === "listening") {
             this.dialogue.setStatus("Listening", "#4ade80");
             this.dialogue.showTyping("Listening…");
+            this.dashboardHooks?.onStatus?.("Listening");
+            this.dashboardHooks?.onTyping?.("Listening...");
           } else if (status === "processing") {
             this.dialogue.setStatus("Processing", "#facc15");
             this.dialogue.showTyping("Processing…");
+            this.dashboardHooks?.onStatus?.("Processing");
+            this.dashboardHooks?.onTyping?.("Processing...");
           } else {
             // idle
             this.dialogue.hideTyping();
+            this.dashboardHooks?.onTypingEnd?.();
+            this.dashboardHooks?.onStatus?.("Idle");
 
             if (payload?.success && payload.action && payload.device) {
-              this.dialogue.addAssistantMessage(
-                `Done! I've ${payload.action.replace(/_/g, " ")} the ${payload.device}.`,
-              );
+              const doneMessage = `Done! I've ${payload.action.replace(/_/g, " ")} the ${payload.device}.`;
+              this.dialogue.addAssistantMessage(doneMessage);
+              this.dashboardHooks?.onAssistantMessage?.(doneMessage);
               // After successful action, robot will ask follow-up, so stay in conversation
               this.inActiveConversation = true;
               // ── scene notification ──────────────────────────────────────────
@@ -191,6 +206,7 @@ export class VoicePanelSystem extends createSystem({
             } else if (payload?.success && payload.instructionTopic) {
               if (payload.instructionTopic === "goodbye") {
                 this.dialogue.addAssistantMessage("See you again! 👋");
+                this.dashboardHooks?.onAssistantMessage?.("See you again! 👋");
                 this.inActiveConversation = false;
                 sceneNotify({
                   title: "Voice session ended",
@@ -228,6 +244,7 @@ export class VoicePanelSystem extends createSystem({
               }
             } else if (payload?.cancelled) {
               this.dialogue.addAssistantMessage("See you again! 👋");
+              this.dashboardHooks?.onAssistantMessage?.("See you again! 👋");
               this.inActiveConversation = false;
               sceneNotify({
                 title: "Voice session cancelled",
@@ -247,9 +264,10 @@ export class VoicePanelSystem extends createSystem({
               // Close dialogue after goodbye message
               setTimeout(() => this.beginClosing(), 1000);
             } else if (payload?.noMatch) {
-              this.dialogue.addAssistantMessage(
-                "Sorry, I didn't understand that. Could you try again?",
-              );
+              const noMatchMessage =
+                "Sorry, I didn't understand that. Could you try again?";
+              this.dialogue.addAssistantMessage(noMatchMessage);
+              this.dashboardHooks?.onAssistantMessage?.(noMatchMessage);
               // Stay in conversation, robot will ask follow-up
               this.inActiveConversation = true;
               sceneNotify({
@@ -297,7 +315,16 @@ export class VoicePanelSystem extends createSystem({
 
       // Initial state
       if (statusText) statusText.setProperties({ text: "Say 'Turn on...'" });
+
+      (globalThis as any).__triggerVoiceAssistant = () => {
+        this.triggerAssistant();
+      };
     });
+  }
+
+  /** DOM floating mic button & shortcuts — same as tapping the 3D mic. */
+  triggerAssistant(): void {
+    this.handleMicClick();
   }
 
   // ====================================================================
@@ -370,6 +397,9 @@ export class VoicePanelSystem extends createSystem({
       this.dialogue.setStatus("Walking to you…", "#60a5fa");
       this.dialogue.addSystemMessage("Robot assistant is coming to you…");
     }
+    this.dashboardHooks?.onShow?.();
+    this.dashboardHooks?.onStatus?.("Walking to you...");
+    this.dashboardHooks?.onSystemMessage?.("Robot assistant is coming to you...");
 
     // Tell robot to walk to the user
     const camera = this.world.camera;
@@ -401,6 +431,9 @@ export class VoicePanelSystem extends createSystem({
       this.dialogue.addAssistantMessage("How can I help you?");
       this.dialogue.showTyping("Listening…");
     }
+    this.dashboardHooks?.onStatus?.("Active");
+    this.dashboardHooks?.onAssistantMessage?.("How can I help you?");
+    this.dashboardHooks?.onTyping?.("Listening...");
 
     // Start voice listening (TTS greeting + mic)
     this.voiceSystem.toggleListening();
@@ -447,6 +480,8 @@ export class VoicePanelSystem extends createSystem({
       this.dialogue.setStatus("Goodbye", "#94a3b8");
       this.dialogue.hide();
     }
+    this.dashboardHooks?.onStatus?.("Goodbye");
+    this.dashboardHooks?.onHide?.();
 
     // Tell robot to go back to patrol
     const robot = this.robotSystem;
@@ -465,6 +500,7 @@ export class VoicePanelSystem extends createSystem({
   public addRobotMessage(message: string): void {
     if (this.dialogue && this.dialogue.isVisible()) {
       this.dialogue.addAssistantMessage(message);
+      this.dashboardHooks?.onAssistantMessage?.(message);
       // When robot asks a question, we're in active conversation
       if (
         message.includes("Do you want") ||
@@ -484,62 +520,21 @@ export class VoicePanelSystem extends createSystem({
   }
 
   // ====================================================================
-  // Update loop — camera animation + panel follow
+  // Update loop — dialogue closing cleanup (voice UI lives on main portal)
   // ====================================================================
 
   update(dt: number) {
-    const camera = this.world.camera;
+    if (this.dialogueState !== DialogueState.CLOSING) return;
 
-    // ── CLOSING state cleanup ────────────────────────────────────
-    if (this.dialogueState === DialogueState.CLOSING) {
-      this.closingTimer += dt;
-      if (this.closingTimer >= CLOSING_DURATION) {
-        this.dialogueState = DialogueState.IDLE;
-        console.log("[VoicePanel] ✅ Closing complete — IDLE");
+    this.closingTimer += dt;
+    if (this.closingTimer >= CLOSING_DURATION) {
+      this.dialogueState = DialogueState.IDLE;
+      console.log("[VoicePanel] ✅ Closing complete — IDLE");
 
-        // Ensure button is in idle state when transition to IDLE completes
-        if (this.micButtonRef && this.statusTextRef) {
-          this.micButtonRef.setProperties({ backgroundColor: "#2563eb" }); // Blue
-          this.statusTextRef.setProperties({ text: "Say 'Turn on...'" });
-        }
+      if (this.micButtonRef && this.statusTextRef) {
+        this.micButtonRef.setProperties({ backgroundColor: "#2563eb" });
+        this.statusTextRef.setProperties({ text: "Say 'Turn on...'" });
       }
     }
-
-    // ── 3D voice panel follow camera ───────────────────────────
-    if (!this.panelObject3D) return;
-    if (!camera) return;
-
-    // Calculate target position: 0.6m in front of camera, 0.3m lower, 0.2m to the right
-    const camDir = camera.getWorldDirection(
-      new Object3D().position.clone().set(0, 0, 0),
-    );
-    camDir.y = 0; // Flatten the forward vector
-    camDir.normalize();
-
-    // Right vector (cross product of forward and up)
-    const rightX = camDir.z;
-    const rightZ = -camDir.x;
-
-    const targetX = camera.position.x + camDir.x * 0.6 + rightX * 0.2;
-    const targetY = camera.position.y - 0.3;
-    const targetZ = camera.position.z + camDir.z * 0.6 + rightZ * 0.2;
-
-    // Lerp for smooth movement
-    const dxP = targetX - this.panelObject3D.position.x;
-    const dyP = targetY - this.panelObject3D.position.y;
-    const dzP = targetZ - this.panelObject3D.position.z;
-    const dist = Math.sqrt(dxP * dxP + dyP * dyP + dzP * dzP);
-
-    if (dist > 1.0) {
-      this.panelObject3D.position.set(targetX, targetY, targetZ);
-    } else {
-      const tP = Math.min(1, 5 * dt);
-      this.panelObject3D.position.x += dxP * tP;
-      this.panelObject3D.position.y += dyP * tP;
-      this.panelObject3D.position.z += dzP * tP;
-    }
-
-    // Always face the camera
-    this.panelObject3D.lookAt(camera.position);
   }
 }

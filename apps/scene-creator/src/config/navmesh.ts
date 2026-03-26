@@ -1,6 +1,6 @@
 // @ts-ignore
 import { NavMesh, Polygon, Vector3 as YukaVector3 } from "yuka";
-import { Box3, Vector3, Object3D } from "three";
+import { Box3, Vector3, Object3D, Matrix4 } from "three";
 
 interface RoomBounds {
   minX: number;
@@ -21,11 +21,34 @@ let _roomPosX = 0;
 let _roomPosY = 0;
 let _roomPosZ = 0;
 let _roomRotY = 0;
+let _roomScale = 1;
 
 export function initializeNavMesh(roomModel: any, padding: number = 0.5): NavMesh {
-  const bbox = new Box3().setFromObject(roomModel);
-  const min = bbox.min;
-  const max = bbox.max;
+  roomModel.updateMatrixWorld(true);
+
+  // Build bounds in room-local space so world transform offsets/rotations
+  // do not double-apply when converting between local/world coordinates.
+  // Use per-mesh geometry bounds (not global AABB corners) for better accuracy.
+  const inverseWorld = new Matrix4().copy(roomModel.matrixWorld).invert();
+  const localBox = new Box3().makeEmpty();
+  const meshWorldBox = new Box3();
+  roomModel.traverse((child: any) => {
+    if (!child?.isMesh || !child.geometry) return;
+    if (!child.geometry.boundingBox) {
+      child.geometry.computeBoundingBox();
+    }
+    meshWorldBox.copy(child.geometry.boundingBox).applyMatrix4(child.matrixWorld);
+    meshWorldBox.applyMatrix4(inverseWorld);
+    localBox.union(meshWorldBox);
+  });
+
+  if (localBox.isEmpty()) {
+    // Fallback for unusual models that don't expose mesh geometry bounds.
+    localBox.setFromObject(roomModel).applyMatrix4(inverseWorld);
+  }
+
+  const min = localBox.min;
+  const max = localBox.max;
 
   roomBounds = {
     minX: min.x + padding,
@@ -138,13 +161,15 @@ export function setRoomTransform(
   posY: number,
   posZ: number,
   rotationY: number,
+  scale = 1,
 ): void {
   _roomPosX = posX;
   _roomPosY = posY;
   _roomPosZ = posZ;
   _roomRotY = rotationY;
+  _roomScale = Math.abs(scale) > 1e-6 ? scale : 1;
   console.log(
-    `🗺️ [NavMesh] Room transform updated: pos=(${posX.toFixed(2)}, ${posY.toFixed(2)}, ${posZ.toFixed(2)}) rotY=${((rotationY * 180) / Math.PI).toFixed(1)}°`,
+    `🗺️ [NavMesh] Room transform updated: pos=(${posX.toFixed(2)}, ${posY.toFixed(2)}, ${posZ.toFixed(2)}) rotY=${((rotationY * 180) / Math.PI).toFixed(1)}° scale=${_roomScale.toFixed(3)}`,
   );
 }
 
@@ -152,9 +177,11 @@ export function setRoomTransform(
 export function roomLocalToWorld(lx: number, lz: number): [number, number] {
   const cos = Math.cos(_roomRotY);
   const sin = Math.sin(_roomRotY);
+  const sx = lx * _roomScale;
+  const sz = lz * _roomScale;
   return [
-    _roomPosX + lx * cos - lz * sin,
-    _roomPosZ + lx * sin + lz * cos,
+    _roomPosX + sx * cos - sz * sin,
+    _roomPosZ + sx * sin + sz * cos,
   ];
 }
 
@@ -164,7 +191,10 @@ export function worldToRoomLocal(wx: number, wz: number): [number, number] {
   const dz = wz - _roomPosZ;
   const cos = Math.cos(-_roomRotY);
   const sin = Math.sin(-_roomRotY);
-  return [dx * cos - dz * sin, dx * sin + dz * cos];
+  return [
+    (dx * cos - dz * sin) / _roomScale,
+    (dx * sin + dz * cos) / _roomScale,
+  ];
 }
 
 /**
@@ -182,5 +212,5 @@ export function clampToWalkableAreaWorld(
 
 /** Get room-local floor Y in world space. */
 export function getWorldFloorY(): number {
-  return (roomBounds?.floorY ?? 0) + _roomPosY;
+  return (roomBounds?.floorY ?? 0) * _roomScale + _roomPosY;
 }

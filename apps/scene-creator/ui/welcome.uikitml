@@ -1,125 +1,207 @@
 <style>
   .panel-container {
-    align-items: flex-start;
-    padding: 2;
-    width: 50;
-    height: auto;
+    width: 52;
     display: flex;
-    flex-direction: column;
-    background-color: rgba(255, 255, 255, 0.12);
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
-    border-color: rgba(255, 255, 255, 0.20);
+    flex-direction: row;
+    align-items: stretch;
+    gap: 1;
+    padding: 1.1;
+    background-color: rgba(226, 232, 240, 0.34);
+    backdrop-filter: blur(72px) saturate(160%);
+    -webkit-backdrop-filter: blur(72px) saturate(160%);
+    border-color: rgba(255, 255, 255, 0.2);
     border-width: 0.15;
-    border-radius: 2;
-    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.18);
+    border-radius: 2.2;
+    box-shadow: 0 20px 56px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    position: relative;
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   }
 
-  .logo-section {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 1.5;
-    margin-bottom: 1;
-  }
-
-  .logo-icon {
-    width: 5;
-    height: 5;
-    color: #3b82f6;
-  }
-
-  .heading {
-    font-size: 3.5;
-    font-weight: bold;
-    color: #fafafa;
-    text-align: left;
-  }
-
-  .sub-heading {
-    font-size: 1.8;
-    color: #a1a1aa;
-    text-align: left;
-    margin-top: 0.5;
-    line-height: 1.4;
-  }
-
-  .info-section {
-    display: flex;
-    flex-direction: column;
-    gap: 1;
-    margin-top: 2;
-    width: 100%;
-  }
-
-  .info-row {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 1;
-    padding: 1 1.5;
-    background-color: rgba(255, 255, 255, 0.08);
-    border-radius: 1;
-    width: 100%;
-  }
-
-  .info-icon {
-    width: 2;
-    height: 2;
-    color: #71717a;
-  }
-
-  .info-text {
-    font-size: 1.8;
-    color: #a1a1aa;
-  }
-
-  .button-group {
-    display: flex;
-    flex-direction: column;
-    gap: 1;
-    margin-top: 2.5;
-    width: 100%;
-  }
-
-  .button-content {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: center;
-    gap: 1;
-  }
-
-  .button-row {
-    display: flex;
-    flex-direction: row;
-    gap: 1;
-    width: 100%;
-  }
-
-  .primary-btn {
-    width: 100%;
-    padding: 1.5;
-    background-color: #3b82f6;
-    border-radius: 1;
+  .close-btn {
+    position: absolute;
+    top: 0.8;
+    right: 0.8;
+    width: 3;
+    height: 3;
+    border-radius: 0.8;
+    background-color: rgba(255, 255, 255, 0.28);
+    border-width: 0.1;
+    border-color: rgba(255, 255, 255, 0.4);
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
   }
 
-  .mode-row {
+  .close-icon {
+    width: 1.4;
+    height: 1.4;
+    color: #334155;
+  }
+
+  .nav-rail {
+    width: 6.4;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.65;
+    padding: 0.9 0.5;
+    background-color: rgba(255, 255, 255, 0.18);
+    border-radius: 2;
+    border-width: 0.1;
+    border-color: rgba(255, 255, 255, 0.32);
+  }
+
+  .rail-btn {
+    width: 4.2;
+    height: 4.2;
+    border-radius: 2.1;
+    border-width: 0.1;
+    border-color: rgba(255, 255, 255, 0.35);
+    background-color: rgba(255, 255, 255, 0.22);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  .rail-btn-active {
+    background-color: rgba(37, 99, 235, 0.34);
+    border-color: rgba(37, 99, 235, 0.56);
+  }
+
+  .rail-icon {
+    width: 1.8;
+    height: 1.8;
+    color: #1e293b;
+  }
+
+  .content-pane {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.7;
+    padding: 0.35 0.2 0.2;
+  }
+
+  .portal-title {
+    font-size: 2.3;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 0.2;
+  }
+
+  .home-card {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55;
+    padding: 0.8;
+    border-radius: 1.2;
+    background-color: rgba(255, 255, 255, 0.18);
+    border-width: 0.1;
+    border-color: rgba(255, 255, 255, 0.32);
+  }
+
+  .meta-row {
+    width: 100%;
     display: flex;
     flex-direction: row;
-    gap: 0.8;
+    align-items: center;
+    gap: 0.7;
+    padding: 0.65 0.8;
+    border-radius: 0.9;
+    background-color: rgba(255, 255, 255, 0.26);
+    border-width: 0.1;
+    border-color: rgba(255, 255, 255, 0.38);
+  }
+
+  .meta-icon {
+    width: 1.6;
+    height: 1.6;
+    color: #334155;
+  }
+
+  .meta-text {
+    font-size: 1.25;
+    color: #334155;
+  }
+
+  .voice-btn {
     width: 100%;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.7;
+    padding: 0.8 0.95;
+    border-radius: 1.05;
+    background-color: rgba(255, 255, 255, 0.24);
+    border-width: 0.1;
+    border-color: rgba(255, 255, 255, 0.36);
+    cursor: pointer;
+  }
+
+  .voice-left {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.65;
+  }
+
+  .voice-status {
+    font-size: 1.28;
+    font-weight: 600;
+    color: #334155;
+  }
+
+  .voice-icon {
+    width: 1.7;
+    height: 1.7;
+    color: #1e293b;
+  }
+
+  .xr-btn {
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.7;
+    padding: 0.82 0.95;
+    border-radius: 1.05;
+    background-color: rgba(37, 99, 235, 0.3);
+    border-width: 0.1;
+    border-color: rgba(37, 99, 235, 0.55);
+    cursor: pointer;
+  }
+
+  .xr-text {
+    font-size: 1.3;
+    font-weight: 600;
+    color: #1e293b;
+  }
+
+  .arrow-icon {
+    width: 1.7;
+    height: 1.7;
+    color: #1e293b;
+  }
+
+  .mode-row {
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    gap: 0.6;
   }
 
   .mode-btn-active {
     flex: 1;
-    padding: 1.2;
-    background-color: #7c3aed;
-    border-radius: 1;
+    padding: 0.82;
+    border-radius: 0.9;
+    background-color: rgba(124, 58, 237, 0.84);
+    border-width: 0.1;
+    border-color: rgba(124, 58, 237, 1);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -128,182 +210,87 @@
 
   .mode-btn-inactive {
     flex: 1;
-    padding: 1.2;
-    background-color: rgba(255, 255, 255, 0.08);
-    border-radius: 1;
+    padding: 0.82;
+    border-radius: 0.9;
+    background-color: rgba(255, 255, 255, 0.24);
+    border-width: 0.1;
+    border-color: rgba(255, 255, 255, 0.36);
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
   }
 
-  .secondary-btn {
-    flex: 1;
-    padding: 1.2;
-    background-color: rgba(255, 255, 255, 0.08);
-    border-radius: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-  }
-
-  .btn-text {
-    font-size: 1.8;
-    color: #fafafa;
-  }
-
-  .btn-icon {
-    width: 2;
-    height: 2;
-    color: #fafafa;
-  }
-
-  .footer {
-    margin-top: 2;
-    padding-top: 1.5;
-    border-top-width: 0.1;
-    border-top-color: rgba(255, 255, 255, 0.20);
-    width: 100%;
-  }
-
-  .footer-row {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5;
-  }
-
-  .footer-icon {
-    width: 1.5;
-    height: 1.5;
-    color: #52525b;
-  }
-
-  .footer-text {
-    font-size: 1.4;
-    color: #fafafa;
-    text-align: center;
-  }
-
-  .close-btn {
-    position: absolute;
-    top: 1;
-    right: 1;
-    width: 3;
-    height: 3;
-    padding: 0.5;
-    background-color: rgba(255, 255, 255, 0.08);
-    border-radius: 0.5;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    border: none;
-  }
-
-  .close-btn:hover {
-    background-color: rgba(255, 255, 255, 0.18);
-  }
-
-  .close-icon {
-    width: 1.5;
-    height: 1.5;
-    color: #a1a1aa;
-  }
-
-  .panel-container {
-    position: relative;
+  .mode-text {
+    font-size: 1.32;
+    color: #1e293b;
+    font-weight: 600;
   }
 </style>
 
 <div class="panel-container">
-  <button class="close-btn" id="close-welcome-panel" title="Close (Press U)">
+  <button class="close-btn" id="close-welcome-panel" title="Hide portal">
     <XIcon class="close-icon" />
   </button>
-  <div class="logo-section">
-    <div>
-      <HouseIcon class="logo-icon" />
-    </div>
-    <span class="heading">SmartHome Platform</span>
-  </div>
-  <span class="sub-heading">
-    Control your smart home devices in augmented reality. Tap, grab, and interact with your devices in 3D space.
-  </span>
 
-  <div class="info-section">
-    <div class="info-row">
-      <div>
-        <UserIcon class="info-icon" />
-      </div>
-      <span class="info-text" id="user-email">Loading...</span>
-    </div>
-
-    <div class="info-row">
-      <div>
-        <CpuIcon class="info-icon" />
-      </div>
-      <span class="info-text" id="device-stats">Loading devices...</span>
-    </div>
+  <div class="nav-rail">
+    <button class="rail-btn rail-btn-active" id="rail-home-btn">
+      <HouseIcon class="rail-icon" />
+    </button>
+    <button class="rail-btn" id="rail-devices-btn">
+      <LayoutGridIcon class="rail-icon" />
+    </button>
+    <button class="rail-btn" id="rail-align-room-btn">
+      <MoveIcon class="rail-icon" />
+    </button>
+    <button class="rail-btn" id="rail-refresh-btn">
+      <RefreshCwIcon class="rail-icon" />
+    </button>
+    <button class="rail-btn" id="rail-mic-btn">
+      <MicIcon class="rail-icon" />
+    </button>
+    <button class="rail-btn" id="rail-xr-btn">
+      <GlassesIcon class="rail-icon" />
+    </button>
   </div>
 
-  <div class="button-group">
-    <button class="primary-btn" id="xr-button">
-      <div class="button-content">
-        <div>
-          <GlassesIcon class="btn-icon" />
-        </div>
-        <span class="btn-text" id="xr-button-text">Enter AR / VR</span>
+  <div class="content-pane">
+    <span class="portal-title">SmartHome</span>
+
+    <div class="home-card">
+      <div class="meta-row">
+        <UserIcon class="meta-icon" />
+        <span class="meta-text" id="user-email">Loading...</span>
       </div>
+      <div class="meta-row">
+        <CpuIcon class="meta-icon" />
+        <span class="meta-text" id="device-stats">Loading devices...</span>
+      </div>
+    </div>
+
+    <button class="voice-btn" id="mic-button">
+      <div class="voice-left">
+        <MicIcon class="voice-icon" />
+        <span class="voice-status" id="voice-status">Voice command</span>
+      </div>
+      <ChevronRightIcon class="arrow-icon" />
+    </button>
+
+    <button class="xr-btn" id="xr-button">
+      <div class="voice-left">
+        <GlassesIcon class="voice-icon" />
+        <span class="xr-text" id="xr-button-text">Enter VR</span>
+      </div>
+      <ChevronRightIcon class="arrow-icon" />
     </button>
 
     <div class="mode-row">
       <button class="mode-btn-active" id="vr-mode-btn">
-        <div class="button-content">
-          <span class="btn-text">VR Mode</span>
-        </div>
+        <span class="mode-text">VR</span>
       </button>
       <button class="mode-btn-inactive" id="ar-mode-btn">
-        <div class="button-content">
-          <span class="btn-text">AR Mode</span>
-        </div>
+        <span class="mode-text">AR</span>
       </button>
-    </div>
-
-    <div class="button-row">
-      <button class="secondary-btn" id="devices-button">
-        <div class="button-content">
-          <div>
-            <LayoutGridIcon class="btn-icon" />
-          </div>
-          <span class="btn-text">Devices</span>
-        </div>
-      </button>
-      <button class="secondary-btn" id="refresh-button">
-        <div class="button-content">
-          <div>
-            <RefreshCwIcon class="btn-icon" />
-          </div>
-          <span class="btn-text">Refresh</span>
-        </div>
-      </button>
-      <button class="secondary-btn" id="align-room-button">
-        <div class="button-content">
-          <div>
-            <MoveIcon class="btn-icon" />
-          </div>
-          <span class="btn-text">Align Room</span>
-        </div>
-      </button>
-    </div>
-  </div>
-
-  <div class="footer">
-    <div class="footer-row">
-      <span class="footer-text">Press U to toggle</span>
-      <span class="footer-text">|</span>
-      <span class="footer-text">Press Y to summon</span>
     </div>
   </div>
 </div>

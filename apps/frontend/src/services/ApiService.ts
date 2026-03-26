@@ -72,7 +72,7 @@ export class ApiService {
     const currentPath = window.location.pathname;
     const loginPath = import.meta.env.BASE_URL + "login";
     const registerPath = import.meta.env.BASE_URL + "register";
-    
+
     if (currentPath === loginPath || currentPath === registerPath) {
       return;
     }

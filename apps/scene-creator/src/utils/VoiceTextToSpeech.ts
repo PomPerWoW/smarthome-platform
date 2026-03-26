@@ -28,6 +28,8 @@ function getSamanthaOrFirst(): SpeechSynthesisVoice | null {
 
 // Short delay after cancel() before speak() to reduce glitches and volume jumps on some systems (e.g. Mac)
 const SPEECH_RESET_DELAY_MS = 60;
+// Fallback in case `voiceschanged` does not fire reliably.
+const VOICE_READY_TIMEOUT_MS = 600;
 
 export function speakText(text: string): Promise<void> {
   return new Promise((resolve) => {
@@ -36,9 +38,23 @@ export function speakText(text: string): Promise<void> {
       return;
     }
     const synth = window.speechSynthesis;
+    let spoke = false;
+    let voiceReadyTimer: ReturnType<typeof setTimeout> | null = null;
     const doSpeak = (): void => {
+      if (spoke) return;
+      spoke = true;
+      if (voiceReadyTimer) {
+        clearTimeout(voiceReadyTimer);
+        voiceReadyTimer = null;
+      }
       const voice = getSamanthaOrFirst();
       synth.cancel();
+      try {
+        // Ensure synthesis isn't left in paused state.
+        synth.resume();
+      } catch {
+        // no-op
+      }
       const u = new SpeechSynthesisUtterance(text);
       u.lang = "en-US";
       if (voice) u.voice = voice;
@@ -55,6 +71,9 @@ export function speakText(text: string): Promise<void> {
       doSpeak();
     } else {
       synth.addEventListener("voiceschanged", doSpeak, { once: true });
+      voiceReadyTimer = setTimeout(() => {
+        doSpeak();
+      }, VOICE_READY_TIMEOUT_MS);
     }
   });
 }
