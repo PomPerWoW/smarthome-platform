@@ -59,6 +59,11 @@ export default defineConfig(({ mode }) => {
       "process.env.VITE_FRONTEND_URL": JSON.stringify(
         env.VITE_FRONTEND_URL || "https://localhost:5173",
       ),
+      "process.env.VITE_DASHBOARD_URL": JSON.stringify(
+        env.VITE_DASHBOARD_URL ||
+          env.VITE_FRONTEND_URL ||
+          "https://localhost:3000",
+      ),
     },
   };
 });

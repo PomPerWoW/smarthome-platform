@@ -134,6 +134,19 @@ if HOST_IP:
         f"https://{HOST_IP}:3003",
     ])
 
+_extra_cors = get_required_env("CORS_ALLOWED_ORIGINS", "")
+if _extra_cors:
+    CORS_ALLOWED_ORIGINS.extend(
+        [o.strip() for o in _extra_cors.split(",") if o.strip()]
+    )
+
+CSRF_TRUSTED_ORIGINS = []
+_csrf_extra = get_required_env("CSRF_TRUSTED_ORIGINS", "")
+if _csrf_extra:
+    CSRF_TRUSTED_ORIGINS = [
+        o.strip() for o in _csrf_extra.split(",") if o.strip()
+    ]
+
 CORS_ALLOW_CREDENTIALS = True
 
 CORS_ALLOW_HEADERS = [
