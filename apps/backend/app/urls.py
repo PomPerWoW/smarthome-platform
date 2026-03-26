@@ -20,12 +20,17 @@ from django.conf import settings
 from django.conf.urls.static import static
 import debug_toolbar
 
-urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('_debug_/', include('debug_toolbar.urls')),
-    path('api/auth/', include('accounts.urls')),
-    path('api/homes/', include('homes.urls')),
+_api = [
+    path("admin/", admin.site.urls),
+    path("_debug_/", include("debug_toolbar.urls")),
+    path("api/auth/", include("accounts.urls")),
+    path("api/homes/", include("homes.urls")),
 ]
+
+if settings.API_PREFIX:
+    urlpatterns = [path(f"{settings.API_PREFIX}/", include(_api))]
+else:
+    urlpatterns = list(_api)
 
 # Serve media files in development
 if settings.DEBUG:

@@ -83,7 +83,7 @@ INSTALLED_APPS = [
 ]
 
 # Set the ASGI application
-ASGI_APPLICATION = 'config.asgi.application'
+ASGI_APPLICATION = "app.asgi.application"
 
 # Configure Channel Layer (uses in-memory for dev, Redis for production)
 CHANNEL_LAYERS = {
@@ -256,13 +256,18 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-FORCE_SCRIPT_NAME = "/smarthome/api"
+# When set (e.g. "smarthome/api"), HTTP routes are mounted under /{API_PREFIX}/...
+# Leave empty for local dev (paths like /api/auth/ at site root).
+API_PREFIX = (get_required_env("API_PREFIX", "") or "").strip().strip("/")
 
-STATIC_URL = "/smarthome/api/static/"
+_prefix = f"/{API_PREFIX}" if API_PREFIX else ""
+FORCE_SCRIPT_NAME = _prefix or None
+
+STATIC_URL = f"{_prefix}/static/" if _prefix else "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
 # Media files (User uploaded content)
-MEDIA_URL = "/smarthome/api/media/"
+MEDIA_URL = f"{_prefix}/media/" if _prefix else "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
 # Default primary key field type
