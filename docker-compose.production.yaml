@@ -28,7 +28,7 @@ services:
       - smarthome_network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      test: ["CMD-SHELL", 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -43,8 +43,8 @@ services:
     volumes:
       - backend_static:/app/staticfiles
       - backend_media:/app/media
-    ports:
-      - "${BACKEND_PORT}:5500"
+    expose:
+      - "5500"
     networks:
       - smarthome_network
     depends_on:
@@ -55,7 +55,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "curl -sf -o /dev/null http://127.0.0.1:5500/smarthome/api/admin/login/ || exit 1",
+          "curl -sf -o /dev/null http://127.0.0.1:5500/smarthome/admin/login/ || exit 1",
         ]
       interval: 30s
       timeout: 10s
@@ -73,8 +73,8 @@ services:
     container_name: smarthome_frontend
     env_file:
       - .env.production
-    ports:
-      - "${FRONTEND_PORT}:3000"
+    expose:
+      - "3000"
     networks:
       - smarthome_network
     depends_on:
@@ -98,8 +98,8 @@ services:
     container_name: smarthome_scene_creator
     env_file:
       - .env.production
-    ports:
-      - "${SCENE_CREATOR_PORT}:3003"
+    expose:
+      - "3003"
     networks:
       - smarthome_network
     depends_on:
@@ -111,12 +111,40 @@ services:
       timeout: 10s
       retries: 3
 
+  https-proxy:
+    image: nginx:alpine
+    container_name: smarthome_https_proxy
+    ports:
+      - "${FRONTEND_PORT}:3000"
+      - "${SCENE_CREATOR_PORT}:3003"
+      - "${BACKEND_PORT}:5500"
+    volumes:
+      - ./docker/proxy/nginx.production.conf:/etc/nginx/nginx.conf:ro
+      - proxy_certs:/etc/nginx/certs
+    command: >
+      sh -c "
+      apk add --no-cache openssl &&
+      if [ ! -f /etc/nginx/certs/cert.pem ]; then
+        openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /etc/nginx/certs/key.pem -out /etc/nginx/certs/cert.pem -subj '/CN=turing.se.kmitl.ac.th';
+      fi &&
+      nginx -g 'daemon off;'
+      "
+    networks:
+      - smarthome_network
+    depends_on:
+      - frontend
+      - scene-creator
+      - backend
+    restart: unless-stopped
+
 volumes:
   postgres_data:
     driver: local
   backend_static:
     driver: local
   backend_media:
+    driver: local
+  proxy_certs:
     driver: local
 
 networks:
