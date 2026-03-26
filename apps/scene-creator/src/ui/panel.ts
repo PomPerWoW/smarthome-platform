@@ -97,9 +97,13 @@ export class PanelSystem extends createSystem({
         }
 
         // Update XR button text based on mode
-        const xrBtnText = document.getElementById("xr-button-text") as UIKit.Text;
+        const xrBtnText = document.getElementById(
+          "xr-button-text",
+        ) as UIKit.Text;
         if (xrBtnText) {
-          if (this.world.visibilityState.value === VisibilityState.NonImmersive) {
+          if (
+            this.world.visibilityState.value === VisibilityState.NonImmersive
+          ) {
             xrBtnText.setProperties({
               text: ar ? "Enter AR" : "Enter VR",
             });
@@ -123,11 +127,49 @@ export class PanelSystem extends createSystem({
       // ── XR Button ────────────────────────────────────────────────────
       const xrButton = document.getElementById("xr-button") as UIKit.Text;
       if (xrButton) {
-        xrButton.addEventListener("click", () => {
+        xrButton.addEventListener("click", async () => {
           if (
             this.world.visibilityState.value === VisibilityState.NonImmersive
           ) {
-            this.world.launchXR();
+            // Check WebXR availability before attempting to launch
+            if (!navigator.xr) {
+              console.warn(
+                "[Panel] WebXR API not available. Ensure you are using HTTPS and a compatible browser.",
+              );
+              alert(
+                "WebXR is not available.\n\nPlease ensure:\n• You are accessing this page over HTTPS\n• Your browser supports WebXR\n• An XR headset is connected",
+              );
+              return;
+            }
+
+            const sessionMode = isARMode ? "immersive-ar" : "immersive-vr";
+            try {
+              const supported =
+                await navigator.xr.isSessionSupported(sessionMode);
+              if (!supported) {
+                console.warn(
+                  `[Panel] XR session mode "${sessionMode}" is not supported on this device.`,
+                );
+                alert(
+                  `XR mode "${sessionMode}" is not supported on this device.\n\nPlease ensure:\n• An XR headset is connected\n• Your browser supports the requested XR mode\n• Required permissions are granted`,
+                );
+                return;
+              }
+            } catch (checkErr) {
+              console.warn(
+                "[Panel] Could not check XR session support:",
+                checkErr,
+              );
+            }
+
+            try {
+              await this.world.launchXR();
+            } catch (err) {
+              console.error("[Panel] Failed to launch XR session:", err);
+              alert(
+                "Failed to start XR session.\n\nPlease check that:\n• An XR headset is connected and active\n• You are using HTTPS\n• No other XR session is already running",
+              );
+            }
           } else {
             this.world.exitXR();
           }
@@ -135,7 +177,9 @@ export class PanelSystem extends createSystem({
 
         // Set initial text based on visibility state
         const updateButtonText = () => {
-          const xrBtnText = document.getElementById("xr-button-text") as UIKit.Text;
+          const xrBtnText = document.getElementById(
+            "xr-button-text",
+          ) as UIKit.Text;
           if (!xrBtnText) return;
 
           const visibilityState = this.world.visibilityState.value;
@@ -208,9 +252,13 @@ export class PanelSystem extends createSystem({
           );
 
           // Update floating button text/icon if it exists
-          const floatingBtn = document.getElementById("welcome-panel-toggle-btn");
+          const floatingBtn = document.getElementById(
+            "welcome-panel-toggle-btn",
+          );
           if (floatingBtn) {
-            floatingBtn.title = isVisible ? "Show Welcome Panel (Press U)" : "Hide Welcome Panel (Press U)";
+            floatingBtn.title = isVisible
+              ? "Show Welcome Panel (Press U)"
+              : "Hide Welcome Panel (Press U)";
             // Update button visual state to indicate panel visibility
             if (isVisible) {
               floatingBtn.style.backgroundColor = "#3b82f6";
@@ -233,7 +281,9 @@ export class PanelSystem extends createSystem({
           console.log("[Panel] Welcome panel shown");
 
           // Update floating button
-          const floatingBtn = document.getElementById("welcome-panel-toggle-btn");
+          const floatingBtn = document.getElementById(
+            "welcome-panel-toggle-btn",
+          );
           if (floatingBtn) {
             floatingBtn.title = "Hide Welcome Panel (Press U)";
             floatingBtn.style.backgroundColor = "#7c3aed";
@@ -245,7 +295,8 @@ export class PanelSystem extends createSystem({
       // Store both functions globally for access from anywhere
       (globalThis as any).__toggleWelcomePanel = toggleWelcomePanel;
       (globalThis as any).__showWelcomePanel = showWelcomePanel;
-      (globalThis as any).__summonWelcomePanel = () => this.summonPanelInFront();
+      (globalThis as any).__summonWelcomePanel = () =>
+        this.summonPanelInFront();
 
       // ── Close Button in Welcome Panel ──────────────────────────────────────
       const closeButton = document.getElementById("close-welcome-panel");
@@ -254,7 +305,6 @@ export class PanelSystem extends createSystem({
           toggleWelcomePanel();
         });
       }
-
 
       // ── Keyboard Shortcut: Press 'U' to toggle Welcome Panel ──────────────
       window.addEventListener("keydown", (event) => {
@@ -283,7 +333,9 @@ export class PanelSystem extends createSystem({
       const createFloatingButton = () => {
         // Remove existing button if it exists (to recreate it)
         const existingBtn = document.getElementById("welcome-panel-toggle-btn");
-        const existingContainer = document.getElementById("welcome-panel-toggle-container");
+        const existingContainer = document.getElementById(
+          "welcome-panel-toggle-container",
+        );
         if (existingBtn) existingBtn.remove();
         if (existingContainer) existingContainer.remove();
 
@@ -311,7 +363,8 @@ export class PanelSystem extends createSystem({
         button.style.display = "flex";
         button.style.alignItems = "center";
         button.style.justifyContent = "center";
-        button.style.boxShadow = "0 8px 16px -4px rgba(0, 0, 0, 0.4), 0 4px 8px -2px rgba(0, 0, 0, 0.3)";
+        button.style.boxShadow =
+          "0 8px 16px -4px rgba(0, 0, 0, 0.4), 0 4px 8px -2px rgba(0, 0, 0, 0.3)";
         button.style.transition = "all 0.2s ease";
         button.style.color = "white";
         button.style.fontSize = "20px";
@@ -323,14 +376,16 @@ export class PanelSystem extends createSystem({
         button.addEventListener("mouseenter", () => {
           button.style.backgroundColor = "#2563eb";
           button.style.transform = "scale(1.15)";
-          button.style.boxShadow = "0 12px 24px -4px rgba(0, 0, 0, 0.5), 0 6px 12px -2px rgba(0, 0, 0, 0.4)";
+          button.style.boxShadow =
+            "0 12px 24px -4px rgba(0, 0, 0, 0.5), 0 6px 12px -2px rgba(0, 0, 0, 0.4)";
         });
         button.addEventListener("mouseleave", () => {
           const welcomeEntity = (globalThis as any).__welcomePanelEntity;
           const isVisible = welcomeEntity?.object3D?.visible ?? false;
           button.style.backgroundColor = isVisible ? "#7c3aed" : "#3b82f6";
           button.style.transform = "scale(1)";
-          button.style.boxShadow = "0 8px 16px -4px rgba(0, 0, 0, 0.4), 0 4px 8px -2px rgba(0, 0, 0, 0.3)";
+          button.style.boxShadow =
+            "0 8px 16px -4px rgba(0, 0, 0, 0.4), 0 4px 8px -2px rgba(0, 0, 0, 0.3)";
         });
 
         // Add active/press effect
@@ -373,7 +428,9 @@ export class PanelSystem extends createSystem({
 
         // Ensure button is always visible, even in immersive mode
         // The button should work in both 2D and XR contexts
-        console.log("[Panel] ✅ Floating welcome panel toggle button created (always accessible)");
+        console.log(
+          "[Panel] ✅ Floating welcome panel toggle button created (always accessible)",
+        );
       };
 
       // Create the floating button immediately and also after a delay as fallback
@@ -406,7 +463,9 @@ export class PanelSystem extends createSystem({
   private setupXRControllerInput(): void {
     // Set up XR session listeners
     this.renderer.xr.addEventListener("sessionstart", () => {
-      console.log("[Panel] 🥽 XR session started - setting up Meta Quest 3 controller input");
+      console.log(
+        "[Panel] 🥽 XR session started - setting up Meta Quest 3 controller input",
+      );
       const session = this.renderer.xr.getSession();
       if (session) {
         this.xrSession = session;
@@ -462,7 +521,9 @@ export class PanelSystem extends createSystem({
           // Detect trigger press (transition from not pressed to pressed)
           // Only trigger if cooldown has expired
           if (triggerPressed && !lastState && this.triggerCooldown <= 0) {
-            console.log(`[Panel] 🎮 Trigger button pressed on ${inputSource.handedness || 'unknown'} controller - summoning panel`);
+            console.log(
+              `[Panel] 🎮 Trigger button pressed on ${inputSource.handedness || "unknown"} controller - summoning panel`,
+            );
             this.summonPanelInFront();
             this.triggerCooldown = this.TRIGGER_COOLDOWN_TIME;
           }
@@ -482,7 +543,9 @@ export class PanelSystem extends createSystem({
 
     // Start the frame loop
     this.frameCallbackId = this.xrSession.requestAnimationFrame(onXRFrame);
-    console.log("[Panel] ✅ Meta Quest 3 trigger detection active - press trigger to summon panel");
+    console.log(
+      "[Panel] ✅ Meta Quest 3 trigger detection active - press trigger to summon panel",
+    );
   }
 
   private summonPanelInFront(): void {

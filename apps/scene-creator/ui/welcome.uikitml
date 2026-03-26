@@ -1,12 +1,4 @@
 <style>
-  :root {
-    --glass-bg: rgba(255, 255, 255, 0.08);
-    --glass-bg-2: rgba(255, 255, 255, 0.06);
-    --glass-bg-3: rgba(255, 255, 255, 0.12);
-    --glass-border: rgba(255, 255, 255, 0.16);
-    --glass-border-2: rgba(255, 255, 255, 0.22);
-  }
-
   .panel-container {
     align-items: flex-start;
     padding: 2;
@@ -14,10 +6,10 @@
     height: auto;
     display: flex;
     flex-direction: column;
-    background-color: var(--glass-bg);
+    background-color: rgba(255, 255, 255, 0.12);
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
-    border-color: var(--glass-border);
+    border-color: rgba(255, 255, 255, 0.20);
     border-width: 0.15;
     border-radius: 2;
     box-shadow: 0 18px 50px rgba(0, 0, 0, 0.18);
@@ -66,7 +58,7 @@
     align-items: center;
     gap: 1;
     padding: 1 1.5;
-    background-color: var(--glass-bg-2);
+    background-color: rgba(255, 255, 255, 0.08);
     border-radius: 1;
     width: 100%;
   }
@@ -137,7 +129,7 @@
   .mode-btn-inactive {
     flex: 1;
     padding: 1.2;
-    background-color: var(--glass-bg-2);
+    background-color: rgba(255, 255, 255, 0.08);
     border-radius: 1;
     display: flex;
     align-items: center;
@@ -148,7 +140,7 @@
   .secondary-btn {
     flex: 1;
     padding: 1.2;
-    background-color: var(--glass-bg-2);
+    background-color: rgba(255, 255, 255, 0.08);
     border-radius: 1;
     display: flex;
     align-items: center;
@@ -171,7 +163,7 @@
     margin-top: 2;
     padding-top: 1.5;
     border-top-width: 0.1;
-    border-top-color: var(--glass-border);
+    border-top-color: rgba(255, 255, 255, 0.20);
     width: 100%;
   }
 
@@ -202,7 +194,7 @@
     width: 3;
     height: 3;
     padding: 0.5;
-    background-color: var(--glass-bg-2);
+    background-color: rgba(255, 255, 255, 0.08);
     border-radius: 0.5;
     display: flex;
     align-items: center;
@@ -212,7 +204,7 @@
   }
 
   .close-btn:hover {
-    background-color: var(--glass-bg-3);
+    background-color: rgba(255, 255, 255, 0.18);
   }
 
   .close-icon {
@@ -239,7 +231,7 @@
   <span class="sub-heading">
     Control your smart home devices in augmented reality. Tap, grab, and interact with your devices in 3D space.
   </span>
-  
+
   <div class="info-section">
     <div class="info-row">
       <div>
@@ -247,7 +239,7 @@
       </div>
       <span class="info-text" id="user-email">Loading...</span>
     </div>
-    
+
     <div class="info-row">
       <div>
         <CpuIcon class="info-icon" />
@@ -265,7 +257,7 @@
         <span class="btn-text" id="xr-button-text">Enter AR / VR</span>
       </div>
     </button>
-    
+
     <div class="mode-row">
       <button class="mode-btn-active" id="vr-mode-btn">
         <div class="button-content">
@@ -278,7 +270,7 @@
         </div>
       </button>
     </div>
-    
+
     <div class="button-row">
       <button class="secondary-btn" id="devices-button">
         <div class="button-content">
