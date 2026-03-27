@@ -5,6 +5,7 @@ import type { SmartMeter } from "@/models";
 import { DeviceService } from "@/services/DeviceService";
 import { WebSocketService } from "@/services/WebSocketService";
 import { toast } from "sonner";
+import { DeviceControlHeader } from "./DeviceControlHeader";
 
 const METRICS_CONFIG: Record<string, { label: string; unit: string; min: number; max: number; color: string }> = {
     v: { label: "Voltage", unit: "Volt", min: 0, max: 250, color: "#3b82f6" },
@@ -184,16 +185,14 @@ export function SmartMeterControl({ device, onUpdate }: SmartMeterControlProps) 
 
     return (
         <div className="space-y-6 p-4">
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-blue-500/20 text-blue-500">
-                        <Activity className="w-6 h-6" />
-                    </div>
-                    <div>
-                        <h3 className="font-semibold">{device.name}</h3>
-                        <p className="text-sm text-muted-foreground">Smart Meter Feed</p>
-                    </div>
-                </div>
+            <DeviceControlHeader
+                device={device}
+                displayLabel="Smart Meter Feed"
+                icon={Activity}
+                iconBgColorClass="bg-blue-500/20"
+                iconColorClass="text-blue-500"
+                onUpdate={onUpdate}
+            >
                 <Button
                     variant={isOn ? "default" : "outline"}
                     size="icon"
@@ -203,7 +202,7 @@ export function SmartMeterControl({ device, onUpdate }: SmartMeterControlProps) 
                 >
                     <Power className="w-5 h-5" />
                 </Button>
-            </div>
+            </DeviceControlHeader>
 
             {!isOn && (
                 <div className="text-center py-8 text-muted-foreground">

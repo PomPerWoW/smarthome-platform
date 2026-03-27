@@ -76,6 +76,11 @@ export class DeviceService {
     });
   }
 
+  async setTag(type: DeviceType, id: string, tag: string): Promise<void> {
+    const endpoint = this.getTypeEndpoint(type);
+    await this.api.patch(`/api/homes/${endpoint}/${id}/`, { tag });
+  }
+
   // === Lightbulb ===
 
   async createLightbulb(data: CreateLightbulbDTO): Promise<Lightbulb> {

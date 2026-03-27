@@ -9,6 +9,7 @@ import { DeviceService } from "@/services/DeviceService";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useNotificationStore } from "@/stores/notification_store";
+import { DeviceControlHeader } from "./DeviceControlHeader";
 
 interface FanControlProps {
   device: Fan;
@@ -116,22 +117,15 @@ export function FanControl({ device, onUpdate }: FanControlProps) {
   return (
     <div className="space-y-6 p-4">
       {/* Header with Power Button */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-cyan-500/20 flex items-center justify-center">
-            <FanIcon
-              className={cn(
-                "w-6 h-6 text-cyan-500 transition-transform",
-                isOn && speed > 0 && "animate-spin",
-              )}
-              style={{ animationDuration: `${2 - speed * 0.3}s` }}
-            />
-          </div>
-          <div>
-            <h3 className="font-semibold">{device.name}</h3>
-            <p className="text-sm text-muted-foreground">Tower Fan</p>
-          </div>
-        </div>
+      <DeviceControlHeader
+        device={device}
+        displayLabel="Tower Fan"
+        icon={FanIcon}
+        iconColorClass="text-cyan-500"
+        iconBgColorClass="bg-cyan-500/20"
+        iconStyle={{ animationDuration: `${2 - speed * 0.3}s` }}
+        onUpdate={onUpdate}
+      >
         <Button
           variant={isOn ? "default" : "outline"}
           size="icon"
@@ -141,7 +135,7 @@ export function FanControl({ device, onUpdate }: FanControlProps) {
         >
           <Power className="w-5 h-5" />
         </Button>
-      </div>
+      </DeviceControlHeader>
 
       {/* Controls - only show when on */}
       {isOn && (

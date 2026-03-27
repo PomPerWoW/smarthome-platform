@@ -17,6 +17,7 @@ import type { Television } from "@/models";
 import { DeviceService } from "@/services/DeviceService";
 import { toast } from "sonner";
 import { useNotificationStore } from "@/stores/notification_store";
+import { DeviceControlHeader } from "./DeviceControlHeader";
 
 interface TelevisionControlProps {
   device: Television;
@@ -147,16 +148,14 @@ export function TelevisionControl({
   return (
     <div className="space-y-6 p-4">
       {/* Header with Power Button */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center">
-            <Tv className="w-6 h-6 text-blue-500" />
-          </div>
-          <div>
-            <h3 className="font-semibold">{device.name}</h3>
-            <p className="text-sm text-muted-foreground">Smart TV</p>
-          </div>
-        </div>
+      <DeviceControlHeader
+        device={device}
+        displayLabel="Smart TV"
+        icon={Tv}
+        iconColorClass="text-blue-500"
+        iconBgColorClass="bg-blue-500/20"
+        onUpdate={onUpdate}
+      >
         <Button
           variant={isOn ? "default" : "outline"}
           size="icon"
@@ -166,7 +165,7 @@ export function TelevisionControl({
         >
           <Power className="w-5 h-5" />
         </Button>
-      </div>
+      </DeviceControlHeader>
 
       {/* Controls - only show when on */}
       {isOn && (
