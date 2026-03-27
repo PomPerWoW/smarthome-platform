@@ -132,7 +132,7 @@ function DashboardPage() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 animate-in fade-in zoom-in-95 duration-500">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
