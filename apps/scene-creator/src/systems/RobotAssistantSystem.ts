@@ -34,6 +34,8 @@ import {
   speakSorryDidntCatch,
   speakText,
 } from "../utils/VoiceTextToSpeech";
+import { getStore } from "../store/DeviceStore";
+import { BackendApiClient } from "../api/BackendApiClient";
 
 /** Delay (ms) before starting mic after TTS so we don't capture the robot's voice. */
 const LISTEN_START_DELAY_MS = 700;
@@ -46,10 +48,8 @@ const FADE_DURATION = 0.2;
 const WALK_VELOCITY = 0.5; // Slower than user-controlled avatars
 const ROTATE_SPEED = 0.15; // Rotation speed for turning
 const WAYPOINT_REACH_DISTANCE = 0.5; // How close to get to waypoint before picking new one
-/** When walking to user, use larger radius so robot reliably stops and speaks (avoids overshoot/oscillation). */
-const REACH_USER_DISTANCE = 1.0;
-/** Snap destination when voice panel requests "come to user". */
-const VOICE_SNAP_NEAR_USER_DISTANCE = 1.1;
+/** When walking to user, stop when within this distance from user camera (comfortable speaking distance). */
+const REACH_USER_DISTANCE = 1.8;
 const WAYPOINT_INTERVAL = 8.0; // Pick new waypoint every 8-12 seconds
 /** Maximum time (seconds) the robot will try to walk to user before giving up. */
 const WALK_TO_USER_TIMEOUT_SEC = 30.0;
@@ -143,6 +143,10 @@ export class RobotAssistantSystem extends createSystem({
   private pendingInstructionText: string | null = null;
   /** Callback to invoke when robot reaches user (for external systems like VoicePanelSystem). */
   private onReachedUserCallback: (() => void) | null = null;
+  /** When false, keep a fixed movement target instead of continuously tracking user camera. */
+  private trackUserWhileWalking = true;
+  /** Fixed target used for device-approach commands. */
+  private fixedWalkTarget: { x: number; z: number } | null = null;
   /** Debounce: avoid speaking "Do you want anything else?" twice when two idles arrive in quick succession. */
   private lastDeviceSuccessHandledAt = 0;
   private static readonly DEVICE_SUCCESS_DEBOUNCE_MS = 3000;
@@ -186,6 +190,15 @@ export class RobotAssistantSystem extends createSystem({
         if (status === "idle") {
           // Device actions: always close dialogue and stop listening (don't continue conversation)
           if (payload?.success && payload.action && payload.device) {
+            if (payload.executeAfterMovement && payload.commandText) {
+              this.startWalkingToDeviceForCommand(
+                payload.commandText,
+                payload.action,
+                payload.device,
+                payload.deviceId,
+              );
+              return;
+            }
             if (this.rePromptTimeoutId !== null) {
               clearTimeout(this.rePromptTimeoutId);
               this.rePromptTimeoutId = null;
@@ -275,9 +288,7 @@ export class RobotAssistantSystem extends createSystem({
                         "Do you want me to do anything else?",
                       );
                       speakFollowUpAnythingElse().then(() => {
-                        setTimeout(() => {
-                          VoiceControlSystem.getInstance().startListeningWithoutGreeting();
-                        }, LISTEN_START_DELAY_MS);
+                        VoiceControlSystem.getInstance().scheduleStartListeningWithoutGreeting(LISTEN_START_DELAY_MS);
                       });
                     }
                   });
@@ -300,9 +311,7 @@ export class RobotAssistantSystem extends createSystem({
                         "Do you want me to do anything else?",
                       );
                       speakFollowUpAnythingElse().then(() => {
-                        setTimeout(() => {
-                          VoiceControlSystem.getInstance().startListeningWithoutGreeting();
-                        }, LISTEN_START_DELAY_MS);
+                        VoiceControlSystem.getInstance().scheduleStartListeningWithoutGreeting(LISTEN_START_DELAY_MS);
                       });
                     }
                   });
@@ -336,6 +345,19 @@ export class RobotAssistantSystem extends createSystem({
             });
             return;
           }
+          if (payload?.serverError) {
+            if (this.rePromptTimeoutId !== null) {
+              clearTimeout(this.rePromptTimeoutId);
+              this.rePromptTimeoutId = null;
+            }
+            this.walkingToUser = false;
+            this.pendingInstructionTopic = null;
+            this.pendingInstructionText = null;
+            this.inInstructionSession = false;
+            this.setVoiceListening(false);
+            this.returnToPatrol();
+            return;
+          }
           // Timeout, no match, or failure while in instruction session: delay re-prompt so a late success idle can cancel it (avoids saying "Do you want...?" twice)
           // BUT: Don't re-prompt if endSession was already requested (user said "no thank you")
           if (this.inInstructionSession && !payload?.endSession) {
@@ -355,15 +377,16 @@ export class RobotAssistantSystem extends createSystem({
               speakSorryDidntCatch().then(() => {
                 // Triple-check before starting listening again
                 if (this.inInstructionSession) {
-                  setTimeout(() => {
-                    VoiceControlSystem.getInstance().startListeningWithoutGreeting();
-                  }, LISTEN_START_DELAY_MS);
+                  VoiceControlSystem.getInstance().scheduleStartListeningWithoutGreeting(LISTEN_START_DELAY_MS);
                 }
               });
             }, RobotAssistantSystem.RE_PROMPT_DELAY_MS);
             return;
           }
           this.setVoiceListening(false);
+          if (payload?.noMatch && !this.inInstructionSession) {
+            this.returnToPatrol();
+          }
         }
       },
     );
@@ -557,7 +580,7 @@ export class RobotAssistantSystem extends createSystem({
     (record.model as any).rotation.y = angle;
   }
 
-  /** Start walking to user: set target to user position, set walkingToUser, allow movement. */
+  /** Start walking to user: set target to a point in front of the user, set walkingToUser. */
   private startWalkingToUser(): void {
     const record = this.robotRecords.values().next().value as
       | RobotAssistantRecord
@@ -571,9 +594,17 @@ export class RobotAssistantSystem extends createSystem({
       cam.position.y,
       cam.position.z,
     );
-    record.entity.setValue(RobotAssistantComponent, "targetX", userLocal.x);
-    record.entity.setValue(RobotAssistantComponent, "targetZ", userLocal.z);
+    const safeTarget = this.resolveSafeLocalTarget(
+      record.model.position.x,
+      record.model.position.z,
+      userLocal.x,
+      userLocal.z,
+    );
+    record.entity.setValue(RobotAssistantComponent, "targetX", safeTarget.x);
+    record.entity.setValue(RobotAssistantComponent, "targetZ", safeTarget.z);
     record.entity.setValue(RobotAssistantComponent, "hasReachedTarget", false);
+    this.trackUserWhileWalking = true;
+    this.fixedWalkTarget = null;
     this.walkingToUser = true;
     // Reset timeout timer when resuming walk to user
     if (this.walkToUserStartTime < 0) {
@@ -595,9 +626,6 @@ export class RobotAssistantSystem extends createSystem({
       return;
     }
 
-    // Store callback and walk toward a point near user.
-    this.onReachedUserCallback = onArrived || null;
-
     const cam = camera as { position: { x: number; y: number; z: number } };
     const userLocal = this.worldToRoomLocal(
       cam.position.x,
@@ -605,25 +633,39 @@ export class RobotAssistantSystem extends createSystem({
       cam.position.z,
     );
 
-    // Choose a point slightly offset from user to avoid overlap.
-    const toRobotX = record.model.position.x - userLocal.x;
-    const toRobotZ = record.model.position.z - userLocal.z;
-    const len = Math.sqrt(toRobotX * toRobotX + toRobotZ * toRobotZ);
-    const dirX = len > 1e-5 ? toRobotX / len : 0;
-    const dirZ = len > 1e-5 ? toRobotZ / len : -1;
+    // If the robot is already within comfortable speaking distance,
+    // just face the user and invoke the callback — no need to walk.
+    const dxAlready = userLocal.x - record.model.position.x;
+    const dzAlready = userLocal.z - record.model.position.z;
+    const alreadyDist = Math.sqrt(dxAlready * dxAlready + dzAlready * dzAlready);
 
-    const nearUserX = userLocal.x + dirX * VOICE_SNAP_NEAR_USER_DISTANCE;
-    const nearUserZ = userLocal.z + dirZ * VOICE_SNAP_NEAR_USER_DISTANCE;
+    if (alreadyDist <= REACH_USER_DISTANCE) {
+      console.log(
+        `[RobotAssistant] Already close to user (${alreadyDist.toFixed(2)}m) — skipping walk`,
+      );
+      this.faceFirstRobotTowardUser();
+      this.fadeToAction(record, "Standing", FADE_DURATION);
+      record.entity.setValue(RobotAssistantComponent, "currentState", "Standing");
+      record.entity.setValue(RobotAssistantComponent, "hasReachedTarget", true);
+      onArrived?.();
+      return;
+    }
+
+    // Store callback and walk toward a point near user (not on top of them).
+    this.onReachedUserCallback = onArrived || null;
+
     const safeTarget = this.resolveSafeLocalTarget(
       record.model.position.x,
       record.model.position.z,
-      nearUserX,
-      nearUserZ,
+      userLocal.x,
+      userLocal.z,
     );
 
     record.entity.setValue(RobotAssistantComponent, "targetX", safeTarget.x);
     record.entity.setValue(RobotAssistantComponent, "targetZ", safeTarget.z);
     record.entity.setValue(RobotAssistantComponent, "hasReachedTarget", false);
+    this.trackUserWhileWalking = true;
+    this.fixedWalkTarget = null;
     this.walkingToUser = true;
     this.walkToUserStartTime = this.timeElapsed;
     this.stepAsideAttempts = 0;
@@ -632,8 +674,115 @@ export class RobotAssistantSystem extends createSystem({
     record.entity.setValue(RobotAssistantComponent, "currentState", "Walking");
 
     console.log(
-      `[RobotAssistant] 🚶 Walking near user target at (${safeTarget.x.toFixed(2)}, ${safeTarget.z.toFixed(2)})`,
+      `[RobotAssistant] 🚶 Walking near user target at (${safeTarget.x.toFixed(2)}, ${safeTarget.z.toFixed(2)}), dist=${alreadyDist.toFixed(2)}m`,
     );
+  }
+
+  /** Walk near target device, then execute queued voice command. */
+  private startWalkingToDeviceForCommand(
+    commandText: string,
+    action: string,
+    deviceName: string,
+    deviceId?: string,
+  ): void {
+    const record = this.robotRecords.values().next().value as
+      | RobotAssistantRecord
+      | undefined;
+    if (!record) return;
+
+    const store = getStore();
+    const resolvedDevice =
+      (deviceId ? store.getDeviceById(deviceId) : undefined) ||
+      store.devices.find(
+        (d) => d.name.trim().toLowerCase() === deviceName.trim().toLowerCase(),
+      );
+
+    if (!resolvedDevice || !Array.isArray(resolvedDevice.position)) {
+      console.warn(
+        `[RobotAssistant] Could not resolve target device "${deviceName}", executing command immediately`,
+      );
+      void this.executeQueuedDeviceCommand(commandText, action, deviceName);
+      return;
+    }
+
+    const targetPos = resolvedDevice.position;
+    const toRobotX = record.model.position.x - targetPos[0];
+    const toRobotZ = record.model.position.z - targetPos[2];
+    const len = Math.sqrt(toRobotX * toRobotX + toRobotZ * toRobotZ);
+    const dirX = len > 1e-5 ? toRobotX / len : 0;
+    const dirZ = len > 1e-5 ? toRobotZ / len : -1;
+    const nearDeviceX = targetPos[0] + dirX * REACH_USER_DISTANCE;
+    const nearDeviceZ = targetPos[2] + dirZ * REACH_USER_DISTANCE;
+    const safeTarget = this.resolveSafeLocalTarget(
+      record.model.position.x,
+      record.model.position.z,
+      nearDeviceX,
+      nearDeviceZ,
+    );
+
+    this.trackUserWhileWalking = false;
+    this.fixedWalkTarget = { x: safeTarget.x, z: safeTarget.z };
+    this.onReachedUserCallback = () => {
+      void this.executeQueuedDeviceCommand(commandText, action, deviceName);
+    };
+
+    record.entity.setValue(RobotAssistantComponent, "targetX", safeTarget.x);
+    record.entity.setValue(RobotAssistantComponent, "targetZ", safeTarget.z);
+    record.entity.setValue(RobotAssistantComponent, "hasReachedTarget", false);
+    this.walkingToUser = true;
+    this.walkToUserStartTime = this.timeElapsed;
+    this.stepAsideAttempts = 0;
+    this.stepAsideTarget = null;
+    this.setVoiceListening(false);
+    this.fadeToAction(record, "Walking", FADE_DURATION);
+    record.entity.setValue(RobotAssistantComponent, "currentState", "Walking");
+  }
+
+  /** Execute parsed command once robot is in range, then finish interaction flow. */
+  private async executeQueuedDeviceCommand(
+    commandText: string,
+    fallbackAction: string,
+    fallbackDevice: string,
+  ): Promise<void> {
+    let completionAction = fallbackAction;
+    let completionDevice = fallbackDevice;
+    try {
+      const result = await BackendApiClient.getInstance().sendVoiceCommand(
+        commandText,
+        true,
+      );
+      const executed = result?.actions?.find(
+        (a: any) => a?.status === "success" && a?.action && a?.device,
+      );
+      if (executed) {
+        completionAction = executed.action;
+        completionDevice = executed.device;
+      }
+    } catch (error) {
+      console.error(
+        "[RobotAssistant] Failed to execute queued device command:",
+        error,
+      );
+    } finally {
+      import("../utils/VoiceTextToSpeech").then((module) => {
+        module.speakCompletion(completionAction, completionDevice);
+      });
+      this.inInstructionSession = false;
+      this.pendingInstructionTopic = null;
+      this.fixedWalkTarget = null;
+      this.trackUserWhileWalking = true;
+      this.faceFirstRobotTowardUser();
+      this.playEmoteSequence(["Yes", "ThumbsUp"], () => {
+        this.setVoiceListening(false);
+        const voicePanelSystem = (globalThis as any).__voicePanelSystem;
+        if (
+          voicePanelSystem &&
+          typeof voicePanelSystem.beginClosing === "function"
+        ) {
+          voicePanelSystem.beginClosing();
+        }
+      });
+    }
   }
 
   /** Public method: Stop walking to user and return to normal patrol behavior. */
@@ -643,8 +792,18 @@ export class RobotAssistantSystem extends createSystem({
     this.pendingInstructionTopic = null;
     this.pendingInstructionText = null;
     this.stepAsideTarget = null;
+    this.fixedWalkTarget = null;
+    this.trackUserWhileWalking = true;
     this.walkToUserStartTime = -1;
     this.stepAsideAttempts = 0;
+
+    if (this.rePromptTimeoutId !== null) {
+      clearTimeout(this.rePromptTimeoutId);
+      this.rePromptTimeoutId = null;
+    }
+
+    // Voice UI often leaves the robot in "Standing" or an emote; movement only runs for Walking/Idle.
+    this.setVoiceListening(false);
 
     const record = this.robotRecords.values().next().value as
       | RobotAssistantRecord
@@ -653,32 +812,38 @@ export class RobotAssistantSystem extends createSystem({
       // Pick a random waypoint to resume patrol
       const bounds = getRoomBounds();
       if (bounds) {
-          const newTargetX =
-            bounds.minX + Math.random() * (bounds.maxX - bounds.minX);
-          const newTargetZ =
-            bounds.minZ + Math.random() * (bounds.maxZ - bounds.minZ);
-          const safeTarget = this.resolveSafeLocalTarget(
-            record.model.position.x,
-            record.model.position.z,
-            newTargetX,
-            newTargetZ,
-          );
-          record.entity.setValue(
-            RobotAssistantComponent,
-            "targetX",
-            safeTarget.x,
-          );
-          record.entity.setValue(
-            RobotAssistantComponent,
-            "targetZ",
-            safeTarget.z,
-          );
+        const newTargetX =
+          bounds.minX + Math.random() * (bounds.maxX - bounds.minX);
+        const newTargetZ =
+          bounds.minZ + Math.random() * (bounds.maxZ - bounds.minZ);
+        const safeTarget = this.resolveSafeLocalTarget(
+          record.model.position.x,
+          record.model.position.z,
+          newTargetX,
+          newTargetZ,
+        );
+        record.entity.setValue(
+          RobotAssistantComponent,
+          "targetX",
+          safeTarget.x,
+        );
+        record.entity.setValue(
+          RobotAssistantComponent,
+          "targetZ",
+          safeTarget.z,
+        );
         record.entity.setValue(
           RobotAssistantComponent,
           "hasReachedTarget",
           false,
         );
       }
+      this.fadeToAction(record, "Walking", FADE_DURATION);
+      record.entity.setValue(
+        RobotAssistantComponent,
+        "currentState",
+        "Walking",
+      );
     }
 
     console.log("[RobotAssistant] 🔄 Returning to patrol");
@@ -1298,146 +1463,66 @@ export class RobotAssistantSystem extends createSystem({
       }
 
       // Explicit "reached user" / "reached step-aside" check
-      // Check if walking to user with either a pending instruction topic OR an external callback
-      if (
-        this.walkingToUser &&
-        (this.pendingInstructionTopic || this.onReachedUserCallback)
-      ) {
-        const walkDuration = this.timeElapsed - this.walkToUserStartTime;
-
-        // Timeout check: if we've been walking too long, give up and call callback anyway
-        if (walkDuration > WALK_TO_USER_TIMEOUT_SEC) {
-          console.warn(
-            `[RobotAssistant] ⏱️ Walk to user timed out after ${walkDuration.toFixed(1)}s — respawning to spawn point and calling callback`,
-          );
-
-          const spawn = this.findRandomSpawnPosition();
-          record.model.position.set(spawn.x, record.model.position.y, spawn.z);
-          const groundedTimeoutY = this.alignRobotFeetToFloor(
-            record.model,
-            spawn.y,
-          );
-          record.lastRoomLocalPos = null;
-          entity.setValue(RobotAssistantComponent, "targetX", spawn.x);
-          entity.setValue(RobotAssistantComponent, "targetZ", spawn.z);
-          entity.setValue(RobotAssistantComponent, "hasReachedTarget", true);
-          entity.setValue(RobotAssistantComponent, "baseY", groundedTimeoutY);
-          entity.setValue(RobotAssistantComponent, "stuckTime", 0);
-          const callback = this.onReachedUserCallback;
-          this.walkingToUser = false;
-          this.pendingInstructionTopic = null;
-          this.pendingInstructionText = null;
-          this.onReachedUserCallback = null;
-          this.walkToUserStartTime = -1;
-          this.stepAsideAttempts = 0;
-          this.stepAsideTarget = null;
-          if (callback) {
-            callback();
-          }
-          // Continue with normal behavior
-          continue;
-        }
-
-        // Update target position to current user position smoothly (if user moved)
-        // This ensures the robot follows the user if they move while it's walking
-        if (!this.stepAsideTarget && this.world.camera) {
+      if (this.walkingToUser) {
+        // Fallback: if walkingToUser is set but neither topic nor callback exist,
+        // stop walking once we are close enough so the robot doesn't oscillate.
+        if (!this.pendingInstructionTopic && !this.onReachedUserCallback && this.world.camera) {
           const cam = this.world.camera as {
             position: { x: number; y: number; z: number };
           };
-          const currentUserLocal = this.worldToRoomLocal(
+          const userLocal = this.worldToRoomLocal(
             cam.position.x,
             cam.position.y,
             cam.position.z,
           );
-
-          // Smoothly update target position (lerp) to prevent sudden jumps
-          const targetUpdateSpeed = 2.0; // How fast to update target (units per second)
-          const dxTarget = currentUserLocal.x - targetX;
-          const dzTarget = currentUserLocal.z - targetZ;
-          const distToTarget = Math.sqrt(
-            dxTarget * dxTarget + dzTarget * dzTarget,
-          );
-
-          if (distToTarget > 0.1) {
-            // Only update if user moved significantly (prevents micro-adjustments)
-            const maxUpdate = targetUpdateSpeed * dt;
-            if (distToTarget > maxUpdate) {
-              const newTargetX =
-                targetX + (dxTarget / distToTarget) * maxUpdate;
-              const newTargetZ =
-                targetZ + (dzTarget / distToTarget) * maxUpdate;
-              const safeTarget = this.resolveSafeLocalTarget(
-                record.model.position.x,
-                record.model.position.z,
-                newTargetX,
-                newTargetZ,
-              );
-              entity.setValue(
-                RobotAssistantComponent,
-                "targetX",
-                safeTarget.x,
-              );
-              entity.setValue(
-                RobotAssistantComponent,
-                "targetZ",
-                safeTarget.z,
-              );
-            } else {
-              // User moved a small amount, update directly
-              const safeTarget = this.resolveSafeLocalTarget(
-                record.model.position.x,
-                record.model.position.z,
-                currentUserLocal.x,
-                currentUserLocal.z,
-              );
-              entity.setValue(
-                RobotAssistantComponent,
-                "targetX",
-                safeTarget.x,
-              );
-              entity.setValue(
-                RobotAssistantComponent,
-                "targetZ",
-                safeTarget.z,
-              );
-            }
+          const fbDx = userLocal.x - record.model.position.x;
+          const fbDz = userLocal.z - record.model.position.z;
+          const fbDist = Math.sqrt(fbDx * fbDx + fbDz * fbDz);
+          if (fbDist <= REACH_USER_DISTANCE) {
+            console.warn(
+              "[RobotAssistant] walkingToUser but no topic/callback — stopping walk",
+            );
+            this.walkingToUser = false;
+            this.walkToUserStartTime = -1;
+            this.stepAsideAttempts = 0;
+            this.stepAsideTarget = null;
+            this.fixedWalkTarget = null;
+            this.trackUserWhileWalking = true;
+            this.fadeToAction(record, "Standing", FADE_DURATION);
+            entity.setValue(RobotAssistantComponent, "currentState", "Standing");
+            entity.setValue(RobotAssistantComponent, "hasReachedTarget", true);
+            const worldPos = this.roomLocalToWorld(
+              record.model.position.x,
+              record.model.position.y,
+              record.model.position.z,
+            );
+            record.model.position.set(worldPos.x, worldPos.y, worldPos.z);
+            record.model.rotation.y += roomRotY;
+            continue;
           }
         }
 
-        if (this.stepAsideTarget) {
-          // If we are currently stepping aside to avoid an obstacle
-          const dxAside = targetX - record.model.position.x;
-          const dzAside = targetZ - record.model.position.z;
-          const distToAside = Math.sqrt(dxAside * dxAside + dzAside * dzAside);
-          if (distToAside <= WAYPOINT_REACH_DISTANCE) {
-            console.log(
-              `[RobotAssistant] ↩️ Reached step-aside waypoint, resuming walk to user`,
+        if (this.pendingInstructionTopic || this.onReachedUserCallback) {
+          const walkDuration = this.timeElapsed - this.walkToUserStartTime;
+
+          // Timeout check: if we've been walking too long, give up and call callback anyway
+          if (walkDuration > WALK_TO_USER_TIMEOUT_SEC) {
+            console.warn(
+              `[RobotAssistant] ⏱️ Walk to user timed out after ${walkDuration.toFixed(1)}s — respawning to spawn point and calling callback`,
             );
-            this.stepAsideTarget = null;
-            this.startWalkingToUser(); // This updates the targetX/Z back to the user's location
-            continue;
-          }
-        } else {
-          // Normal walk to user check - use current target position (may have been updated above)
-          const currentTargetX = entity.getValue(
-            RobotAssistantComponent,
-            "targetX",
-          ) as number;
-          const currentTargetZ = entity.getValue(
-            RobotAssistantComponent,
-            "targetZ",
-          ) as number;
-          const dxUser = currentTargetX - record.model.position.x;
-          const dzUser = currentTargetZ - record.model.position.z;
-          const distToUser = Math.sqrt(dxUser * dxUser + dzUser * dzUser);
 
-          // Ensure robot has actually moved close enough and is not warping
-          // Check that robot has been walking for at least a short time to prevent immediate callback
-          const minWalkTime = 0.3; // Minimum 0.3 seconds of walking before reaching user
-          const hasWalkedEnough = walkDuration >= minWalkTime;
-
-          if (distToUser <= REACH_USER_DISTANCE && hasWalkedEnough) {
-            const topic = this.pendingInstructionTopic;
+            const spawn = this.findRandomSpawnPosition();
+            record.model.position.set(spawn.x, record.model.position.y, spawn.z);
+            const groundedTimeoutY = this.alignRobotFeetToFloor(
+              record.model,
+              spawn.y,
+            );
+            record.lastRoomLocalPos = null;
+            entity.setValue(RobotAssistantComponent, "targetX", spawn.x);
+            entity.setValue(RobotAssistantComponent, "targetZ", spawn.z);
+            entity.setValue(RobotAssistantComponent, "hasReachedTarget", true);
+            entity.setValue(RobotAssistantComponent, "baseY", groundedTimeoutY);
+            entity.setValue(RobotAssistantComponent, "stuckTime", 0);
             const callback = this.onReachedUserCallback;
             this.walkingToUser = false;
             this.pendingInstructionTopic = null;
@@ -1446,125 +1531,215 @@ export class RobotAssistantSystem extends createSystem({
             this.walkToUserStartTime = -1;
             this.stepAsideAttempts = 0;
             this.stepAsideTarget = null;
-
-            // If there's an external callback (e.g., from VoicePanelSystem), call it
+            this.fixedWalkTarget = null;
+            this.trackUserWhileWalking = true;
             if (callback) {
-              console.log(
-                `[RobotAssistant] 👋 Reached user (dist=${distToUser.toFixed(2)}m), calling external callback`,
-              );
-              this.fadeToAction(record, "Standing", FADE_DURATION);
-              record.entity.setValue(
-                RobotAssistantComponent,
-                "currentState",
-                "Standing",
-              );
-              record.entity.setValue(
-                RobotAssistantComponent,
-                "hasReachedTarget",
-                true,
-              );
               callback();
-              // Apply room transform and skip rest of movement for this frame
-              const worldPos = this.roomLocalToWorld(
-                record.model.position.x,
-                record.model.position.y,
-                record.model.position.z,
-              );
-              record.model.position.set(worldPos.x, worldPos.y, worldPos.z);
-              record.model.rotation.y += roomRotY;
-              continue;
             }
+            // Continue with normal behavior
+            continue;
+          }
 
-            // Otherwise, handle instruction topic flow (existing behavior)
-            if (topic) {
-              this.inInstructionSession = true;
-              this.setVoiceListening(true);
-              this.fadeToAction(record, "Standing", FADE_DURATION);
-              record.entity.setValue(
-                RobotAssistantComponent,
-                "currentState",
-                "Standing",
-              );
-              record.entity.setValue(
-                RobotAssistantComponent,
-                "hasReachedTarget",
-                true,
-              );
-              console.log(
-                `[RobotAssistant] 👋 Reached user (dist=${distToUser.toFixed(2)}m), speaking instruction: ${topic}`,
-              );
-              // Use dynamic text if available, otherwise use predefined text
-              const instructionText =
-                this.pendingInstructionText || this.getInstructionText(topic);
-              if (instructionText) {
-                this.notifyDialogueMessage(instructionText);
-                // If we have dynamic text, speak it directly; otherwise use speakInstruction
-                if (this.pendingInstructionText) {
-                  speakText(instructionText).then(() => {
-                    // For device_info and other informational queries, don't ask follow-up - just close
-                    if (topic === "device_info" || topic === "goodbye") {
-                      this.inInstructionSession = false;
-                      this.setVoiceListening(false);
-                      const voicePanelSystem = (globalThis as any)
-                        .__voicePanelSystem;
-                      if (
-                        voicePanelSystem &&
-                        typeof voicePanelSystem.beginClosing === "function"
-                      ) {
-                        voicePanelSystem.beginClosing();
-                      }
-                    } else {
-                      this.notifyDialogueMessage(
-                        "Do you want me to do anything else?",
-                      );
-                      speakFollowUpAnythingElse().then(() => {
-                        setTimeout(() => {
-                          VoiceControlSystem.getInstance().startListeningWithoutGreeting();
-                        }, LISTEN_START_DELAY_MS);
-                      });
-                    }
-                  });
-                } else {
-                  speakInstruction(topic).then(() => {
-                    // For device_info, don't ask follow-up
-                    if (topic === "device_info" || topic === "goodbye") {
-                      this.inInstructionSession = false;
-                      this.setVoiceListening(false);
-                      const voicePanelSystem = (globalThis as any)
-                        .__voicePanelSystem;
-                      if (
-                        voicePanelSystem &&
-                        typeof voicePanelSystem.beginClosing === "function"
-                      ) {
-                        voicePanelSystem.beginClosing();
-                      }
-                    } else {
-                      this.notifyDialogueMessage(
-                        "Do you want me to do anything else?",
-                      );
-                      speakFollowUpAnythingElse().then(() => {
-                        setTimeout(() => {
-                          VoiceControlSystem.getInstance().startListeningWithoutGreeting();
-                        }, LISTEN_START_DELAY_MS);
-                      });
-                    }
-                  });
-                }
-              }
-              this.pendingInstructionText = null; // Clear after use
-              // Apply room transform and skip rest of movement for this frame
-              const worldPos = this.roomLocalToWorld(
+          // Update target to the user's position
+          // The robot will naturally stop at REACH_USER_DISTANCE from this target.
+          if (!this.stepAsideTarget && this.trackUserWhileWalking && this.world.camera) {
+            const cam = this.world.camera as {
+              position: { x: number; y: number; z: number };
+            };
+            const currentUserLocal = this.worldToRoomLocal(
+              cam.position.x,
+              cam.position.y,
+              cam.position.z,
+            );
+
+            const dxTarget = currentUserLocal.x - targetX;
+            const dzTarget = currentUserLocal.z - targetZ;
+            const distToDesired = Math.sqrt(dxTarget * dxTarget + dzTarget * dzTarget);
+
+            if (distToDesired > 0.1) {
+              const safeTarget = this.resolveSafeLocalTarget(
                 record.model.position.x,
-                record.model.position.y,
                 record.model.position.z,
+                currentUserLocal.x,
+                currentUserLocal.z,
               );
-              record.model.position.set(worldPos.x, worldPos.y, worldPos.z);
-              record.model.rotation.y += roomRotY;
-              continue;
+              entity.setValue(RobotAssistantComponent, "targetX", safeTarget.x);
+              entity.setValue(RobotAssistantComponent, "targetZ", safeTarget.z);
             }
           }
+
+          if (this.stepAsideTarget) {
+            // If we are currently stepping aside to avoid an obstacle
+            const dxAside = targetX - record.model.position.x;
+            const dzAside = targetZ - record.model.position.z;
+            const distToAside = Math.sqrt(dxAside * dxAside + dzAside * dzAside);
+            if (distToAside <= WAYPOINT_REACH_DISTANCE) {
+              console.log(
+                `[RobotAssistant] ↩️ Reached step-aside waypoint, resuming walk to user`,
+              );
+              this.stepAsideTarget = null;
+              if (this.trackUserWhileWalking) {
+                this.startWalkingToUser(); // This updates the targetX/Z back to the user's location
+              } else if (this.fixedWalkTarget) {
+                entity.setValue(
+                  RobotAssistantComponent,
+                  "targetX",
+                  this.fixedWalkTarget.x,
+                );
+                entity.setValue(
+                  RobotAssistantComponent,
+                  "targetZ",
+                  this.fixedWalkTarget.z,
+                );
+                entity.setValue(RobotAssistantComponent, "hasReachedTarget", false);
+              }
+              continue;
+            }
+          } else {
+            // Normal walk to user check - measure actual distance to user camera, not target waypoint.
+            // Stop as soon as the robot reaches comfortable speaking distance — never overshoot past it.
+            if (this.world.camera) {
+              const cam = this.world.camera as {
+                position: { x: number; y: number; z: number };
+              };
+              const userLocal = this.worldToRoomLocal(
+                cam.position.x,
+                cam.position.y,
+                cam.position.z,
+              );
+              const dxUser = userLocal.x - record.model.position.x;
+              const dzUser = userLocal.z - record.model.position.z;
+              const distToUser = Math.sqrt(dxUser * dxUser + dzUser * dzUser);
+
+              if (distToUser <= REACH_USER_DISTANCE) {
+                const topic = this.pendingInstructionTopic;
+                const callback = this.onReachedUserCallback;
+                this.walkingToUser = false;
+                this.pendingInstructionTopic = null;
+                this.pendingInstructionText = null;
+                this.onReachedUserCallback = null;
+                this.walkToUserStartTime = -1;
+                this.stepAsideAttempts = 0;
+                this.stepAsideTarget = null;
+                this.fixedWalkTarget = null;
+                this.trackUserWhileWalking = true;
+
+                // If there's an external callback (e.g., from VoicePanelSystem), call it
+                if (callback) {
+                  console.log(
+                    `[RobotAssistant] 👋 Reached user (dist=${distToUser.toFixed(2)}m), calling external callback`,
+                  );
+                  this.fadeToAction(record, "Standing", FADE_DURATION);
+                  record.entity.setValue(
+                    RobotAssistantComponent,
+                    "currentState",
+                    "Standing",
+                  );
+                  record.entity.setValue(
+                    RobotAssistantComponent,
+                    "hasReachedTarget",
+                    true,
+                  );
+                  callback();
+                  // Apply room transform and skip rest of movement for this frame
+                  const worldPos = this.roomLocalToWorld(
+                    record.model.position.x,
+                    record.model.position.y,
+                    record.model.position.z,
+                  );
+                  record.model.position.set(worldPos.x, worldPos.y, worldPos.z);
+                  record.model.rotation.y += roomRotY;
+                  continue;
+                }
+
+                // Otherwise, handle instruction topic flow (existing behavior)
+                if (topic) {
+                  this.inInstructionSession = true;
+                  this.setVoiceListening(true);
+                  this.fadeToAction(record, "Standing", FADE_DURATION);
+                  record.entity.setValue(
+                    RobotAssistantComponent,
+                    "currentState",
+                    "Standing",
+                  );
+                  record.entity.setValue(
+                    RobotAssistantComponent,
+                    "hasReachedTarget",
+                    true,
+                  );
+                  console.log(
+                    `[RobotAssistant] 👋 Reached user (dist=${distToUser.toFixed(2)}m), speaking instruction: ${topic}`,
+                  );
+                  // Use dynamic text if available, otherwise use predefined text
+                  const instructionText =
+                    this.pendingInstructionText || this.getInstructionText(topic);
+                  if (instructionText) {
+                    this.notifyDialogueMessage(instructionText);
+                    // If we have dynamic text, speak it directly; otherwise use speakInstruction
+                    if (this.pendingInstructionText) {
+                      speakText(instructionText).then(() => {
+                        // For device_info and other informational queries, don't ask follow-up - just close
+                        if (topic === "device_info" || topic === "goodbye") {
+                          this.inInstructionSession = false;
+                          this.setVoiceListening(false);
+                          const voicePanelSystem = (globalThis as any)
+                            .__voicePanelSystem;
+                          if (
+                            voicePanelSystem &&
+                            typeof voicePanelSystem.beginClosing === "function"
+                          ) {
+                            voicePanelSystem.beginClosing();
+                          }
+                        } else {
+                          this.notifyDialogueMessage(
+                            "Do you want me to do anything else?",
+                          );
+                          speakFollowUpAnythingElse().then(() => {
+                            VoiceControlSystem.getInstance().scheduleStartListeningWithoutGreeting(LISTEN_START_DELAY_MS);
+                          });
+                        }
+                      });
+                    } else {
+                      speakInstruction(topic).then(() => {
+                        // For device_info, don't ask follow-up
+                        if (topic === "device_info" || topic === "goodbye") {
+                          this.inInstructionSession = false;
+                          this.setVoiceListening(false);
+                          const voicePanelSystem = (globalThis as any)
+                            .__voicePanelSystem;
+                          if (
+                            voicePanelSystem &&
+                            typeof voicePanelSystem.beginClosing === "function"
+                          ) {
+                            voicePanelSystem.beginClosing();
+                          }
+                        } else {
+                          this.notifyDialogueMessage(
+                            "Do you want me to do anything else?",
+                          );
+                          speakFollowUpAnythingElse().then(() => {
+                            VoiceControlSystem.getInstance().scheduleStartListeningWithoutGreeting(LISTEN_START_DELAY_MS);
+                          });
+                        }
+                      });
+                    }
+                  }
+                  this.pendingInstructionText = null; // Clear after use
+                  // Apply room transform and skip rest of movement for this frame
+                  const worldPos = this.roomLocalToWorld(
+                    record.model.position.x,
+                    record.model.position.y,
+                    record.model.position.z,
+                  );
+                  record.model.position.set(worldPos.x, worldPos.y, worldPos.z);
+                  record.model.rotation.y += roomRotY;
+                  continue;
+                }
+              }
+            } // end if (this.world.camera)
+          }
         }
-      }
+      } // end if (this.walkingToUser)
       // Calculate movement intention
       let shouldMove = false;
       let distanceToTarget = 0;
@@ -1682,6 +1857,11 @@ export class RobotAssistantSystem extends createSystem({
 
               if (canSeeUser) {
                 targetAngle = angleToUser;
+                record.walkDirection.set(
+                  dxUser / distToUser,
+                  0,
+                  dzUser / distToUser,
+                );
               }
             }
           }
