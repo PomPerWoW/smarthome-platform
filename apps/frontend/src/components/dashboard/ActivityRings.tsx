@@ -89,7 +89,6 @@ export function ActivityRings({ data, isLoading }: ActivityRingsProps) {
           width={SIZE}
           height={SIZE}
           viewBox={`0 0 ${SIZE} ${SIZE}`}
-          className="drop-shadow-lg"
           style={{ transform: 'rotate(-90deg)' }}
         >
           <defs>
@@ -98,18 +97,6 @@ export function ActivityRings({ data, isLoading }: ActivityRingsProps) {
                 <stop offset="0%" stopColor={ring.ringColor.main} />
                 <stop offset="100%" stopColor={ring.ringColor.main} stopOpacity={0.7} />
               </linearGradient>
-            ))}
-            {/* Glow filters */}
-            {rings.map((ring, i) => (
-              <filter key={`glow-${i}`} id={`ring-glow-${i}`} x="-50%" y="-50%" width="200%" height="200%">
-                <feGaussianBlur stdDeviation="3" result="blur" />
-                <feFlood floodColor={ring.ringColor.glow} floodOpacity="0.6" result="color" />
-                <feComposite in="color" in2="blur" operator="in" result="shadow" />
-                <feMerge>
-                  <feMergeNode in="shadow" />
-                  <feMergeNode in="SourceGraphic" />
-                </feMerge>
-              </filter>
             ))}
           </defs>
 
@@ -140,7 +127,6 @@ export function ActivityRings({ data, isLoading }: ActivityRingsProps) {
               strokeLinecap="round"
               strokeDasharray={ring.circumference}
               strokeDashoffset={ring.dashOffset}
-              filter={`url(#ring-glow-${i})`}
               className="transition-all duration-1000 ease-out"
             />
           ))}
@@ -158,7 +144,6 @@ export function ActivityRings({ data, isLoading }: ActivityRingsProps) {
                 cy={capY}
                 r={STROKE_WIDTH / 2 - 1}
                 fill={ring.ringColor.main}
-                filter={`url(#ring-glow-${i})`}
                 className="transition-all duration-1000 ease-out"
               />
             )
@@ -179,10 +164,9 @@ export function ActivityRings({ data, isLoading }: ActivityRingsProps) {
           return (
             <div key={i} className="flex items-center gap-2.5 text-sm">
               <div
-                className="w-3 h-3 rounded-full shadow-sm flex-shrink-0"
+                className="w-3 h-3 rounded-full flex-shrink-0"
                 style={{
                   backgroundColor: ring.ringColor.main,
-                  boxShadow: `0 0 6px ${ring.ringColor.glow}80`,
                 }}
               />
               <span className="truncate max-w-[130px] text-muted-foreground font-medium">{ring.deviceName}</span>
