@@ -757,11 +757,18 @@
         "height": "auto",
         "display": "flex",
         "flexDirection": "column",
+<<<<<<< Updated upstream
         "backgroundColor": "rgba(226, 232, 240, 0.34)",
         "backdropFilter": "blur(72px) saturate(160%)",
         "WebkitBackdropFilter": "blur(72px) saturate(160%)",
         "fontFamily": "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif",
         "borderColor": "rgba(255, 255, 255, 0.14)",
+=======
+        "backgroundColor": "rgba(255, 255, 255, 0.12)",
+        "backdropFilter": "blur(18px)",
+        "WebkitBackdropFilter": "blur(18px)",
+        "borderColor": "rgba(255, 255, 255, 0.20)",
+>>>>>>> Stashed changes
         "borderWidth": "0.15",
         "borderRadius": 2.2,
         "boxShadow": "0 24px 64px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06)",
@@ -828,10 +835,17 @@
       "content": {
         "width": "19",
         "padding": "1.2",
+<<<<<<< Updated upstream
         "backgroundColor": "rgba(255, 255, 255, 0.18)",
         "borderRadius": 1.5,
         "borderWidth": "0.1",
         "borderColor": "rgba(255, 255, 255, 0.30)",
+=======
+        "backgroundColor": "rgba(255, 255, 255, 0.08)",
+        "borderRadius": 1.5,
+        "borderWidth": "0.1",
+        "borderColor": "rgba(255, 255, 255, 0.20)",
+>>>>>>> Stashed changes
         "display": "flex",
         "flexDirection": "column",
         "alignItems": "center",
@@ -839,8 +853,13 @@
         "gap": "0.5",
         "cursor": "pointer",
         "hover": {
+<<<<<<< Updated upstream
           "backgroundColor": "rgba(255, 255, 255, 0.26)",
           "borderColor": "rgba(37, 99, 235, 0.42)"
+=======
+          "backgroundColor": "rgba(255, 255, 255, 0.18)",
+          "borderColor": "rgba(255, 255, 255, 0.30)"
+>>>>>>> Stashed changes
         }
       }
     },
@@ -862,9 +881,14 @@
       "content": {
         "width": "100%",
         "padding": "1",
+<<<<<<< Updated upstream
         "backgroundColor": "rgba(255, 255, 255, 0.18)",
         "borderWidth": "0.1",
         "borderColor": "rgba(255, 255, 255, 0.30)",
+=======
+        "backgroundColor": "rgba(255, 255, 255, 0.08)",
+        "borderColor": "rgba(255, 255, 255, 0.20)",
+>>>>>>> Stashed changes
         "borderRadius": 1,
         "display": "flex",
         "alignItems": "center",
@@ -872,7 +896,11 @@
         "marginTop": "2",
         "cursor": "pointer",
         "hover": {
+<<<<<<< Updated upstream
           "backgroundColor": "rgba(255, 255, 255, 0.26)"
+=======
+          "backgroundColor": "rgba(255, 255, 255, 0.18)"
+>>>>>>> Stashed changes
         }
       }
     },
@@ -906,21 +934,37 @@
     },
     "panel-header": {
       "start": {
+<<<<<<< Updated upstream
         "line": 27,
         "column": 2
       },
       "end": {
         "line": 27,
+=======
+        "line": 17,
+        "column": 2
+      },
+      "end": {
+        "line": 17,
+>>>>>>> Stashed changes
         "column": 15
       }
     },
     "heading": {
       "start": {
+<<<<<<< Updated upstream
         "line": 36,
         "column": 2
       },
       "end": {
         "line": 36,
+=======
+        "line": 25,
+        "column": 2
+      },
+      "end": {
+        "line": 25,
+>>>>>>> Stashed changes
         "column": 10
       }
     },
@@ -936,121 +980,364 @@
     },
     "section-label": {
       "start": {
+<<<<<<< Updated upstream
         "line": 50,
         "column": 2
       },
       "end": {
         "line": 50,
+=======
+        "line": 31,
+        "column": 2
+      },
+      "end": {
+        "line": 31,
+>>>>>>> Stashed changes
         "column": 16
       }
     },
     "item-grid": {
       "start": {
+<<<<<<< Updated upstream
         "line": 61,
         "column": 2
       },
       "end": {
         "line": 61,
+=======
+        "line": 39,
+        "column": 2
+      },
+      "end": {
+        "line": 39,
+>>>>>>> Stashed changes
         "column": 12
       }
     },
     "item-btn": {
       "start": {
+<<<<<<< Updated upstream
         "line": 69,
         "column": 2
       },
       "end": {
         "line": 69,
+=======
+        "line": 47,
+        "column": 2
+      },
+      "end": {
+        "line": 47,
+>>>>>>> Stashed changes
         "column": 11
       }
     },
     "item-icon": {
       "start": {
+<<<<<<< Updated upstream
         "line": 89,
         "column": 2
       },
       "end": {
         "line": 89,
+=======
+        "line": 67,
+        "column": 2
+      },
+      "end": {
+        "line": 67,
+>>>>>>> Stashed changes
         "column": 12
       }
     },
     "item-label": {
       "start": {
+<<<<<<< Updated upstream
         "line": 95,
         "column": 2
       },
       "end": {
         "line": 95,
+=======
+        "line": 73,
+        "column": 2
+      },
+      "end": {
+        "line": 73,
+>>>>>>> Stashed changes
         "column": 13
       }
     },
     "close-btn": {
       "start": {
+<<<<<<< Updated upstream
         "line": 101,
         "column": 2
       },
       "end": {
         "line": 101,
+=======
+        "line": 79,
+        "column": 2
+      },
+      "end": {
+        "line": 79,
+>>>>>>> Stashed changes
         "column": 12
       }
     },
     "close-text": {
       "start": {
+<<<<<<< Updated upstream
         "line": 119,
         "column": 2
       },
       "end": {
         "line": 119,
+=======
+        "line": 96,
+        "column": 2
+      },
+      "end": {
+        "line": 96,
+>>>>>>> Stashed changes
         "column": 13
       }
     },
     "uid-1": {
       "start": {
+<<<<<<< Updated upstream
         "line": 125,
         "column": 0
       },
       "end": {
         "line": 220,
+=======
+        "line": 102,
+        "column": 0
+      },
+      "end": {
+        "line": 195,
+>>>>>>> Stashed changes
         "column": 6
       }
     },
     "uid-2": {
       "start": {
+<<<<<<< Updated upstream
         "line": 126,
         "column": 2
       },
       "end": {
         "line": 126,
         "column": 32
+=======
+        "line": 103,
+        "column": 2
+      },
+      "end": {
+        "line": 106,
+        "column": 8
+>>>>>>> Stashed changes
       }
     },
     "uid-3": {
       "start": {
+<<<<<<< Updated upstream
         "line": 127,
         "column": 2
       },
       "end": {
         "line": 130,
         "column": 8
+=======
+        "line": 104,
+        "column": 4
+      },
+      "end": {
+        "line": 106,
+        "column": 2
+>>>>>>> Stashed changes
       }
     },
     "uid-4": {
       "start": {
+<<<<<<< Updated upstream
         "line": 128,
         "column": 4
       },
       "end": {
         "line": 130,
         "column": 2
+=======
+        "line": 105,
+        "column": 4
+      },
+      "end": {
+        "line": 105,
+        "column": 44
+>>>>>>> Stashed changes
       }
     },
     "uid-5": {
       "start": {
+<<<<<<< Updated upstream
         "line": 129,
+        "column": 4
+=======
+        "line": 108,
+        "column": 2
+      },
+      "end": {
+        "line": 108,
+        "column": 50
+      }
+    },
+    "uid-6": {
+      "start": {
+        "line": 109,
+        "column": 2
+      },
+      "end": {
+        "line": 126,
+        "column": 8
+      }
+    },
+    "uid-7": {
+      "start": {
+        "line": 110,
         "column": 4
       },
       "end": {
+        "line": 113,
+        "column": 10
+      }
+    },
+    "uid-8": {
+      "start": {
+        "line": 111,
+        "column": 6
+      },
+      "end": {
+        "line": 111,
+        "column": 65
+      }
+    },
+    "uid-9": {
+      "start": {
+        "line": 112,
+        "column": 6
+      },
+      "end": {
+        "line": 112,
+        "column": 43
+      }
+    },
+    "uid-10": {
+      "start": {
+        "line": 114,
+        "column": 4
+      },
+      "end": {
+        "line": 117,
+        "column": 10
+      }
+    },
+    "uid-11": {
+      "start": {
+        "line": 115,
+        "column": 6
+      },
+      "end": {
+        "line": 115,
+        "column": 66
+      }
+    },
+    "uid-12": {
+      "start": {
+        "line": 116,
+        "column": 6
+      },
+      "end": {
+        "line": 116,
+        "column": 40
+      }
+    },
+    "uid-13": {
+      "start": {
+        "line": 118,
+        "column": 4
+      },
+      "end": {
+        "line": 121,
+        "column": 10
+      }
+    },
+    "uid-14": {
+      "start": {
+        "line": 119,
+        "column": 6
+      },
+      "end": {
+        "line": 119,
+        "column": 59
+      }
+    },
+    "uid-15": {
+      "start": {
+        "line": 120,
+        "column": 6
+      },
+      "end": {
+        "line": 120,
+        "column": 41
+      }
+    },
+    "uid-16": {
+      "start": {
+        "line": 122,
+        "column": 4
+      },
+      "end": {
+        "line": 125,
+        "column": 10
+      }
+    },
+    "uid-17": {
+      "start": {
+        "line": 123,
+        "column": 6
+      },
+      "end": {
+        "line": 123,
+        "column": 58
+      }
+    },
+    "uid-18": {
+      "start": {
+        "line": 124,
+        "column": 6
+      },
+      "end": {
+        "line": 124,
+        "column": 40
+      }
+    },
+    "uid-19": {
+      "start": {
+        "line": 128,
+        "column": 2
+>>>>>>> Stashed changes
+      },
+      "end": {
+        "line": 128,
+        "column": 46
+      }
+    },
+    "uid-20": {
+      "start": {
         "line": 129,
+<<<<<<< Updated upstream
         "column": 44
       }
     },
@@ -1155,6 +1442,16 @@
       }
     },
     "uid-16": {
+=======
+        "column": 2
+      },
+      "end": {
+        "line": 154,
+        "column": 8
+      }
+    },
+    "uid-21": {
+>>>>>>> Stashed changes
       "start": {
         "line": 144,
         "column": 6
@@ -1164,28 +1461,39 @@
         "column": 59
       }
     },
-    "uid-17": {
+    "uid-22": {
       "start": {
         "line": 145,
         "column": 6
       },
       "end": {
+<<<<<<< Updated upstream
         "line": 145,
         "column": 41
+=======
+        "line": 131,
+        "column": 61
+>>>>>>> Stashed changes
       }
     },
-    "uid-18": {
+    "uid-23": {
       "start": {
         "line": 147,
         "column": 4
       },
       "end": {
+<<<<<<< Updated upstream
         "line": 150,
         "column": 10
+=======
+        "line": 132,
+        "column": 43
+>>>>>>> Stashed changes
       }
     },
-    "uid-19": {
+    "uid-24": {
       "start": {
+<<<<<<< Updated upstream
         "line": 148,
         "column": 6
       },
@@ -1202,9 +1510,37 @@
       "end": {
         "line": 149,
         "column": 40
+=======
+        "line": 134,
+        "column": 4
+      },
+      "end": {
+        "line": 137,
+        "column": 10
+>>>>>>> Stashed changes
       }
     },
-    "uid-21": {
+    "uid-25": {
+      "start": {
+        "line": 135,
+        "column": 6
+      },
+      "end": {
+        "line": 135,
+        "column": 61
+      }
+    },
+    "uid-26": {
+      "start": {
+        "line": 136,
+        "column": 6
+      },
+      "end": {
+        "line": 136,
+        "column": 45
+      }
+    },
+    "uid-27": {
       "start": {
         "line": 153,
         "column": 2
@@ -1214,7 +1550,7 @@
         "column": 46
       }
     },
-    "uid-22": {
+    "uid-28": {
       "start": {
         "line": 154,
         "column": 2
@@ -1224,17 +1560,22 @@
         "column": 8
       }
     },
-    "uid-23": {
+    "uid-29": {
       "start": {
         "line": 155,
         "column": 4
       },
       "end": {
+<<<<<<< Updated upstream
         "line": 158,
         "column": 10
+=======
+        "line": 140,
+        "column": 45
+>>>>>>> Stashed changes
       }
     },
-    "uid-24": {
+    "uid-30": {
       "start": {
         "line": 156,
         "column": 6
@@ -1244,7 +1585,7 @@
         "column": 61
       }
     },
-    "uid-25": {
+    "uid-31": {
       "start": {
         "line": 157,
         "column": 6
@@ -1254,7 +1595,7 @@
         "column": 43
       }
     },
-    "uid-26": {
+    "uid-32": {
       "start": {
         "line": 159,
         "column": 4
@@ -1264,7 +1605,7 @@
         "column": 10
       }
     },
-    "uid-27": {
+    "uid-33": {
       "start": {
         "line": 160,
         "column": 6
@@ -1274,7 +1615,7 @@
         "column": 61
       }
     },
-    "uid-28": {
+    "uid-34": {
       "start": {
         "line": 161,
         "column": 6
@@ -1284,7 +1625,7 @@
         "column": 45
       }
     },
-    "uid-29": {
+    "uid-35": {
       "start": {
         "line": 163,
         "column": 4
@@ -1294,7 +1635,7 @@
         "column": 10
       }
     },
-    "uid-30": {
+    "uid-36": {
       "start": {
         "line": 164,
         "column": 6
@@ -1304,7 +1645,7 @@
         "column": 61
       }
     },
-    "uid-31": {
+    "uid-37": {
       "start": {
         "line": 165,
         "column": 6
@@ -1314,7 +1655,7 @@
         "column": 45
       }
     },
-    "uid-32": {
+    "uid-38": {
       "start": {
         "line": 167,
         "column": 4
@@ -1324,8 +1665,9 @@
         "column": 10
       }
     },
-    "uid-33": {
+    "uid-39": {
       "start": {
+<<<<<<< Updated upstream
         "line": 168,
         "column": 6
       },
@@ -1355,6 +1697,27 @@
       }
     },
     "uid-36": {
+=======
+        "line": 156,
+        "column": 2
+      },
+      "end": {
+        "line": 156,
+        "column": 46
+      }
+    },
+    "uid-40": {
+      "start": {
+        "line": 157,
+        "column": 2
+      },
+      "end": {
+        "line": 186,
+        "column": 8
+      }
+    },
+    "uid-41": {
+>>>>>>> Stashed changes
       "start": {
         "line": 172,
         "column": 6
@@ -1364,28 +1727,39 @@
         "column": 61
       }
     },
-    "uid-37": {
+    "uid-42": {
       "start": {
         "line": 173,
         "column": 6
       },
       "end": {
+<<<<<<< Updated upstream
         "line": 173,
         "column": 45
+=======
+        "line": 159,
+        "column": 64
+>>>>>>> Stashed changes
       }
     },
-    "uid-38": {
+    "uid-43": {
       "start": {
         "line": 175,
         "column": 4
       },
       "end": {
+<<<<<<< Updated upstream
         "line": 178,
         "column": 10
+=======
+        "line": 160,
+        "column": 50
+>>>>>>> Stashed changes
       }
     },
-    "uid-39": {
+    "uid-44": {
       "start": {
+<<<<<<< Updated upstream
         "line": 176,
         "column": 6
       },
@@ -1402,9 +1776,37 @@
       "end": {
         "line": 177,
         "column": 45
+=======
+        "line": 162,
+        "column": 4
+      },
+      "end": {
+        "line": 165,
+        "column": 10
+>>>>>>> Stashed changes
       }
     },
-    "uid-41": {
+    "uid-45": {
+      "start": {
+        "line": 163,
+        "column": 6
+      },
+      "end": {
+        "line": 163,
+        "column": 79
+      }
+    },
+    "uid-46": {
+      "start": {
+        "line": 164,
+        "column": 6
+      },
+      "end": {
+        "line": 164,
+        "column": 43
+      }
+    },
+    "uid-47": {
       "start": {
         "line": 181,
         "column": 2
@@ -1414,27 +1816,37 @@
         "column": 46
       }
     },
-    "uid-42": {
+    "uid-48": {
       "start": {
         "line": 182,
         "column": 2
       },
       "end": {
+<<<<<<< Updated upstream
         "line": 211,
         "column": 8
+=======
+        "line": 167,
+        "column": 79
+>>>>>>> Stashed changes
       }
     },
-    "uid-43": {
+    "uid-49": {
       "start": {
         "line": 183,
         "column": 4
       },
       "end": {
+<<<<<<< Updated upstream
         "line": 186,
         "column": 10
+=======
+        "line": 168,
+        "column": 43
+>>>>>>> Stashed changes
       }
     },
-    "uid-44": {
+    "uid-50": {
       "start": {
         "line": 184,
         "column": 6
@@ -1444,7 +1856,7 @@
         "column": 64
       }
     },
-    "uid-45": {
+    "uid-51": {
       "start": {
         "line": 185,
         "column": 6
@@ -1454,17 +1866,22 @@
         "column": 50
       }
     },
-    "uid-46": {
+    "uid-52": {
       "start": {
         "line": 187,
         "column": 4
       },
       "end": {
+<<<<<<< Updated upstream
         "line": 190,
         "column": 10
+=======
+        "line": 172,
+        "column": 46
+>>>>>>> Stashed changes
       }
     },
-    "uid-47": {
+    "uid-53": {
       "start": {
         "line": 188,
         "column": 6
@@ -1474,7 +1891,7 @@
         "column": 79
       }
     },
-    "uid-48": {
+    "uid-54": {
       "start": {
         "line": 189,
         "column": 6
@@ -1484,17 +1901,22 @@
         "column": 43
       }
     },
-    "uid-49": {
+    "uid-55": {
       "start": {
         "line": 191,
         "column": 4
       },
       "end": {
+<<<<<<< Updated upstream
         "line": 194,
         "column": 10
+=======
+        "line": 176,
+        "column": 42
+>>>>>>> Stashed changes
       }
     },
-    "uid-50": {
+    "uid-56": {
       "start": {
         "line": 192,
         "column": 6
@@ -1504,7 +1926,7 @@
         "column": 79
       }
     },
-    "uid-51": {
+    "uid-57": {
       "start": {
         "line": 193,
         "column": 6
@@ -1514,17 +1936,22 @@
         "column": 43
       }
     },
-    "uid-52": {
+    "uid-58": {
       "start": {
         "line": 195,
         "column": 4
       },
       "end": {
+<<<<<<< Updated upstream
         "line": 198,
         "column": 10
+=======
+        "line": 180,
+        "column": 43
+>>>>>>> Stashed changes
       }
     },
-    "uid-53": {
+    "uid-59": {
       "start": {
         "line": 196,
         "column": 6
@@ -1534,6 +1961,7 @@
         "column": 79
       }
     },
+<<<<<<< Updated upstream
     "uid-54": {
       "start": {
         "line": 197,
@@ -1602,50 +2030,96 @@
       "end": {
         "line": 205,
         "column": 43
+=======
+    "uid-60": {
+      "start": {
+        "line": 183,
+        "column": 6
+      },
+      "end": {
+        "line": 183,
+        "column": 79
+>>>>>>> Stashed changes
       }
     },
     "uid-61": {
       "start": {
+<<<<<<< Updated upstream
         "line": 207,
         "column": 4
       },
       "end": {
         "line": 210,
         "column": 10
+=======
+        "line": 184,
+        "column": 6
+      },
+      "end": {
+        "line": 184,
+        "column": 46
+>>>>>>> Stashed changes
       }
     },
     "uid-62": {
       "start": {
+<<<<<<< Updated upstream
         "line": 208,
         "column": 6
       },
       "end": {
         "line": 208,
         "column": 79
+=======
+        "line": 188,
+        "column": 2
+      },
+      "end": {
+        "line": 190,
+        "column": 8
+>>>>>>> Stashed changes
       }
     },
     "uid-63": {
       "start": {
+<<<<<<< Updated upstream
         "line": 209,
         "column": 6
       },
       "end": {
         "line": 209,
         "column": 46
+=======
+        "line": 189,
+        "column": 4
+      },
+      "end": {
+        "line": 189,
+        "column": 55
+>>>>>>> Stashed changes
       }
     },
     "uid-64": {
       "start": {
+<<<<<<< Updated upstream
         "line": 213,
         "column": 2
       },
       "end": {
         "line": 215,
+=======
+        "line": 192,
+        "column": 2
+      },
+      "end": {
+        "line": 194,
+>>>>>>> Stashed changes
         "column": 8
       }
     },
     "uid-65": {
       "start": {
+<<<<<<< Updated upstream
         "line": 214,
         "column": 4
       },
@@ -1671,6 +2145,13 @@
       },
       "end": {
         "line": 218,
+=======
+        "line": 193,
+        "column": 4
+      },
+      "end": {
+        "line": 193,
+>>>>>>> Stashed changes
         "column": 41
       }
     }
