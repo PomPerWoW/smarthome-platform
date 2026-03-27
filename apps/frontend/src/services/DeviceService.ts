@@ -56,12 +56,17 @@ export class DeviceService {
   }
 
   async setPosition(
-    type: DeviceType,
+    type: DeviceType | string,
     id: string,
     pos: { x: number; y: number; z?: number },
   ): Promise<void> {
     const endpoint = this.getTypeEndpoint(type);
     await this.api.post(`/api/homes/${endpoint}/${id}/set_position/`, pos);
+  }
+
+  async resetPosition(type: DeviceType | string, id: string): Promise<void> {
+    const endpoint = this.getTypeEndpoint(type);
+    await this.api.delete(`/api/homes/${endpoint}/${id}/get_position/`);
   }
 
   async togglePower(id: string, isOn: boolean): Promise<void> {
@@ -79,9 +84,14 @@ export class DeviceService {
     });
   }
 
-  async setTag(type: DeviceType, id: string, tag: string): Promise<void> {
+  async setTag(type: DeviceType | string, id: string, tag: string): Promise<void> {
     const endpoint = this.getTypeEndpoint(type);
     await this.api.patch(`/api/homes/${endpoint}/${id}/`, { tag });
+  }
+
+  async updateRoom(type: DeviceType | string, id: string, roomId: string): Promise<void> {
+    const endpoint = this.getTypeEndpoint(type);
+    await this.api.patch(`/api/homes/${endpoint}/${id}/`, { room: roomId });
   }
 
   // === Lightbulb ===

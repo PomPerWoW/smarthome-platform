@@ -354,6 +354,26 @@ function HomeDetailPage() {
     },
   });
 
+  const handleDragStart = (e: React.DragEvent, deviceId: string, deviceType: string) => {
+    e.dataTransfer.setData("deviceId", deviceId);
+    e.dataTransfer.setData("deviceType", deviceType);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDeviceDrop = async (deviceId: string, deviceType: string, targetRoomId: string) => {
+    try {
+      const deviceService = DeviceService.getInstance();
+      await deviceService.updateRoom(deviceType, deviceId, targetRoomId);
+      await deviceService.resetPosition(deviceType, deviceId);
+      
+      toast.success("Device moved successfully");
+      queryClient.invalidateQueries({ queryKey: ["home-devices", homeId] });
+      queryClient.invalidateQueries({ queryKey: ["home-rooms", homeId] });
+    } catch (error) {
+      toast.error(`Failed to move device: ${(error as Error).message}`);
+    }
+  };
+
   const isLoading = isLoadingHome || isLoadingRooms;
 
   return (
@@ -610,6 +630,7 @@ function HomeDetailPage() {
                   isSelected={selectedRoom?.id === room.id}
                   onRename={() => setRoomToRename(room)}
                   onDelete={() => setRoomToDelete(room)}
+                  onDrop={(deviceId, deviceType) => handleDeviceDrop(deviceId, deviceType, room.id)}
                 />
               ))}
             </div>
@@ -667,6 +688,8 @@ function HomeDetailPage() {
                   }}
                   onRename={() => setDeviceToRename(device)}
                   onDelete={() => setDeviceToDelete(device)}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, device.id, device.type)}
                 />
               ))}
             </div>

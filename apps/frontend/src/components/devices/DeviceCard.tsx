@@ -19,6 +19,8 @@ interface DeviceCardProps {
   onControl?: () => void;
   onDelete?: () => void;
   onRename?: (newName: string) => void;
+  draggable?: boolean;
+  onDragStart?: (e: React.DragEvent) => void;
 }
 
 const deviceColors = {
@@ -56,6 +58,8 @@ export const DeviceCard = React.memo(
     onControl,
     onDelete,
     onRename,
+    draggable,
+    onDragStart,
   }: DeviceCardProps) {
     const colorClass =
       deviceColors[device.type as keyof typeof deviceColors] ||
@@ -65,6 +69,8 @@ export const DeviceCard = React.memo(
 
     return (
       <div
+        draggable={draggable}
+        onDragStart={onDragStart}
         className={cn(
           "group relative p-4 rounded-xl border",
           "bg-gradient-to-br",
@@ -72,6 +78,7 @@ export const DeviceCard = React.memo(
           "transition-all duration-300",
           "hover:shadow-lg hover:scale-[1.02]",
           "cursor-pointer",
+          draggable && "cursor-grab active:cursor-grabbing",
         )}
         onClick={onControl}
       >
@@ -164,6 +171,8 @@ export const DeviceCard = React.memo(
     if (prevProps.onControl !== nextProps.onControl) return false;
     if (prevProps.onDelete !== nextProps.onDelete) return false;
     if (prevProps.onRename !== nextProps.onRename) return false;
+    if (prevProps.draggable !== nextProps.draggable) return false;
+    if (prevProps.onDragStart !== nextProps.onDragStart) return false;
 
     // Compare device properties to detect state changes
     const prevProperties = prevProps.device.getProperties();
