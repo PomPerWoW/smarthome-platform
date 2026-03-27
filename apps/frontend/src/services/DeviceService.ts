@@ -5,6 +5,7 @@ import {
   Television,
   Fan,
   AirConditioner,
+  SmartMeter,
   type BaseDevice,
 } from "@/models";
 import {
@@ -19,6 +20,8 @@ import {
   type CreateTelevisionDTO,
   type CreateFanDTO,
   type CreateAirConditionerDTO,
+  type SmartMeterDTO,
+  type CreateSmartMeterDTO,
 } from "@/types/device.types";
 
 export class DeviceService {
@@ -186,6 +189,27 @@ export class DeviceService {
     await this.api.post(`/api/homes/acs/${id}/set_temperature/`, { temp });
   }
 
+  // === Smart Meter ===
+
+  async createSmartMeter(data: CreateSmartMeterDTO): Promise<SmartMeter> {
+    const dto = await this.api.post<SmartMeterDTO>(
+      "/api/homes/smartmeters/",
+      data,
+    );
+    return new SmartMeter(dto);
+  }
+
+  async getSmartMeter(id: string): Promise<SmartMeter> {
+    const dto = await this.api.get<SmartMeterDTO>(
+      `/api/homes/smartmeters/${id}/`,
+    );
+    return new SmartMeter(dto);
+  }
+
+  async deleteSmartMeter(id: string): Promise<void> {
+    await this.api.delete(`/api/homes/smartmeters/${id}/`);
+  }
+
   // === Device Logs ===
 
   async getDeviceLog(type: DeviceType, date: string): Promise<{ device_name: string; data: any[] }> {
@@ -212,6 +236,8 @@ export class DeviceService {
         return "fans";
       case DeviceType.AirConditioner:
         return "acs";
+      case DeviceType.SmartMeter:
+        return "smartmeters";
       default:
         return "devices"; // Fallback for GenericDevice (e.g., Chair) deletion and positioning
     }

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Lightbulb, Tv, Fan, Snowflake, Loader2 } from "lucide-react";
+import { Lightbulb, Tv, Fan, Snowflake, Activity, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -48,6 +48,12 @@ const deviceTypes = [
     icon: Snowflake,
     color: "bg-sky-500/20 text-sky-500 border-sky-500/30",
   },
+  {
+    type: DeviceType.SmartMeter,
+    label: "Smart Meter",
+    icon: Activity,
+    color: "bg-emerald-500/20 text-emerald-500 border-emerald-500/30",
+  },
 ];
 
 export function AddDeviceDialog({
@@ -85,6 +91,9 @@ export function AddDeviceDialog({
           break;
         case DeviceType.AirConditioner:
           await service.createAirConditioner(data);
+          break;
+        case DeviceType.SmartMeter:
+          await service.createSmartMeter(data);
           break;
       }
 
