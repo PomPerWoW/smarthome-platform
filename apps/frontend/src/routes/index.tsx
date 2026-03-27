@@ -252,6 +252,7 @@ function DashboardPage() {
                 key={room.id}
                 to="/homes/$homeId"
                 params={{ homeId: room.homeId }}
+                search={{ room: room.id }}
                 className="block"
               >
                 <RoomBlock room={room} />
