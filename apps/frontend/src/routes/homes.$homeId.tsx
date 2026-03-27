@@ -850,7 +850,7 @@ function HomeDetailPage() {
               onClick={() =>
                 roomToDelete && deleteRoomMutation.mutate(roomToDelete.id)
               }
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-red-500 hover:bg-red-600 text-white"
               disabled={deleteRoomMutation.isPending}
             >
               {deleteRoomMutation.isPending ? "Deleting..." : "Delete"}
@@ -878,7 +878,7 @@ function HomeDetailPage() {
               onClick={() =>
                 deviceToDelete && deleteDeviceMutation.mutate(deviceToDelete)
               }
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-red-500 hover:bg-red-600 text-white"
               disabled={deleteDeviceMutation.isPending}
             >
               {deleteDeviceMutation.isPending ? "Deleting..." : "Delete"}
@@ -921,7 +921,7 @@ function HomeDetailPage() {
                 furnitureToDelete &&
                 deleteFurnitureMutation.mutate(furnitureToDelete.id)
               }
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-red-500 hover:bg-red-600 text-white"
               disabled={deleteFurnitureMutation.isPending}
             >
               {deleteFurnitureMutation.isPending ? "Deleting..." : "Delete"}

@@ -5,7 +5,6 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
 import {
   Select,
   SelectContent,
@@ -326,7 +325,7 @@ function DevicesPage() {
               onClick={() =>
                 deviceToDelete && deleteMutation.mutate(deviceToDelete)
               }
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-red-500 hover:bg-red-600 text-white"
               disabled={deleteMutation.isPending}
             >
               {deleteMutation.isPending ? "Deleting..." : "Delete"}

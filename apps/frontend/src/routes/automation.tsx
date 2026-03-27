@@ -346,7 +346,7 @@ function AutomationPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-red-500 hover:bg-red-600"
+              className="bg-red-500 hover:bg-red-600 text-white"
               onClick={() =>
                 deletingAutomation &&
                 deleteMutation.mutate(deletingAutomation.id)

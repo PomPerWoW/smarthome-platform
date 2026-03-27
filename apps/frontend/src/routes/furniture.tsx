@@ -284,7 +284,7 @@ function FurniturePage() {
                 furnitureToDelete &&
                 deleteMutation.mutate(furnitureToDelete.id)
               }
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-red-500 hover:bg-red-600 text-white"
               disabled={deleteMutation.isPending}
             >
               {deleteMutation.isPending ? "Deleting..." : "Delete"}
