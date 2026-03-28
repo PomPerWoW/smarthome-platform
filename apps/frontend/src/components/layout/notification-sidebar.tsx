@@ -550,7 +550,7 @@ export function NotificationBellButton() {
           className={cn(
             "absolute -top-0.5 -right-0.5 inline-flex items-center justify-center",
             "min-w-[15px] h-[15px] px-0.5 rounded-full",
-            "bg-destructive text-destructive-foreground",
+            "bg-red-500 text-white",
             "text-[9px] font-bold leading-none pointer-events-none",
           )}
         >

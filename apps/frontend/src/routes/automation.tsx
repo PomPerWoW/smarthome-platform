@@ -198,7 +198,7 @@ function AutomationPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in zoom-in-95 duration-500">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Automations</h1>
@@ -346,7 +346,7 @@ function AutomationPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-red-500 hover:bg-red-600"
+              className="bg-red-500 hover:bg-red-600 text-white"
               onClick={() =>
                 deletingAutomation &&
                 deleteMutation.mutate(deletingAutomation.id)

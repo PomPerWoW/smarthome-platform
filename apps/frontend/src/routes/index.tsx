@@ -132,7 +132,7 @@ function DashboardPage() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 animate-in fade-in zoom-in-95 duration-500">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -252,6 +252,7 @@ function DashboardPage() {
                 key={room.id}
                 to="/homes/$homeId"
                 params={{ homeId: room.homeId }}
+                search={{ room: room.id }}
                 className="block"
               >
                 <RoomBlock room={room} />
@@ -301,7 +302,7 @@ function DashboardPage() {
               onClick={() =>
                 homeToDelete && deleteMutation.mutate(homeToDelete.id)
               }
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-red-500 hover:bg-red-600 text-white"
               disabled={deleteMutation.isPending}
             >
               {deleteMutation.isPending ? "Deleting..." : "Delete"}

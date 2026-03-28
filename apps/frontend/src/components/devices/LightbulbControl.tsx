@@ -8,6 +8,7 @@ import type { Lightbulb } from "@/models";
 import { DeviceService } from "@/services/DeviceService";
 import { toast } from "sonner";
 import { useNotificationStore } from "@/stores/notification_store";
+import { DeviceControlHeader } from "./DeviceControlHeader";
 
 interface LightbulbControlProps {
   device: Lightbulb;
@@ -120,19 +121,14 @@ export function LightbulbControl({ device, onUpdate }: LightbulbControlProps) {
   return (
     <div className="space-y-6 p-4">
       {/* Header with Power Button */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div
-            className="w-12 h-12 rounded-xl flex items-center justify-center"
-            style={{ backgroundColor: `${colour}30` }}
-          >
-            <LightbulbIcon className="w-6 h-6" style={{ color: colour }} />
-          </div>
-          <div>
-            <h3 className="font-semibold">{device.name}</h3>
-            <p className="text-sm text-muted-foreground">Smart Bulb</p>
-          </div>
-        </div>
+      <DeviceControlHeader
+        device={device}
+        displayLabel="Smart Bulb"
+        icon={LightbulbIcon}
+        iconStyle={{ color: colour }}
+        iconBgColorClass=""
+        onUpdate={onUpdate}
+      >
         <Button
           variant={isOn ? "default" : "outline"}
           size="icon"
@@ -142,7 +138,7 @@ export function LightbulbControl({ device, onUpdate }: LightbulbControlProps) {
         >
           <Power className="w-5 h-5" />
         </Button>
-      </div>
+      </DeviceControlHeader>
 
       {/* Controls - only show when on */}
       {isOn && (

@@ -630,16 +630,23 @@ class BaseDeviceViewSet(viewsets.ModelViewSet):
             }
         )
 
-    @action(detail=True, methods=["get"])
+    @action(detail=True, methods=['get', 'delete'])
     def get_position(self, request, pk=None):
         """
-        Retrieves the current x, y, z coordinates and rotation of the device.
-
-        Returns:
-            JSON: {x, y, z, rotation: {x, y, z}} or nulls if position is not set.
+        Retrieves or resets the current x, y, z coordinates and rotation of the device.
+        
+        GET: Returns {x, y, z, rotation: {x, y, z}} or nulls if position is not set.
+        DELETE: Resets device_pos to None and returns success status.
         """
         obj = self.get_object()
 
+        # 1. DELETE (Clear Position)
+        if request.method == 'DELETE':
+            obj.device_pos = None
+            obj.save()
+            return Response({"status": "position cleared"})
+        
+        # 2. READ (GET)
         # Consistent return format
         if obj.device_pos:
             return Response(
@@ -664,9 +671,21 @@ class BaseDeviceViewSet(viewsets.ModelViewSet):
                 "rotation": {
                     "x": obj.rotation_x,
                     "y": obj.rotation_y,
-                    "z": obj.rotation_z,
-                },
+                    "z": obj.rotation_z
+                  }
+              })
+        
+        # If null, return strict null structure
+        return Response({
+            "x": None, 
+            "y": None, 
+            "z": None,
+            "rotation": {
+                "x": obj.rotation_x,
+                "y": obj.rotation_y,
+                "z": obj.rotation_z
             }
+        }
         )
 
     @action(detail=True, methods=["get"])

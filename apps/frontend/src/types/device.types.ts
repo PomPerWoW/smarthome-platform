@@ -62,6 +62,7 @@ export type DeviceDTO =
 export interface CreateLightbulbDTO {
   device_name: string;
   room: string;
+  tag?: string;
   brightness?: number;
   colour?: string;
 }
@@ -69,6 +70,7 @@ export interface CreateLightbulbDTO {
 export interface CreateTelevisionDTO {
   device_name: string;
   room: string;
+  tag?: string;
   volume?: number;
   channel?: number;
 }
@@ -76,6 +78,7 @@ export interface CreateTelevisionDTO {
 export interface CreateFanDTO {
   device_name: string;
   room: string;
+  tag?: string;
   speed?: number;
   swing?: boolean;
 }
@@ -83,10 +86,12 @@ export interface CreateFanDTO {
 export interface CreateAirConditionerDTO {
   device_name: string;
   room: string;
+  tag?: string;
   temperature?: number;
 }
 
 export interface CreateSmartMeterDTO {
   device_name: string;
   room: string;
+  tag?: string;
 }

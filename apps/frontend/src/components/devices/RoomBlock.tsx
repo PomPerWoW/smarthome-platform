@@ -1,3 +1,4 @@
+import React, { useState } from "react";
 import {
   DoorOpen,
   Lightbulb,
@@ -19,6 +20,7 @@ interface RoomBlockProps {
   onRename?: () => void;
   onDelete?: () => void;
   isSelected?: boolean;
+  onDrop?: (deviceId: string, deviceType: string) => void;
 }
 
 const deviceIcons = {
@@ -35,23 +37,53 @@ export function RoomBlock({
   onRename,
   onDelete,
   isSelected,
+  onDrop,
 }: RoomBlockProps) {
+  const [isDragOver, setIsDragOver] = useState(false);
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragOver(false);
+  };
+
+  const handleInternalDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    
+    const deviceId = e.dataTransfer.getData("deviceId");
+    const deviceType = e.dataTransfer.getData("deviceType");
+    
+    if (deviceId && deviceType) {
+      onDrop?.(deviceId, deviceType);
+    }
+  };
+
   return (
     <div
       onClick={onClick}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleInternalDrop}
       className={cn(
         "group relative cursor-pointer transition-all duration-300",
         "transform-gpu hover:-translate-y-1 hover:scale-102",
-        isSelected && "ring-2 ring-primary ring-offset-2",
       )}
     >
       {/* Room block */}
       <div
         className={cn(
           "relative w-36 h-28 rounded-lg",
-          "bg-gradient-to-br from-card to-muted/80",
           "border border-border shadow-md",
           "flex flex-col items-center justify-center gap-2 p-3",
+          isSelected 
+            ? "bg-muted shadow-inner border-primary/20" 
+            : isDragOver
+            ? "bg-primary/5 border-primary shadow-md scale-105"
+            : "bg-gradient-to-br from-card to-muted/80 shadow-md",
           "group-hover:shadow-lg group-hover:border-primary/50",
           "transition-all duration-300",
         )}
@@ -86,8 +118,8 @@ export function RoomBlock({
             </span>
           )}
           {room.devices.length === 0 && (
-            <span className="text-xs text-muted-foreground/60">
-              Click to add devices
+            <span className="text-[10px] text-muted-foreground/40 uppercase tracking-wider font-medium">
+              Empty
             </span>
           )}
         </div>

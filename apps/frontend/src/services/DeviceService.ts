@@ -5,6 +5,7 @@ import {
   Television,
   Fan,
   AirConditioner,
+  SmartMeter,
   type BaseDevice,
 } from "@/models";
 import {
@@ -19,6 +20,8 @@ import {
   type CreateTelevisionDTO,
   type CreateFanDTO,
   type CreateAirConditionerDTO,
+  type SmartMeterDTO,
+  type CreateSmartMeterDTO,
 } from "@/types/device.types";
 
 export class DeviceService {
@@ -53,12 +56,17 @@ export class DeviceService {
   }
 
   async setPosition(
-    type: DeviceType,
+    type: DeviceType | string,
     id: string,
     pos: { x: number; y: number; z?: number },
   ): Promise<void> {
     const endpoint = this.getTypeEndpoint(type);
     await this.api.post(`/api/homes/${endpoint}/${id}/set_position/`, pos);
+  }
+
+  async resetPosition(type: DeviceType | string, id: string): Promise<void> {
+    const endpoint = this.getTypeEndpoint(type);
+    await this.api.delete(`/api/homes/${endpoint}/${id}/get_position/`);
   }
 
   async togglePower(id: string, isOn: boolean): Promise<void> {
@@ -74,6 +82,16 @@ export class DeviceService {
     await this.api.patch(`/api/homes/${endpoint}/${id}/`, {
       device_name: name,
     });
+  }
+
+  async setTag(type: DeviceType | string, id: string, tag: string): Promise<void> {
+    const endpoint = this.getTypeEndpoint(type);
+    await this.api.patch(`/api/homes/${endpoint}/${id}/`, { tag });
+  }
+
+  async updateRoom(type: DeviceType | string, id: string, roomId: string): Promise<void> {
+    const endpoint = this.getTypeEndpoint(type);
+    await this.api.patch(`/api/homes/${endpoint}/${id}/`, { room: roomId });
   }
 
   // === Lightbulb ===
@@ -181,6 +199,27 @@ export class DeviceService {
     await this.api.post(`/api/homes/acs/${id}/set_temperature/`, { temp });
   }
 
+  // === Smart Meter ===
+
+  async createSmartMeter(data: CreateSmartMeterDTO): Promise<SmartMeter> {
+    const dto = await this.api.post<SmartMeterDTO>(
+      "/api/homes/smartmeters/",
+      data,
+    );
+    return new SmartMeter(dto);
+  }
+
+  async getSmartMeter(id: string): Promise<SmartMeter> {
+    const dto = await this.api.get<SmartMeterDTO>(
+      `/api/homes/smartmeters/${id}/`,
+    );
+    return new SmartMeter(dto);
+  }
+
+  async deleteSmartMeter(id: string): Promise<void> {
+    await this.api.delete(`/api/homes/smartmeters/${id}/`);
+  }
+
   // === Device Logs ===
 
   async getDeviceLog(type: DeviceType, date: string): Promise<{ device_name: string; data: any[] }> {
@@ -207,6 +246,8 @@ export class DeviceService {
         return "fans";
       case DeviceType.AirConditioner:
         return "acs";
+      case DeviceType.SmartMeter:
+        return "smartmeters";
       default:
         return "devices"; // Fallback for GenericDevice (e.g., Chair) deletion and positioning
     }

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { z } from "zod";
 import {
   Plus,
   ArrowLeft,
@@ -64,18 +65,24 @@ const ROOM_MODELS = [
   { value: "LabPlan", label: "Lab Plan (Default)" },
 ] as const;
 
+const homeSearchSchema = z.object({
+  room: z.string().optional(),
+});
+
 export const Route = createFileRoute("/homes/$homeId")({
+  validateSearch: homeSearchSchema,
   component: HomeDetailPage,
 });
 
 function HomeDetailPage() {
   const { homeId } = Route.useParams();
+  const { room: selectedRoomId } = Route.useSearch();
+  const navigate = useNavigate({ from: Route.fullPath });
   const setModalOpen = useUIStore((s) => s.set_modal_open);
   const [isCreateRoomOpen, setIsCreateRoomOpen] = useState(false);
   const [newRoomName, setNewRoomName] = useState("");
   const [newRoomModel, setNewRoomModel] = useState("LabPlan");
   const [newRoomModelFile, setNewRoomModelFile] = useState<File | null>(null);
-  const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [roomToRename, setRoomToRename] = useState<Room | null>(null);
   const [roomToDelete, setRoomToDelete] = useState<Room | null>(null);
   const [deviceToRename, setDeviceToRename] = useState<BaseDevice | null>(null);
@@ -162,6 +169,14 @@ function HomeDetailPage() {
       return room;
     });
 
+  const selectedRoom = rooms.find((r) => r.id === selectedRoomId) || null;
+  const filteredDevices = selectedRoom
+    ? devices.filter((d) => d.roomName === selectedRoom.name)
+    : devices;
+  const filteredFurniture = selectedRoom
+    ? furniture.filter((f) => f.roomName === selectedRoom.name)
+    : furniture;
+
   const createRoomMutation = useMutation({
     mutationFn: async ({
       name,
@@ -206,7 +221,6 @@ function HomeDetailPage() {
     mutationFn: (id: string) => HomeService.getInstance().deleteRoom(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["rooms"] });
-      setSelectedRoom(null);
       setRoomToDelete(null);
       toast.success("Room deleted successfully");
     },
@@ -340,6 +354,26 @@ function HomeDetailPage() {
     },
   });
 
+  const handleDragStart = (e: React.DragEvent, deviceId: string, deviceType: string) => {
+    e.dataTransfer.setData("deviceId", deviceId);
+    e.dataTransfer.setData("deviceType", deviceType);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDeviceDrop = async (deviceId: string, deviceType: string, targetRoomId: string) => {
+    try {
+      const deviceService = DeviceService.getInstance();
+      await deviceService.updateRoom(deviceType, deviceId, targetRoomId);
+      await deviceService.resetPosition(deviceType, deviceId);
+      
+      toast.success("Device moved successfully");
+      queryClient.invalidateQueries({ queryKey: ["home-devices", homeId] });
+      queryClient.invalidateQueries({ queryKey: ["home-rooms", homeId] });
+    } catch (error) {
+      toast.error(`Failed to move device: ${(error as Error).message}`);
+    }
+  };
+
   const isLoading = isLoadingHome || isLoadingRooms;
 
   return (
@@ -353,7 +387,11 @@ function HomeDetailPage() {
             </Link>
           </Button>
           <div>
-            <h1 className="text-2xl font-bold">
+            <h1 
+              className="text-2xl font-bold cursor-pointer hover:text-primary transition-all duration-200"
+              onClick={() => navigate({ search: { room: undefined } })}
+              title="Click to see all devices in this home"
+            >
               {isLoadingHome ? "Loading..." : home?.name}
             </h1>
             <p className="text-muted-foreground text-sm">
@@ -575,9 +613,6 @@ function HomeDetailPage() {
               <DoorOpen className="h-5 w-5" />
               Rooms
             </h2>
-            <p className="text-sm text-muted-foreground">
-              💡 Click on a room to add devices
-            </p>
           </div>
 
           {rooms.length === 0 ? (
@@ -591,10 +626,11 @@ function HomeDetailPage() {
                 <RoomBlock
                   key={room.id}
                   room={room}
-                  onClick={() => handleAddDevice(room.id)}
+                  onClick={() => navigate({ search: { room: room.id } })}
                   isSelected={selectedRoom?.id === room.id}
                   onRename={() => setRoomToRename(room)}
                   onDelete={() => setRoomToDelete(room)}
+                  onDrop={(deviceId, deviceType) => handleDeviceDrop(deviceId, deviceType, room.id)}
                 />
               ))}
             </div>
@@ -605,19 +641,44 @@ function HomeDetailPage() {
       {/* Devices section */}
       {!isLoadingDevices && (
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold flex items-center gap-2">
-            <Lightbulb className="h-5 w-5" />
-            All Devices in This Home
-          </h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold flex items-center gap-3">
+              <div className="p-1.5 bg-primary/10 rounded-lg">
+                <Lightbulb className="h-4 w-4 text-primary" />
+              </div>
+              {selectedRoom ? (
+                <span>Devices in <span className="text-primary">{selectedRoom.name}</span></span>
+              ) : (
+                <span>All Devices in <span className="text-primary">{home?.name}</span></span>
+              )}
+            </h2>
+            {selectedRoom && (
+              <Button onClick={() => handleAddDevice(selectedRoom.id)} size="sm" className="shadow-sm">
+                <Plus className="mr-2 h-4 w-4" />
+                Add Device
+              </Button>
+            )}
+          </div>
 
-          {devices.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <Lightbulb className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p>No devices yet. Click a room to add devices!</p>
+          {filteredDevices.length === 0 ? (
+            <div className="text-center py-12 border rounded-xl bg-card/40 border-border/50">
+              <Lightbulb className="h-10 w-10 mx-auto mb-3 opacity-30" />
+              <p className="text-muted-foreground text-sm">No devices yet{selectedRoom ? " in this room" : " in this home"}.</p>
+              {selectedRoom && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="mt-4"
+                  onClick={() => handleAddDevice(selectedRoom.id)}
+                >
+                  <Plus className="mr-2 h-3.5 w-3.5" />
+                  Add your first device
+                </Button>
+              )}
             </div>
           ) : (
-            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {devices.map((device) => (
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+              {filteredDevices.map((device) => (
                 <DeviceCard
                   key={device.id}
                   device={device}
@@ -627,6 +688,8 @@ function HomeDetailPage() {
                   }}
                   onRename={() => setDeviceToRename(device)}
                   onDelete={() => setDeviceToDelete(device)}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, device.id, device.type)}
                 />
               ))}
             </div>
@@ -637,19 +700,26 @@ function HomeDetailPage() {
       {/* Furniture section */}
       {!isLoadingFurniture && (
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold flex items-center gap-2">
-            <Armchair className="h-5 w-5" />
-            Furniture
+          <h2 className="text-lg font-semibold flex items-center gap-3">
+            <div className="p-1.5 bg-orange-500/10 rounded-lg">
+              <Armchair className="h-4 w-4 text-orange-500" />
+            </div>
+            {selectedRoom ? (
+              <span>Furniture in <span className="text-orange-500">{selectedRoom.name}</span></span>
+            ) : (
+              <span>All Furniture in <span className="text-orange-500">{home?.name}</span></span>
+            )}
           </h2>
 
-          {furniture.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <Armchair className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p>No furniture yet. Place furniture in the 3D World!</p>
+          {filteredFurniture.length === 0 ? (
+            <div className="text-center py-12 border rounded-xl bg-card/40 border-border/50">
+              <Armchair className="h-10 w-10 mx-auto mb-3 opacity-30" />
+              <p className="text-muted-foreground text-sm">No furniture yet{selectedRoom ? " in this room" : " in this home"}.</p>
+              <p className="text-xs text-muted-foreground mt-1">Place furniture in the 3D Scene Creator.</p>
             </div>
           ) : (
-            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {furniture.map((item) => (
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+              {filteredFurniture.map((item) => (
                 <div
                   key={item.id}
                   className="group relative p-4 rounded-xl border bg-gradient-to-br from-orange-500/10 to-amber-500/10 border-orange-500/20 transition-all duration-300 hover:shadow-lg hover:scale-[1.02]"
@@ -780,7 +850,7 @@ function HomeDetailPage() {
               onClick={() =>
                 roomToDelete && deleteRoomMutation.mutate(roomToDelete.id)
               }
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-red-500 hover:bg-red-600 text-white"
               disabled={deleteRoomMutation.isPending}
             >
               {deleteRoomMutation.isPending ? "Deleting..." : "Delete"}
@@ -808,7 +878,7 @@ function HomeDetailPage() {
               onClick={() =>
                 deviceToDelete && deleteDeviceMutation.mutate(deviceToDelete)
               }
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-red-500 hover:bg-red-600 text-white"
               disabled={deleteDeviceMutation.isPending}
             >
               {deleteDeviceMutation.isPending ? "Deleting..." : "Delete"}
@@ -851,7 +921,7 @@ function HomeDetailPage() {
                 furnitureToDelete &&
                 deleteFurnitureMutation.mutate(furnitureToDelete.id)
               }
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-red-500 hover:bg-red-600 text-white"
               disabled={deleteFurnitureMutation.isPending}
             >
               {deleteFurnitureMutation.isPending ? "Deleting..." : "Delete"}

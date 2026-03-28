@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Lightbulb, Tv, Fan, Snowflake, Loader2 } from "lucide-react";
+import { Lightbulb, Tv, Fan, Snowflake, Activity, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -48,6 +48,12 @@ const deviceTypes = [
     icon: Snowflake,
     color: "bg-sky-500/20 text-sky-500 border-sky-500/30",
   },
+  {
+    type: DeviceType.SmartMeter,
+    label: "Smart Meter",
+    icon: Activity,
+    color: "bg-emerald-500/20 text-emerald-500 border-emerald-500/30",
+  },
 ];
 
 export function AddDeviceDialog({
@@ -58,6 +64,7 @@ export function AddDeviceDialog({
 }: AddDeviceDialogProps) {
   const [selectedType, setSelectedType] = useState<DeviceType | null>(null);
   const [deviceName, setDeviceName] = useState("");
+  const [tag, setTag] = useState("");
   const [isCreating, setIsCreating] = useState(false);
 
   const handleCreate = async () => {
@@ -66,7 +73,11 @@ export function AddDeviceDialog({
     setIsCreating(true);
     try {
       const service = DeviceService.getInstance();
-      const data = { device_name: deviceName.trim(), room: roomId };
+      const data = { 
+        device_name: deviceName.trim(), 
+        room: roomId,
+        tag: tag.trim() || undefined
+      };
 
       switch (selectedType) {
         case DeviceType.Lightbulb:
@@ -80,6 +91,9 @@ export function AddDeviceDialog({
           break;
         case DeviceType.AirConditioner:
           await service.createAirConditioner(data);
+          break;
+        case DeviceType.SmartMeter:
+          await service.createSmartMeter(data);
           break;
       }
 
@@ -96,6 +110,7 @@ export function AddDeviceDialog({
   const handleClose = () => {
     setSelectedType(null);
     setDeviceName("");
+    setTag("");
     onOpenChange(false);
   };
 
@@ -141,6 +156,18 @@ export function AddDeviceDialog({
               placeholder="e.g., Living Room Light"
               value={deviceName}
               onChange={(e) => setDeviceName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+            />
+          </div>
+
+          {/* Device tag */}
+          <div className="space-y-2">
+            <Label htmlFor="device-tag">Tag</Label>
+            <Input
+              id="device-tag"
+              placeholder="e.g., LIGHT_01"
+              value={tag}
+              onChange={(e) => setTag(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleCreate()}
             />
           </div>

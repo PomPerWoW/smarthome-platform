@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Lightbulb, Filter, Tv, Fan, Snowflake, Zap } from "lucide-react";
+import { ArrowLeft, Lightbulb, Filter, Tv, Fan, Snowflake, Zap, DoorOpen } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -131,6 +131,17 @@ function DevicesPage() {
     {} as Record<string, number>,
   );
 
+  // Group by room
+  const devicesByRoom = filteredDevices.reduce((acc, device) => {
+    const room = device.roomName || "Unassigned";
+    if (!acc[room]) acc[room] = [];
+    acc[room].push(device);
+    return acc;
+  }, {} as Record<string, BaseDevice[]>);
+
+  // Sort room names naturally
+  const sortedRoomNames = Object.keys(devicesByRoom).sort();
+
   const handleControlDevice = (device: BaseDevice) => {
     setSelectedDeviceId(device.id);
     setIsDrawerOpen(true);
@@ -162,7 +173,7 @@ function DevicesPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in zoom-in-95 duration-500">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -253,17 +264,36 @@ function DevicesPage() {
         </div>
       )}
 
-      {/* Devices grid */}
+      {/* Devices grouped by room */}
       {!isLoading && filteredDevices.length > 0 && (
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {filteredDevices.map((device) => (
-            <DeviceCard
-              key={device.id}
-              device={device}
-              onControl={() => handleControlDevice(device)}
-              onDelete={() => setDeviceToDelete(device)}
-              onRename={() => setDeviceToRename(device)}
-            />
+        <div className="space-y-12">
+          {sortedRoomNames.map((roomName) => (
+            <div key={roomName} className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="p-1.5 bg-primary/10 rounded-lg">
+                  <DoorOpen className="h-4 w-4 text-primary" />
+                </div>
+                <h2 className="text-xl font-semibold tracking-tight">
+                  {roomName}
+                </h2>
+                <div className="h-px flex-1 bg-border/60" />
+                <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                  {devicesByRoom[roomName].length}
+                </span>
+              </div>
+              
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {devicesByRoom[roomName].map((device) => (
+                  <DeviceCard
+                    key={device.id}
+                    device={device}
+                    onControl={() => handleControlDevice(device)}
+                    onDelete={() => setDeviceToDelete(device)}
+                    onRename={() => setDeviceToRename(device)}
+                  />
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       )}
@@ -295,7 +325,7 @@ function DevicesPage() {
               onClick={() =>
                 deviceToDelete && deleteMutation.mutate(deviceToDelete)
               }
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-red-500 hover:bg-red-600 text-white"
               disabled={deleteMutation.isPending}
             >
               {deleteMutation.isPending ? "Deleting..." : "Delete"}
