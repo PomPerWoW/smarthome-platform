@@ -48,8 +48,10 @@ let _tableTopZones: TableTopZone[] = [];
 /** Extra margin (metres) around each table zone to prevent clipping. */
 const TABLE_ZONE_MARGIN = 0.05;
 
-/** Extra navigation buffer to keep robot farther from desk edges. */
-const TABLE_KEEP_OUT_MARGIN = 0.25;
+/** Base navigation buffer around desks (extra per-caller margin is still applied). */
+const TABLE_KEEP_OUT_MARGIN = 0;
+/** Approximate table-top slab thickness (metres) used for vertical overlap checks. */
+const TABLE_TOP_COLLISION_THICKNESS = 0.12;
 
 // ── Preset height arrays for different entity types ────────────────────────
 
@@ -269,10 +271,17 @@ export function constrainMovement(
   // the destination XZ falls inside any table-top footprint. If so, treat the
   // AABB as a solid wall and compute a surface normal for wall-sliding.
   if (_tableTopZones.length > 0) {
+    const entityBottomY = from.y + heights[0];
     const entityTopY = from.y + heights[heights.length - 1];
 
     for (const zone of _tableTopZones) {
-      if (entityTopY > zone.tableY) continue;
+      // Only block with desk zones when the entity's vertical span intersects
+      // the actual tabletop slab. This prevents "invisible box in air" behavior
+      // where short actors are blocked under open desk space.
+      const tableBottomY = zone.tableY - TABLE_TOP_COLLISION_THICKNESS;
+      const intersectsTableTopSlab =
+        entityTopY >= tableBottomY && entityBottomY <= zone.tableY;
+      if (!intersectsTableTopSlab) continue;
 
       // Check if the destination point (expanded by entity radius) overlaps this table zone
       const inZoneX = to.x + radius > zone.minX && to.x - radius < zone.maxX;

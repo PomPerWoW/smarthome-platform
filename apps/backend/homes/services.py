@@ -1,14 +1,17 @@
-from typing import Dict, Any, List, Optional
 import json
 import logging
-from .llm_interfaces import LLMProvider, CommandIntent
-from .llm_providers import LLMFactory
-from .models import Device, Lightbulb, Television, Fan, AirConditioner
-from .scada import ScadaManager
-from channels.layers import get_channel_layer
+from typing import Any, Dict, List, Optional
+
 from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
+
+from .llm_interfaces import CommandIntent, LLMProvider
+from .llm_providers import LLMFactory
+from .models import Device
+from .scada import ScadaManager
 
 logger = logging.getLogger(__name__)
+
 
 class VoiceAssistantService:
     def __init__(self, provider: LLMProvider = None):
@@ -17,6 +20,7 @@ class VoiceAssistantService:
     def _detect_instruction_topic(self, command_text: str) -> Optional[str]:
         """Detect if the command is an instruction/how-to question; return topic key or None."""
         import re
+
         if not command_text or not isinstance(command_text, str):
             return None
         t = command_text.strip().lower()
@@ -50,7 +54,9 @@ class VoiceAssistantService:
             "unmute",
         )
 
-        is_instruction_like = any(x in t for x in instruction_triggers) or t.endswith("?")
+        is_instruction_like = any(x in t for x in instruction_triggers) or t.endswith(
+            "?"
+        )
         is_command_like = any(x in t for x in command_triggers)
 
         # If it's clearly a device command and not a how-to question, don't treat it as instruction.
@@ -85,9 +91,10 @@ class VoiceAssistantService:
         t_short = t.strip().lower().rstrip(".,!?")
         if t_short in ("yes", "yeah", "yep", "yup", "sure", "ok", "okay"):
             return "yes_more"
-        if any(
-            x in t for x in ("another question", "one more", "more questions")
-        ) and len(t.split()) <= 5:
+        if (
+            any(x in t for x in ("another question", "one more", "more questions"))
+            and len(t.split()) <= 5
+        ):
             return "yes_more"
 
         # "How to control the fan/light/tv/ac" → device topic (must run BEFORE generic "control" below)
@@ -287,7 +294,9 @@ class VoiceAssistantService:
         # device-specific instructions (e.g. "how do I use the fan") when no "control" phrase
         if is_instruction_like and has_word("fan"):
             return "fan"
-        if is_instruction_like and (has_word("light") or has_word("lightbulb") or has_word("bulb")):
+        if is_instruction_like and (
+            has_word("light") or has_word("lightbulb") or has_word("bulb")
+        ):
             return "light"
         if is_instruction_like and (has_word("tv") or "television" in t):
             return "television"
@@ -297,12 +306,15 @@ class VoiceAssistantService:
             return "ac"
         # generic "how to use" without device
         if is_instruction_like and any(
-            x in t for x in ("how do i use", "how to use", "what does this do", "explain")
+            x in t
+            for x in ("how do i use", "how to use", "what does this do", "explain")
         ):
             return "fallback"
         return None
 
-    def process_voice_command(self, user, command_text: str) -> Dict[str, Any]:
+    def process_voice_command(
+        self, user, command_text: str, execute: bool = True
+    ) -> Dict[str, Any]:
         """
         Main entry point for voice commands.
         """
@@ -313,7 +325,7 @@ class VoiceAssistantService:
             if instruction_topic == "device_info":
                 devices = self._get_user_devices(user)
                 device_count = len(devices)
-                
+
                 # Use LLM to generate a natural response to the question
                 devices_context = [
                     {
@@ -321,19 +333,25 @@ class VoiceAssistantService:
                         "name": d.device_name,
                         "type": self._get_device_type(d),
                         "room": d.room.room_name if d.room else "Unassigned",
-                        "state": self._get_device_state(d)
+                        "state": self._get_device_state(d),
                     }
                     for d in devices
                 ]
-                
+
                 # Generate response using LLM for more natural answers
                 try:
-                    response_text = self._generate_device_info_response(command_text, devices_context, device_count)
+                    response_text = self._generate_device_info_response(
+                        command_text, devices_context, device_count
+                    )
                 except Exception as e:
-                    logger.error(f"Failed to generate LLM response for device_info: {e}")
+                    logger.error(
+                        f"Failed to generate LLM response for device_info: {e}"
+                    )
                     # Fallback to simple response
-                    response_text = self._generate_simple_device_info_response(devices, device_count)
-                
+                    response_text = self._generate_simple_device_info_response(
+                        devices, device_count
+                    )
+
                 return {
                     "command": command_text,
                     "code": None,
@@ -341,7 +359,7 @@ class VoiceAssistantService:
                     "instruction_topic": "device_info",
                     "instruction_text": response_text,  # Include dynamic text
                 }
-            
+
             return {
                 "command": command_text,
                 "code": None,
@@ -357,7 +375,7 @@ class VoiceAssistantService:
                 "name": d.device_name,
                 "type": self._get_device_type(d),
                 "room": d.room.room_name if d.room else "Unassigned",
-                "state": self._get_device_state(d)
+                "state": self._get_device_state(d),
             }
             for d in devices
         ]
@@ -371,7 +389,29 @@ class VoiceAssistantService:
             code = self._generate_code_from_intent(intent)
             code_snippets.append(code)
 
-        # 4. Execute intents
+        # 4. Return parsed actions only (used by clients that need to move in-world first)
+        if not execute:
+            device_name_by_id = {str(d.id): d.device_name for d in devices}
+            planned_actions = []
+            for intent in intents:
+                planned_actions.append(
+                    {
+                        "status": "pending",
+                        "action": intent.action,
+                        "device": device_name_by_id.get(
+                            str(intent.device_id), str(intent.device_id)
+                        ),
+                        "device_id": str(intent.device_id),
+                        "parameters": intent.parameters or {},
+                    }
+                )
+            return {
+                "command": command_text,
+                "code": "\n\n".join(code_snippets) if code_snippets else None,
+                "actions": planned_actions,
+            }
+
+        # 5. Execute intents
         results = []
         for intent in intents:
             result = self._execute_intent(intent, user)
@@ -380,7 +420,7 @@ class VoiceAssistantService:
         return {
             "command": command_text,
             "code": "\n\n".join(code_snippets) if code_snippets else None,
-            "actions": results
+            "actions": results,
         }
 
     def _generate_code_from_intent(self, intent) -> str:
@@ -389,33 +429,33 @@ class VoiceAssistantService:
         action = intent.action
         params = intent.parameters or {}
 
-        if action == 'turn_on':
+        if action == "turn_on":
             return f"device = Device.objects.get(id='{device_id}')\ndevice.is_on = True\ndevice.save()"
-        elif action == 'turn_off':
+        elif action == "turn_off":
             return f"device = Device.objects.get(id='{device_id}')\ndevice.is_on = False\ndevice.save()"
-        elif action == 'set_brightness':
-            brightness = params.get('brightness', 100)
+        elif action == "set_brightness":
+            brightness = params.get("brightness", 100)
             return f"bulb = Lightbulb.objects.get(id='{device_id}')\nbulb.brightness = {brightness}\nbulb.save()"
-        elif action == 'set_colour':
-            colour = params.get('colour', '#FFFFFF')
+        elif action == "set_colour":
+            colour = params.get("colour", "#FFFFFF")
             return f"bulb = Lightbulb.objects.get(id='{device_id}')\nbulb.colour = '{colour}'\nbulb.save()"
-        elif action == 'set_volume':
-            volume = params.get('volume', 50)
+        elif action == "set_volume":
+            volume = params.get("volume", 50)
             return f"tv = Television.objects.get(id='{device_id}')\ntv.volume = {volume}\ntv.save()"
-        elif action == 'set_channel':
-            channel = params.get('channel', 1)
+        elif action == "set_channel":
+            channel = params.get("channel", 1)
             return f"tv = Television.objects.get(id='{device_id}')\ntv.channel = {channel}\ntv.save()"
-        elif action == 'set_mute':
-            mute = params.get('mute', True)
+        elif action == "set_mute":
+            mute = params.get("mute", True)
             return f"tv = Television.objects.get(id='{device_id}')\ntv.is_mute = {mute}\ntv.save()"
-        elif action == 'set_speed':
-            speed = params.get('speed', 1)
+        elif action == "set_speed":
+            speed = params.get("speed", 1)
             return f"fan = Fan.objects.get(id='{device_id}')\nfan.speed = {speed}\nfan.save()"
-        elif action == 'set_swing':
-            swing = params.get('swing', True)
+        elif action == "set_swing":
+            swing = params.get("swing", True)
             return f"fan = Fan.objects.get(id='{device_id}')\nfan.swing = {swing}\nfan.save()"
-        elif action == 'set_temperature':
-            temp = params.get('temperature', 24)
+        elif action == "set_temperature":
+            temp = params.get("temperature", 24)
             return f"ac = AirConditioner.objects.get(id='{device_id}')\nac.temperature = {temp}\nac.save()"
         else:
             return f"# Unknown action: {action} for device {device_id}"
@@ -424,38 +464,46 @@ class VoiceAssistantService:
         return Device.objects.filter(room__home__user=user)
 
     def _get_device_type(self, device: Device) -> str:
-        if hasattr(device, 'lightbulb'): return "lightbulb"
-        if hasattr(device, 'television'): return "television"
-        if hasattr(device, 'fan'): return "fan"
-        if hasattr(device, 'airconditioner'): return "air_conditioner"
-        if hasattr(device, 'smartmeter'): return "smartmeter"
+        if hasattr(device, "lightbulb"):
+            return "lightbulb"
+        if hasattr(device, "television"):
+            return "television"
+        if hasattr(device, "fan"):
+            return "fan"
+        if hasattr(device, "airconditioner"):
+            return "air_conditioner"
+        if hasattr(device, "smartmeter"):
+            return "smartmeter"
         return "generic_device"
 
     def _get_device_state(self, device: Device) -> Dict[str, Any]:
         state = {"is_on": device.is_on}
-        
+
         # Access child attributes
-        if hasattr(device, 'lightbulb'):
-            state.update({
-                "brightness": device.lightbulb.brightness,
-                "colour": device.lightbulb.colour
-            })
-        elif hasattr(device, 'television'):
-            state.update({
-                "volume": device.television.volume,
-                "channel": device.television.channel,
-                "is_mute": device.television.is_mute
-            })
-        elif hasattr(device, 'fan'):
-            state.update({
-                "speed": device.fan.speed,
-                "swing": device.fan.swing
-            })
-        elif hasattr(device, 'airconditioner'):
-            state.update({
-                "temperature": device.airconditioner.temperature,
-                "fan_level": device.airconditioner.fan_level
-            })
+        if hasattr(device, "lightbulb"):
+            state.update(
+                {
+                    "brightness": device.lightbulb.brightness,
+                    "colour": device.lightbulb.colour,
+                }
+            )
+        elif hasattr(device, "television"):
+            state.update(
+                {
+                    "volume": device.television.volume,
+                    "channel": device.television.channel,
+                    "is_mute": device.television.is_mute,
+                }
+            )
+        elif hasattr(device, "fan"):
+            state.update({"speed": device.fan.speed, "swing": device.fan.swing})
+        elif hasattr(device, "airconditioner"):
+            state.update(
+                {
+                    "temperature": device.airconditioner.temperature,
+                    "fan_level": device.airconditioner.fan_level,
+                }
+            )
         return state
 
     def _execute_intent(self, intent: CommandIntent, user) -> Dict[str, Any]:
@@ -463,64 +511,90 @@ class VoiceAssistantService:
             # Re-fetch device to ensure it exists (and for type safety)
             device = Device.objects.get(id=intent.device_id, room__home__user=user)
             device_child = self._get_child_device(device)
-            
+
             action = intent.action
             params = intent.parameters or {}
-            
-            if action == 'turn_on':
+
+            if action == "turn_on":
                 device_child.is_on = True
-            elif action == 'turn_off':
+            elif action == "turn_off":
                 device_child.is_on = False
-            
+
             # Specific Actions
-            elif action == 'set_brightness' and hasattr(device_child, 'brightness'):
-                device_child.brightness = params.get('brightness', device_child.brightness)
-            elif action == 'set_colour' and hasattr(device_child, 'colour'):
-                device_child.colour = params.get('colour', device_child.colour)
-            
-            elif action == 'set_volume' and hasattr(device_child, 'volume'):
-                device_child.volume = params.get('volume', device_child.volume)
-            elif action == 'set_channel' and hasattr(device_child, 'channel'):
-                device_child.channel = params.get('channel', device_child.channel)
-            elif action == 'set_mute' and hasattr(device_child, 'is_mute'):
-                device_child.is_mute = params.get('mute', False)
-                
-            elif action == 'set_speed' and hasattr(device_child, 'speed'):
-                device_child.speed = params.get('speed', device_child.speed)
-            elif action == 'set_swing' and hasattr(device_child, 'swing'):
-                device_child.swing = params.get('swing', False)
-                
-            elif action == 'set_temperature' and hasattr(device_child, 'temperature'):
-                device_child.temperature = params.get('temperature', device_child.temperature)
+            elif action == "set_brightness" and hasattr(device_child, "brightness"):
+                device_child.brightness = params.get(
+                    "brightness", device_child.brightness
+                )
+            elif action == "set_colour" and hasattr(device_child, "colour"):
+                device_child.colour = params.get("colour", device_child.colour)
+
+            elif action == "set_volume" and hasattr(device_child, "volume"):
+                device_child.volume = params.get("volume", device_child.volume)
+            elif action == "set_channel" and hasattr(device_child, "channel"):
+                device_child.channel = params.get("channel", device_child.channel)
+            elif action == "set_mute" and hasattr(device_child, "is_mute"):
+                device_child.is_mute = params.get("mute", False)
+
+            elif action == "set_speed" and hasattr(device_child, "speed"):
+                device_child.speed = params.get("speed", device_child.speed)
+            elif action == "set_swing" and hasattr(device_child, "swing"):
+                device_child.swing = params.get("swing", False)
+
+            elif action == "set_temperature" and hasattr(device_child, "temperature"):
+                device_child.temperature = params.get(
+                    "temperature", device_child.temperature
+                )
 
             device_child.save()
-            
+
             # Send to SCADA if the device has a tag
             if device_child.tag:
                 scada = ScadaManager()
-                if action == 'turn_on':
-                    suffix = "on" if hasattr(device_child, 'television') or hasattr(device_child, 'fan') else "onoff"
+                if action == "turn_on":
+                    suffix = (
+                        "on"
+                        if hasattr(device_child, "television")
+                        or hasattr(device_child, "fan")
+                        else "onoff"
+                    )
                     scada.send_command(f"{device_child.tag}.{suffix}", 1)
-                elif action == 'turn_off':
-                    suffix = "on" if hasattr(device_child, 'television') or hasattr(device_child, 'fan') else "onoff"
+                elif action == "turn_off":
+                    suffix = (
+                        "on"
+                        if hasattr(device_child, "television")
+                        or hasattr(device_child, "fan")
+                        else "onoff"
+                    )
                     scada.send_command(f"{device_child.tag}.{suffix}", 0)
-                elif action == 'set_brightness':
-                    scada.send_command(f"{device_child.tag}.Brightness", device_child.brightness)
-                elif action == 'set_colour':
+                elif action == "set_brightness":
+                    scada.send_command(
+                        f"{device_child.tag}.Brightness", device_child.brightness
+                    )
+                elif action == "set_colour":
                     scada.send_command(f"{device_child.tag}.Color", device_child.colour)
-                elif action == 'set_volume':
-                    scada.send_command(f"{device_child.tag}.volume", device_child.volume)
-                elif action == 'set_channel':
-                    scada.send_command(f"{device_child.tag}.channel", device_child.channel)
-                elif action == 'set_mute':
-                    scada.send_command(f"{device_child.tag}.mute", 1 if device_child.is_mute else 0)
-                elif action == 'set_speed':
+                elif action == "set_volume":
+                    scada.send_command(
+                        f"{device_child.tag}.volume", device_child.volume
+                    )
+                elif action == "set_channel":
+                    scada.send_command(
+                        f"{device_child.tag}.channel", device_child.channel
+                    )
+                elif action == "set_mute":
+                    scada.send_command(
+                        f"{device_child.tag}.mute", 1 if device_child.is_mute else 0
+                    )
+                elif action == "set_speed":
                     scada.send_command(f"{device_child.tag}.speed", device_child.speed)
-                elif action == 'set_swing':
-                    scada.send_command(f"{device_child.tag}.shake", 1 if device_child.swing else 0)
-                elif action == 'set_temperature':
-                    scada.send_command(f"{device_child.tag}.set_temp", device_child.temperature)
-            
+                elif action == "set_swing":
+                    scada.send_command(
+                        f"{device_child.tag}.shake", 1 if device_child.swing else 0
+                    )
+                elif action == "set_temperature":
+                    scada.send_command(
+                        f"{device_child.tag}.set_temp", device_child.temperature
+                    )
+
             # Broadcast update via WebSockets
             channel_layer = get_channel_layer()
             async_to_sync(channel_layer.group_send)(
@@ -529,30 +603,45 @@ class VoiceAssistantService:
                     "type": "device_update",
                     "device_id": str(device.id),
                     "action": action,
-                    "status": "success"
-                }
+                    "status": "success",
+                },
             )
 
-            return {"status": "success", "action": action, "device": device.device_name}
+            return {
+                "status": "success",
+                "action": action,
+                "device": device.device_name,
+                "device_id": str(device.id),
+            }
 
         except Device.DoesNotExist:
-            return {"status": "error", "message": f"Device {intent.device_id} not found."}
+            return {
+                "status": "error",
+                "message": f"Device {intent.device_id} not found.",
+            }
         except Exception as e:
             return {"status": "error", "message": str(e)}
 
     def _get_child_device(self, device: Device):
-        if hasattr(device, 'lightbulb'): return device.lightbulb
-        if hasattr(device, 'television'): return device.television
-        if hasattr(device, 'fan'): return device.fan
-        if hasattr(device, 'airconditioner'): return device.airconditioner
-        if hasattr(device, 'smartmeter'): return device.smartmeter
+        if hasattr(device, "lightbulb"):
+            return device.lightbulb
+        if hasattr(device, "television"):
+            return device.television
+        if hasattr(device, "fan"):
+            return device.fan
+        if hasattr(device, "airconditioner"):
+            return device.airconditioner
+        if hasattr(device, "smartmeter"):
+            return device.smartmeter
         return device
 
-    def _generate_device_info_response(self, question: str, devices_context: List[Dict[str, Any]], device_count: int) -> str:
+    def _generate_device_info_response(
+        self, question: str, devices_context: List[Dict[str, Any]], device_count: int
+    ) -> str:
         """Use LLM to generate a natural response to device information questions."""
         if device_count == 0:
             return "You don't have any devices set up yet. You can add devices from the panel or by using the device placement feature."
-        
+
         devices_str = json.dumps(devices_context, indent=2)
         prompt = f"""You are a smart home assistant. The user asked: "{question}"
 
@@ -562,18 +651,21 @@ Available Devices:
 Answer the user's question naturally and concisely. If they ask about devices in a room, list the devices in that room. If they ask how many devices, give the count and a brief summary. Be direct and helpful.
 
 Your response (keep it under 100 words):"""
-        
+
         try:
             # Check if provider has a client (GroqProvider)
-            if hasattr(self.provider, 'client') and self.provider.client:
+            if hasattr(self.provider, "client") and self.provider.client:
                 response = self.provider.client.chat.completions.create(
                     model="llama-3.1-8b-instant",
                     messages=[
-                        {"role": "system", "content": "You are a helpful smart home assistant. Answer questions about devices concisely and naturally."},
-                        {"role": "user", "content": prompt}
+                        {
+                            "role": "system",
+                            "content": "You are a helpful smart home assistant. Answer questions about devices concisely and naturally.",
+                        },
+                        {"role": "user", "content": prompt},
                     ],
                     temperature=0.3,
-                    max_tokens=150
+                    max_tokens=150,
                 )
                 return response.choices[0].message.content.strip()
             else:
@@ -582,39 +674,44 @@ Your response (keep it under 100 words):"""
         except Exception as e:
             logger.error(f"LLM error in device_info response: {e}")
             # Fallback: get devices from context
-            device_ids = [d['id'] for d in devices_context]
+            device_ids = [d["id"] for d in devices_context]
             devices = Device.objects.filter(id__in=device_ids)
-            return self._generate_simple_device_info_response(list(devices), device_count)
+            return self._generate_simple_device_info_response(
+                list(devices), device_count
+            )
 
-    def _generate_simple_device_info_response(self, devices: List[Device], device_count: int) -> str:
+    def _generate_simple_device_info_response(
+        self, devices: List[Device], device_count: int
+    ) -> str:
         """Fallback simple response generator."""
         if device_count == 0:
             return "You don't have any devices set up yet. You can add devices from the panel or by using the device placement feature."
-        
+
         # Count devices by type
         device_types = {}
         for d in devices:
             device_type = self._get_device_type(d)
             device_types[device_type] = device_types.get(device_type, 0) + 1
-        
+
         type_list = []
         for dev_type, count in device_types.items():
             if count == 1:
                 type_list.append(f"one {dev_type}")
             else:
                 type_list.append(f"{count} {dev_type}s")
-        
+
         if len(type_list) == 1:
             devices_summary = type_list[0]
         elif len(type_list) == 2:
             devices_summary = f"{type_list[0]} and {type_list[1]}"
         else:
             devices_summary = ", ".join(type_list[:-1]) + f", and {type_list[-1]}"
-        
+
         if device_count == 1:
             return f"You have one device in your home: {devices_summary}."
         else:
             return f"You have {device_count} devices in your home. You have {devices_summary}."
+
 
 def update_automation_solar_time(automation):
     """
@@ -622,9 +719,9 @@ def update_automation_solar_time(automation):
     """
     if not automation.sunrise_sunset or not automation.solar_event:
         return
-    
+
     from .utils import get_coords, get_solar_times
-    
+
     lat, lon = get_coords()
     if lat is None:
         return
@@ -633,12 +730,13 @@ def update_automation_solar_time(automation):
     if solar_times is None:
         return
 
-    if automation.solar_event == 'sunrise':
-        automation.time = solar_times['sunrise'].time()
-    elif automation.solar_event == 'sunset':
-        automation.time = solar_times['sunset'].time()
-    
+    if automation.solar_event == "sunrise":
+        automation.time = solar_times["sunrise"].time()
+    elif automation.solar_event == "sunset":
+        automation.time = solar_times["sunset"].time()
+
     automation.save()
+
 
 def update_all_solar_automations():
     """
@@ -646,7 +744,7 @@ def update_all_solar_automations():
     """
     from .models import Automation
     from .utils import get_coords, get_solar_times
-    
+
     lat, lon = get_coords()
     if lat is None:
         return
@@ -654,10 +752,13 @@ def update_all_solar_automations():
     solar_times = get_solar_times(lat, lon)
     if solar_times is None:
         return
-    
-    sunrise = solar_times['sunrise'].time()
-    sunset = solar_times['sunset'].time()
 
-    Automation.objects.filter(sunrise_sunset=True, solar_event='sunrise').update(time=sunrise)
-    Automation.objects.filter(sunrise_sunset=True, solar_event='sunset').update(time=sunset)
+    sunrise = solar_times["sunrise"].time()
+    sunset = solar_times["sunset"].time()
 
+    Automation.objects.filter(sunrise_sunset=True, solar_event="sunrise").update(
+        time=sunrise
+    )
+    Automation.objects.filter(sunrise_sunset=True, solar_event="sunset").update(
+        time=sunset
+    )

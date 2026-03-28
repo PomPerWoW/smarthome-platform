@@ -1,32 +1,36 @@
-from rest_framework import viewsets, permissions
-from rest_framework.decorators import action
-from rest_framework.response import Response
-from rest_framework.exceptions import PermissionDenied
-from django.contrib.gis.geos import Point
-from django.conf import settings
-from django.core.files.base import ContentFile
-from .permissions import IsHomeOwner
-from .models import *
-from .serializers import *
-from .services import VoiceAssistantService
-from datetime import datetime
-from .scada import ScadaManager
-
-from datetime import datetime, timedelta
-import requests
-import random
+import logging
 import os
-import zipfile
+import random
 import shutil
 import tempfile
+import zipfile
+from datetime import datetime
+
+from django.conf import settings
+from django.contrib.gis.geos import Point
+from django.core.files.base import ContentFile
+from rest_framework import permissions, viewsets
+from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.response import Response
+
+from .models import *
+from .permissions import IsHomeOwner
+from .scada import ScadaManager
+from .serializers import *
+from .services import VoiceAssistantService
+
+logger = logging.getLogger(__name__)
+
 
 # --- 1. Home ViewSet ---
 class HomeViewSet(viewsets.ModelViewSet):
     """
     ViewSet for viewing and editing Home instances.
-    
+
     Ensures that users can only interact with Homes they own.
     """
+
     serializer_class = HomeSerializer
     # Apply Permissions
     permission_classes = [permissions.IsAuthenticated, IsHomeOwner]
@@ -39,19 +43,19 @@ class HomeViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         """
-        Intersects the creation process to automatically assign the 
+        Intersects the creation process to automatically assign the
         authenticated user as the owner of the home.
         """
         serializer.save(user=self.request.user)
 
-    @action(detail=True, methods=['get'])
+    @action(detail=True, methods=["get"])
     def get_devices(self, request, pk=None):
         """
         Custom Action: Retrieve all devices linked to a specific Home.
-        
+
         URL: GET /api/homes/homes/{pk}/get_devices/
         """
-        home = self.get_object() # Triggers IsHomeOwner check
+        home = self.get_object()  # Triggers IsHomeOwner check
         devices = Device.objects.filter(room__home=home)
         return Response(DeviceSerializer(devices, many=True).data)
 
@@ -61,6 +65,7 @@ class RoomViewSet(viewsets.ModelViewSet):
     """
     ViewSet for viewing and editing Room instances.
     """
+
     serializer_class = RoomSerializer
     permission_classes = [permissions.IsAuthenticated, IsHomeOwner]
 
@@ -73,11 +78,11 @@ class RoomViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         """
         Saves a new Room instance with a security check.
-        
+
         Raises:
             PermissionDenied: If the user tries to add a room to a home they do not own.
         """
-        home = serializer.validated_data['home']
+        home = serializer.validated_data["home"]
         if home.user != self.request.user:
             raise PermissionDenied("You do not own this home.")
         serializer.save()
@@ -85,151 +90,178 @@ class RoomViewSet(viewsets.ModelViewSet):
     def get_serializer_context(self):
         """Add request to serializer context for building absolute URLs"""
         context = super().get_serializer_context()
-        context['request'] = self.request
+        context["request"] = self.request
         return context
 
-    @action(detail=True, methods=['get'])
+    @action(detail=True, methods=["get"])
     def get_devices(self, request, pk=None):
         """
         Custom Action: Retrieve all devices contained within a specific Room.
-        
+
         URL: GET /api/homes/rooms/{pk}/get_devices/
         """
-        room = self.get_object() 
+        room = self.get_object()
         devices = Device.objects.filter(room=room)
         return Response(DeviceSerializer(devices, many=True).data)
 
-    @action(detail=True, methods=['get'])
+    @action(detail=True, methods=["get"])
     def get_furniture(self, request, pk=None):
         """
         Custom Action: Retrieve all furniture items in a specific Room.
-        
+
         URL: GET /api/homes/rooms/{pk}/get_furniture/
         """
         room = self.get_object()
         furniture = Furniture.objects.filter(room=room)
         return Response(FurnitureSerializer(furniture, many=True).data)
 
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=["post"])
     def set_alignment(self, request, pk=None):
         """
         Custom Action: Manually align and save the room's base transform and optional XR anchor.
-        
+
         Body Parameters:
             x (float): Required.
             y (float): Required.
             z (float): Required.
             rotation_y (float): Required.
             anchor_uuid (string): Optional.
-            
+
         Returns:
             JSON: The updated room alignment data.
         """
-        room = self.get_object() 
-        
-        x = request.data.get('x')
-        y = request.data.get('y')
-        z = request.data.get('z')
-        rotation_y = request.data.get('rotation_y')
-        anchor_uuid = request.data.get('anchor_uuid')
+        room = self.get_object()
+
+        x = request.data.get("x")
+        y = request.data.get("y")
+        z = request.data.get("z")
+        rotation_y = request.data.get("rotation_y")
+        anchor_uuid = request.data.get("anchor_uuid")
 
         if x is None or y is None or z is None or rotation_y is None:
-            return Response({"error": "x, y, z, and rotation_y are required"}, status=400)
+            return Response(
+                {"error": "x, y, z, and rotation_y are required"}, status=400
+            )
 
         room.position_x = float(x)
         room.position_y = float(y)
         room.position_z = float(z)
         room.rotation_y = float(rotation_y)
         if anchor_uuid is not None:
-             room.anchor_uuid = anchor_uuid
+            room.anchor_uuid = anchor_uuid
         room.save()
 
-        return Response({
-            "status": "alignment_updated", 
-            "position": {"x": room.position_x, "y": room.position_y, "z": room.position_z},
-            "rotation": {"y": room.rotation_y},
-            "anchor_uuid": room.anchor_uuid
-        })
+        return Response(
+            {
+                "status": "alignment_updated",
+                "position": {
+                    "x": room.position_x,
+                    "y": room.position_y,
+                    "z": room.position_z,
+                },
+                "rotation": {"y": room.rotation_y},
+                "anchor_uuid": room.anchor_uuid,
+            }
+        )
 
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=["post"])
     def upload_model(self, request, pk=None):
         """
         Custom Action: Upload a 3D model file (GLTF/GLB) or ZIP folder for the room.
-        
+
         Body Parameters:
             file (file): Required. The 3D model file (GLTF/GLB) or ZIP archive containing the model folder.
-            
+
         Returns:
             JSON: The updated room data with the model file URL.
         """
         import logging
+
         logger = logging.getLogger(__name__)
-        
-        logger.info(f"[Upload Model] ===== Starting upload_model for room_id={pk} =====")
+
+        logger.info(
+            f"[Upload Model] ===== Starting upload_model for room_id={pk} ====="
+        )
         logger.info(f"[Upload Model] Request method: {request.method}")
         logger.info(f"[Upload Model] Request FILES keys: {list(request.FILES.keys())}")
         logger.info(f"[Upload Model] Request content type: {request.content_type}")
-        
+
         try:
             room = self.get_object()
             logger.info(f"[Upload Model] Room found: {room.id}, name: {room.room_name}")
         except Exception as e:
             logger.error(f"[Upload Model] Failed to get room: {str(e)}")
             return Response({"error": f"Room not found: {str(e)}"}, status=404)
-        
-        if 'file' not in request.FILES:
+
+        if "file" not in request.FILES:
             logger.error("[Upload Model] No 'file' key in request.FILES")
             logger.error(f"[Upload Model] Available keys: {list(request.FILES.keys())}")
             return Response({"error": "No file provided"}, status=400)
-        
-        uploaded_file = request.FILES['file']
+
+        uploaded_file = request.FILES["file"]
         file_extension = os.path.splitext(uploaded_file.name)[1].lower()
-        
-        logger.info(f"[Upload Model] File received: name={uploaded_file.name}, size={uploaded_file.size}, extension={file_extension}")
-        logger.info(f"[Upload Model] File content_type: {getattr(uploaded_file, 'content_type', 'unknown')}")
-        
+
+        logger.info(
+            f"[Upload Model] File received: name={uploaded_file.name}, size={uploaded_file.size}, extension={file_extension}"
+        )
+        logger.info(
+            f"[Upload Model] File content_type: {getattr(uploaded_file, 'content_type', 'unknown')}"
+        )
+
         # Validate file extension
-        allowed_extensions = ['.gltf', '.glb', '.zip']
+        allowed_extensions = [".gltf", ".glb", ".zip"]
         if file_extension not in allowed_extensions:
             logger.error(f"[Upload Model] Invalid file extension: {file_extension}")
             return Response(
-                {"error": f"Invalid file type. Allowed: {', '.join(allowed_extensions)}"}, 
-                status=400
+                {
+                    "error": f"Invalid file type. Allowed: {', '.join(allowed_extensions)}"
+                },
+                status=400,
             )
-        
+
         logger.info(f"[Upload Model] File extension validated: {file_extension}")
-        
+
         # Get the room's model directory
-        room_model_dir = os.path.join(settings.MEDIA_ROOT, 'room_models', str(room.id))
+        room_model_dir = os.path.join(settings.MEDIA_ROOT, "room_models", str(room.id))
         logger.info(f"[Upload Model] Room model directory: {room_model_dir}")
         logger.info(f"[Upload Model] MEDIA_ROOT: {settings.MEDIA_ROOT}")
-        
+
         # Delete old files if they exist
         if os.path.exists(room_model_dir):
             try:
-                logger.info(f"[Upload Model] Deleting old room model directory: {room_model_dir}")
+                logger.info(
+                    f"[Upload Model] Deleting old room model directory: {room_model_dir}"
+                )
                 shutil.rmtree(room_model_dir)
                 logger.info(f"[Upload Model] Old directory deleted successfully")
             except Exception as e:
-                logger.warning(f"[Upload Model] Could not delete old room model directory: {e}")
-        
+                logger.warning(
+                    f"[Upload Model] Could not delete old room model directory: {e}"
+                )
+
         # Create the directory
         try:
             os.makedirs(room_model_dir, exist_ok=True)
-            logger.info(f"[Upload Model] Created/verified room model directory: {room_model_dir}")
+            logger.info(
+                f"[Upload Model] Created/verified room model directory: {room_model_dir}"
+            )
         except Exception as e:
             logger.error(f"[Upload Model] Failed to create directory: {e}")
-            return Response({"error": f"Failed to create directory: {str(e)}"}, status=500)
-        
+            return Response(
+                {"error": f"Failed to create directory: {str(e)}"}, status=500
+            )
+
         main_gltf_file = None
-        
-        if file_extension == '.zip':
+
+        if file_extension == ".zip":
             # Handle ZIP file - extract it
             logger.info("[Upload Model] Processing ZIP file")
             try:
                 # Save uploaded file to a temporary location first
                 logger.info("[Upload Model] Saving uploaded file to temporary location")
-                with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as tmp_file:
+                with tempfile.NamedTemporaryFile(
+                    delete=False, suffix=".zip"
+                ) as tmp_file:
                     chunk_count = 0
                     total_bytes = 0
                     for chunk in uploaded_file.chunks():
@@ -237,153 +269,198 @@ class RoomViewSet(viewsets.ModelViewSet):
                         chunk_count += 1
                         total_bytes += len(chunk)
                     tmp_file_path = tmp_file.name
-                
-                logger.info(f"[Upload Model] Saved to temp file: {tmp_file_path}, chunks: {chunk_count}, total bytes: {total_bytes}")
-                
+
+                logger.info(
+                    f"[Upload Model] Saved to temp file: {tmp_file_path}, chunks: {chunk_count}, total bytes: {total_bytes}"
+                )
+
                 try:
                     logger.info(f"[Upload Model] Opening ZIP file: {tmp_file_path}")
-                    with zipfile.ZipFile(tmp_file_path, 'r') as zip_ref:
+                    with zipfile.ZipFile(tmp_file_path, "r") as zip_ref:
                         file_list = zip_ref.namelist()
-                        logger.info(f"[Upload Model] ZIP contains {len(file_list)} files")
-                        logger.info(f"[Upload Model] ZIP file list (first 10): {file_list[:10]}")
-                        
+                        logger.info(
+                            f"[Upload Model] ZIP contains {len(file_list)} files"
+                        )
+                        logger.info(
+                            f"[Upload Model] ZIP file list (first 10): {file_list[:10]}"
+                        )
+
                         # Extract all files to the room model directory
                         logger.info(f"[Upload Model] Extracting to: {room_model_dir}")
                         zip_ref.extractall(room_model_dir)
                         logger.info("[Upload Model] Extraction complete")
-                        
+
                         # Clean up __MACOSX folder if it exists (macOS metadata)
-                        macosx_path = os.path.join(room_model_dir, '__MACOSX')
+                        macosx_path = os.path.join(room_model_dir, "__MACOSX")
                         if os.path.exists(macosx_path):
-                            logger.info(f"[Upload Model] Removing __MACOSX folder: {macosx_path}")
+                            logger.info(
+                                f"[Upload Model] Removing __MACOSX folder: {macosx_path}"
+                            )
                             try:
                                 shutil.rmtree(macosx_path)
                                 logger.info("[Upload Model] __MACOSX folder removed")
                             except Exception as e:
-                                logger.warning(f"[Upload Model] Could not remove __MACOSX folder: {e}")
-                    
+                                logger.warning(
+                                    f"[Upload Model] Could not remove __MACOSX folder: {e}"
+                                )
+
                     # Find the main GLTF file (prefer .gltf over .glb, and prefer files in root)
                     # Skip __MACOSX folders and macOS metadata files (._*)
                     logger.info("[Upload Model] Searching for GLTF files")
                     gltf_files = []
                     for root, dirs, files in os.walk(room_model_dir):
                         # Skip __MACOSX folders
-                        if '__MACOSX' in root:
-                            logger.info(f"[Upload Model] Skipping __MACOSX folder: {root}")
+                        if "__MACOSX" in root:
+                            logger.info(
+                                f"[Upload Model] Skipping __MACOSX folder: {root}"
+                            )
                             continue
-                        
+
                         # Filter out macOS metadata files and __MACOSX directories
-                        dirs[:] = [d for d in dirs if d != '__MACOSX']
-                        files = [f for f in files if not f.startswith('._')]
-                        
+                        dirs[:] = [d for d in dirs if d != "__MACOSX"]
+                        files = [f for f in files if not f.startswith("._")]
+
                         for file in files:
-                            if file.lower().endswith('.gltf'):
-                                rel_path = os.path.relpath(os.path.join(root, file), room_model_dir)
+                            if file.lower().endswith(".gltf"):
+                                rel_path = os.path.relpath(
+                                    os.path.join(root, file), room_model_dir
+                                )
                                 is_root = root == room_model_dir
                                 gltf_files.append((rel_path, file, is_root))
-                                logger.info(f"[Upload Model] Found GLTF: {rel_path} (root: {is_root})")
-                    
+                                logger.info(
+                                    f"[Upload Model] Found GLTF: {rel_path} (root: {is_root})"
+                                )
+
                     # Sort: root files first, then by name
                     gltf_files.sort(key=lambda x: (not x[2], x[0]))
-                    
+
                     if gltf_files:
                         main_gltf_file = gltf_files[0][0]  # Get relative path
-                        logger.info(f"[Upload Model] Selected main GLTF file: {main_gltf_file}")
+                        logger.info(
+                            f"[Upload Model] Selected main GLTF file: {main_gltf_file}"
+                        )
                     else:
                         # If no .gltf, look for .glb
-                        logger.info("[Upload Model] No GLTF files found, searching for GLB files")
+                        logger.info(
+                            "[Upload Model] No GLTF files found, searching for GLB files"
+                        )
                         glb_files = []
                         for root, dirs, files in os.walk(room_model_dir):
                             # Skip __MACOSX folders
-                            if '__MACOSX' in root:
-                                logger.info(f"[Upload Model] Skipping __MACOSX folder: {root}")
+                            if "__MACOSX" in root:
+                                logger.info(
+                                    f"[Upload Model] Skipping __MACOSX folder: {root}"
+                                )
                                 continue
-                            
+
                             # Filter out macOS metadata files and __MACOSX directories
-                            dirs[:] = [d for d in dirs if d != '__MACOSX']
-                            files = [f for f in files if not f.startswith('._')]
-                            
+                            dirs[:] = [d for d in dirs if d != "__MACOSX"]
+                            files = [f for f in files if not f.startswith("._")]
+
                             for file in files:
-                                if file.lower().endswith('.glb'):
-                                    rel_path = os.path.relpath(os.path.join(root, file), room_model_dir)
+                                if file.lower().endswith(".glb"):
+                                    rel_path = os.path.relpath(
+                                        os.path.join(root, file), room_model_dir
+                                    )
                                     is_root = root == room_model_dir
                                     glb_files.append((rel_path, file, is_root))
-                                    logger.info(f"[Upload Model] Found GLB: {rel_path} (root: {is_root})")
-                        
+                                    logger.info(
+                                        f"[Upload Model] Found GLB: {rel_path} (root: {is_root})"
+                                    )
+
                         glb_files.sort(key=lambda x: (not x[2], x[0]))
                         if glb_files:
                             main_gltf_file = glb_files[0][0]
-                            logger.info(f"[Upload Model] Selected main GLB file: {main_gltf_file}")
+                            logger.info(
+                                f"[Upload Model] Selected main GLB file: {main_gltf_file}"
+                            )
                         else:
                             # Clean up temp file
-                            logger.error("[Upload Model] No GLTF or GLB files found in ZIP")
+                            logger.error(
+                                "[Upload Model] No GLTF or GLB files found in ZIP"
+                            )
                             os.unlink(tmp_file_path)
                             return Response(
-                                {"error": "ZIP file does not contain any GLTF or GLB files"}, 
-                                status=400
+                                {
+                                    "error": "ZIP file does not contain any GLTF or GLB files"
+                                },
+                                status=400,
                             )
                 finally:
                     # Clean up temporary file
                     if os.path.exists(tmp_file_path):
-                        logger.info(f"[Upload Model] Cleaning up temp file: {tmp_file_path}")
+                        logger.info(
+                            f"[Upload Model] Cleaning up temp file: {tmp_file_path}"
+                        )
                         os.unlink(tmp_file_path)
             except zipfile.BadZipFile as e:
                 logger.error(f"[Upload Model] Invalid ZIP file: {str(e)}")
                 return Response({"error": "Invalid ZIP file"}, status=400)
             except Exception as e:
-                logger.error(f"[Upload Model] Failed to extract ZIP file: {str(e)}", exc_info=True)
-                return Response({"error": f"Failed to extract ZIP file: {str(e)}"}, status=400)
+                logger.error(
+                    f"[Upload Model] Failed to extract ZIP file: {str(e)}",
+                    exc_info=True,
+                )
+                return Response(
+                    {"error": f"Failed to extract ZIP file: {str(e)}"}, status=400
+                )
         else:
             # Handle single GLTF/GLB file
             logger.info("[Upload Model] Processing single file (not ZIP)")
             file_path = os.path.join(room_model_dir, uploaded_file.name)
             logger.info(f"[Upload Model] Saving to: {file_path}")
             try:
-                with open(file_path, 'wb+') as destination:
+                with open(file_path, "wb+") as destination:
                     chunk_count = 0
                     total_bytes = 0
                     for chunk in uploaded_file.chunks():
                         destination.write(chunk)
                         chunk_count += 1
                         total_bytes += len(chunk)
-                    logger.info(f"[Upload Model] File saved: chunks={chunk_count}, bytes={total_bytes}")
+                    logger.info(
+                        f"[Upload Model] File saved: chunks={chunk_count}, bytes={total_bytes}"
+                    )
                 main_gltf_file = uploaded_file.name
                 logger.info(f"[Upload Model] Main GLTF file: {main_gltf_file}")
             except Exception as e:
-                logger.error(f"[Upload Model] Failed to save file: {str(e)}", exc_info=True)
+                logger.error(
+                    f"[Upload Model] Failed to save file: {str(e)}", exc_info=True
+                )
                 return Response({"error": f"Failed to save file: {str(e)}"}, status=500)
-        
+
         # Store the relative path to the main GLTF file
         # The file path will be relative to the room model directory
-        relative_path = main_gltf_file.replace('\\', '/')  # Normalize path separators
+        relative_path = main_gltf_file.replace("\\", "/")  # Normalize path separators
         logger.info(f"[Upload Model] Relative path: {relative_path}")
-        
+
         # Update the room model field
         room.room_model = f"uploaded_{room.id}"
         logger.info(f"[Upload Model] Room model set to: {room.room_model}")
-        
+
         # For ZIP files, we don't use the FileField since files are already extracted
         # For single files, we save to the FileField
-        if file_extension == '.zip':
+        if file_extension == ".zip":
             # For ZIP files, store a reference to the main file
             logger.info("[Upload Model] Handling ZIP file - creating reference file")
             main_file_path = os.path.join(room_model_dir, relative_path)
             logger.info(f"[Upload Model] Main file path: {main_file_path}")
-            logger.info(f"[Upload Model] Main file exists: {os.path.exists(main_file_path)}")
-            
+            logger.info(
+                f"[Upload Model] Main file exists: {os.path.exists(main_file_path)}"
+            )
+
             # Create a reference file that stores the relative path
-            reference_file = os.path.join(room_model_dir, '.main_gltf')
+            reference_file = os.path.join(room_model_dir, ".main_gltf")
             logger.info(f"[Upload Model] Creating reference file: {reference_file}")
-            with open(reference_file, 'w') as f:
+            with open(reference_file, "w") as f:
                 f.write(relative_path)
             logger.info(f"[Upload Model] Reference file created")
-            
+
             # Save a dummy file to the FileField for compatibility
             logger.info("[Upload Model] Saving dummy file to FileField")
             room.room_model_file.save(
                 relative_path,
-                ContentFile(b''),  # Empty file, just for path reference
-                save=False
+                ContentFile(b""),  # Empty file, just for path reference
+                save=False,
             )
             logger.info(f"[Upload Model] FileField saved: {room.room_model_file}")
         else:
@@ -393,55 +470,62 @@ class RoomViewSet(viewsets.ModelViewSet):
             logger.info(f"[Upload Model] Main file path: {main_file_path}")
             if os.path.exists(main_file_path):
                 logger.info("[Upload Model] Reading file and saving to FileField")
-                with open(main_file_path, 'rb') as f:
+                with open(main_file_path, "rb") as f:
                     file_content = f.read()
-                    logger.info(f"[Upload Model] File content size: {len(file_content)} bytes")
+                    logger.info(
+                        f"[Upload Model] File content size: {len(file_content)} bytes"
+                    )
                     room.room_model_file.save(
-                        relative_path,
-                        ContentFile(file_content),
-                        save=False
+                        relative_path, ContentFile(file_content), save=False
                     )
                 logger.info(f"[Upload Model] FileField saved: {room.room_model_file}")
             else:
-                logger.error(f"[Upload Model] Main file does not exist: {main_file_path}")
-                return Response({"error": f"File not found: {main_file_path}"}, status=500)
-        
+                logger.error(
+                    f"[Upload Model] Main file does not exist: {main_file_path}"
+                )
+                return Response(
+                    {"error": f"File not found: {main_file_path}"}, status=500
+                )
+
         logger.info("[Upload Model] Saving room to database")
         room.save()
         logger.info("[Upload Model] Room saved successfully")
-        
+
         # Build the URL to the main GLTF file
         # The URL should point to the extracted file in the folder structure
         main_file_url = f"{settings.MEDIA_URL}room_models/{room.id}/{relative_path}"
         file_url = request.build_absolute_uri(main_file_url)
         logger.info(f"[Upload Model] File URL: {file_url}")
         logger.info(f"[Upload Model] Main file URL (relative): {main_file_url}")
-        
+
         logger.info("[Upload Model] ===== Upload completed successfully =====")
-        return Response({
-            "status": "model_uploaded",
-            "room_model": room.room_model,
-            "model_file_url": file_url,
-            "room": RoomSerializer(room, context={'request': request}).data
-        })
+        return Response(
+            {
+                "status": "model_uploaded",
+                "room_model": room.room_model,
+                "model_file_url": file_url,
+                "room": RoomSerializer(room, context={"request": request}).data,
+            }
+        )
 
 
 # --- Base Device ViewSet (Position Logic) ---
 class BaseDeviceViewSet(viewsets.ModelViewSet):
     """
     Abstract/Parent ViewSet containing logic shared by ALL device types.
-    
+
     Handles:
     1. Dynamic queryset filtering based on the child model.
     2. Common ownership security checks.
     3. 3D Positioning logic (get/set position).
     4. Position History tracking.
     """
+
     permission_classes = [permissions.IsAuthenticated, IsHomeOwner]
 
     def get_queryset(self):
         """
-        Dynamically retrieves the model class from the serializer and filters 
+        Dynamically retrieves the model class from the serializer and filters
         objects to ensure they belong to the authenticated user's homes.
         """
         model = self.serializer_class.Meta.model
@@ -451,7 +535,7 @@ class BaseDeviceViewSet(viewsets.ModelViewSet):
         """
         Saves a Device with a security check to ensure the target Room belongs to the user.
         """
-        room = serializer.validated_data.get('room')
+        room = serializer.validated_data.get("room")
         if room and room.home.user != self.request.user:
             raise PermissionDenied("You do not own this room.")
         serializer.save()
@@ -461,41 +545,42 @@ class BaseDeviceViewSet(viewsets.ModelViewSet):
         Intercepts the update to check for 'is_on' changes and trigger SCADA.
         """
         old_instance = self.get_object()
-        old_is_on = getattr(old_instance, 'is_on', None)
-        
+        old_is_on = getattr(old_instance, "is_on", None)
+
         # Save the new state
         instance = serializer.save()
-        
-        # Check if is_on changed
-        if hasattr(instance, 'is_on') and getattr(instance, 'is_on') != old_is_on:
-             if hasattr(instance, 'smartmeter'):
-                 from .smartmeter import SmartmeterManager
-                 # Let the manager decide whether to actually start/stop based on global state
-                 if instance.is_on:
-                     SmartmeterManager().start()
-                 else:
-                     SmartmeterManager().close()
 
-                 if instance.tag:
-                     value = 1 if instance.is_on else 0
-                     ScadaManager().send_command(f"{instance.tag}.onoff", value)
-                     
-             elif instance.tag:
-                 value = 1 if instance.is_on else 0
-                 
-                 suffix = "onoff" # Default for Lightbulb and AirConditioner
-                 if hasattr(instance, 'television'):
-                     suffix = "on"
-                 elif hasattr(instance, 'fan'):
-                     suffix = "on"
-                 
-                 ScadaManager().send_command(f"{instance.tag}.{suffix}", value)
-    
-    @action(detail=True, methods=['post'])
+        # Check if is_on changed
+        if hasattr(instance, "is_on") and getattr(instance, "is_on") != old_is_on:
+            if hasattr(instance, "smartmeter"):
+                from .smartmeter import SmartmeterManager
+
+                # Let the manager decide whether to actually start/stop based on global state
+                if instance.is_on:
+                    SmartmeterManager().start()
+                else:
+                    SmartmeterManager().close()
+
+                if instance.tag:
+                    value = 1 if instance.is_on else 0
+                    ScadaManager().send_command(f"{instance.tag}.onoff", value)
+
+            elif instance.tag:
+                value = 1 if instance.is_on else 0
+
+                suffix = "onoff"  # Default for Lightbulb and AirConditioner
+                if hasattr(instance, "television"):
+                    suffix = "on"
+                elif hasattr(instance, "fan"):
+                    suffix = "on"
+
+                ScadaManager().send_command(f"{instance.tag}.{suffix}", value)
+
+    @action(detail=True, methods=["post"])
     def set_position(self, request, pk=None):
         """
         Updates the 3D position (GeoDjango Point) and rotation of the device and logs the change to history.
-        
+
         Body Parameters:
             x (float): Required.
             y (float): Required.
@@ -503,7 +588,7 @@ class BaseDeviceViewSet(viewsets.ModelViewSet):
             rotation_x (float): Optional (default 0).
             rotation_y (float): Optional (default 0).
             rotation_z (float): Optional (default 0).
-            
+
         Returns:
             JSON: The updated coordinates and rotation or an error message.
         """
@@ -511,93 +596,101 @@ class BaseDeviceViewSet(viewsets.ModelViewSet):
         # Ensure we access the parent Device instance for history logging
         device_instance = obj if isinstance(obj, Device) else obj.device_ptr
 
-        x = request.data.get('x')
-        y = request.data.get('y')
-        z = request.data.get('z', 0)
-        rotation_x = request.data.get('rotation_x', 0)
-        rotation_y = request.data.get('rotation_y', 0)
-        rotation_z = request.data.get('rotation_z', 0)
+        x = request.data.get("x")
+        y = request.data.get("y")
+        z = request.data.get("z", 0)
+        rotation_x = request.data.get("rotation_x", 0)
+        rotation_y = request.data.get("rotation_y", 0)
+        rotation_z = request.data.get("rotation_z", 0)
 
         if x is None or y is None:
             return Response({"error": "x and y required"}, status=400)
 
         new_point = Point(float(x), float(y), float(z), srid=4326)
-        
+
         obj.device_pos = new_point
         obj.rotation_x = float(rotation_x)
         obj.rotation_y = float(rotation_y)
         obj.rotation_z = float(rotation_z)
         obj.save()
-        
+
         PositionHistory.objects.create(
-            device=device_instance, 
+            device=device_instance,
             point=new_point,
             rotation_x=float(rotation_x),
             rotation_y=float(rotation_y),
-            rotation_z=float(rotation_z)
+            rotation_z=float(rotation_z),
         )
 
-        return Response({
-            "status": "updated", 
-            "location": {"x": x, "y": y, "z": z},
-            "rotation": {"x": rotation_x, "y": rotation_y, "z": rotation_z}
-        })
+        return Response(
+            {
+                "status": "updated",
+                "location": {"x": x, "y": y, "z": z},
+                "rotation": {"x": rotation_x, "y": rotation_y, "z": rotation_z},
+            }
+        )
 
-    @action(detail=True, methods=['get'])
+    @action(detail=True, methods=["get"])
     def get_position(self, request, pk=None):
         """
         Retrieves the current x, y, z coordinates and rotation of the device.
-        
+
         Returns:
             JSON: {x, y, z, rotation: {x, y, z}} or nulls if position is not set.
         """
         obj = self.get_object()
-        
+
         # Consistent return format
         if obj.device_pos:
-            return Response({
-                "x": obj.device_pos.x, 
-                "y": obj.device_pos.y, 
-                "z": obj.device_pos.z,
+            return Response(
+                {
+                    "x": obj.device_pos.x,
+                    "y": obj.device_pos.y,
+                    "z": obj.device_pos.z,
+                    "rotation": {
+                        "x": obj.rotation_x,
+                        "y": obj.rotation_y,
+                        "z": obj.rotation_z,
+                    },
+                }
+            )
+
+        # If null, return strict null structure
+        return Response(
+            {
+                "x": None,
+                "y": None,
+                "z": None,
                 "rotation": {
                     "x": obj.rotation_x,
                     "y": obj.rotation_y,
-                    "z": obj.rotation_z
-                }
-            })
-        
-        # If null, return strict null structure
-        return Response({
-            "x": None, 
-            "y": None, 
-            "z": None,
-            "rotation": {
-                "x": obj.rotation_x,
-                "y": obj.rotation_y,
-                "z": obj.rotation_z
+                    "z": obj.rotation_z,
+                },
             }
-        })
-    
-    @action(detail=True, methods=['get'])
+        )
+
+    @action(detail=True, methods=["get"])
     def history(self, request, pk=None):
         """
         Retrieves the movement history of the device.
-        
+
         URL: GET /api/homes/{device_type}/{id}/history/
-        
+
         Returns:
             List: serialized PositionHistory records ordered by timestamp (descending).
         """
         obj = self.get_object()
-        
-        # We filter by device_id. 
+
+        # We filter by device_id.
         # Even if 'obj' is an AirConditioner, its .id is the same as the Device .id
-        history_records = PositionHistory.objects.filter(device__id=obj.id).order_by('-timestamp')
-        
+        history_records = PositionHistory.objects.filter(device__id=obj.id).order_by(
+            "-timestamp"
+        )
+
         serializer = PositionHistorySerializer(history_records, many=True)
         return Response(serializer.data)
-    
-    @action(detail=True, methods=['get', 'post', 'put', 'delete'])
+
+    @action(detail=True, methods=["get", "post", "put", "delete"])
     def tag(self, request, pk=None):
         """
         Manage the 'tag' for a device. Handles retrieval, creation, updating, and deletion.
@@ -618,31 +711,34 @@ class BaseDeviceViewSet(viewsets.ModelViewSet):
         obj = self.get_object()
 
         # 1. READ (GET)
-        if request.method == 'GET':
+        if request.method == "GET":
             return Response({"tag": obj.tag})
 
         # 2. CREATE / UPDATE (POST, PUT)
-        elif request.method in ['POST', 'PUT']:
-            new_tag = request.data.get('tag')
+        elif request.method in ["POST", "PUT"]:
+            new_tag = request.data.get("tag")
             if new_tag is None:
                 return Response({"error": "tag parameter is required"}, status=400)
-            
+
             obj.tag = new_tag
             obj.save()
             return Response({"status": "tag updated", "tag": obj.tag})
 
         # 3. DELETE (DELETE)
-        elif request.method == 'DELETE':
+        elif request.method == "DELETE":
             obj.tag = None  # Set to null instead of deleting the device
             obj.save()
             return Response({"status": "tag cleared"})
 
+
 # --- Specific Device ViewSets (Command Style) ---
+
 
 class DeviceViewSet(BaseDeviceViewSet):
     """
     Generic ViewSet for querying the base 'Device' model.
     """
+
     queryset = Device.objects.all()
     serializer_class = DeviceSerializer
 
@@ -651,44 +747,51 @@ class AirConditionerViewSet(BaseDeviceViewSet):
     """
     ViewSet for Air Conditioner devices. Includes specific controls for temperature.
     """
+
     queryset = AirConditioner.objects.all()
     serializer_class = AirConditionerSerializer
 
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=["post"])
     def set_temperature(self, request, pk=None):
         """
         Command: Set the target temperature of the AC.
-        
+
         Body: {"temp": float}
         """
         ac = self.get_object()
-        temp = request.data.get('temp')
-        
+        temp = request.data.get("temp")
+
         if temp is not None:
             ac.temperature = float(temp)
             ac.save()
-            
+
             if ac.tag:
                 ScadaManager().send_command(f"{ac.tag}.set_temp", ac.temperature)
 
-            return Response({"status": "temperature set", "current_temp": ac.temperature})
+            return Response(
+                {"status": "temperature set", "current_temp": ac.temperature}
+            )
         return Response({"error": "temp parameter missing"}, status=400)
 
-    @action(detail=False, methods=['get'], url_path='getACLog')
+    @action(detail=False, methods=["get"], url_path="getACLog")
     def getACLog(self, request):
         """
         Retrieves mock AC logs for a specific date.
-        
+
         URL: GET /api/homes/acs/getACLog/?date=YYYY-MM-DD
         """
-        date_str = request.query_params.get('date')
+        date_str = request.query_params.get("date")
         if not date_str:
-            return Response({"error": "date parameter is required (YYYY-MM-DD)"}, status=400)
-            
+            return Response(
+                {"error": "date parameter is required (YYYY-MM-DD)"}, status=400
+            )
+
         try:
             target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
         except ValueError:
-            return Response({"error": "Invalid date format. Use YYYY-MM-DD"}, status=400)
+            return Response(
+                {"error": "Invalid date format. Use YYYY-MM-DD"}, status=400
+            )
 
         # Seed random for deterministic results per date
         random.seed(f"ac-{date_str}")
@@ -722,16 +825,9 @@ class AirConditionerViewSet(BaseDeviceViewSet):
                 onoff = False
                 temperature = None
 
-            data.append({
-                "timestamp": ts,
-                "onoff": onoff,
-                "temperature": temperature
-            })
+            data.append({"timestamp": ts, "onoff": onoff, "temperature": temperature})
 
-        return Response({
-            "device_name": "SmartAC01",
-            "data": data
-        })
+        return Response({"device_name": "SmartAC01", "data": data})
 
     def perform_update(self, serializer):
         """
@@ -739,59 +835,64 @@ class AirConditionerViewSet(BaseDeviceViewSet):
         """
         old_instance = self.get_object()
         old_is_on = old_instance.is_on
-        
+
         # Save the new state
         instance = serializer.save()
-        
+
         # Check if is_on changed (or just if we want to enforce state on every patch containing is_on)
         if instance.is_on != old_is_on:
-             if instance.tag:
-                 value = 1 if instance.is_on else 0
-                 ScadaManager().send_command(f"{instance.tag}.onoff", value)
+            if instance.tag:
+                value = 1 if instance.is_on else 0
+                ScadaManager().send_command(f"{instance.tag}.onoff", value)
 
 
 class FanViewSet(BaseDeviceViewSet):
     """
     ViewSet for Fan devices. Includes controls for speed and swing mode.
     """
+
     queryset = Fan.objects.all()
     serializer_class = FanSerializer
 
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=["post"])
     def set_speed(self, request, pk=None):
         """
         Command: Set the fan speed.
-        
+
         Body: {"speed": int}
         """
         fan = self.get_object()
-        speed = request.data.get('speed')
+        speed = request.data.get("speed")
 
         if speed is not None:
             fan.speed = int(speed)
             fan.save()
-            
+
             if fan.tag:
                 ScadaManager().send_command(f"{fan.tag}.speed", fan.speed)
 
             return Response({"status": "speed set", "current_speed": fan.speed})
         return Response({"error": "speed parameter missing"}, status=400)
 
-    @action(detail=False, methods=['get'], url_path='getFanLog')
+    @action(detail=False, methods=["get"], url_path="getFanLog")
     def getFanLog(self, request):
         """
         Retrieves mock Fan logs for a specific date.
-        
+
         URL: GET /api/homes/fans/getFanLog/?date=YYYY-MM-DD
         """
-        date_str = request.query_params.get('date')
+        date_str = request.query_params.get("date")
         if not date_str:
-            return Response({"error": "date parameter is required (YYYY-MM-DD)"}, status=400)
-            
+            return Response(
+                {"error": "date parameter is required (YYYY-MM-DD)"}, status=400
+            )
+
         try:
             target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
         except ValueError:
-            return Response({"error": "Invalid date format. Use YYYY-MM-DD"}, status=400)
+            return Response(
+                {"error": "Invalid date format. Use YYYY-MM-DD"}, status=400
+            )
 
         random.seed(f"fan-{date_str}")
 
@@ -831,32 +932,26 @@ class FanViewSet(BaseDeviceViewSet):
                 speed = None
                 swing = False
 
-            data.append({
-                "timestamp": ts,
-                "onoff": onoff,
-                "speed": speed,
-                "swing": swing
-            })
+            data.append(
+                {"timestamp": ts, "onoff": onoff, "speed": speed, "swing": swing}
+            )
 
-        return Response({
-            "device_name": "SmartFan01",
-            "data": data
-        })
+        return Response({"device_name": "SmartFan01", "data": data})
 
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=["post"])
     def set_swing(self, request, pk=None):
         """
         Command: Toggle or set the fan swing mode.
-        
+
         Body: {"swing": boolean}
         """
         fan = self.get_object()
-        swing = request.data.get('swing')
+        swing = request.data.get("swing")
 
         if swing is not None:
             fan.swing = bool(swing)
             fan.save()
-            
+
             if fan.tag:
                 value = 1 if fan.swing else 0
                 ScadaManager().send_command(f"{fan.tag}.shake", value)
@@ -870,64 +965,80 @@ class FanViewSet(BaseDeviceViewSet):
         """
         old_instance = self.get_object()
         old_is_on = old_instance.is_on
-        
+
         # Save the new state
         instance = serializer.save()
-        
+
         # Check if is_on changed
         if instance.is_on != old_is_on:
-             if instance.tag:
-                 value = 1 if instance.is_on else 0
-                 ScadaManager().send_command(f"{instance.tag}.on", value)
+            if instance.tag:
+                value = 1 if instance.is_on else 0
+                ScadaManager().send_command(f"{instance.tag}.on", value)
 
 
 class LightbulbViewSet(BaseDeviceViewSet):
     """
     ViewSet for Smart Lightbulbs. Includes controls for brightness and HEX colour.
     """
+
     queryset = Lightbulb.objects.all()
     serializer_class = LightbulbSerializer
 
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=["post"])
     def set_brightness(self, request, pk=None):
         """
         Command: Set the light brightness level (usually 0-100).
-        
+
         Body: {"brightness": int}
         """
         bulb = self.get_object()
-        brightness = request.data.get('brightness')
+        brightness = request.data.get("brightness")
 
         if brightness is not None:
             bulb.brightness = int(brightness)
             bulb.save()
-            
+
             if bulb.tag:
                 ScadaManager().send_command(f"{bulb.tag}.Brightness", bulb.brightness)
-                
-            return Response({"status": "brightness set", "current_brightness": bulb.brightness})
+
+            return Response(
+                {"status": "brightness set", "current_brightness": bulb.brightness}
+            )
         return Response({"error": "brightness parameter missing"}, status=400)
 
-    @action(detail=False, methods=['get'], url_path='getLightbulbLog')
+    @action(detail=False, methods=["get"], url_path="getLightbulbLog")
     def getLightbulbLog(self, request):
         """
         Retrieves mock lightbulb logs for a specific date.
-        
+
         URL: GET /api/homes/lightbulbs/getLightbulbLog/?date=YYYY-MM-DD
         """
-        date_str = request.query_params.get('date')
+        date_str = request.query_params.get("date")
         if not date_str:
-            return Response({"error": "date parameter is required (YYYY-MM-DD)"}, status=400)
-            
+            return Response(
+                {"error": "date parameter is required (YYYY-MM-DD)"}, status=400
+            )
+
         try:
             target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
         except ValueError:
-            return Response({"error": "Invalid date format. Use YYYY-MM-DD"}, status=400)
+            return Response(
+                {"error": "Invalid date format. Use YYYY-MM-DD"}, status=400
+            )
 
         random.seed(f"light-{date_str}")
 
         # Color palette for realistic smart bulb usage
-        colors = ["#FFFFFF", "#FFD700", "#FFA500", "#FF6347", "#00FF00", "#49c0efff", "#8A2BE2", "#FF69B4"]
+        colors = [
+            "#FFFFFF",
+            "#FFD700",
+            "#FFA500",
+            "#FF6347",
+            "#00FF00",
+            "#49c0efff",
+            "#8A2BE2",
+            "#FF69B4",
+        ]
         warm_colors = ["#FFFFFF", "#FFD700", "#FFA500"]  # Warm tones for evening
         cool_colors = ["#FFFFFF", "#49c0efff"]  # Cool tones for daytime
 
@@ -970,36 +1081,34 @@ class LightbulbViewSet(BaseDeviceViewSet):
                 brightness = None
                 color = None
 
-            data.append({
-                "timestamp": ts,
-                "onoff": onoff,
-                "brightness": brightness,
-                "color": color
-            })
+            data.append(
+                {
+                    "timestamp": ts,
+                    "onoff": onoff,
+                    "brightness": brightness,
+                    "color": color,
+                }
+            )
 
-        return Response({
-            "device_name": "HueLight01",
-            "data": data
-        })
+        return Response({"device_name": "HueLight01", "data": data})
 
-
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=["post"])
     def set_colour(self, request, pk=None):
         """
         Command: Set the light colour.
-        
+
         Body: {"colour": string} (Expected format: Hex Code, e.g., "#FF0000")
         """
         bulb = self.get_object()
-        colour = request.data.get('colour')
+        colour = request.data.get("colour")
 
         if colour:
             bulb.colour = colour
             bulb.save()
-            
+
             if bulb.tag:
-                 ScadaManager().send_command(f"{bulb.tag}.Color", bulb.colour)
-                 
+                ScadaManager().send_command(f"{bulb.tag}.Color", bulb.colour)
+
             return Response({"status": "colour set", "current_colour": bulb.colour})
 
 
@@ -1007,105 +1116,110 @@ class TelevisionViewSet(BaseDeviceViewSet):
     """
     ViewSet for Television devices. Includes controls for volume, channel, and mute.
     """
+
     queryset = Television.objects.all()
     serializer_class = TelevisionSerializer
 
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=["post"])
     def set_volume(self, request, pk=None):
         """
         Command: Set the TV volume.
-        
+
         Body: {"volume": int}
         """
         tv = self.get_object()
-        volume = request.data.get('volume')
+        volume = request.data.get("volume")
 
         if volume is not None:
             tv.volume = int(volume)
             tv.save()
-            
+
             if tv.tag:
                 ScadaManager().send_command(f"{tv.tag}.volume", tv.volume)
 
             return Response({"status": "volume set", "current_volume": tv.volume})
         return Response({"error": "volume parameter missing"}, status=400)
 
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=["post"])
     def set_channel(self, request, pk=None):
         """
         Command: Change the TV channel.
-        
+
         Body: {"channel": int}
         """
         tv = self.get_object()
-        channel = request.data.get('channel')
+        channel = request.data.get("channel")
 
         if channel is not None:
             tv.channel = int(channel)
             tv.save()
-            
+
             if tv.tag:
                 ScadaManager().send_command(f"{tv.tag}.channel", tv.channel)
 
             return Response({"status": "channel set", "current_channel": tv.channel})
         return Response({"error": "channel parameter missing"}, status=400)
 
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=["post"])
     def set_mute(self, request, pk=None):
         """
         Command: Set the TV mute status.
-        
+
         Body: {"mute": boolean}
         """
         tv = self.get_object()
-        mute = request.data.get('mute')
+        mute = request.data.get("mute")
 
         if mute is not None:
             tv.is_mute = bool(mute)
             tv.save()
-            
+
             if tv.tag:
                 value = 1 if tv.is_mute else 0
                 ScadaManager().send_command(f"{tv.tag}.mute", value)
 
             return Response({"status": "mute updated", "is_muted": tv.is_mute})
-            
+
     def perform_update(self, serializer):
         """
         Intercepts the update to check for 'is_on' changes and trigger SCADA.
         """
         old_instance = self.get_object()
         old_is_on = old_instance.is_on
-        
+
         # Save the new state
         instance = serializer.save()
-        
+
         # Check if is_on changed
         if instance.is_on != old_is_on:
-             if instance.tag:
-                 value = 1 if instance.is_on else 0
-                 ScadaManager().send_command(f"{instance.tag}.on", value)
+            if instance.tag:
+                value = 1 if instance.is_on else 0
+                ScadaManager().send_command(f"{instance.tag}.on", value)
 
-    @action(detail=False, methods=['get'], url_path='getTVLog')
+    @action(detail=False, methods=["get"], url_path="getTVLog")
     def getTVLog(self, request):
         """
         Retrieves mock TV logs for a specific date.
-        
+
         URL: GET /api/homes/tvs/getTVLog/?date=YYYY-MM-DD
         """
-        date_str = request.query_params.get('date')
+        date_str = request.query_params.get("date")
         if not date_str:
-            return Response({"error": "date parameter is required (YYYY-MM-DD)"}, status=400)
-            
+            return Response(
+                {"error": "date parameter is required (YYYY-MM-DD)"}, status=400
+            )
+
         try:
             target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
         except ValueError:
-            return Response({"error": "Invalid date format. Use YYYY-MM-DD"}, status=400)
+            return Response(
+                {"error": "Invalid date format. Use YYYY-MM-DD"}, status=400
+            )
 
         random.seed(f"tv-{date_str}")
 
         # Realistic channel list (news, sports, movies, kids, documentary)
-        morning_channels = [3, 5, 7]       # Morning news channels
+        morning_channels = [3, 5, 7]  # Morning news channels
         afternoon_channels = [12, 15, 20]  # Daytime/kids channels
         evening_channels = [1, 2, 5, 7, 8, 10, 139]  # Prime time channels
 
@@ -1154,27 +1268,28 @@ class TelevisionViewSet(BaseDeviceViewSet):
                 channel = random.choice(morning_channels)
                 is_mute = False
 
-            data.append({
-                "timestamp": ts,
-                "onoff": onoff,
-                "volume": volume,
-                "channel": channel,
-                "is_mute": is_mute
-            })
+            data.append(
+                {
+                    "timestamp": ts,
+                    "onoff": onoff,
+                    "volume": volume,
+                    "channel": channel,
+                    "is_mute": is_mute,
+                }
+            )
 
-        return Response({
-            "device_name": "SmartTV01",
-            "data": data
-        })
+        return Response({"device_name": "SmartTV01", "data": data})
 
 
 # --- Furniture ViewSet ---
+
 
 class FurnitureViewSet(viewsets.ModelViewSet):
     """
     ViewSet for Furniture items (chairs, tables, etc.).
     These are separate from smart devices and only track position/rotation.
     """
+
     serializer_class = FurnitureSerializer
     permission_classes = [permissions.IsAuthenticated, IsHomeOwner]
 
@@ -1182,12 +1297,12 @@ class FurnitureViewSet(viewsets.ModelViewSet):
         return Furniture.objects.filter(room__home__user=self.request.user)
 
     def perform_create(self, serializer):
-        room = serializer.validated_data.get('room')
+        room = serializer.validated_data.get("room")
         if room and room.home.user != self.request.user:
             raise PermissionDenied("You do not own this room.")
         serializer.save()
 
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=["post"])
     def set_position(self, request, pk=None):
         """
         Updates the 3D position and rotation of a furniture item.
@@ -1200,10 +1315,10 @@ class FurnitureViewSet(viewsets.ModelViewSet):
         """
         obj = self.get_object()
 
-        x = request.data.get('x')
-        y = request.data.get('y')
-        z = request.data.get('z', 0)
-        rotation_y = request.data.get('rotation_y', 0)
+        x = request.data.get("x")
+        y = request.data.get("y")
+        z = request.data.get("z", 0)
+        rotation_y = request.data.get("rotation_y", 0)
 
         if x is None or y is None:
             return Response({"error": "x and y required"}, status=400)
@@ -1212,13 +1327,15 @@ class FurnitureViewSet(viewsets.ModelViewSet):
         obj.rotation_y = float(rotation_y)
         obj.save()
 
-        return Response({
-            "status": "updated",
-            "location": {"x": x, "y": y, "z": z},
-            "rotation": {"y": rotation_y}
-        })
+        return Response(
+            {
+                "status": "updated",
+                "location": {"x": x, "y": y, "z": z},
+                "rotation": {"y": rotation_y},
+            }
+        )
 
-    @action(detail=True, methods=['get'])
+    @action(detail=True, methods=["get"])
     def get_position(self, request, pk=None):
         """
         Retrieves the current position and rotation of a furniture item.
@@ -1226,34 +1343,38 @@ class FurnitureViewSet(viewsets.ModelViewSet):
         obj = self.get_object()
 
         if obj.device_pos:
-            return Response({
-                "x": obj.device_pos.x,
-                "y": obj.device_pos.y,
-                "z": obj.device_pos.z,
-                "rotation": {"y": obj.rotation_y}
-            })
+            return Response(
+                {
+                    "x": obj.device_pos.x,
+                    "y": obj.device_pos.y,
+                    "z": obj.device_pos.z,
+                    "rotation": {"y": obj.rotation_y},
+                }
+            )
 
-        return Response({
-            "x": None, "y": None, "z": None,
-            "rotation": {"y": obj.rotation_y}
-        })
-        
+        return Response(
+            {"x": None, "y": None, "z": None, "rotation": {"y": obj.rotation_y}}
+        )
+
+
 class SmartMeterViewSet(BaseDeviceViewSet):
     """
     ViewSet for SmartMeter devices.
     """
+
     queryset = SmartMeter.objects.all()
     serializer_class = SmartMeterSerializer
 
     def perform_update(self, serializer):
         old_instance = self.get_object()
         old_is_on = old_instance.is_on
-        
+
         instance = serializer.save()
-        
+
         if instance.is_on != old_is_on:
             # 1. Start or Stop the periodic feed over WebSocket2Scada
             from .smartmeter import SmartmeterManager
+
             if instance.is_on:
                 SmartmeterManager().start()
             else:
@@ -1268,19 +1389,36 @@ class SmartMeterViewSet(BaseDeviceViewSet):
 class VoiceCommandViewSet(viewsets.ViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
-    @action(detail=False, methods=['post'])
+    @action(detail=False, methods=["post"])
     def command(self, request):
-        command_text = request.data.get('command')
+        command_text = request.data.get("command")
+        if command_text is not None and not isinstance(command_text, str):
+            command_text = str(command_text)
         if not command_text:
             return Response({"error": "Command text is required."}, status=400)
+        raw_execute = request.data.get("execute", True)
+        if isinstance(raw_execute, bool):
+            should_execute = raw_execute
+        else:
+            should_execute = str(raw_execute).lower() == "true"
 
-        # Instantiate service (it will allow DI if needed, or use default factory)
-        service = VoiceAssistantService() 
-        result = service.process_voice_command(request.user, command_text)
-        
+        service = VoiceAssistantService()
+        try:
+            result = service.process_voice_command(
+                request.user,
+                command_text,
+                execute=should_execute,
+            )
+        except Exception as e:
+            logger.exception("Voice command processing failed")
+            err = {"error": "Voice command processing failed."}
+            if settings.DEBUG:
+                err["detail"] = str(e)
+            return Response(err, status=500)
+
         return Response(result)
-    
-    @action(detail=False, methods=['post'])
+
+    @action(detail=False, methods=["post"])
     def transcribe(self, request):
         """
         Accepts an audio file upload and transcribes it using Groq Whisper API.
@@ -1289,14 +1427,19 @@ class VoiceCommandViewSet(viewsets.ViewSet):
         import os
         import tempfile
 
-        audio_file = request.FILES.get('audio')
+        audio_file = request.FILES.get("audio")
         if not audio_file:
             return Response({"error": "Audio file is required."}, status=400)
 
-        should_execute = request.data.get('execute', 'false').lower() == 'true'
+        raw_execute = request.data.get("execute", False)
+        if isinstance(raw_execute, bool):
+            should_execute = raw_execute
+        else:
+            should_execute = str(raw_execute).lower() == "true"
 
         try:
             from groq import Groq
+
             api_key = os.getenv("GROQ_API_KEY")
             if not api_key:
                 return Response({"error": "Groq API key not configured."}, status=500)
@@ -1304,7 +1447,7 @@ class VoiceCommandViewSet(viewsets.ViewSet):
             client = Groq(api_key=api_key)
 
             # Write uploaded audio to a temp file (Groq SDK needs a file path)
-            ext = os.path.splitext(audio_file.name)[1] if audio_file.name else '.webm'
+            ext = os.path.splitext(audio_file.name)[1] if audio_file.name else ".webm"
             with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
                 for chunk in audio_file.chunks():
                     tmp.write(chunk)
@@ -1338,11 +1481,13 @@ class VoiceCommandViewSet(viewsets.ViewSet):
         except Exception as e:
             return Response({"error": f"Transcription failed: {str(e)}"}, status=500)
 
+
 class NPCChatViewSet(viewsets.ViewSet):
     """NPC conversational chat powered by LLM."""
+
     permission_classes = [permissions.IsAuthenticated]
 
-    @action(detail=False, methods=['post'])
+    @action(detail=False, methods=["post"])
     def chat(self, request):
         """
         Send a message to an NPC and get an LLM-powered response.
@@ -1352,15 +1497,15 @@ class NPCChatViewSet(viewsets.ViewSet):
         """
         from .npc_chat import chat_with_npc
 
-        npc_id = request.data.get('npc_id')
-        message = request.data.get('message')
+        npc_id = request.data.get("npc_id")
+        message = request.data.get("message")
         if not npc_id or not message:
             return Response({"error": "npc_id and message are required."}, status=400)
 
         result = chat_with_npc(npc_id, message)
         return Response(result)
 
-    @action(detail=False, methods=['post'])
+    @action(detail=False, methods=["post"])
     def reset(self, request):
         """
         Reset conversation history for an NPC.
@@ -1369,14 +1514,14 @@ class NPCChatViewSet(viewsets.ViewSet):
         """
         from .npc_chat import reset_history
 
-        npc_id = request.data.get('npc_id')
+        npc_id = request.data.get("npc_id")
         if not npc_id:
             return Response({"error": "npc_id is required."}, status=400)
 
         reset_history(npc_id)
         return Response({"status": "reset", "npc_id": npc_id})
 
-    @action(detail=False, methods=['post'])
+    @action(detail=False, methods=["post"])
     def greeting(self, request):
         """
         Get an instant greeting for an NPC (no LLM call).
@@ -1385,14 +1530,14 @@ class NPCChatViewSet(viewsets.ViewSet):
         """
         from .npc_chat import get_greeting
 
-        npc_id = request.data.get('npc_id')
+        npc_id = request.data.get("npc_id")
         if not npc_id:
             return Response({"error": "npc_id is required."}, status=400)
 
         greeting_text = get_greeting(npc_id)
         return Response({"npc_id": npc_id, "greeting": greeting_text})
 
-    @action(detail=False, methods=['post'])
+    @action(detail=False, methods=["post"])
     def farewell(self, request):
         """
         Get an instant farewell for an NPC (no LLM call).
@@ -1401,7 +1546,7 @@ class NPCChatViewSet(viewsets.ViewSet):
         """
         from .npc_chat import get_farewell, reset_history
 
-        npc_id = request.data.get('npc_id')
+        npc_id = request.data.get("npc_id")
         if not npc_id:
             return Response({"error": "npc_id is required."}, status=400)
 
@@ -1414,6 +1559,7 @@ class AutomationViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing Automations.
     """
+
     serializer_class = AutomationSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -1427,18 +1573,20 @@ class AutomationViewSet(viewsets.ModelViewSet):
         """
         Ensure the user owns the device they are attaching an automation to.
         """
-        device = serializer.validated_data['device']
+        device = serializer.validated_data["device"]
         if device.room.home.user != self.request.user:
             raise PermissionDenied("You do not own this device.")
         instance = serializer.save()
-        
+
         if instance.sunrise_sunset:
-             from .services import update_automation_solar_time
-             update_automation_solar_time(instance)
+            from .services import update_automation_solar_time
+
+            update_automation_solar_time(instance)
 
     def perform_update(self, serializer):
         instance = serializer.save()
-        
+
         if instance.sunrise_sunset:
-             from .services import update_automation_solar_time
-             update_automation_solar_time(instance)
+            from .services import update_automation_solar_time
+
+            update_automation_solar_time(instance)

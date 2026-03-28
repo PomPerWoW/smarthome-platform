@@ -146,7 +146,7 @@ export class VoicePanelSystem extends createSystem({
         if (micButton && statusText) {
           if (status === "listening") {
             micButton.setProperties({ backgroundColor: "#ef4444" }); // Red
-            statusText.setProperties({ text: "Listening..." });
+            statusText.setProperties({ text: "Tap to stop listening" });
             if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
           } else if (status === "processing") {
             micButton.setProperties({ backgroundColor: "#eab308" }); // Yellow/Orange
@@ -183,9 +183,10 @@ export class VoicePanelSystem extends createSystem({
             this.dashboardHooks?.onStatus?.("Processing");
             this.dashboardHooks?.onTyping?.("Processing...");
           } else {
-            // idle
+            // idle — always refresh header (otherwise "Listening" / "Processing" sticks)
             this.dialogue.hideTyping();
             this.dashboardHooks?.onTypingEnd?.();
+            this.dialogue.setStatus("Ready", "#94a3b8");
             this.dashboardHooks?.onStatus?.("Idle");
 
             if (payload?.success && payload.action && payload.device) {
@@ -263,13 +264,31 @@ export class VoicePanelSystem extends createSystem({
               }
               // Close dialogue after goodbye message
               setTimeout(() => this.beginClosing(), 1000);
+            } else if (payload?.serverError) {
+              this.dialogue.setStatus("Server error", "#ef4444");
+              const errMsg =
+                "The voice service failed (server error). Make sure the backend on port 5500 is running the latest code, then tap the mic to try again.";
+              this.dialogue.addAssistantMessage(errMsg);
+              this.dashboardHooks?.onAssistantMessage?.(errMsg);
+              this.inActiveConversation = false;
+              sceneNotify({
+                title: "Voice service error",
+                description: "Check backend logs for /api/homes/voice/command/",
+                severity: "error",
+                icon: SN_ICONS.alertCircle,
+                iconBg: "rgba(239,68,68,0.15)",
+                iconFg: "#ef4444",
+              });
+              // Close dialogue after showing error
+              setTimeout(() => this.beginClosing(), 3000);
             } else if (payload?.noMatch) {
+              this.dialogue.setStatus("Not recognized", "#f59e0b");
               const noMatchMessage =
                 "Sorry, I didn't understand that. Could you try again?";
               this.dialogue.addAssistantMessage(noMatchMessage);
               this.dashboardHooks?.onAssistantMessage?.(noMatchMessage);
-              // Stay in conversation, robot will ask follow-up
-              this.inActiveConversation = true;
+              // Mic is not listening after idle — show idle mic, not "click to stop"
+              this.inActiveConversation = false;
               sceneNotify({
                 title: "Command not recognized",
                 description: 'Try rephrasing — e.g. "Turn on the fan"',
@@ -336,15 +355,15 @@ export class VoicePanelSystem extends createSystem({
       `[VoicePanel] 🎤 Mic clicked — current state: ${DialogueState[this.dialogueState]}, voice status: ${this.currentStatus}, inActiveConversation: ${this.inActiveConversation}`,
     );
 
-    // If currently listening or processing, stop it and close dialogue
-    // This handles the case where robot auto-started listening after asking "anything else?"
-    if (
-      this.currentStatus === "listening" ||
-      this.currentStatus === "processing"
-    ) {
-      console.log("[VoicePanel] Stopping active listening/processing");
-      this.voiceSystem.toggleListening();
-      // Clear instruction session state in RobotAssistantSystem
+            // If currently listening or processing, stop it and close dialogue
+            // This handles the case where robot auto-started listening after asking "anything else?"
+            if (
+              this.currentStatus === "listening" ||
+              this.currentStatus === "processing"
+            ) {
+              console.log("[VoicePanel] Stopping active listening/processing");
+              this.voiceSystem.forceStopListening();
+              // Clear instruction session state in RobotAssistantSystem
       const robotSystem = (globalThis as any).__robotAssistantSystem;
       if (robotSystem) {
         robotSystem.inInstructionSession = false;
@@ -460,14 +479,15 @@ export class VoicePanelSystem extends createSystem({
       robotSystem.pendingInstructionText = null;
     }
 
-    // Stop listening when closing
-    if (
-      this.currentStatus === "listening" ||
-      this.currentStatus === "processing"
-    ) {
-      console.log("[VoicePanel] Stopping listening during close");
-      this.voiceSystem.toggleListening();
-    }
+            // Stop listening when closing
+            if (
+              this.currentStatus === "listening" ||
+              this.currentStatus === "processing" ||
+              this.inActiveConversation
+            ) {
+              console.log("[VoicePanel] Stopping listening during close");
+              this.voiceSystem.forceStopListening();
+            }
 
     // Explicitly reset button to idle state (blue) when closing
     if (this.micButtonRef && this.statusTextRef) {

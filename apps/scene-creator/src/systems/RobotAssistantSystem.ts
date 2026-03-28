@@ -11,6 +11,7 @@ import {
 import { Box3, Quaternion, Raycaster, SkinnedMesh, Vector3 } from "three";
 import { SkeletonUtils } from "three-stdlib";
 import { RobotAssistantComponent } from "../components/RobotAssistantComponent";
+import { getRobotInitialSpawnWorldPosition } from "../config/robotSpawn";
 import {
   clampToWalkableArea,
   getRoomBounds,
@@ -48,8 +49,18 @@ const FADE_DURATION = 0.2;
 const WALK_VELOCITY = 0.5; // Slower than user-controlled avatars
 const ROTATE_SPEED = 0.15; // Rotation speed for turning
 const WAYPOINT_REACH_DISTANCE = 0.5; // How close to get to waypoint before picking new one
-/** When walking to user, stop when within this distance from user camera (comfortable speaking distance). */
-const REACH_USER_DISTANCE = 1.8;
+/** Standoff ring around a device (room-local metres), not user personal space. */
+const DEVICE_APPROACH_STANDOFF = 1.8;
+/**
+ * Minimum horizontal distance (room-local metres) from the user's camera XZ to the robot centre.
+ * Nav targets sit on this ring so the robot does not steer into the player's body.
+ */
+/** Smaller = robot stops closer; keep above ~1.5 so it still clears the player bubble. */
+const USER_PERSONAL_SPACE_RADIUS = 1.75;
+/** Small slack for float error when testing "arrived" / already-close. */
+const USER_ARRIVAL_SLACK = 0.1;
+/** Looser stop radius for autonomous / instruction patrol (not walk-to-user ring target). */
+const PATROL_STYLE_REACH_DISTANCE = 1.8;
 const WAYPOINT_INTERVAL = 8.0; // Pick new waypoint every 8-12 seconds
 /** Maximum time (seconds) the robot will try to walk to user before giving up. */
 const WALK_TO_USER_TIMEOUT_SEC = 30.0;
@@ -492,11 +503,8 @@ export class RobotAssistantSystem extends createSystem({
    * These are direct world coordinates — do NOT transform through roomLocalToWorld.
    */
   private findRandomSpawnPosition(): { x: number; y: number; z: number } {
-    const bounds = getRoomBounds();
-    const floorY = bounds ? bounds.floorY : 0;
-
-    // Hardcoded world-space spawn position
-    return { x: -2.8, y: floorY, z: 0.5 };
+    const v = getRobotInitialSpawnWorldPosition();
+    return { x: v.x, y: v.y, z: v.z };
   }
 
   /**
@@ -594,11 +602,17 @@ export class RobotAssistantSystem extends createSystem({
       cam.position.y,
       cam.position.z,
     );
-    const safeTarget = this.resolveSafeLocalTarget(
+    const approach = this.computeUserApproachLocalTarget(
       record.model.position.x,
       record.model.position.z,
       userLocal.x,
       userLocal.z,
+    );
+    const safeTarget = this.resolveSafeLocalTarget(
+      record.model.position.x,
+      record.model.position.z,
+      approach.x,
+      approach.z,
     );
     record.entity.setValue(RobotAssistantComponent, "targetX", safeTarget.x);
     record.entity.setValue(RobotAssistantComponent, "targetZ", safeTarget.z);
@@ -639,7 +653,7 @@ export class RobotAssistantSystem extends createSystem({
     const dzAlready = userLocal.z - record.model.position.z;
     const alreadyDist = Math.sqrt(dxAlready * dxAlready + dzAlready * dzAlready);
 
-    if (alreadyDist <= REACH_USER_DISTANCE) {
+    if (alreadyDist <= USER_PERSONAL_SPACE_RADIUS + USER_ARRIVAL_SLACK) {
       console.log(
         `[RobotAssistant] Already close to user (${alreadyDist.toFixed(2)}m) — skipping walk`,
       );
@@ -654,11 +668,17 @@ export class RobotAssistantSystem extends createSystem({
     // Store callback and walk toward a point near user (not on top of them).
     this.onReachedUserCallback = onArrived || null;
 
-    const safeTarget = this.resolveSafeLocalTarget(
+    const approach = this.computeUserApproachLocalTarget(
       record.model.position.x,
       record.model.position.z,
       userLocal.x,
       userLocal.z,
+    );
+    const safeTarget = this.resolveSafeLocalTarget(
+      record.model.position.x,
+      record.model.position.z,
+      approach.x,
+      approach.z,
     );
 
     record.entity.setValue(RobotAssistantComponent, "targetX", safeTarget.x);
@@ -711,8 +731,8 @@ export class RobotAssistantSystem extends createSystem({
     const len = Math.sqrt(toRobotX * toRobotX + toRobotZ * toRobotZ);
     const dirX = len > 1e-5 ? toRobotX / len : 0;
     const dirZ = len > 1e-5 ? toRobotZ / len : -1;
-    const nearDeviceX = targetPos[0] + dirX * REACH_USER_DISTANCE;
-    const nearDeviceZ = targetPos[2] + dirZ * REACH_USER_DISTANCE;
+    const nearDeviceX = targetPos[0] + dirX * DEVICE_APPROACH_STANDOFF;
+    const nearDeviceZ = targetPos[2] + dirZ * DEVICE_APPROACH_STANDOFF;
     const safeTarget = this.resolveSafeLocalTarget(
       record.model.position.x,
       record.model.position.z,
@@ -1173,6 +1193,49 @@ export class RobotAssistantSystem extends createSystem({
     return false;
   }
 
+  /**
+   * Point on the user's personal-space circle (XZ) in the direction from user toward the robot.
+   * Navigating here keeps the robot outside the player's bubble instead of aiming at the camera origin.
+   */
+  private computeUserApproachLocalTarget(
+    robotX: number,
+    robotZ: number,
+    userX: number,
+    userZ: number,
+  ): { x: number; z: number } {
+    let dx = robotX - userX;
+    let dz = robotZ - userZ;
+    let dist = Math.sqrt(dx * dx + dz * dz);
+    if (dist < 1e-4) {
+      dx = 1;
+      dz = 0;
+      dist = 1;
+    }
+    const nx = dx / dist;
+    const nz = dz / dist;
+    return {
+      x: userX + nx * USER_PERSONAL_SPACE_RADIUS,
+      z: userZ + nz * USER_PERSONAL_SPACE_RADIUS,
+    };
+  }
+
+  /** If the robot centre is inside the user's personal space, push it out to the ring (XZ only). */
+  private clampRobotOutsideUserPersonalSpace(
+    robotX: number,
+    robotZ: number,
+    userX: number,
+    userZ: number,
+  ): { x: number; z: number } {
+    const dx = robotX - userX;
+    const dz = robotZ - userZ;
+    const dist = Math.sqrt(dx * dx + dz * dz);
+    if (dist >= USER_PERSONAL_SPACE_RADIUS - 1e-4 || dist < 1e-6) {
+      return { x: robotX, z: robotZ };
+    }
+    const s = USER_PERSONAL_SPACE_RADIUS / dist;
+    return { x: userX + dx * s, z: userZ + dz * s };
+  }
+
   private resolveSafeLocalTarget(
     fromX: number,
     fromZ: number,
@@ -1478,7 +1541,7 @@ export class RobotAssistantSystem extends createSystem({
           const fbDx = userLocal.x - record.model.position.x;
           const fbDz = userLocal.z - record.model.position.z;
           const fbDist = Math.sqrt(fbDx * fbDx + fbDz * fbDz);
-          if (fbDist <= REACH_USER_DISTANCE) {
+          if (fbDist <= USER_PERSONAL_SPACE_RADIUS + USER_ARRIVAL_SLACK) {
             console.warn(
               "[RobotAssistant] walkingToUser but no topic/callback — stopping walk",
             );
@@ -1540,8 +1603,7 @@ export class RobotAssistantSystem extends createSystem({
             continue;
           }
 
-          // Update target to the user's position
-          // The robot will naturally stop at REACH_USER_DISTANCE from this target.
+          // Retarget the ring point around the user (personal space), not the camera origin.
           if (!this.stepAsideTarget && this.trackUserWhileWalking && this.world.camera) {
             const cam = this.world.camera as {
               position: { x: number; y: number; z: number };
@@ -1552,16 +1614,22 @@ export class RobotAssistantSystem extends createSystem({
               cam.position.z,
             );
 
-            const dxTarget = currentUserLocal.x - targetX;
-            const dzTarget = currentUserLocal.z - targetZ;
+            const approach = this.computeUserApproachLocalTarget(
+              record.model.position.x,
+              record.model.position.z,
+              currentUserLocal.x,
+              currentUserLocal.z,
+            );
+            const dxTarget = approach.x - targetX;
+            const dzTarget = approach.z - targetZ;
             const distToDesired = Math.sqrt(dxTarget * dxTarget + dzTarget * dzTarget);
 
             if (distToDesired > 0.1) {
               const safeTarget = this.resolveSafeLocalTarget(
                 record.model.position.x,
                 record.model.position.z,
-                currentUserLocal.x,
-                currentUserLocal.z,
+                approach.x,
+                approach.z,
               );
               entity.setValue(RobotAssistantComponent, "targetX", safeTarget.x);
               entity.setValue(RobotAssistantComponent, "targetZ", safeTarget.z);
@@ -1596,8 +1664,8 @@ export class RobotAssistantSystem extends createSystem({
               continue;
             }
           } else {
-            // Normal walk to user check - measure actual distance to user camera, not target waypoint.
-            // Stop as soon as the robot reaches comfortable speaking distance — never overshoot past it.
+            // Voice approach: stop when inside personal space around the user.
+            // Device walk: stop when close to the fixed device standoff target.
             if (this.world.camera) {
               const cam = this.world.camera as {
                 position: { x: number; y: number; z: number };
@@ -1611,7 +1679,21 @@ export class RobotAssistantSystem extends createSystem({
               const dzUser = userLocal.z - record.model.position.z;
               const distToUser = Math.sqrt(dxUser * dxUser + dzUser * dzUser);
 
-              if (distToUser <= REACH_USER_DISTANCE) {
+              const dxTargetWp = targetX - record.model.position.x;
+              const dzTargetWp = targetZ - record.model.position.z;
+              const distToTargetWp = Math.sqrt(
+                dxTargetWp * dxTargetWp + dzTargetWp * dzTargetWp,
+              );
+
+              const arrivedAtUserBubble =
+                this.trackUserWhileWalking &&
+                distToUser <= USER_PERSONAL_SPACE_RADIUS + USER_ARRIVAL_SLACK;
+              const arrivedAtFixedGoal =
+                !this.trackUserWhileWalking &&
+                this.fixedWalkTarget != null &&
+                distToTargetWp <= WAYPOINT_REACH_DISTANCE + 0.08;
+
+              if (arrivedAtUserBubble || arrivedAtFixedGoal) {
                 const topic = this.pendingInstructionTopic;
                 const callback = this.onReachedUserCallback;
                 this.walkingToUser = false;
@@ -1746,10 +1828,11 @@ export class RobotAssistantSystem extends createSystem({
       let dx = 0;
       let dz = 0;
       const reachDist =
-        (this.walkingToUser && !this.stepAsideTarget) ||
-          this.inInstructionSession
-          ? REACH_USER_DISTANCE
-          : WAYPOINT_REACH_DISTANCE;
+        this.walkingToUser && !this.stepAsideTarget
+          ? WAYPOINT_REACH_DISTANCE
+          : this.inInstructionSession
+            ? PATROL_STYLE_REACH_DISTANCE
+            : WAYPOINT_REACH_DISTANCE;
 
       if (currentState === "Walking" || currentState === "Idle") {
         dx = targetX - record.model.position.x;
@@ -1905,11 +1988,32 @@ export class RobotAssistantSystem extends createSystem({
               ROBOT_RADIUS,
               ROBOT_HEIGHTS,
             );
-            const cLocal = this.worldToRoomLocal(
+            let cLocal = this.worldToRoomLocal(
               constrained.x,
               constrained.y,
               constrained.z,
             );
+            if (
+              this.walkingToUser &&
+              this.trackUserWhileWalking &&
+              this.world.camera
+            ) {
+              const cam = this.world.camera as {
+                position: { x: number; y: number; z: number };
+              };
+              const uLoc = this.worldToRoomLocal(
+                cam.position.x,
+                cam.position.y,
+                cam.position.z,
+              );
+              const pushed = this.clampRobotOutsideUserPersonalSpace(
+                cLocal.x,
+                cLocal.z,
+                uLoc.x,
+                uLoc.z,
+              );
+              cLocal = { x: pushed.x, y: cLocal.y, z: pushed.z };
+            }
             record.model.position.x = cLocal.x;
             record.model.position.z = cLocal.z;
 
@@ -2045,15 +2149,27 @@ export class RobotAssistantSystem extends createSystem({
                       cam.position.y,
                       cam.position.z,
                     );
+                    const approach = this.computeUserApproachLocalTarget(
+                      oldLocalX,
+                      oldLocalZ,
+                      userLocal.x,
+                      userLocal.z,
+                    );
+                    const safe = this.resolveSafeLocalTarget(
+                      oldLocalX,
+                      oldLocalZ,
+                      approach.x,
+                      approach.z,
+                    );
                     entity.setValue(
                       RobotAssistantComponent,
                       "targetX",
-                      userLocal.x,
+                      safe.x,
                     );
                     entity.setValue(
                       RobotAssistantComponent,
                       "targetZ",
-                      userLocal.z,
+                      safe.z,
                     );
                     entity.setValue(
                       RobotAssistantComponent,
@@ -2298,8 +2414,20 @@ export class RobotAssistantSystem extends createSystem({
                 cam.position.y,
                 cam.position.z,
               );
-              entity.setValue(RobotAssistantComponent, "targetX", userLocal.x);
-              entity.setValue(RobotAssistantComponent, "targetZ", userLocal.z);
+              const approach = this.computeUserApproachLocalTarget(
+                currentX,
+                currentZ,
+                userLocal.x,
+                userLocal.z,
+              );
+              const safe = this.resolveSafeLocalTarget(
+                currentX,
+                currentZ,
+                approach.x,
+                approach.z,
+              );
+              entity.setValue(RobotAssistantComponent, "targetX", safe.x);
+              entity.setValue(RobotAssistantComponent, "targetZ", safe.z);
               entity.setValue(RobotAssistantComponent, "stuckTime", 0);
               entity.setValue(
                 RobotAssistantComponent,
@@ -2586,13 +2714,18 @@ export class RobotAssistantSystem extends createSystem({
           `[RobotAssistant] ✅ Fallback step-aside path: (${bestFallback.x.toFixed(2)}, ${bestFallback.z.toFixed(2)})`,
         );
       } else {
-        // Last resort: do not wander randomly. Keep target on the user.
-        // This guarantees the path objective remains "walk to user".
-        const safeTarget = this.resolveSafeLocalTarget(
+        // Last resort: retarget the personal-space ring (not the camera origin).
+        const approach = this.computeUserApproachLocalTarget(
           currentX,
           currentZ,
           userTargetX,
           userTargetZ,
+        );
+        const safeTarget = this.resolveSafeLocalTarget(
+          currentX,
+          currentZ,
+          approach.x,
+          approach.z,
         );
         this.stepAsideTarget = { x: safeTarget.x, z: safeTarget.z };
         entity.setValue(RobotAssistantComponent, "targetX", safeTarget.x);

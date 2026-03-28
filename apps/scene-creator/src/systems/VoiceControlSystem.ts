@@ -11,7 +11,12 @@ export type VoiceIdlePayload = {
   cancelled?: boolean;
   action?: string;
   device?: string;
+  deviceId?: string;
+  commandText?: string;
+  executeAfterMovement?: boolean;
   noMatch?: boolean;
+  /** Backend request failed (e.g. HTTP 500) — refresh UI and robot patrol. */
+  serverError?: boolean;
   instructionTopic?: string;
   instructionText?: string; // Dynamic instruction text from backend (e.g., for device_info)
   endSession?: boolean;
@@ -62,21 +67,27 @@ export class VoiceControlSystem {
   private analyser: any = null;
   private silenceCheckInterval: any = null;
   private safetyTimeout: any = null;
-  private silenceStart: number = 0;
-  private readonly SILENCE_DURATION = 800; // 800ms of silence before auto-stop
+  /** Quiet period after last sound before auto-stop (Quest mic + word pauses need more headroom). */
+  private readonly SILENCE_DURATION = 1700;
   private readonly MAX_RECORDING_DURATION = 20000; // 20s max recording (increased for longer commands)
-  private readonly SOUND_THRESHOLD = 3; // Lower threshold for better sensitivity
+  /** Time-domain deviation from 128; keep low for quiet speech but not so low that noise flicker resets silence. */
+  private readonly SOUND_THRESHOLD = 4;
+  /** Frequency-domain energy bar; lower = treat more mic output as “still speaking”. */
+  private readonly FREQ_SOUND_THRESHOLD = 6;
   private readonly LISTEN_START_DELAY_MS = 700; // Delay after TTS before starting mic (avoid capturing robot voice)
 
   // Retry logic for native SpeechRecognition
   private retryCount = 0;
   private readonly MAX_RETRIES = 2;
 
-  // Improved transcript handling
-  private readonly RESULT_WAIT_TIMEOUT = 800; // 800ms of no speech activity before auto-processing
+  // Transcript handling
   private readonly NO_ACTIVITY_TIMEOUT = 2000; // 2s with no results at all → stop listening
+  private readonly INTERIM_ONLY_TIMEOUT = 2500; // 2.5s with only interim results, no final → force process
   private readonly MIN_TRANSCRIPT_LENGTH = 2; // Minimum characters to consider valid
   private noActivityTimer: any = null;
+  private interimOnlyTimer: any = null;
+  private nativeSafetyTimeout: any = null;
+  private readonly NATIVE_MAX_LISTEN_MS = 15000; // 15s max for native recognition session
 
   private constructor() {
     const isQuest = /Quest|Oculus/i.test(navigator.userAgent);
@@ -87,10 +98,14 @@ export class VoiceControlSystem {
       console.log("[VoiceControl] Using native SpeechRecognition");
       this.recognition = new SpeechRecognition();
       if (this.recognition) {
-        this.recognition.continuous = true; // Keep listening for full utterance
-        this.recognition.interimResults = true; // Get partial results for responsiveness
+        // continuous=false: Chrome auto-finalizes and stops after one utterance,
+        // preventing the cumulative event.results list that causes duplicate
+        // transcript accumulation, and stopping the timer-reset hang caused
+        // by continuous ambient-noise events.
+        this.recognition.continuous = false;
+        this.recognition.interimResults = true; // Still show partial results for UI feedback
         this.recognition.lang = "en-US";
-        (this.recognition as any).maxAlternatives = 3; // Consider multiple interpretations
+        (this.recognition as any).maxAlternatives = 1;
         this.setupListeners();
       }
     } else {
@@ -128,6 +143,14 @@ export class VoiceControlSystem {
     this.instructionSessionChecker = fn;
   }
 
+  public scheduleStartListeningWithoutGreeting(delayMs: number): void {
+    if (this.listenStartTimeout) clearTimeout(this.listenStartTimeout);
+    this.listenStartTimeout = setTimeout(() => {
+      this.listenStartTimeout = null;
+      this.startListeningWithoutGreeting();
+    }, delayMs);
+  }
+
   /** Start listening without greeting (used after "What would you like to know?" in instruction session). */
   public startListeningWithoutGreeting(): void {
     this.isListening = true;
@@ -141,11 +164,14 @@ export class VoiceControlSystem {
         this.retryCount = 0;
         this.recognition.start();
         this.resetNoActivityTimer();
+        this.startNativeSafetyTimeout();
       } catch (e) {
         console.error(
           "[VoiceControl] startListeningWithoutGreeting failed:",
           e,
         );
+        this.isListening = false;
+        this.notifyStatus("idle");
       }
     }
   }
@@ -193,6 +219,32 @@ export class VoiceControlSystem {
     }
   }
 
+  private clearInterimOnlyTimer() {
+    if (this.interimOnlyTimer) {
+      clearTimeout(this.interimOnlyTimer);
+      this.interimOnlyTimer = null;
+    }
+  }
+
+  private clearNativeSafetyTimeout() {
+    if (this.nativeSafetyTimeout) {
+      clearTimeout(this.nativeSafetyTimeout);
+      this.nativeSafetyTimeout = null;
+    }
+  }
+
+  private startNativeSafetyTimeout() {
+    this.clearNativeSafetyTimeout();
+    this.nativeSafetyTimeout = setTimeout(() => {
+      if (this.isListening && this.recognition) {
+        console.log(
+          `[VoiceControl] Native safety timeout (${this.NATIVE_MAX_LISTEN_MS / 1000}s) — forcing stop.`,
+        );
+        this.recognition.stop();
+      }
+    }, this.NATIVE_MAX_LISTEN_MS);
+  }
+
   /** Start (or restart) a timer that stops recognition if no results arrive at all. */
   private resetNoActivityTimer() {
     this.clearNoActivityTimer();
@@ -211,151 +263,120 @@ export class VoiceControlSystem {
   private setupListeners() {
     if (!this.recognition) return;
 
-    // Track the best final transcript across multiple result events
     let accumulatedFinalTranscript = "";
     let lastInterimTranscript = "";
-    let resultTimeout: any = null;
     let hasReceivedFinal = false;
 
     this.recognition.onresult = async (event: any) => {
-      // Any result means the user is (or was) speaking — reset no-activity timer
+      // Guard: ignore stale events that arrive after we've already stopped
+      if (!this.isListening) return;
+
+      // Any result resets the "no activity at all" timer
       this.resetNoActivityTimer();
 
-      // Collect transcripts from all results, including alternatives
       let interim = "";
-      let final = "";
-      let bestConfidence = 0;
 
-      for (let i = 0; i < event.results.length; i++) {
+      // With continuous=false, event.results only contains results for the
+      // current utterance — no cumulative history from previous sessions.
+      // Only scan new results starting from the last known index.
+      for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i];
 
         if (result.isFinal) {
-          // Try all alternatives (up to maxAlternatives) and pick the best one
-          let bestTranscript = "";
-          let bestConf = 0;
-
-          // SpeechRecognition API provides alternatives as result[0], result[1], etc.
-          for (let alt = 0; alt < 3; alt++) {
-            const altResult = result[alt];
-            if (!altResult) break;
-
-            const transcript = altResult.transcript || "";
-            const confidence = altResult.confidence || 0;
-
-            if (transcript && confidence > bestConf) {
-              bestTranscript = transcript;
-              bestConf = confidence;
-            }
-          }
-
-          // If no alternatives with confidence, use first result
-          if (!bestTranscript && result[0]?.transcript) {
-            bestTranscript = result[0].transcript;
-          }
-
-          // Accumulate final results (speech recognition may split long utterances)
+          const bestTranscript = result[0]?.transcript?.trim() || "";
           if (bestTranscript) {
-            final = bestTranscript;
             accumulatedFinalTranscript +=
-              (accumulatedFinalTranscript ? " " : "") + final.trim();
+              (accumulatedFinalTranscript ? " " : "") + bestTranscript;
             hasReceivedFinal = true;
-            console.log(
-              "[VoiceControl] Final transcript segment:",
-              final,
-              "(confidence:",
-              bestConf,
-              ")",
-            );
+            this.clearInterimOnlyTimer();
+            console.log("[VoiceControl] Final transcript:", bestTranscript);
           }
         } else {
-          // Collect interim results for real-time feedback
-          if (result[0]?.transcript) {
-            interim += result[0].transcript;
-          }
+          interim += result[0]?.transcript || "";
         }
       }
 
       // Show interim results for user feedback
-      if (interim && this.onTranscript) {
-        lastInterimTranscript = interim;
-        this.onTranscript(interim + "...");
+      if (interim) {
+        if (this.onTranscript) this.onTranscript(interim + "...");
       }
 
-      // When we have final results, check if speech has ended
-      if (hasReceivedFinal) {
-        if (this.onTranscript && accumulatedFinalTranscript) {
-          this.onTranscript(accumulatedFinalTranscript);
+      // Final result received — process immediately (continuous=false means
+      // Chrome auto-stops after this, so no more events will come).
+      if (hasReceivedFinal && accumulatedFinalTranscript.trim().length >= this.MIN_TRANSCRIPT_LENGTH) {
+        this.clearNoActivityTimer();
+        this.clearInterimOnlyTimer();
+        this.clearNativeSafetyTimeout();
+
+        if (this.onTranscript) this.onTranscript(accumulatedFinalTranscript.trim());
+
+        console.log(
+          "[VoiceControl] Final result — processing immediately:",
+          accumulatedFinalTranscript,
+        );
+
+        this.isListening = false;
+        this.retryCount = 0;
+
+        const transcriptToProcess = accumulatedFinalTranscript.trim();
+        accumulatedFinalTranscript = "";
+        lastInterimTranscript = "";
+        hasReceivedFinal = false;
+
+        await this.processTranscript(transcriptToProcess);
+        return;
+      }
+
+      // No final yet — only interim results (e.g. browser is slow to finalize).
+      // Only reset the fallback timer when the transcript actually changes;
+      // repeated identical interim events (from ambient noise) must NOT
+      // prevent the timer from firing — that was causing the listening hang.
+      if (interim && !hasReceivedFinal) {
+        const interimChanged = interim !== lastInterimTranscript;
+        if (interimChanged || !this.interimOnlyTimer) {
+          this.clearInterimOnlyTimer();
+          this.interimOnlyTimer = setTimeout(async () => {
+            this.interimOnlyTimer = null;
+            if (!this.isListening) return;
+
+            const transcriptToProcess =
+              accumulatedFinalTranscript.trim() || lastInterimTranscript.trim();
+
+            this.clearNoActivityTimer();
+            this.clearNativeSafetyTimeout();
+
+            if (transcriptToProcess.length >= this.MIN_TRANSCRIPT_LENGTH) {
+              console.log(
+                "[VoiceControl] Interim-only timeout — processing:",
+                transcriptToProcess,
+              );
+              this.recognition?.stop();
+              this.isListening = false;
+              this.retryCount = 0;
+
+              accumulatedFinalTranscript = "";
+              lastInterimTranscript = "";
+              hasReceivedFinal = false;
+
+              await this.processTranscript(transcriptToProcess);
+            } else {
+              this.recognition?.stop();
+              this.isListening = false;
+              speakSeeYouAgain();
+              this.notifyStatus("idle", { cancelled: true });
+
+              accumulatedFinalTranscript = "";
+              lastInterimTranscript = "";
+              hasReceivedFinal = false;
+            }
+          }, this.INTERIM_ONLY_TIMEOUT);
         }
-
-        // If we have a final result and no interim results in this event, speech likely ended
-        // Process immediately instead of waiting
-        if (
-          !interim &&
-          accumulatedFinalTranscript.trim().length >= this.MIN_TRANSCRIPT_LENGTH
-        ) {
-          // Clear any pending timeout since we're processing now
-          if (resultTimeout) {
-            clearTimeout(resultTimeout);
-            resultTimeout = null;
-          }
-          this.clearNoActivityTimer();
-
-          console.log(
-            "[VoiceControl] Speech ended (no interim results), processing immediately:",
-            accumulatedFinalTranscript,
-          );
-          this.recognition?.stop();
-          this.isListening = false;
-          this.retryCount = 0;
-
-          // Reset state before processing
-          const transcriptToProcess = accumulatedFinalTranscript.trim();
-          accumulatedFinalTranscript = "";
-          lastInterimTranscript = "";
-          hasReceivedFinal = false;
-
-          await this.processTranscript(transcriptToProcess);
-          return;
-        }
-
-        // Reset the speech-inactivity timer: if no new results (interim or final)
-        // arrive within RESULT_WAIT_TIMEOUT, the user has likely finished speaking.
-        if (resultTimeout) clearTimeout(resultTimeout);
-        resultTimeout = setTimeout(async () => {
-          // Use accumulated final transcript, or fallback to interim if no final yet
-          const transcriptToProcess =
-            accumulatedFinalTranscript.trim() || lastInterimTranscript.trim();
-
-          this.clearNoActivityTimer();
-
-          if (transcriptToProcess.length >= this.MIN_TRANSCRIPT_LENGTH) {
-            console.log(
-              "[VoiceControl] No new speech for",
-              this.RESULT_WAIT_TIMEOUT,
-              "ms — processing:",
-              transcriptToProcess,
-            );
-            this.recognition?.stop();
-            this.isListening = false;
-            this.retryCount = 0;
-            await this.processTranscript(transcriptToProcess);
-          } else {
-            console.warn(
-              "[VoiceControl] Transcript too short, ignoring:",
-              transcriptToProcess,
-            );
-            this.notifyStatus("idle");
-          }
-
-          // Reset state
-          accumulatedFinalTranscript = "";
-          lastInterimTranscript = "";
-          hasReceivedFinal = false;
-        }, this.RESULT_WAIT_TIMEOUT);
+        lastInterimTranscript = interim;
       }
     };
 
     this.recognition.onerror = (event: any) => {
+      this.clearNativeSafetyTimeout();
       if (event.error === "no-speech") {
         // Auto-retry on no-speech (up to MAX_RETRIES)
         if (this.retryCount < this.MAX_RETRIES) {
@@ -371,7 +392,8 @@ export class VoiceControlSystem {
               } catch (e) {
                 console.error("[VoiceControl] Retry failed:", e);
                 this.isListening = false;
-                this.notifyStatus("idle");
+                speakSeeYouAgain();
+                this.notifyStatus("idle", { cancelled: true });
               }
             }
           }, 300);
@@ -393,33 +415,45 @@ export class VoiceControlSystem {
       }
 
       this.retryCount = 0;
-      this.notifyStatus("idle");
+      this.clearInterimOnlyTimer();
+      speakSeeYouAgain();
+      this.notifyStatus("idle", { cancelled: true });
       this.isListening = false;
     };
 
     this.recognition.onend = () => {
       this.clearNoActivityTimer();
+      this.clearInterimOnlyTimer();
+      this.clearNativeSafetyTimeout();
 
-      // If recognition ended but we're still listening, it might have stopped prematurely
-      // Only reset if we haven't received any final results
-      if (this.isListening && !hasReceivedFinal) {
-        // If we have interim results, try processing them as a fallback
-        if (lastInterimTranscript.trim().length >= this.MIN_TRANSCRIPT_LENGTH) {
+      // With continuous=false this fires after every session end.
+      // Only act if we haven't already processed a result in onresult.
+      if (this.isListening) {
+        const fallback = accumulatedFinalTranscript.trim() || lastInterimTranscript.trim();
+        if (fallback.length >= this.MIN_TRANSCRIPT_LENGTH) {
           console.log(
-            "[VoiceControl] Recognition ended, processing interim transcript:",
-            lastInterimTranscript,
+            "[VoiceControl] Recognition ended — processing via onend fallback:",
+            fallback,
           );
           this.isListening = false;
           this.retryCount = 0;
-          this.processTranscript(lastInterimTranscript.trim());
+          accumulatedFinalTranscript = "";
+          lastInterimTranscript = "";
+          hasReceivedFinal = false;
+          this.processTranscript(fallback);
         } else {
           this.isListening = false;
           this.retryCount = 0;
-          this.notifyStatus("idle");
+          accumulatedFinalTranscript = "";
+          lastInterimTranscript = "";
+          hasReceivedFinal = false;
+          speakSeeYouAgain();
+          this.notifyStatus("idle", { cancelled: true });
         }
+        return;
       }
 
-      // Reset accumulated state
+      // Already processed in onresult — just clean up state
       accumulatedFinalTranscript = "";
       lastInterimTranscript = "";
       hasReceivedFinal = false;
@@ -465,10 +499,7 @@ export class VoiceControlSystem {
           voicePanelSystem.addRobotMessage("What would you like to know?");
         }
         await speakFollowUpWhatQuestion();
-        setTimeout(
-          () => this.startListeningWithoutGreeting(),
-          this.LISTEN_START_DELAY_MS,
-        );
+        this.scheduleStartListeningWithoutGreeting(this.LISTEN_START_DELAY_MS);
         return;
       }
     }
@@ -479,6 +510,7 @@ export class VoiceControlSystem {
       const response =
         await BackendApiClient.getInstance().sendVoiceCommand(
           trimmedTranscript,
+          false,
         );
       console.log("[VoiceControl] Backend response:", response);
 
@@ -494,10 +526,7 @@ export class VoiceControlSystem {
             voicePanelSystem.addRobotMessage("What would you like to know?");
           }
           await speakFollowUpWhatQuestion();
-          setTimeout(
-            () => this.startListeningWithoutGreeting(),
-            this.LISTEN_START_DELAY_MS,
-          );
+          this.scheduleStartListeningWithoutGreeting(this.LISTEN_START_DELAY_MS);
           return;
         }
         this.notifyStatus("idle", {
@@ -513,23 +542,31 @@ export class VoiceControlSystem {
       let noMatch = false;
 
       if (response?.actions && response.actions.length > 0) {
-        // Try to find a successful action
-        const successfulAction = response.actions.find(
-          (a: any) => a.status === "success" && a.action && a.device,
-        );
-
-        if (successfulAction) {
-          action = successfulAction.action;
-          device = successfulAction.device;
-          console.log("[VoiceControl] Command executed successfully:", {
+        // Parse-only phase: extract the first actionable intent and let robot execute after movement.
+        const parsedAction = response.actions.find((a: any) => a.action && a.device);
+        if (parsedAction) {
+          action = parsedAction.action;
+          device = parsedAction.device;
+          const deviceId = parsedAction.device_id;
+          console.log("[VoiceControl] Parsed command intent:", {
             action,
             device,
+            deviceId,
           });
-        } else {
-          console.warn("[VoiceControl] No successful action found in response");
-          this.notifyStatus("idle", { success: false, noMatch: true });
+          this.notifyStatus("idle", {
+            success: true,
+            action,
+            device,
+            deviceId,
+            commandText: trimmedTranscript,
+            executeAfterMovement: true,
+            noMatch: false,
+          });
           return;
         }
+        console.warn("[VoiceControl] No actionable item found in response");
+        this.notifyStatus("idle", { success: false, noMatch: true });
+        return;
       } else {
         noMatch = true;
         console.warn(
@@ -545,7 +582,12 @@ export class VoiceControlSystem {
       });
     } catch (error) {
       console.error("[VoiceControl] Failed to execute voice command:", error);
-      this.notifyStatus("idle", { success: false, noMatch: true });
+      speakSeeYouAgain();
+      this.notifyStatus("idle", {
+        success: false,
+        noMatch: true,
+        serverError: true,
+      });
     }
   }
 
@@ -597,6 +639,11 @@ export class VoiceControlSystem {
       };
 
       this.mediaRecorder.onstop = async () => {
+        if (this.fallbackStopTimeout) {
+          clearTimeout(this.fallbackStopTimeout);
+          this.fallbackStopTimeout = null;
+        }
+
         // Stop timeout
         if (this.safetyTimeout) {
           clearTimeout(this.safetyTimeout);
@@ -609,20 +656,19 @@ export class VoiceControlSystem {
         const audioBlob = new Blob(this.audioChunks, { type: mimeType });
         if (audioBlob.size === 0) {
           console.warn("[VoiceControl] Empty recording — ignoring");
-          this.notifyStatus("idle");
+          speakSeeYouAgain();
+          this.notifyStatus("idle", { cancelled: true });
           this.isListening = false;
           return;
         }
 
         this.notifyStatus("processing");
 
-        let idlePayload: VoiceIdlePayload | undefined;
         try {
-          // Transcribe AND Execute in one call
-          const { transcript, command_result } =
+          const { transcript } =
             await BackendApiClient.getInstance().sendVoiceAudio(
               audioBlob,
-              true,
+              false,
             );
 
           console.log("[VoiceControl] Transcribed:", transcript);
@@ -640,55 +686,16 @@ export class VoiceControlSystem {
               "[VoiceControl] Empty or too short transcript — ignoring:",
               transcript,
             );
-            idlePayload = { success: false, noMatch: true };
-          } else if (command_result?.instruction_topic) {
-            if (command_result.instruction_topic === "yes_more") {
-              this.restartingListening = true;
-              // Notify dialogue in 3D scene
-              const voicePanelSystem = (globalThis as any).__voicePanelSystem;
-              if (
-                voicePanelSystem &&
-                typeof voicePanelSystem.addRobotMessage === "function"
-              ) {
-                voicePanelSystem.addRobotMessage(
-                  "What would you like to know?",
-                );
-              }
-              await speakFollowUpWhatQuestion();
-              setTimeout(
-                () => this.startListeningWithoutGreeting(),
-                this.LISTEN_START_DELAY_MS,
-              );
-              return;
-            }
-            // 3D: RobotAssistantSystem handles all instruction TTS (walk to user, then speak); just set payload
-            idlePayload = {
-              success: true,
-              instructionTopic: command_result.instruction_topic,
-            };
-          } else if (command_result?.actions?.length > 0) {
-            // Try to find a successful action
-            const successfulAction = command_result.actions.find(
-              (a: any) => a.status === "success" && a.action && a.device,
-            );
-
-            if (successfulAction) {
-              idlePayload = {
-                success: true,
-                action: successfulAction.action,
-                device: successfulAction.device,
-              };
-              console.log("[VoiceControl] Command Executed:", idlePayload);
-            } else {
-              console.warn("[VoiceControl] No successful action found");
-              idlePayload = { success: false, noMatch: true };
-            }
+            speakSeeYouAgain();
+            this.notifyStatus("idle", { cancelled: true });
           } else {
-            console.warn("[VoiceControl] Command not recognized");
-            idlePayload = { success: false, noMatch: true };
+            // Reuse the same transcript processing path as native SpeechRecognition.
+            await this.processTranscript(transcript.trim());
           }
         } catch (error) {
           console.error("[VoiceControl] Fallback voice command failed:", error);
+          speakSeeYouAgain();
+          this.notifyStatus("idle", { success: false, noMatch: true, serverError: true });
         } finally {
           if (this.restartingListening) {
             this.restartingListening = false;
@@ -696,8 +703,6 @@ export class VoiceControlSystem {
           }
           if (this.stopRequestedByUser) {
             this.notifyStatus("idle", { cancelled: true });
-          } else {
-            this.notifyStatus("idle", idlePayload);
           }
           this.stopRequestedByUser = false;
           this.isListening = false;
@@ -705,10 +710,15 @@ export class VoiceControlSystem {
       };
 
       this.mediaRecorder.onerror = (event: Event) => {
+        if (this.fallbackStopTimeout) {
+          clearTimeout(this.fallbackStopTimeout);
+          this.fallbackStopTimeout = null;
+        }
         console.error("[VoiceControl] MediaRecorder error:", event);
         stream.getTracks().forEach((t) => t.stop());
         this.stopSilenceDetection();
-        this.notifyStatus("idle");
+        speakSeeYouAgain();
+        this.notifyStatus("idle", { cancelled: true });
         this.isListening = false;
       };
 
@@ -728,7 +738,8 @@ export class VoiceControlSystem {
       this.setupSilenceDetection(stream);
     } catch (err) {
       console.error("[VoiceControl] Failed to start MediaRecorder:", err);
-      this.notifyStatus("idle");
+      speakSeeYouAgain();
+      this.notifyStatus("idle", { cancelled: true });
       this.isListening = false;
     }
   }
@@ -752,16 +763,19 @@ export class VoiceControlSystem {
       const source = this.audioContext.createMediaStreamSource(stream);
       this.analyser = this.audioContext.createAnalyser();
       this.analyser.fftSize = 2048; // Higher FFT size for better frequency analysis
-      this.analyser.smoothingTimeConstant = 0.3; // Lower smoothing for faster silence response
+      this.analyser.smoothingTimeConstant = 0.45; // Slightly smoother — fewer false “silence” ticks on Quest
       source.connect(this.analyser);
 
       const bufferLength = this.analyser.frequencyBinCount;
       const dataArray = new Uint8Array(bufferLength);
       const frequencyData = new Uint8Array(bufferLength);
 
-      this.silenceStart = Date.now();
       let consecutiveSilenceChecks = 0;
-      const REQUIRED_SILENCE_CHECKS = Math.ceil(this.SILENCE_DURATION / 100); // Number of checks needed
+      let heardSpeechThisTake = false;
+      const CHECK_MS = 100;
+      const REQUIRED_SILENCE_CHECKS = Math.ceil(
+        this.SILENCE_DURATION / CHECK_MS,
+      );
 
       this.silenceCheckInterval = setInterval(() => {
         if (!this.analyser) return;
@@ -784,16 +798,15 @@ export class VoiceControlSystem {
         }
         const avgFrequency = freqSum / bufferLength;
 
-        // Consider both amplitude and frequency - speech has both
         const isSoundDetected =
-          avgAmplitude > this.SOUND_THRESHOLD || avgFrequency > 10;
+          avgAmplitude > this.SOUND_THRESHOLD ||
+          avgFrequency > this.FREQ_SOUND_THRESHOLD;
 
         if (isSoundDetected) {
-          this.silenceStart = Date.now();
+          heardSpeechThisTake = true;
           consecutiveSilenceChecks = 0;
-        } else {
+        } else if (heardSpeechThisTake) {
           consecutiveSilenceChecks++;
-          // Require consistent silence over the duration
           if (consecutiveSilenceChecks >= REQUIRED_SILENCE_CHECKS) {
             console.log(
               "[VoiceControl] Consistent silence detected, stopping.",
@@ -801,7 +814,7 @@ export class VoiceControlSystem {
             this.stopFallbackRecording();
           }
         }
-      }, 100);
+      }, CHECK_MS);
     } catch (e) {
       console.error("[VoiceControl] Failed to setup silence detection:", e);
     }
@@ -817,22 +830,82 @@ export class VoiceControlSystem {
       this.safetyTimeout = null;
     }
     if (this.audioContext && this.audioContext.state !== "closed") {
-      this.audioContext.close().catch(() => {});
+      this.audioContext.close().catch(() => { });
     }
     this.audioContext = null;
     this.analyser = null;
   }
 
+  private fallbackStopTimeout: any = null;
+
   private stopFallbackRecording() {
     this.stopSilenceDetection();
     if (this.mediaRecorder && this.mediaRecorder.state !== "inactive") {
-      this.mediaRecorder.stop();
+      try {
+        this.mediaRecorder.stop();
+      } catch (e) {
+        console.error("[VoiceControl] Error stopping MediaRecorder:", e);
+      }
+
+      // Fallback in case onstop doesn't fire
+      if (this.fallbackStopTimeout) clearTimeout(this.fallbackStopTimeout);
+      this.fallbackStopTimeout = setTimeout(() => {
+        if (this.isListening) {
+          console.warn("[VoiceControl] MediaRecorder onstop didn't fire, forcing cleanup");
+          this.isListening = false;
+          if (!this.stopRequestedByUser) {
+            speakSeeYouAgain();
+          }
+          this.stopRequestedByUser = false;
+          this.notifyStatus("idle", { cancelled: true });
+        }
+      }, 1000);
+    } else if (this.isListening) {
+      this.isListening = false;
+      if (!this.stopRequestedByUser) {
+        speakSeeYouAgain();
+      }
+      this.stopRequestedByUser = false;
+      this.notifyStatus("idle", { cancelled: true });
     }
   }
 
   // ---- Public API ----
 
+  private listenStartTimeout: any = null;
+
+  public forceStopListening() {
+    if (this.listenStartTimeout) {
+      clearTimeout(this.listenStartTimeout);
+      this.listenStartTimeout = null;
+    }
+    if (this.isListening) {
+      this.stopRequestedByUser = true;
+      speakSeeYouAgain();
+      if (this.useFallback) {
+        this.stopFallbackRecording();
+      } else if (this.recognition) {
+        this.clearNoActivityTimer();
+        this.clearInterimOnlyTimer();
+        this.clearNativeSafetyTimeout();
+        this.recognition.stop();
+        this.isListening = false;
+        this.notifyStatus("idle", { cancelled: true });
+      }
+    } else {
+      // Even if not currently listening, we might be about to start (e.g. pending timeouts)
+      // Just say goodbye and ensure we are idle.
+      speakSeeYouAgain();
+      this.notifyStatus("idle", { cancelled: true });
+    }
+  }
+
   public async toggleListening() {
+    if (this.listenStartTimeout) {
+      clearTimeout(this.listenStartTimeout);
+      this.listenStartTimeout = null;
+    }
+
     if (this.isListening) {
       // User toggled off: say goodbye (like 2D dashboard) then stop
       speakSeeYouAgain();
@@ -841,6 +914,8 @@ export class VoiceControlSystem {
         this.stopFallbackRecording();
       } else if (this.recognition) {
         this.clearNoActivityTimer();
+        this.clearInterimOnlyTimer();
+        this.clearNativeSafetyTimeout();
         this.recognition.stop();
         this.isListening = false;
         this.notifyStatus("idle", { cancelled: true });
@@ -870,6 +945,7 @@ export class VoiceControlSystem {
       this.retryCount = 0;
       this.recognition.start();
       this.resetNoActivityTimer();
+      this.startNativeSafetyTimeout();
     } catch (e) {
       console.error("Failed to start recognition:", e);
     }

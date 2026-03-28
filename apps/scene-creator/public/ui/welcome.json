@@ -73,7 +73,7 @@
             "type": "custom",
             "children": [
               {
-                "sourceTag": "refreshcwicon",
+                "sourceTag": "moveicon",
                 "type": "custom",
                 "children": [],
                 "properties": {
@@ -84,9 +84,29 @@
             ],
             "properties": {
               "class": "rail-btn",
-              "id": "rail-refresh-btn"
+              "id": "rail-align-room-btn"
             },
             "dataUid": "uid-9"
+          },
+          {
+            "sourceTag": "button",
+            "type": "custom",
+            "children": [
+              {
+                "sourceTag": "refreshcwicon",
+                "type": "custom",
+                "children": [],
+                "properties": {
+                  "class": "rail-icon"
+                },
+                "dataUid": "uid-12"
+              }
+            ],
+            "properties": {
+              "class": "rail-btn",
+              "id": "rail-refresh-btn"
+            },
+            "dataUid": "uid-11"
           },
           {
             "sourceTag": "button",
@@ -99,14 +119,14 @@
                 "properties": {
                   "class": "rail-icon"
                 },
-                "dataUid": "uid-12"
+                "dataUid": "uid-14"
               }
             ],
             "properties": {
               "class": "rail-btn",
               "id": "rail-mic-btn"
             },
-            "dataUid": "uid-11"
+            "dataUid": "uid-13"
           },
           {
             "sourceTag": "button",
@@ -119,14 +139,14 @@
                 "properties": {
                   "class": "rail-icon"
                 },
-                "dataUid": "uid-14"
+                "dataUid": "uid-16"
               }
             ],
             "properties": {
               "class": "rail-btn",
               "id": "rail-xr-btn"
             },
-            "dataUid": "uid-13"
+            "dataUid": "uid-15"
           }
         ],
         "properties": {
@@ -147,7 +167,7 @@
             "properties": {
               "class": "portal-title"
             },
-            "dataUid": "uid-16"
+            "dataUid": "uid-18"
           },
           {
             "type": "container",
@@ -171,19 +191,19 @@
                           "class": "meta-text",
                           "id": "user-email"
                         },
-                        "dataUid": "uid-20"
+                        "dataUid": "uid-22"
                       }
                     ],
                     "properties": {
                       "class": "meta-icon"
                     },
-                    "dataUid": "uid-19"
+                    "dataUid": "uid-21"
                   }
                 ],
                 "properties": {
                   "class": "meta-row"
                 },
-                "dataUid": "uid-18"
+                "dataUid": "uid-20"
               },
               {
                 "type": "container",
@@ -203,25 +223,25 @@
                           "class": "meta-text",
                           "id": "device-stats"
                         },
-                        "dataUid": "uid-23"
+                        "dataUid": "uid-25"
                       }
                     ],
                     "properties": {
                       "class": "meta-icon"
                     },
-                    "dataUid": "uid-22"
+                    "dataUid": "uid-24"
                   }
                 ],
                 "properties": {
                   "class": "meta-row"
                 },
-                "dataUid": "uid-21"
+                "dataUid": "uid-23"
               }
             ],
             "properties": {
               "class": "home-card"
             },
-            "dataUid": "uid-17"
+            "dataUid": "uid-19"
           },
           {
             "sourceTag": "button",
@@ -245,19 +265,19 @@
                           "class": "voice-status",
                           "id": "voice-status"
                         },
-                        "dataUid": "uid-27"
+                        "dataUid": "uid-29"
                       }
                     ],
                     "properties": {
                       "class": "voice-icon"
                     },
-                    "dataUid": "uid-26"
+                    "dataUid": "uid-28"
                   }
                 ],
                 "properties": {
                   "class": "voice-left"
                 },
-                "dataUid": "uid-25"
+                "dataUid": "uid-27"
               },
               {
                 "sourceTag": "chevronrighticon",
@@ -266,14 +286,14 @@
                 "properties": {
                   "class": "arrow-icon"
                 },
-                "dataUid": "uid-28"
+                "dataUid": "uid-30"
               }
             ],
             "properties": {
               "class": "voice-btn",
               "id": "mic-button"
             },
-            "dataUid": "uid-24"
+            "dataUid": "uid-26"
           },
           {
             "sourceTag": "button",
@@ -297,19 +317,19 @@
                           "class": "xr-text",
                           "id": "xr-button-text"
                         },
-                        "dataUid": "uid-32"
+                        "dataUid": "uid-34"
                       }
                     ],
                     "properties": {
                       "class": "voice-icon"
                     },
-                    "dataUid": "uid-31"
+                    "dataUid": "uid-33"
                   }
                 ],
                 "properties": {
                   "class": "voice-left"
                 },
-                "dataUid": "uid-30"
+                "dataUid": "uid-32"
               },
               {
                 "sourceTag": "chevronrighticon",
@@ -318,14 +338,14 @@
                 "properties": {
                   "class": "arrow-icon"
                 },
-                "dataUid": "uid-33"
+                "dataUid": "uid-35"
               }
             ],
             "properties": {
               "class": "xr-btn",
               "id": "xr-button"
             },
-            "dataUid": "uid-29"
+            "dataUid": "uid-31"
           },
           {
             "type": "container",
@@ -344,14 +364,14 @@
                     "properties": {
                       "class": "mode-text"
                     },
-                    "dataUid": "uid-36"
+                    "dataUid": "uid-38"
                   }
                 ],
                 "properties": {
                   "class": "mode-btn-active",
                   "id": "vr-mode-btn"
                 },
-                "dataUid": "uid-35"
+                "dataUid": "uid-37"
               },
               {
                 "sourceTag": "button",
@@ -366,26 +386,26 @@
                     "properties": {
                       "class": "mode-text"
                     },
-                    "dataUid": "uid-38"
+                    "dataUid": "uid-40"
                   }
                 ],
                 "properties": {
                   "class": "mode-btn-inactive",
                   "id": "ar-mode-btn"
                 },
-                "dataUid": "uid-37"
+                "dataUid": "uid-39"
               }
             ],
             "properties": {
               "class": "mode-row"
             },
-            "dataUid": "uid-34"
+            "dataUid": "uid-36"
           }
         ],
         "properties": {
           "class": "content-pane"
         },
-        "dataUid": "uid-15"
+        "dataUid": "uid-17"
       }
     ],
     "properties": {
@@ -894,7 +914,7 @@
         "column": 0
       },
       "end": {
-        "line": 292,
+        "line": 295,
         "column": 6
       }
     },
@@ -924,7 +944,7 @@
         "column": 2
       },
       "end": {
-        "line": 251,
+        "line": 254,
         "column": 8
       }
     },
@@ -1030,72 +1050,72 @@
     },
     "uid-15": {
       "start": {
-        "line": 253,
-        "column": 2
+        "line": 251,
+        "column": 4
       },
       "end": {
-        "line": 291,
-        "column": 8
+        "line": 253,
+        "column": 13
       }
     },
     "uid-16": {
       "start": {
-        "line": 254,
-        "column": 4
+        "line": 252,
+        "column": 6
       },
       "end": {
-        "line": 254,
-        "column": 47
+        "line": 253,
+        "column": 4
       }
     },
     "uid-17": {
       "start": {
         "line": 256,
-        "column": 4
+        "column": 2
       },
       "end": {
-        "line": 265,
-        "column": 10
+        "line": 294,
+        "column": 8
       }
     },
     "uid-18": {
       "start": {
         "line": 257,
-        "column": 6
+        "column": 4
       },
       "end": {
-        "line": 260,
-        "column": 12
+        "line": 257,
+        "column": 47
       }
     },
     "uid-19": {
       "start": {
-        "line": 258,
-        "column": 8
+        "line": 259,
+        "column": 4
       },
       "end": {
-        "line": 260,
-        "column": 6
+        "line": 268,
+        "column": 10
       }
     },
     "uid-20": {
       "start": {
-        "line": 259,
-        "column": 8
+        "line": 260,
+        "column": 6
       },
       "end": {
-        "line": 259,
-        "column": 65
+        "line": 263,
+        "column": 12
       }
     },
     "uid-21": {
       "start": {
         "line": 261,
-        "column": 6
+        "column": 8
       },
       "end": {
-        "line": 264,
-        "column": 12
+        "line": 263,
+        "column": 6
       }
     },
     "uid-22": {
@@ -1104,148 +1124,148 @@
         "column": 8
       },
       "end": {
-        "line": 264,
-        "column": 6
+        "line": 262,
+        "column": 65
       }
     },
     "uid-23": {
       "start": {
-        "line": 263,
-        "column": 8
+        "line": 264,
+        "column": 6
       },
       "end": {
-        "line": 263,
-        "column": 75
+        "line": 267,
+        "column": 12
       }
     },
     "uid-24": {
       "start": {
-        "line": 267,
-        "column": 4
+        "line": 265,
+        "column": 8
       },
       "end": {
-        "line": 273,
-        "column": 13
+        "line": 267,
+        "column": 6
       }
     },
     "uid-25": {
       "start": {
-        "line": 268,
-        "column": 6
+        "line": 266,
+        "column": 8
       },
       "end": {
-        "line": 271,
-        "column": 12
+        "line": 266,
+        "column": 75
       }
     },
     "uid-26": {
       "start": {
-        "line": 269,
-        "column": 8
+        "line": 270,
+        "column": 4
       },
       "end": {
-        "line": 271,
-        "column": 6
+        "line": 276,
+        "column": 13
       }
     },
     "uid-27": {
       "start": {
-        "line": 270,
-        "column": 8
+        "line": 271,
+        "column": 6
       },
       "end": {
-        "line": 270,
-        "column": 73
+        "line": 274,
+        "column": 12
       }
     },
     "uid-28": {
       "start": {
         "line": 272,
-        "column": 6
+        "column": 8
       },
       "end": {
-        "line": 273,
-        "column": 4
+        "line": 274,
+        "column": 6
       }
     },
     "uid-29": {
       "start": {
-        "line": 275,
-        "column": 4
+        "line": 273,
+        "column": 8
       },
       "end": {
-        "line": 281,
-        "column": 13
+        "line": 273,
+        "column": 73
       }
     },
     "uid-30": {
       "start": {
-        "line": 276,
+        "line": 275,
         "column": 6
       },
       "end": {
-        "line": 279,
-        "column": 12
+        "line": 276,
+        "column": 4
       }
     },
     "uid-31": {
       "start": {
-        "line": 277,
-        "column": 8
+        "line": 278,
+        "column": 4
       },
       "end": {
-        "line": 279,
-        "column": 6
+        "line": 284,
+        "column": 13
       }
     },
     "uid-32": {
       "start": {
-        "line": 278,
-        "column": 8
+        "line": 279,
+        "column": 6
       },
       "end": {
-        "line": 278,
-        "column": 65
+        "line": 282,
+        "column": 12
       }
     },
     "uid-33": {
       "start": {
         "line": 280,
-        "column": 6
+        "column": 8
       },
       "end": {
-        "line": 281,
-        "column": 4
+        "line": 282,
+        "column": 6
       }
     },
     "uid-34": {
       "start": {
-        "line": 283,
-        "column": 4
+        "line": 281,
+        "column": 8
       },
       "end": {
-        "line": 290,
-        "column": 10
+        "line": 281,
+        "column": 65
       }
     },
     "uid-35": {
       "start": {
-        "line": 284,
+        "line": 283,
         "column": 6
       },
       "end": {
-        "line": 286,
-        "column": 15
+        "line": 284,
+        "column": 4
       }
     },
     "uid-36": {
       "start": {
-        "line": 285,
-        "column": 8
+        "line": 286,
+        "column": 4
       },
       "end": {
-        "line": 285,
-        "column": 41
+        "line": 293,
+        "column": 10
       }
     },
     "uid-37": {
@@ -1265,6 +1285,26 @@
       },
       "end": {
         "line": 288,
+        "column": 41
+      }
+    },
+    "uid-39": {
+      "start": {
+        "line": 290,
+        "column": 6
+      },
+      "end": {
+        "line": 292,
+        "column": 15
+      }
+    },
+    "uid-40": {
+      "start": {
+        "line": 291,
+        "column": 8
+      },
+      "end": {
+        "line": 291,
         "column": 41
       }
     }

@@ -138,9 +138,10 @@ export class BackendApiClient {
     const response = await api.post<any>(endpoint, payload);
     const newDevice = mapRawDeviceToDevice(response.data);
 
-    // Set position separately if provided
+    // Set position separately if provided — must return the refreshed device so
+    // the store (and renderer) see coordinates, not defaults from mapRawDeviceToDevice.
     if (deviceData.position) {
-      await this.setDevicePosition(newDevice.id, {
+      return await this.setDevicePosition(newDevice.id, {
         x: deviceData.position[0],
         y: deviceData.position[1],
         z: deviceData.position[2],
@@ -329,9 +330,13 @@ export class BackendApiClient {
   }
 
   // ===== Voice Control =====
-  async sendVoiceCommand(command: string): Promise<any> {
+  async sendVoiceCommand(
+    command: string,
+    execute: boolean = true,
+  ): Promise<any> {
     const response = await api.post<any>("/api/homes/voice/command/", {
       command,
+      execute,
     });
     return response.data;
   }
@@ -351,12 +356,17 @@ export class BackendApiClient {
     });
     return response.data;
   }
-  
+
   // ===== NPC Chat =====
   async sendNPCChat(
     npcId: string,
     message: string,
-  ): Promise<{ npc_id: string; npc_name: string; response: string; goodbye: boolean }> {
+  ): Promise<{
+    npc_id: string;
+    npc_name: string;
+    response: string;
+    goodbye: boolean;
+  }> {
     const response = await api.post<any>("/api/homes/npc-chat/chat/", {
       npc_id: npcId,
       message,
