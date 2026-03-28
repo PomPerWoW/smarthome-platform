@@ -76,7 +76,7 @@ export function RoomBlock({
       {/* Room block */}
       <div
         className={cn(
-          "relative w-36 h-28 rounded-lg",
+          "relative w-40 h-32 rounded-xl",
           "border border-border shadow-md",
           "flex flex-col items-center justify-center gap-2 p-3",
           isSelected 
@@ -89,15 +89,15 @@ export function RoomBlock({
         )}
       >
         {/* Room icon */}
-        <DoorOpen className="w-6 h-6 text-primary/70" />
+        <DoorOpen className="w-6 h-6 text-primary/70 shrink-0" />
 
         {/* Room name */}
-        <h4 className="font-medium text-sm text-foreground truncate w-full text-center">
+        <h4 className="font-medium text-sm text-foreground truncate w-full text-center shrink-0">
           {room.name}
         </h4>
 
         {/* Device icons */}
-        <div className="flex gap-1.5 flex-wrap justify-center">
+        <div className="flex gap-1.5 flex-nowrap justify-center items-center overflow-visible">
           {room.devices.slice(0, 4).map((device) => {
             const Icon = deviceIcons[device.type] || Lightbulb;
             return (
