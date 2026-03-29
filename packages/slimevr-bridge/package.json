@@ -1,0 +1,14 @@
+{
+  "name": "@smarthome/slimevr-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "OSC (SlimeVR) → WebSocket JSON bridge for browser WebXR clients",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "osc-min": "^2.1.2",
+    "ws": "^8.18.0"
+  }
+}

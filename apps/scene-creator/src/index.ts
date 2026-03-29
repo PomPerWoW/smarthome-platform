@@ -21,6 +21,7 @@ import { DeviceRendererSystem } from "./systems/DeviceRendererSystem";
 import { DeviceInteractionSystem } from "./systems/DeviceInteractionSystem";
 import { UserControlledAvatarSystem } from "./systems/UserControlledAvatarSystem";
 import { RPMUserControlledAvatarSystem } from "./systems/RPMUserControlledAvatarSystem";
+import { SlimeVRFullBodySystem } from "./systems/SlimeVRFullBodySystem";
 import { RobotAssistantSystem } from "./systems/RobotAssistantSystem";
 import { NPCAvatarSystem } from "./systems/NPCAvatarSystem";
 import { PanelSystem } from "./ui/panel";
@@ -425,6 +426,7 @@ async function main(): Promise<void> {
     .registerSystem(DeviceInteractionSystem)
     .registerSystem(UserControlledAvatarSystem)
     .registerSystem(RPMUserControlledAvatarSystem)
+    .registerSystem(SlimeVRFullBodySystem)
     .registerSystem(RobotAssistantSystem)
     .registerSystem(NPCAvatarSystem)
     .registerSystem(PanelSystem)
@@ -639,13 +641,24 @@ async function main(): Promise<void> {
 
   setAvatarSwitcherCamera(camera);
 
-  // 1) RPM Avatar — disabled (not rendered in scene)
-  // const rpmAvatarSystem = world.getSystem(RPMUserControlledAvatarSystem);
-  // if (rpmAvatarSystem) {
-  //   await rpmAvatarSystem.createRPMUserControlledAvatar("player1", "RPM Avatar", "rpmClip_model1", [-0.6, 0, -1.5]);
-  //   registerAvatar(rpmAvatarSystem as ControllableAvatarSystem, "player1", "RPM Avatar");
-  //   console.log("✅ RPM avatar (RPM_clip.glb)");
-  // }
+  // 1) RPM Avatar — full-body (SlimeVR) + lip sync; SlimeVR bridge optional (?slimevrWs=...)
+  const rpmAvatarSystem = world.getSystem(RPMUserControlledAvatarSystem);
+  const slimeVRSystem = world.getSystem(SlimeVRFullBodySystem);
+  let lipSyncSetEnabled: ((enabled: boolean) => void) | undefined;
+  if (rpmAvatarSystem) {
+    const playerEntity = await rpmAvatarSystem.createRPMUserControlledAvatar(
+      "player1",
+      "RPM Avatar",
+      "rpmClip_model1",
+      [-0.6, 0, -1.5],
+    );
+    registerAvatar(rpmAvatarSystem as ControllableAvatarSystem, "player1", "RPM Avatar");
+    lipSyncSetEnabled = setupLipSyncControlPanel(rpmAvatarSystem);
+    console.log("✅ RPM avatar (MediumRes12.glb) — SlimeVR leg IK when bridge connected");
+    if (slimeVRSystem && playerEntity?.object3D) {
+      slimeVRSystem.setAvatarRoot(playerEntity.object3D);
+    }
+  }
 
   // 2) Skeleton-controlled (bone-only) — disabled
   // const skeletonAvatarSystem = world.getSystem(SkeletonControlledAvatarSystem);
@@ -705,14 +718,16 @@ async function main(): Promise<void> {
     console.log("✅ 4 NPC RPM Avatars (npc/RPM_clip.glb) - stationary");
   }
 
+  if (rpmAvatarSystem && lipSyncSetEnabled) {
+    setOnAvatarSwitch((entry) => {
+      if (entry?.avatarId !== "player1") {
+        rpmAvatarSystem.setMicrophoneMode(false);
+        rpmAvatarSystem.stopSpeaking();
+      }
+      lipSyncSetEnabled(entry?.avatarId === "player1");
+    });
+  }
   setupAvatarSwitcherPanel();
-  // setOnAvatarSwitch((entry) => {
-  //   if (entry?.avatarId !== "player1" && rpmAvatarSystem) {
-  //     rpmAvatarSystem.setMicrophoneMode(false);
-  //     rpmAvatarSystem.stopSpeaking();
-  //   }
-  //   setLipSyncEnabled(entry?.avatarId === "player1");
-  // });
 
   console.log(
     "🎮 Controls: I/K/J/L = Move, Shift = Run, SPACE = Jump. O = switch avatar (when 2+ avatars).",

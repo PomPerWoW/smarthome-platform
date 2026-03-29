@@ -8,16 +8,21 @@ import {
   LoopOnce,
 } from "@iwsdk/core";
 
-import { Box3, MathUtils, Quaternion, SkinnedMesh, Vector3 } from "three";
+import { Box3, Euler, MathUtils, Quaternion, SkinnedMesh, Vector3 } from "three";
 import { SkeletonUtils } from "three-stdlib";
 import { Lipsync, VISEMES } from "wawa-lipsync";
 import { UserControlledAvatarComponent } from "../components/UserControlledAvatarComponent";
-import { clampToWalkableAreaWorld, getRoomBounds } from "../config/navmesh";
+import {
+  clampToWalkableAreaWorld,
+  getRoomBounds,
+  getWorldFloorY,
+} from "../config/navmesh";
 import {
   constrainMovement,
   AVATAR_RADIUS,
   AVATAR_HEIGHTS,
 } from "../config/collision";
+import { getSlimeVRLegTrackingActive } from "../slimevr/slimevrState";
 
 // ============================================================================
 // LIP SYNC CONFIG
@@ -51,6 +56,8 @@ const KEY_LEFT = "j";
 const KEY_RIGHT = "l";
 const DIRECTIONS = [KEY_FORWARD, KEY_BACK, KEY_LEFT, KEY_RIGHT];
 
+const _headYawEuler = new Euler(0, 0, 0, "YXZ");
+
 // ============================================================================
 // AVATAR RECORD
 // ============================================================================
@@ -76,6 +83,8 @@ interface RPMUserControlledAvatarRecord {
   isSleeping: boolean;
   previousActionBeforeSleep: string;
   morphTargetMeshes: SkinnedMesh[];
+  /** World-space: model root Y minus lowest point of skinned bounds (feet on floor). */
+  rootAboveFootWorld: number;
 }
 
 // ============================================================================
@@ -260,6 +269,10 @@ export class RPMUserControlledAvatarSystem extends createSystem({
         console.warn(`[RPMUserControlledAvatar] ⚠️ No lip sync blendshapes found for ${avatarName}`);
       }
 
+      avatarModel.updateMatrixWorld(true);
+      const worldBox = new Box3().setFromObject(avatarModel as any);
+      const rootAboveFootWorld = avatarModel.position.y - worldBox.min.y;
+
       const record: RPMUserControlledAvatarRecord = {
         entity,
         model: avatarModel,
@@ -281,6 +294,7 @@ export class RPMUserControlledAvatarSystem extends createSystem({
         isSleeping: false,
         previousActionBeforeSleep: "Idle",
         morphTargetMeshes,
+        rootAboveFootWorld,
       };
       this.avatarRecords.set(avatarId, record);
 
@@ -681,6 +695,37 @@ export class RPMUserControlledAvatarSystem extends createSystem({
     }
   }
 
+  private isXRPresenting(): boolean {
+    return !!(this as { renderer?: { xr?: { isPresenting?: boolean } } }).renderer?.xr
+      ?.isPresenting;
+  }
+
+  /**
+   * In immersive WebXR, the headset drives the world camera. Keep the player avatar
+   * under the user (floor-aligned) so it reads as "your" body for FBT / third-person.
+   */
+  private syncAvatarToXRUser(record: RPMUserControlledAvatarRecord): void {
+    if (!this.isXRPresenting()) return;
+    if (record.isSitting || record.isSleeping) return;
+
+    const cam = (this.world as { camera?: { position: Vector3; quaternion: Quaternion } })
+      .camera;
+    if (!cam?.position || !cam.quaternion) return;
+
+    const [cx, cz] = clampToWalkableAreaWorld(cam.position.x, cam.position.z);
+    record.model.position.x = cx;
+    record.model.position.z = cz;
+
+    if (!record.isPlayingJump) {
+      const standY = getWorldFloorY() + record.rootAboveFootWorld;
+      record.model.position.y = standY;
+      record.entity.setValue(UserControlledAvatarComponent, "baseY", standY);
+    }
+
+    _headYawEuler.setFromQuaternion(cam.quaternion);
+    record.model.rotation.set(0, _headYawEuler.y + record.forwardOffset, 0);
+  }
+
   private updateCameraTarget(record: RPMUserControlledAvatarRecord, moveX: number, moveZ: number): void {
     if (!this.followCamera) return;
     this.followCamera.position.x += moveX;
@@ -712,12 +757,24 @@ export class RPMUserControlledAvatarSystem extends createSystem({
 
     this.processLipSync();
 
+    this.syncAvatarToXRUser(record);
+
     const directionPressed = DIRECTIONS.some((k) => this.isKeyPressed(k));
     if (!record.isPlayingJump && !record.isPlayingWave && !record.isSitting && !record.isSleeping) {
       let play = "Idle";
-      if (directionPressed && record.toggleRun && record.animationsMap.has("Run")) {
+      const fbtLegs = getSlimeVRLegTrackingActive();
+      if (
+        !fbtLegs &&
+        directionPressed &&
+        record.toggleRun &&
+        record.animationsMap.has("Run")
+      ) {
         play = "Run";
-      } else if (directionPressed && (record.animationsMap.has("Walk") || record.animationsMap.has("Walking"))) {
+      } else if (
+        !fbtLegs &&
+        directionPressed &&
+        (record.animationsMap.has("Walk") || record.animationsMap.has("Walking"))
+      ) {
         play = record.animationsMap.has("Walk") ? "Walk" : "Walking";
       } else if (record.animationsMap.has("Idle")) {
         play = "Idle";
@@ -736,8 +793,16 @@ export class RPMUserControlledAvatarSystem extends createSystem({
       }
     }
 
+    // Desktop / non-XR: IJKL moves avatar and orbits camera. In XR the headset moves the camera.
+    const allowKeyboardLocomotion =
+      !this.isXRPresenting() &&
+      this.followCamera &&
+      !record.isPlayingWave &&
+      !record.isSitting &&
+      !record.isSleeping;
+
     // Lock movement during Jump/Wave/Sit: IJKL pressed but no position/rotation update
-    if (directionPressed && this.followCamera && !record.isPlayingWave && !record.isSitting && !record.isSleeping) {
+    if (directionPressed && allowKeyboardLocomotion) {
       const angleYCameraDirection = Math.atan2(
         this.followCamera.position.x - record.model.position.x,
         this.followCamera.position.z - record.model.position.z
