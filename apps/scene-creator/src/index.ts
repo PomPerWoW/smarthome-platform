@@ -46,7 +46,11 @@ import { WallpaperSystem } from "./systems/WallpaperSystem";
 import { WallpaperCutoutPanelSystem } from "./ui/WallpaperCutoutPanelSystem";
 import { DashboardPanelSystem } from "./ui/DashboardPanelSystem";
 
-import { initializeNavMesh, getRoomBounds, setRoomTransform } from "./config/navmesh";
+import {
+  initializeNavMesh,
+  getRoomBounds,
+  setRoomTransform,
+} from "./config/navmesh";
 import {
   FLOOR_WALK_COLLISION_ROOT_NAME,
   initializeCollision,
@@ -400,10 +404,7 @@ async function main(): Promise<void> {
     roomModel.position.set(-5.2, 0, 3);
 
     let floorWalkRoot: any = null;
-    if (
-      loadedRoomFromManifest &&
-      manifestRoomAssetKey === "room_scene"
-    ) {
+    if (loadedRoomFromManifest && manifestRoomAssetKey === "room_scene") {
       const floorWalkGltf = AssetManager.getGLTF("room_floor_walk");
       if (floorWalkGltf) {
         floorWalkRoot = floorWalkGltf.scene.clone();
@@ -422,7 +423,7 @@ async function main(): Promise<void> {
     // device grab/move interactions. The room is visual-only.
     roomModel.traverse((child: any) => {
       if (child.isMesh) {
-        child.raycast = () => { };
+        child.raycast = () => {};
       }
     });
 
@@ -688,9 +689,15 @@ async function main(): Promise<void> {
       "rpmClip_model1",
       [-0.6, 0, -1.5],
     );
-    registerAvatar(rpmAvatarSystem as ControllableAvatarSystem, "player1", "RPM Avatar");
+    registerAvatar(
+      rpmAvatarSystem as ControllableAvatarSystem,
+      "player1",
+      "RPM Avatar",
+    );
     lipSyncSetEnabled = setupLipSyncControlPanel(rpmAvatarSystem);
-    console.log("✅ RPM avatar (MediumRes12.glb) — SlimeVR leg IK when bridge connected");
+    console.log(
+      "✅ RPM avatar (MediumRes12.glb) — SlimeVR leg IK when bridge connected",
+    );
     if (slimeVRSystem && playerEntity?.object3D) {
       slimeVRSystem.setAvatarRoot(playerEntity.object3D);
     }
@@ -747,10 +754,34 @@ async function main(): Promise<void> {
   const npcAvatarSystem = world.getSystem(NPCAvatarSystem);
   if (npcAvatarSystem) {
     // Math.PI = 180 degrees, Math.PI / 2 = 90 degrees, etc.
-    await npcAvatarSystem.createNPCAvatar("npc1", "NPC Alice", "npc_1", [3.0, 0, -3.5], -Math.PI / 4);
-    await npcAvatarSystem.createNPCAvatar("npc2", "NPC Bob", "npc_2", [4.0, 0, 4.5], Math.PI);
-    await npcAvatarSystem.createNPCAvatar("npc3", "NPC Carol", "npc_3", [-3.5, 0, 2.5], Math.PI / 2);
-    await npcAvatarSystem.createNPCAvatar("npc4", "NPC Mike", "npc_4", [-3.5, 0, -5.0], 0);
+    await npcAvatarSystem.createNPCAvatar(
+      "npc1",
+      "NPC Alice",
+      "npc_1",
+      [3.0, 0, -3.0],
+      -Math.PI / 4,
+    );
+    await npcAvatarSystem.createNPCAvatar(
+      "npc2",
+      "NPC Bob",
+      "npc_2",
+      [4.0, 0, 4.5],
+      Math.PI,
+    );
+    await npcAvatarSystem.createNPCAvatar(
+      "npc3",
+      "NPC Carol",
+      "npc_3",
+      [-3.5, 0, 2.5],
+      Math.PI / 2,
+    );
+    await npcAvatarSystem.createNPCAvatar(
+      "npc4",
+      "NPC Mike",
+      "npc_4",
+      [-3.5, 0, -5.0],
+      0,
+    );
     console.log("✅ 4 NPC RPM Avatars (npc/RPM_clip.glb) - stationary");
   }
 
