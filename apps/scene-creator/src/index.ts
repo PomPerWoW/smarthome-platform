@@ -46,7 +46,11 @@ import { WallpaperCutoutPanelSystem } from "./ui/WallpaperCutoutPanelSystem";
 import { DashboardPanelSystem } from "./ui/DashboardPanelSystem";
 
 import { initializeNavMesh, getRoomBounds, setRoomTransform } from "./config/navmesh";
-import { initializeCollision, updateCollisionTransform } from "./config/collision";
+import {
+  FLOOR_WALK_COLLISION_ROOT_NAME,
+  initializeCollision,
+  updateCollisionTransform,
+} from "./config/collision";
 import { config } from "./config/env";
 import {
   type ControllableAvatarSystem,
@@ -73,6 +77,12 @@ const assets: AssetManifest = {
   },
   room_scene: {
     url: `${import.meta.env.BASE_URL}models/scenes/lab_plan/LabPlan.gltf`,
+    type: AssetType.GLTF,
+    priority: "critical",
+  },
+  /** Cutout floor only — invisible child under LabPlan; used for walk / hasFloorBelow. */
+  room_floor_walk: {
+    url: `${import.meta.env.BASE_URL}models/floor_cutout/FloorMesh.glb`,
     type: AssetType.GLTF,
     priority: "critical",
   },
@@ -304,6 +314,8 @@ async function main(): Promise<void> {
     }
 
     let roomModel: any = null;
+    let loadedRoomFromManifest = false;
+    let manifestRoomAssetKey: string | null = null;
 
     // If a model file URL is provided, load it dynamically
     if (modelFileUrl) {
@@ -369,9 +381,11 @@ async function main(): Promise<void> {
     if (!roomModel) {
       const assetKey =
         ROOM_MODEL_ASSET_MAP[modelName] || ROOM_MODEL_ASSET_MAP["LabPlan"];
+      manifestRoomAssetKey = assetKey;
       const roomGltf = AssetManager.getGLTF(assetKey);
       if (roomGltf) {
         roomModel = roomGltf.scene.clone();
+        loadedRoomFromManifest = true;
         console.log(`✅ Room scene loaded from assets: ${modelName}`);
       } else {
         console.warn(`⚠️ Room scene not available for model: ${modelName}`);
@@ -381,6 +395,25 @@ async function main(): Promise<void> {
 
     // Configure the room model
     roomModel.position.set(-5.2, 0, 3);
+
+    let floorWalkRoot: any = null;
+    if (
+      loadedRoomFromManifest &&
+      manifestRoomAssetKey === "room_scene"
+    ) {
+      const floorWalkGltf = AssetManager.getGLTF("room_floor_walk");
+      if (floorWalkGltf) {
+        floorWalkRoot = floorWalkGltf.scene.clone();
+        floorWalkRoot.name = FLOOR_WALK_COLLISION_ROOT_NAME;
+        floorWalkRoot.visible = false;
+        roomModel.add(floorWalkRoot);
+        console.log("✅ Cutout floor mesh attached for walkability (hidden)");
+      } else {
+        console.warn(
+          "⚠️ room_floor_walk asset missing — using LabPlan floor for walk tests",
+        );
+      }
+    }
 
     // Disable raycasting on all room model meshes so they don't block
     // device grab/move interactions. The room is visual-only.
@@ -400,7 +433,7 @@ async function main(): Promise<void> {
     initializeNavMesh(roomModel, 1.0);
     console.log("✅ NavMesh initialized for room");
 
-    initializeCollision(roomModel);
+    initializeCollision(roomModel, floorWalkRoot);
     console.log("✅ Collision initialized from room model meshes");
 
     (globalThis as any).__labRoomModel = roomModel;

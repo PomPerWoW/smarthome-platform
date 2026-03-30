@@ -2,7 +2,8 @@
  * Mesh-based collision detection using the room model's geometry.
  *
  * Strategy:
- *   - Collects all Mesh children from the loaded room model (LabPlan, etc.).
+ *   - Collects Mesh children from the visible room model for horizontal rays.
+ *   - Optional separate floor-walk subtree (cutout mesh) for downward floor tests only.
  *   - When an entity wants to move, casts horizontal rays from the current
  *     position toward the destination at several heights.
  *   - If a ray hits room geometry within (moveDist + radius), the movement
@@ -20,8 +21,25 @@ import { Box3, Mesh, Object3D, Raycaster, Vector3, Intersection } from "three";
 /** Reference to the original Three.js Mesh.raycast before we overrode it. */
 const _originalRaycast = Mesh.prototype.raycast;
 
-let _collisionMeshes: Mesh[] = [];
+/** Room root used for desk-zone recomputation; includes hidden floor-walk child. */
 let _roomModel: Object3D | null = null;
+
+/** Meshes for horizontal collision and device snapping (excludes floor-walk subtree). */
+let _collisionMeshes: Mesh[] = [];
+/** Meshes for downward `hasFloorBelow` only (cutout floor or full room fallback). */
+let _floorWalkMeshes: Mesh[] = [];
+
+/** Name of the invisible floor-walk GLB root parented under the room (see index.ts). */
+export const FLOOR_WALK_COLLISION_ROOT_NAME = "__floorWalkCollision";
+
+function isUnderFloorWalkCollision(node: Object3D): boolean {
+  let p: Object3D | null = node.parent;
+  while (p) {
+    if (p.name === FLOOR_WALK_COLLISION_ROOT_NAME) return true;
+    p = p.parent;
+  }
+  return false;
+}
 
 const _raycaster = new Raycaster();
 const _origin = new Vector3();
@@ -98,6 +116,7 @@ function buildMergedDeskBoxes(roomModel: Object3D): Box3[] {
 
   roomModel.traverse((child: any) => {
     if (!child.isMesh || !child.geometry) return;
+    if (isUnderFloorWalkCollision(child as Object3D)) return;
     const root = getFurnitureRoot(child as Object3D, roomModel);
     if (!root) return;
 
@@ -113,18 +132,35 @@ function buildMergedDeskBoxes(roomModel: Object3D): Box3[] {
 }
 
 /**
- * Initialize collision detection from the room model's mesh geometry.
- * Should be called **after** the model is loaded and added to the scene.
+ * Initialize collision from the visible room and optional cutout floor for walk tests.
+ * @param roomModel       LabPlan (or full room) root; may include a child named {@link FLOOR_WALK_COLLISION_ROOT_NAME}
+ * @param floorWalkModel  If set, only these meshes are used for downward floor checks; omitted → use all room meshes for both.
  */
-export function initializeCollision(roomModel: Object3D): void {
+export function initializeCollision(
+  roomModel: Object3D,
+  floorWalkModel?: Object3D | null,
+): void {
   _collisionMeshes = [];
+  _floorWalkMeshes = [];
   _roomModel = roomModel;
 
   roomModel.traverse((child: any) => {
-    if (child.isMesh && child.geometry) {
-      _collisionMeshes.push(child as Mesh);
-    }
+    if (!child.isMesh || !child.geometry) return;
+    if (isUnderFloorWalkCollision(child as Object3D)) return;
+    _collisionMeshes.push(child as Mesh);
   });
+
+  if (floorWalkModel) {
+    floorWalkModel.traverse((child: any) => {
+      if (child.isMesh && child.geometry) {
+        _floorWalkMeshes.push(child as Mesh);
+      }
+    });
+  }
+
+  if (_floorWalkMeshes.length === 0) {
+    _floorWalkMeshes = _collisionMeshes.slice();
+  }
 
   // Ensure world matrices are current for raycasting
   roomModel.updateMatrixWorld(true);
@@ -146,8 +182,11 @@ export function initializeCollision(roomModel: Object3D): void {
     });
   }
 
+  const floorSource =
+    floorWalkModel && _floorWalkMeshes.length > 0 ? "cutout floor mesh" : "room meshes";
   console.log(
-    `[Collision] ✅ Initialized with ${_collisionMeshes.length} meshes, ` +
+    `[Collision] ✅ Initialized with ${_collisionMeshes.length} horizontal mesh(es), ` +
+      `${_floorWalkMeshes.length} floor-walk mesh(es) (${floorSource}), ` +
       `${_tableTopZones.length} unified desk-zone(s) from room model`,
   );
 }
@@ -178,28 +217,37 @@ export function updateCollisionTransform(): void {
 
 // ── Internal helpers ───────────────────────────────────────────────────────
 
-/**
- * Cast a single ray against all room meshes using the **original**
- * `Mesh.prototype.raycast` (bypasses the instance-level no-op override).
- * Returns the closest hit or `null`.
- */
-function raycastRoom(
+function raycastAgainstMeshes(
+  meshes: Mesh[],
   origin: Vector3,
   direction: Vector3,
   maxDistance: number,
 ): Intersection | null {
+  if (meshes.length === 0) return null;
   _raycaster.set(origin, direction);
   _raycaster.far = maxDistance;
   _raycaster.near = 0;
 
   const hits: Intersection[] = [];
-  for (const mesh of _collisionMeshes) {
+  for (const mesh of meshes) {
     _originalRaycast.call(mesh, _raycaster, hits);
   }
 
   if (hits.length === 0) return null;
   hits.sort((a, b) => a.distance - b.distance);
   return hits[0];
+}
+
+/**
+ * Cast a single ray against horizontal collision meshes using the **original**
+ * `Mesh.prototype.raycast` (bypasses the instance-level no-op override).
+ */
+function raycastRoom(
+  origin: Vector3,
+  direction: Vector3,
+  maxDistance: number,
+): Intersection | null {
+  return raycastAgainstMeshes(_collisionMeshes, origin, direction, maxDistance);
 }
 
 const _downDir = new Vector3(0, -1, 0);
@@ -209,10 +257,15 @@ const _downDir = new Vector3(0, -1, 0);
  * Casts a ray downwards from a point slightly above the highest given height.
  */
 function hasFloorBelow(pos: Vector3, baseY: number, maxH: number): boolean {
-  if (_collisionMeshes.length === 0) return true;
+  if (_floorWalkMeshes.length === 0) return true;
   _origin.set(pos.x, baseY + maxH, pos.z);
   // Look for a hit within maxH + 0.5 (allowing a slight downward slope/step)
-  const hit = raycastRoom(_origin, _downDir, maxH + 0.5);
+  const hit = raycastAgainstMeshes(
+    _floorWalkMeshes,
+    _origin,
+    _downDir,
+    maxH + 0.5,
+  );
   
   if (hit && hit.face && hit.face.normal) {
       const normalWorld = hit.face.normal.clone().transformDirection(hit.object.matrixWorld);
