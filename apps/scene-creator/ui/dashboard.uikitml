@@ -95,32 +95,6 @@
     gap: 0.4;
   }
 
-
-  .theme-toggle {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 0.4;
-    padding: 0.5 1;
-    background-color: rgba(255, 255, 255, 0.24);
-    border-radius: 1.2;
-    border-width: 0.1;
-    border-color: rgba(255, 255, 255, 0.38);
-    cursor: pointer;
-  }
-
-  .theme-icon {
-    width: 1.3;
-    height: 1.3;
-    color: #f59e0b;
-  }
-
-  .theme-text {
-    font-size: 1.05;
-    font-weight: 500;
-    color: #334155;
-  }
-
   /* ──────────────────────────────────────────────
      Main Body (sidebar + content)
      ────────────────────────────────────────────── */
@@ -652,10 +626,6 @@
     </div>
 
     <div class="header-right">
-      <button class="theme-toggle" id="light-dark-toggle">
-        <SunIcon class="theme-icon" />
-        <span class="theme-text">Light</span>
-      </button>
       <button class="close-btn" id="close-dashboard-btn" title="Close dashboard">
         <XIcon class="close-icon" />
       </button>
@@ -908,6 +878,15 @@
           <GlassesIcon class="rail-icon" />
           <span class="xr-primary-btn-text" id="dash-xr-primary-text">Enter VR</span>
         </button>
+        <span class="section-sub">Body tracking (leg IK)</span>
+        <div class="xr-mode-row">
+          <button class="xr-mode-btn-on" id="dash-body-slimevr-btn" title="SlimeVR WebSocket bridge">
+            <span class="xr-mode-btn-text">SlimeVR</span>
+          </button>
+          <button class="xr-mode-btn-off" id="dash-body-off-btn" title="Animated legs only, no WebSocket">
+            <span class="xr-mode-btn-text">Off</span>
+          </button>
+        </div>
       </div>
     </div>
 

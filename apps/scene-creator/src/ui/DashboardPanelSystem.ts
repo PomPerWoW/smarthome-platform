@@ -30,6 +30,10 @@ import {
   removeAllWallpaper,
 } from "../systems/WallpaperSystem";
 import { WALLPAPER_PRESETS } from "../utils/wallDetection";
+import {
+  getBodyTrackingMode,
+  setBodyTrackingMode,
+} from "../slimevr/slimevrState";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -384,7 +388,6 @@ export class DashboardPanelSystem extends createSystem({
     }
 
     // Search pill – currently decorative; hook up later
-    // Light/dark toggle – decorative for now
     // User settings – decorative for now
   }
 
@@ -718,6 +721,48 @@ export class DashboardPanelSystem extends createSystem({
     if (typeof sub === "function") {
       this.unsubscribeVisibility = sub;
     }
+
+    this.setupBodyTrackingToggle(document);
+  }
+
+  /** SlimeVR WebSocket leg IK vs animation-only legs (see SlimeVRFullBodySystem). */
+  private setupBodyTrackingToggle(document: UIKitDocument): void {
+    const slimevrBtn = document.getElementById(
+      "dash-body-slimevr-btn",
+    ) as UIKit.Container;
+    const offBtn = document.getElementById(
+      "dash-body-off-btn",
+    ) as UIKit.Container;
+
+    const activeBg = "rgba(124, 58, 237, 0.84)";
+    const activeBorder = "rgba(124, 58, 237, 1)";
+    const inactiveBg = "rgba(255, 255, 255, 0.24)";
+    const inactiveBorder = "rgba(255, 255, 255, 0.36)";
+
+    const updateBodyTrackingChrome = () => {
+      const slimevr = getBodyTrackingMode() === "slimevr";
+      slimevrBtn?.setProperties({
+        backgroundColor: slimevr ? activeBg : inactiveBg,
+        borderColor: slimevr ? activeBorder : inactiveBorder,
+      });
+      offBtn?.setProperties({
+        backgroundColor: !slimevr ? activeBg : inactiveBg,
+        borderColor: !slimevr ? activeBorder : inactiveBorder,
+      });
+    };
+
+    updateBodyTrackingChrome();
+
+    slimevrBtn?.addEventListener("click", () => {
+      setBodyTrackingMode("slimevr");
+      updateBodyTrackingChrome();
+      console.log("[DashboardPanel] Body tracking: SlimeVR");
+    });
+    offBtn?.addEventListener("click", () => {
+      setBodyTrackingMode("off");
+      updateBodyTrackingChrome();
+      console.log("[DashboardPanel] Body tracking: off (animated legs only)");
+    });
   }
 
   private setupPlacementSection(document: UIKitDocument): void {

@@ -11,6 +11,7 @@ import {
 import { Box3, MathUtils, SkinnedMesh } from "three";
 import { SkeletonUtils } from "three-stdlib";
 import { NPCAvatarComponent } from "../components/NPCAvatarComponent";
+import { AVATAR_VISUAL_SCALE } from "../config/avatarScale";
 import { getRoomBounds, getWorldFloorY, roomLocalToWorld } from "../config/navmesh";
 import { BackendApiClient } from "../api/BackendApiClient";
 
@@ -632,7 +633,7 @@ export class NPCAvatarSystem extends createSystem({
             }
 
             const npcModel = SkeletonUtils.clone(gltf.scene) as Object3D;
-            npcModel.scale.setScalar(0.8);
+            npcModel.scale.setScalar(AVATAR_VISUAL_SCALE);
             npcModel.position.set(finalX, finalY, finalZ);
             npcModel.rotation.set(0, initialRotation, 0);
             npcModel.visible = true;

@@ -13,7 +13,7 @@ import { aimBoneWorld, findFirstBone, getBoneWorldPosition, measureLegLengths } 
 import { slimeVRPositionToThree } from "../slimevr/coords";
 import { SlimeVRClient, resolveSlimeVRWebSocketUrl } from "../slimevr/SlimeVRClient";
 import {
-  getSlimeVRLegTrackingActive,
+  getBodyTrackingMode,
   setSlimeVRLegTrackingActive,
 } from "../slimevr/slimevrState";
 import { TRACKER_IDS } from "../slimevr/trackerMap";
@@ -54,16 +54,32 @@ export class SlimeVRFullBodySystem extends createSystem({}) {
     this.debugRoot.name = "SlimeVR_Debug";
     this.world.scene.add(this.debugRoot);
 
-    const url = resolveSlimeVRWebSocketUrl();
-    if (url) {
-      this.client = new SlimeVRClient(url, () => setSlimeVRLegTrackingActive(false));
-      this.client.connect();
-      console.log("[SlimeVRFullBody] WebSocket URL:", url);
+    if (getBodyTrackingMode() === "slimevr") {
+      this.ensureClientConnected();
     } else {
-      console.log(
-        "[SlimeVRFullBody] No WebSocket URL (set ?slimevrWs=ws://host:8765 or VITE_SLIMEVR_WS)",
-      );
+      console.log("[SlimeVRFullBody] Body tracking mode is off (animation-only legs).");
     }
+  }
+
+  private ensureClientConnected(): void {
+    if (this.client) return;
+    const url = resolveSlimeVRWebSocketUrl();
+    if (!url) {
+      console.log(
+        "[SlimeVRFullBody] Mode slimevr but no WebSocket URL (?slimevrWs= or VITE_SLIMEVR_WS)",
+      );
+      return;
+    }
+    this.client = new SlimeVRClient(url, () => setSlimeVRLegTrackingActive(false));
+    this.client.connect();
+    console.log("[SlimeVRFullBody] WebSocket URL:", url);
+  }
+
+  private disconnectClient(): void {
+    this.client?.disconnect();
+    this.client = null;
+    setSlimeVRLegTrackingActive(false);
+    for (const g of this.markerById.values()) g.visible = false;
   }
 
   /**
@@ -225,6 +241,13 @@ export class SlimeVRFullBodySystem extends createSystem({}) {
   }
 
   update(_dt: number): void {
+    if (getBodyTrackingMode() === "off") {
+      this.disconnectClient();
+      return;
+    }
+
+    this.ensureClientConnected();
+
     if (!this.client?.isConnected()) {
       setSlimeVRLegTrackingActive(false);
       for (const g of this.markerById.values()) g.visible = false;
@@ -247,10 +270,8 @@ export class SlimeVRFullBodySystem extends createSystem({}) {
   }
 
   destroy(): void {
-    this.client?.disconnect();
-    this.client = null;
+    this.disconnectClient();
     this.world.scene.remove(this.debugRoot);
     this.markerById.clear();
-    setSlimeVRLegTrackingActive(false);
   }
 }

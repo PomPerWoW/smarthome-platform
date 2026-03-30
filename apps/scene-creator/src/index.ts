@@ -22,6 +22,7 @@ import { DeviceInteractionSystem } from "./systems/DeviceInteractionSystem";
 import { UserControlledAvatarSystem } from "./systems/UserControlledAvatarSystem";
 import { RPMUserControlledAvatarSystem } from "./systems/RPMUserControlledAvatarSystem";
 import { SlimeVRFullBodySystem } from "./systems/SlimeVRFullBodySystem";
+import { initBodyTrackingModeFromUrl } from "./slimevr/slimevrState";
 import { RobotAssistantSystem } from "./systems/RobotAssistantSystem";
 import { NPCAvatarSystem } from "./systems/NPCAvatarSystem";
 import { PanelSystem } from "./ui/panel";
@@ -239,6 +240,8 @@ async function main(): Promise<void> {
   );
 
   console.log("✅ World created");
+
+  initBodyTrackingModeFromUrl();
 
   // On desktop without WebXR (no navigator.xr), start a simple fake leg
   // motion so logging + debug panels can be tested without a headset.

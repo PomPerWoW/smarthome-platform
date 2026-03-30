@@ -12,6 +12,7 @@ import { Box3, Euler, MathUtils, Quaternion, SkinnedMesh, Vector3 } from "three"
 import { SkeletonUtils } from "three-stdlib";
 import { Lipsync, VISEMES } from "wawa-lipsync";
 import { UserControlledAvatarComponent } from "../components/UserControlledAvatarComponent";
+import { AVATAR_VISUAL_SCALE } from "../config/avatarScale";
 import {
   clampToWalkableAreaWorld,
   getRoomBounds,
@@ -102,6 +103,8 @@ export class RPMUserControlledAvatarSystem extends createSystem({
   private followCamera: { position: Vector3; getWorldDirection: (target: Vector3) => Vector3; lookAt?: (a: any, b?: any, c?: any) => void } | null = null;
   // When false, this system does not process input or camera (used by avatar switcher)
   private active = true;
+  /** Tracks the avatar's previous XR position to compute collision delta each frame. */
+  private _prevXRModelPos = new Vector3();
 
   // Lip sync
   private lipsyncManager = new Lipsync();
@@ -202,7 +205,7 @@ export class RPMUserControlledAvatarSystem extends createSystem({
       }
 
       const avatarModel = SkeletonUtils.clone(gltf.scene) as Object3D;
-      avatarModel.scale.setScalar(0.5);
+      avatarModel.scale.setScalar(AVATAR_VISUAL_SCALE);
       avatarModel.position.set(position[0], position[1], position[2]);
       avatarModel.rotation.set(0, 0, 0);
 
@@ -713,8 +716,13 @@ export class RPMUserControlledAvatarSystem extends createSystem({
     if (!cam?.position || !cam.quaternion) return;
 
     const [cx, cz] = clampToWalkableAreaWorld(cam.position.x, cam.position.z);
-    record.model.position.x = cx;
-    record.model.position.z = cz;
+
+    // Collision: constrain XR movement the same way keyboard locomotion does.
+    const fromPos = new Vector3(record.model.position.x, record.model.position.y, record.model.position.z);
+    const toPos   = new Vector3(cx, record.model.position.y, cz);
+    const constrained = constrainMovement(fromPos, toPos, AVATAR_RADIUS, AVATAR_HEIGHTS);
+    record.model.position.x = constrained.x;
+    record.model.position.z = constrained.z;
 
     if (!record.isPlayingJump) {
       const standY = getWorldFloorY() + record.rootAboveFootWorld;
@@ -794,25 +802,27 @@ export class RPMUserControlledAvatarSystem extends createSystem({
     }
 
     // Desktop / non-XR: IJKL moves avatar and orbits camera. In XR the headset moves the camera.
+    // Cache followCamera so TypeScript can narrow it as non-null inside conditionals.
+    const followCam = this.followCamera;
     const allowKeyboardLocomotion =
       !this.isXRPresenting() &&
-      this.followCamera &&
+      followCam &&
       !record.isPlayingWave &&
       !record.isSitting &&
       !record.isSleeping;
 
     // Lock movement during Jump/Wave/Sit: IJKL pressed but no position/rotation update
-    if (directionPressed && allowKeyboardLocomotion) {
+    if (directionPressed && allowKeyboardLocomotion && followCam) {
       const angleYCameraDirection = Math.atan2(
-        this.followCamera.position.x - record.model.position.x,
-        this.followCamera.position.z - record.model.position.z
+        followCam.position.x - record.model.position.x,
+        followCam.position.z - record.model.position.z
       );
       const directionOffset = this.directionOffset();
 
       record.rotateQuaternion.setFromAxisAngle(record.rotateAngle, angleYCameraDirection + directionOffset + record.forwardOffset);
       (record.model as any).quaternion.rotateTowards(record.rotateQuaternion, ROTATE_SPEED);
 
-      this.followCamera.getWorldDirection(record.walkDirection);
+      followCam.getWorldDirection(record.walkDirection);
       record.walkDirection.y = 0;
       record.walkDirection.normalize();
       record.walkDirection.applyAxisAngle(record.rotateAngle, directionOffset);
@@ -843,6 +853,19 @@ export class RPMUserControlledAvatarSystem extends createSystem({
       record.model.position.z = clampedZ;
 
       this.updateCameraTarget(record, record.model.position.x - oldX, record.model.position.z - oldZ);
+    } else if (allowKeyboardLocomotion && followCam) {
+      // Idle (no direction key): body yaw follows camera look on the ground plane (view-aligned).
+      followCam.getWorldDirection(record.walkDirection);
+      record.walkDirection.y = 0;
+      if (record.walkDirection.lengthSq() > 1e-8) {
+        record.walkDirection.normalize();
+        const lookYaw = Math.atan2(-record.walkDirection.x, -record.walkDirection.z);
+        record.rotateQuaternion.setFromAxisAngle(
+          record.rotateAngle,
+          lookYaw + record.forwardOffset
+        );
+        (record.model as any).quaternion.rotateTowards(record.rotateQuaternion, ROTATE_SPEED);
+      }
     }
 
   }

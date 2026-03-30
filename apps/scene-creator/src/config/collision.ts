@@ -15,6 +15,7 @@
  * interfering with device grab interactions.
  */
 import { Box3, Mesh, Object3D, Raycaster, Vector3, Intersection } from "three";
+import { AVATAR_VISUAL_SCALE } from "./avatarScale";
 
 // ── Private state ──────────────────────────────────────────────────────────
 
@@ -79,10 +80,11 @@ export const ROBOT_HEIGHTS = [0.02, 0.05, 0.08, 0.12, 0.15, 0.18, 0.22, 0.25, 0.
 /** Robot collision radius (metres). */
 export const ROBOT_RADIUS = 0.15;
 
-/** Human-sized avatars (scaled 0.5, ~85 cm tall). */
-export const AVATAR_HEIGHTS = [0.1, 0.4, 0.7];
+/** Human-sized avatars at AVATAR_VISUAL_SCALE (0.8); heights scaled from former 0.5 baseline × (0.8/0.5). */
+const _avatarScaleFactor = AVATAR_VISUAL_SCALE / 0.5;
+export const AVATAR_HEIGHTS = [0.1, 0.4, 0.7].map((h) => h * _avatarScaleFactor);
 /** Avatar collision radius (metres). */
-export const AVATAR_RADIUS = 0.25;
+export const AVATAR_RADIUS = 0.25 * _avatarScaleFactor;
 
 /** Smart devices / furniture: single check at object centre. */
 export const DEVICE_RADIUS = 0.08;

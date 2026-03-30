@@ -7,10 +7,11 @@ import {
   AnimationAction,
 } from "@iwsdk/core";
 
-import { Box3, Quaternion, Vector3 } from "three";
+import { Box3, Euler, Quaternion, Vector3 } from "three";
 import { SkeletonUtils } from "three-stdlib";
 import { UserControlledAvatarComponent } from "../components/UserControlledAvatarComponent";
-import { clampToWalkableAreaWorld, getRoomBounds } from "../config/navmesh";
+import { clampToWalkableAreaWorld, getRoomBounds, getWorldFloorY } from "../config/navmesh";
+import { AVATAR_VISUAL_SCALE } from "../config/avatarScale";
 import {
   constrainMovement,
   AVATAR_RADIUS,
@@ -33,6 +34,11 @@ const KEY_LEFT = "j";
 const KEY_RIGHT = "l";
 const DIRECTIONS = [KEY_FORWARD, KEY_BACK, KEY_LEFT, KEY_RIGHT];
 
+// Soldier.glb forward vs movement: matches spawn rotation.set(0, Math.PI, 0)
+const USER_AVATAR_FORWARD_OFFSET = Math.PI;
+
+const _headYawEuler = new Euler(0, 0, 0, "YXZ");
+
 // ============================================================================
 // AVATAR RECORD
 // ============================================================================
@@ -48,6 +54,8 @@ interface UserControlledAvatarRecord {
   rotateAngle: Vector3;
   rotateQuaternion: Quaternion;
   cameraTarget: Vector3;
+  /** World-space: model root Y minus lowest point of bounds (feet on floor in XR). */
+  rootAboveFootWorld: number;
 }
 
 // ============================================================================
@@ -141,7 +149,7 @@ export class UserControlledAvatarSystem extends createSystem({
       }
 
       const avatarModel = SkeletonUtils.clone(gltf.scene) as Object3D;
-      avatarModel.scale.setScalar(0.5);
+      avatarModel.scale.setScalar(AVATAR_VISUAL_SCALE);
       avatarModel.position.set(position[0], position[1], position[2]);
       avatarModel.rotation.set(0, Math.PI, 0);
 
@@ -184,6 +192,10 @@ export class UserControlledAvatarSystem extends createSystem({
         isSelected: this.currentControlledAvatarId === null,
       });
 
+      avatarModel.updateMatrixWorld(true);
+      const worldBox = new Box3().setFromObject(avatarModel as any);
+      const rootAboveFootWorld = avatarModel.position.y - worldBox.min.y;
+
       const currentAction = animationsMap.has("Idle") ? "Idle" : Array.from(animationsMap.keys())[0] || "Idle";
       animationsMap.forEach((action, key) => {
         if (key === currentAction) action.play();
@@ -200,6 +212,7 @@ export class UserControlledAvatarSystem extends createSystem({
         rotateAngle: new Vector3(0, 1, 0),
         rotateQuaternion: new Quaternion(),
         cameraTarget: new Vector3(),
+        rootAboveFootWorld,
       };
       this.avatarRecords.set(avatarId, record);
 
@@ -225,6 +238,36 @@ export class UserControlledAvatarSystem extends createSystem({
       record.entity.setValue(UserControlledAvatarComponent, "isJumping", true);
       record.entity.setValue(UserControlledAvatarComponent, "jumpVelocity", 6);
     }
+  }
+
+  private isXRPresenting(): boolean {
+    return !!(this as { renderer?: { xr?: { isPresenting?: boolean } } }).renderer?.xr
+      ?.isPresenting;
+  }
+
+  private syncAvatarToXRUser(record: UserControlledAvatarRecord): void {
+    if (!this.isXRPresenting()) return;
+
+    const cam = (this.world as { camera?: { position: Vector3; quaternion: Quaternion } })
+      .camera;
+    if (!cam?.position || !cam.quaternion) return;
+
+    const [cx, cz] = clampToWalkableAreaWorld(cam.position.x, cam.position.z);
+    const fromPos = new Vector3(record.model.position.x, record.model.position.y, record.model.position.z);
+    const toPos = new Vector3(cx, record.model.position.y, cz);
+    const constrained = constrainMovement(fromPos, toPos, AVATAR_RADIUS, AVATAR_HEIGHTS);
+    record.model.position.x = constrained.x;
+    record.model.position.z = constrained.z;
+
+    const isJumping = record.entity.getValue(UserControlledAvatarComponent, "isJumping") as boolean;
+    if (!isJumping) {
+      const standY = getWorldFloorY() + record.rootAboveFootWorld;
+      record.model.position.y = standY;
+      record.entity.setValue(UserControlledAvatarComponent, "baseY", standY);
+    }
+
+    _headYawEuler.setFromQuaternion(cam.quaternion);
+    record.model.rotation.set(0, _headYawEuler.y + USER_AVATAR_FORWARD_OFFSET, 0);
   }
 
   private updateCameraTarget(record: UserControlledAvatarRecord, moveX: number, moveZ: number): void {
@@ -271,18 +314,26 @@ export class UserControlledAvatarSystem extends createSystem({
       record.currentAction = play;
     }
 
-    // Move when any direction key is pressed.
-    if (directionPressed && this.followCamera) {
+    this.syncAvatarToXRUser(record);
+
+    const followCam = this.followCamera;
+    const allowKeyboardLocomotion = !this.isXRPresenting() && !!followCam;
+
+    // Move when any direction key is pressed (desktop only).
+    if (directionPressed && allowKeyboardLocomotion && followCam) {
       const angleYCameraDirection = Math.atan2(
-        this.followCamera.position.x - record.model.position.x,
-        this.followCamera.position.z - record.model.position.z
+        followCam.position.x - record.model.position.x,
+        followCam.position.z - record.model.position.z
       );
       const directionOffset = this.directionOffset();
 
-      record.rotateQuaternion.setFromAxisAngle(record.rotateAngle, angleYCameraDirection + directionOffset);
+      record.rotateQuaternion.setFromAxisAngle(
+        record.rotateAngle,
+        angleYCameraDirection + directionOffset + USER_AVATAR_FORWARD_OFFSET
+      );
       (record.model as any).quaternion.rotateTowards(record.rotateQuaternion, ROTATE_SPEED);
 
-      this.followCamera.getWorldDirection(record.walkDirection);
+      followCam.getWorldDirection(record.walkDirection);
       record.walkDirection.y = 0;
       record.walkDirection.normalize();
       record.walkDirection.applyAxisAngle(record.rotateAngle, directionOffset);
@@ -313,6 +364,18 @@ export class UserControlledAvatarSystem extends createSystem({
       record.model.position.z = clampedZ;
 
       this.updateCameraTarget(record, record.model.position.x - oldX, record.model.position.z - oldZ);
+    } else if (allowKeyboardLocomotion && followCam) {
+      followCam.getWorldDirection(record.walkDirection);
+      record.walkDirection.y = 0;
+      if (record.walkDirection.lengthSq() > 1e-8) {
+        record.walkDirection.normalize();
+        const lookYaw = Math.atan2(-record.walkDirection.x, -record.walkDirection.z);
+        record.rotateQuaternion.setFromAxisAngle(
+          record.rotateAngle,
+          lookYaw + USER_AVATAR_FORWARD_OFFSET
+        );
+        (record.model as any).quaternion.rotateTowards(record.rotateQuaternion, ROTATE_SPEED);
+      }
     }
 
     const isJumping = record.entity.getValue(UserControlledAvatarComponent, "isJumping") as boolean;
