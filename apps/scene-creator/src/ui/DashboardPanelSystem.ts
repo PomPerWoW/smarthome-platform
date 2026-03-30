@@ -6,6 +6,7 @@ import {
   UIKitDocument,
   UIKit,
   Entity,
+  VisibilityState,
 } from "@iwsdk/core";
 import { Vector3 } from "three";
 
@@ -97,15 +98,58 @@ export class DashboardPanelSystem extends createSystem({
   private roomNameFetchInFlight: Set<string> = new Set();
   private voiceDialogueLines: string[] = [];
   private homeWelcomeText = "Welcome, User";
-  private energyGraphsVisible = false;
+  private unsubscribeVisibility?: () => void;
+  private refreshDashboardXRSectionUI?: () => void;
 
   // Map card slot index → device id for click handling
   private slotDeviceMap: Map<number, string> = new Map();
+
+  /** Meta Quest 3 (Touch) WebXR gamepad: 0 trigger, 1 squeeze/grip, 3 thumbstick press */
+  private xrSession: XRSession | null = null;
+  private xrFrameCallbackId: number | null = null;
+  private lastXRGripPressed = new Map<XRInputSource, boolean>();
+  private lastXRThumbstickPressed = new Map<XRInputSource, boolean>();
+  private xrGripCooldown = 0;
+  private xrThumbstickCooldown = 0;
+  private readonly XR_INPUT_COOLDOWN_SEC = 0.45;
+
+  private readonly onXRSessionStart = (): void => {
+    console.log(
+      "[DashboardPanel] XR session started — Meta Quest 3 dashboard controls (grip: follow, thumbstick: hide/show)",
+    );
+    const session = this.renderer.xr.getSession();
+    if (!session) return;
+    this.xrSession = session;
+    this.xrGripCooldown = 0;
+    this.xrThumbstickCooldown = 0;
+    this.lastXRGripPressed.clear();
+    this.lastXRThumbstickPressed.clear();
+    this.startXRInputFrameLoop();
+  };
+
+  private readonly onXRSessionEnd = (): void => {
+    if (this.xrFrameCallbackId !== null && this.xrSession) {
+      this.xrSession.cancelAnimationFrame(this.xrFrameCallbackId);
+      this.xrFrameCallbackId = null;
+    }
+    this.xrSession = null;
+    this.lastXRGripPressed.clear();
+    this.lastXRThumbstickPressed.clear();
+    this.xrGripCooldown = 0;
+    this.xrThumbstickCooldown = 0;
+    console.log("[DashboardPanel] XR session ended — dashboard controller input stopped");
+  };
 
   // ── Lifecycle ──────────────────────────────────────────────────────────────
 
   init(): void {
     console.log("[DashboardPanel] System initialized");
+
+    this.renderer.xr.addEventListener("sessionstart", this.onXRSessionStart);
+    this.renderer.xr.addEventListener("sessionend", this.onXRSessionEnd);
+    if (this.renderer.xr.isPresenting) {
+      queueMicrotask(() => this.onXRSessionStart());
+    }
 
     this.queries.dashboardPanel.subscribe("qualify", (entity) => {
       console.log("[DashboardPanel] Panel entity qualified");
@@ -122,8 +166,15 @@ export class DashboardPanelSystem extends createSystem({
   }
 
   destroy(): void {
+    this.renderer.xr.removeEventListener("sessionstart", this.onXRSessionStart);
+    this.renderer.xr.removeEventListener("sessionend", this.onXRSessionEnd);
+    this.onXRSessionEnd();
+
     this.unsubscribeDevices?.();
     this.unsubscribeDevices = undefined;
+    this.unsubscribeVisibility?.();
+    this.unsubscribeVisibility = undefined;
+    this.refreshDashboardXRSectionUI = undefined;
     this.slotDeviceMap.clear();
     if (this.keydownHandler) {
       window.removeEventListener("keydown", this.keydownHandler);
@@ -185,6 +236,7 @@ export class DashboardPanelSystem extends createSystem({
 
     // ── Sidebar rail ─────────────────────────────────────────────────────────
     this.setupSidebarRail(document);
+    this.setupXRSection(document);
     this.setupVoiceAssistantPanel(document);
     this.setupPlacementSection(document);
 
@@ -238,6 +290,86 @@ export class DashboardPanelSystem extends createSystem({
     );
   }
 
+  private startXRInputFrameLoop(): void {
+    if (!this.xrSession) return;
+    if (this.xrFrameCallbackId !== null) {
+      this.xrSession.cancelAnimationFrame(this.xrFrameCallbackId);
+      this.xrFrameCallbackId = null;
+    }
+
+    const onFrame = (_time: number, _frame: XRFrame) => {
+      if (!this.xrSession) return;
+
+      const frameDt = 1 / 72;
+      if (this.xrGripCooldown > 0) {
+        this.xrGripCooldown -= frameDt;
+        if (this.xrGripCooldown < 0) this.xrGripCooldown = 0;
+      }
+      if (this.xrThumbstickCooldown > 0) {
+        this.xrThumbstickCooldown -= frameDt;
+        if (this.xrThumbstickCooldown < 0) this.xrThumbstickCooldown = 0;
+      }
+
+      try {
+        for (const inputSource of this.xrSession.inputSources) {
+          if (inputSource.hand) continue;
+          const gamepad = inputSource.gamepad;
+          if (!gamepad?.buttons?.length) continue;
+
+          const gripBtn = gamepad.buttons[1];
+          const thumbBtn = gamepad.buttons[3];
+          if (gripBtn) {
+            const pressed = gripBtn.pressed;
+            const was = this.lastXRGripPressed.get(inputSource) ?? false;
+            if (pressed && !was && this.xrGripCooldown <= 0) {
+              this.toggleFollowMode();
+              this.xrGripCooldown = this.XR_INPUT_COOLDOWN_SEC;
+              console.log(
+                `[DashboardPanel] Grip (squeeze) — follow toggle (${inputSource.handedness || "?"})`,
+              );
+            }
+            this.lastXRGripPressed.set(inputSource, pressed);
+          }
+          if (thumbBtn) {
+            const pressed = thumbBtn.pressed;
+            const was = this.lastXRThumbstickPressed.get(inputSource) ?? false;
+            if (pressed && !was && this.xrThumbstickCooldown <= 0) {
+              this.toggleDashboardVisibilityFromXR();
+              this.xrThumbstickCooldown = this.XR_INPUT_COOLDOWN_SEC;
+              console.log(
+                `[DashboardPanel] Thumbstick click — dashboard visibility (${inputSource.handedness || "?"})`,
+              );
+            }
+            this.lastXRThumbstickPressed.set(inputSource, pressed);
+          }
+        }
+      } catch (e) {
+        console.debug("[DashboardPanel] XR controller poll error:", e);
+      }
+
+      if (this.xrSession) {
+        this.xrFrameCallbackId = this.xrSession.requestAnimationFrame(onFrame);
+      }
+    };
+
+    this.xrFrameCallbackId = this.xrSession.requestAnimationFrame(onFrame);
+    console.log(
+      "[DashboardPanel] Quest 3: squeeze/grip = toggle head-follow · thumbstick press = show/hide dashboard",
+    );
+  }
+
+  /** Same as keyboard U / __toggleDashboardPanel — works before PanelDocument qualifies. */
+  private toggleDashboardVisibilityFromXR(): void {
+    const entity =
+      this.activeEntity ?? (globalThis as any).__dashboardPanelEntity;
+    if (entity?.object3D) {
+      entity.object3D.visible = !entity.object3D.visible;
+      console.log(
+        `[DashboardPanel] Dashboard ${entity.object3D.visible ? "shown" : "hidden"}`,
+      );
+    }
+  }
+
   // ── Header ─────────────────────────────────────────────────────────────────
 
   private setupHeader(document: UIKitDocument): void {
@@ -259,15 +391,12 @@ export class DashboardPanelSystem extends createSystem({
   // ── Sidebar Rail ───────────────────────────────────────────────────────────
 
   private setupSidebarRail(document: UIKitDocument): void {
-    const energyRailId = document.getElementById("rail-energy-btn")
-      ? "rail-energy-btn"
-      : "rail-xr-btn";
     const railIds = [
       "rail-home-btn",
       "rail-devices-btn",
       "rail-refresh-btn",
       "rail-mic-btn",
-      energyRailId,
+      "rail-xr-btn",
     ];
 
     const setActiveRail = (activeId: string) => {
@@ -343,36 +472,12 @@ export class DashboardPanelSystem extends createSystem({
       });
     }
 
-    // Energy Graphs → toggle graph panel for each device in current room
-    const railEnergyBtn =
-      document.getElementById("rail-energy-btn") ??
-      document.getElementById("rail-xr-btn");
-    if (railEnergyBtn) {
-      railEnergyBtn.addEventListener("click", () => {
-        setActiveRail(energyRailId);
-        this.showDashboardHomeSection(document);
-        const deviceRenderer = this.world.getSystem(DeviceRendererSystem);
-        if (!deviceRenderer) {
-          console.warn("[DashboardPanel] Device renderer system is unavailable");
-          setActiveRail("rail-home-btn");
-          return;
-        }
-
-        const roomDevices = this.getCurrentRoomDevices();
-        if (roomDevices.length === 0) {
-          console.log("[DashboardPanel] No devices available for energy graphs");
-          setActiveRail("rail-home-btn");
-          return;
-        }
-
-        this.energyGraphsVisible = !this.energyGraphsVisible;
-        for (const device of roomDevices) {
-          deviceRenderer.toggleGraphPanel(device.id);
-        }
-
-        console.log(
-          `[DashboardPanel] Energy graphs ${this.energyGraphsVisible ? "shown" : "hidden"} for ${roomDevices.length} device(s)`,
-        );
+    // AR / VR → open XR controls (mode + enter / exit immersive)
+    const railXrBtn = document.getElementById("rail-xr-btn");
+    if (railXrBtn) {
+      railXrBtn.addEventListener("click", () => {
+        setActiveRail("rail-xr-btn");
+        this.showDashboardXRSection(document);
       });
     }
 
@@ -446,9 +551,14 @@ export class DashboardPanelSystem extends createSystem({
     this.showDashboardSection(document, "alignment");
   }
 
+  private showDashboardXRSection(document: UIKitDocument): void {
+    this.showDashboardSection(document, "xr");
+    this.refreshDashboardXRSectionUI?.();
+  }
+
   private showDashboardSection(
     document: UIKitDocument,
-    section: "home" | "voice" | "placement" | "alignment",
+    section: "home" | "voice" | "placement" | "alignment" | "xr",
   ): void {
     const deviceGrid = document.getElementById("device-grid") as UIKit.Container;
     if (deviceGrid) {
@@ -478,6 +588,135 @@ export class DashboardPanelSystem extends createSystem({
       alignmentSection.setProperties({
         display: section === "alignment" ? "flex" : "none",
       });
+    }
+
+    const xrSection = document.getElementById("xr-section") as UIKit.Container;
+    if (xrSection) {
+      xrSection.setProperties({
+        display: section === "xr" ? "flex" : "none",
+      });
+    }
+  }
+
+  /** AR/VR mode + immersive enter/exit (aligned with welcome `panel.ts`). */
+  private setupXRSection(document: UIKitDocument): void {
+    const vrBtn = document.getElementById("dash-vr-mode-btn") as UIKit.Container;
+    const arBtn = document.getElementById("dash-ar-mode-btn") as UIKit.Container;
+    const primaryBtn = document.getElementById("dash-xr-primary-btn");
+    const primaryText = document.getElementById(
+      "dash-xr-primary-text",
+    ) as UIKit.Text;
+
+    const readARPreference = (): boolean =>
+      (globalThis as any).__sceneMode === "ar";
+
+    const updateModeChrome = () => {
+      const ar = readARPreference();
+      // Match `.xr-mode-btn-on` / `.xr-mode-btn-off` in dashboard.uikitml: inactive uses a
+      // light surface so `.xr-mode-btn-text` (#1e293b) stays readable (dark-on-dark was
+      // nearly invisible).
+      const activeBg = "rgba(124, 58, 237, 0.84)";
+      const activeBorder = "rgba(124, 58, 237, 1)";
+      const inactiveBg = "rgba(255, 255, 255, 0.24)";
+      const inactiveBorder = "rgba(255, 255, 255, 0.36)";
+      if (vrBtn) {
+        vrBtn.setProperties({
+          backgroundColor: ar ? inactiveBg : activeBg,
+          borderColor: ar ? inactiveBorder : activeBorder,
+        });
+      }
+      if (arBtn) {
+        arBtn.setProperties({
+          backgroundColor: ar ? activeBg : inactiveBg,
+          borderColor: ar ? activeBorder : inactiveBorder,
+        });
+      }
+    };
+
+    const updatePrimaryLabels = () => {
+      const welcomeXrText = document.getElementById(
+        "xr-button-text",
+      ) as UIKit.Text;
+      const ar = readARPreference();
+      const nonImmersive =
+        this.world.visibilityState.value === VisibilityState.NonImmersive;
+      const label = nonImmersive
+        ? ar
+          ? "Enter AR"
+          : "Enter VR"
+        : ar
+          ? "Exit AR"
+          : "Exit VR";
+      primaryText?.setProperties?.({ text: label });
+      welcomeXrText?.setProperties?.({ text: label });
+    };
+
+    const applyMode = (ar: boolean) => {
+      (globalThis as any).__sceneMode = ar ? "ar" : "vr";
+
+      const roomModel = (globalThis as any).__labRoomModel;
+      if (roomModel) {
+        roomModel.visible = !ar;
+      }
+
+      updateModeChrome();
+      updatePrimaryLabels();
+      console.log(`[DashboardPanel] XR mode preference: ${ar ? "AR" : "VR"}`);
+    };
+
+    if ((globalThis as any).__sceneMode === undefined) {
+      (globalThis as any).__sceneMode = "vr";
+    }
+    updateModeChrome();
+    updatePrimaryLabels();
+
+    vrBtn?.addEventListener("click", () => applyMode(false));
+    arBtn?.addEventListener("click", () => applyMode(true));
+
+    const handleXrClick = async () => {
+      if (this.world.visibilityState.value === VisibilityState.NonImmersive) {
+        if (!navigator.xr) {
+          console.warn(
+            "[DashboardPanel] WebXR not available (HTTPS / compatible browser required).",
+          );
+          return;
+        }
+        const sessionMode = readARPreference() ? "immersive-ar" : "immersive-vr";
+        try {
+          const supported = await navigator.xr.isSessionSupported(sessionMode);
+          if (!supported) {
+            console.warn(
+              `[DashboardPanel] Session mode "${sessionMode}" is not supported.`,
+            );
+            return;
+          }
+        } catch (e) {
+          console.warn("[DashboardPanel] isSessionSupported failed:", e);
+        }
+        try {
+          await this.world.launchXR();
+        } catch (err) {
+          console.error("[DashboardPanel] launchXR failed:", err);
+        }
+      } else {
+        this.world.exitXR();
+      }
+    };
+
+    primaryBtn?.addEventListener("click", () => {
+      void handleXrClick();
+    });
+
+    this.refreshDashboardXRSectionUI = () => {
+      updateModeChrome();
+      updatePrimaryLabels();
+    };
+
+    const sub = this.world.visibilityState.subscribe(() => {
+      updatePrimaryLabels();
+    });
+    if (typeof sub === "function") {
+      this.unsubscribeVisibility = sub;
     }
   }
 

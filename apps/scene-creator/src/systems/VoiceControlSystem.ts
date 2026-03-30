@@ -1,10 +1,5 @@
 import { BackendApiClient } from "../api/BackendApiClient";
-import {
-  speakGreeting,
-  speakSeeYouAgain,
-  speakInstruction,
-  speakFollowUpWhatQuestion,
-} from "../utils/VoiceTextToSpeech";
+import { speakGreeting, speakSeeYouAgain } from "../utils/VoiceTextToSpeech";
 
 export type VoiceIdlePayload = {
   success?: boolean;
@@ -38,12 +33,6 @@ export class VoiceControlSystem {
     ) => void
   > = [];
 
-  /** When true, skip "How can I help you?" on next toggle on (e.g. already in instruction session). */
-  private skipGreetingChecker: (() => boolean) | null = null;
-  /** When true, check transcript for "no thanks" / "yes" before calling backend (instruction follow-up). */
-  private instructionSessionChecker: (() => boolean) | null = null;
-  /** When true, fallback onstop will skip notifying idle (yes_more → restart listening). */
-  private restartingListening = false;
 
   private notifyStatus(
     status: "listening" | "processing" | "idle",
@@ -74,8 +63,6 @@ export class VoiceControlSystem {
   private readonly SOUND_THRESHOLD = 4;
   /** Frequency-domain energy bar; lower = treat more mic output as “still speaking”. */
   private readonly FREQ_SOUND_THRESHOLD = 6;
-  private readonly LISTEN_START_DELAY_MS = 700; // Delay after TTS before starting mic (avoid capturing robot voice)
-
   // Retry logic for native SpeechRecognition
   private retryCount = 0;
   private readonly MAX_RETRIES = 2;
@@ -131,81 +118,6 @@ export class VoiceControlSystem {
     ) => void,
   ) {
     this.onStatusListeners.push(callback);
-  }
-
-  /** Register checker: when true, skip speaking "How can I help you?" on voice toggle on. */
-  public registerSkipGreetingChecker(fn: () => boolean): void {
-    this.skipGreetingChecker = fn;
-  }
-
-  /** Register checker: when true, handle "no thanks" / "yes" locally before calling backend. */
-  public registerInstructionSessionChecker(fn: () => boolean): void {
-    this.instructionSessionChecker = fn;
-  }
-
-  public scheduleStartListeningWithoutGreeting(delayMs: number): void {
-    if (this.listenStartTimeout) clearTimeout(this.listenStartTimeout);
-    this.listenStartTimeout = setTimeout(() => {
-      this.listenStartTimeout = null;
-      this.startListeningWithoutGreeting();
-    }, delayMs);
-  }
-
-  /** Start listening without greeting (used after "What would you like to know?" in instruction session). */
-  public startListeningWithoutGreeting(): void {
-    this.isListening = true;
-    this.notifyStatus("listening");
-    if (this.useFallback) {
-      this.startFallbackRecording();
-      return;
-    }
-    if (this.recognition) {
-      try {
-        this.retryCount = 0;
-        this.recognition.start();
-        this.resetNoActivityTimer();
-        this.startNativeSafetyTimeout();
-      } catch (e) {
-        console.error(
-          "[VoiceControl] startListeningWithoutGreeting failed:",
-          e,
-        );
-        this.isListening = false;
-        this.notifyStatus("idle");
-      }
-    }
-  }
-
-  private static matchNoThanks(t: string): boolean {
-    const lower = t.trim().toLowerCase().replace(/[,.]/g, " ").replace(/\s+/g, " ");
-    // Match various forms of "no thank you", "that's all", "nothing else", "I'm good", "goodbye", etc.
-    const patterns = [
-      /^no,?\s*thank(s| you)/,           // "no thank you", "no thanks", "no, thank you"
-      /thank(s| you),?\s*(goodbye|bye)/,  // "thank you goodbye", "thanks goodbye", "thank you bye"
-      /goodbye|bye\s*(now|then)?/,       // "goodbye", "bye", "goodbye now"
-      /^that'?s?\s*all/,                  // "that's all", "thats all"
-      /^nothing\s*else/,                  // "nothing else"
-      /^i'?m\s*good/,                     // "I'm good", "im good"
-      /^all\s*good/,                      // "all good"
-      /^no\s*more/,                       // "no more"
-      /^that'?s?\s*it/,                   // "that's it", "thats it"
-      /^i'?m\s*done/,                    // "I'm done", "im done"
-      /^we'?re\s*good/,                   // "we're good", "were good"
-      /^that'?s?\s*enough/,               // "that's enough"
-      /^i'?m\s*fine/,                     // "I'm fine"
-    ];
-    return patterns.some(pattern => pattern.test(lower));
-  }
-
-  private static matchYesMore(t: string): boolean {
-    const lower = t
-      .trim()
-      .toLowerCase()
-      .replace(/[.,!?]+$/, "");
-    if (["yes", "yeah", "yep", "yup", "sure", "ok", "okay"].includes(lower))
-      return true;
-    if (/^(yes|yeah|yep|yup|sure|ok|okay)\s+/.test(lower)) return true;
-    return /(another|more)\s*(question|one|please)/.test(lower);
   }
 
   public setTranscriptListener(callback: (text: string) => void) {
@@ -479,31 +391,6 @@ export class VoiceControlSystem {
     // Log the transcript for debugging
     console.log("[VoiceControl] Processing transcript:", trimmedTranscript);
 
-    // Instruction session follow-up: handle "no thanks" / "yes" locally (3D flow)
-    if (this.instructionSessionChecker?.()) {
-      if (VoiceControlSystem.matchNoThanks(transcript)) {
-        this.notifyStatus("idle", {
-          success: true,
-          instructionTopic: "goodbye",
-          endSession: true,
-        });
-        return;
-      }
-      if (VoiceControlSystem.matchYesMore(transcript)) {
-        // Notify dialogue in 3D scene
-        const voicePanelSystem = (globalThis as any).__voicePanelSystem;
-        if (
-          voicePanelSystem &&
-          typeof voicePanelSystem.addRobotMessage === "function"
-        ) {
-          voicePanelSystem.addRobotMessage("What would you like to know?");
-        }
-        await speakFollowUpWhatQuestion();
-        this.scheduleStartListeningWithoutGreeting(this.LISTEN_START_DELAY_MS);
-        return;
-      }
-    }
-
     this.notifyStatus("processing");
 
     try {
@@ -516,19 +403,6 @@ export class VoiceControlSystem {
 
       // Instruction / how-to: 3D robot handles TTS (walk to user, then speak); just notify
       if (response?.instruction_topic) {
-        if (response.instruction_topic === "yes_more") {
-          // Notify dialogue in 3D scene
-          const voicePanelSystem = (globalThis as any).__voicePanelSystem;
-          if (
-            voicePanelSystem &&
-            typeof voicePanelSystem.addRobotMessage === "function"
-          ) {
-            voicePanelSystem.addRobotMessage("What would you like to know?");
-          }
-          await speakFollowUpWhatQuestion();
-          this.scheduleStartListeningWithoutGreeting(this.LISTEN_START_DELAY_MS);
-          return;
-        }
         this.notifyStatus("idle", {
           success: true,
           instructionTopic: response.instruction_topic,
@@ -697,10 +571,6 @@ export class VoiceControlSystem {
           speakSeeYouAgain();
           this.notifyStatus("idle", { success: false, noMatch: true, serverError: true });
         } finally {
-          if (this.restartingListening) {
-            this.restartingListening = false;
-            return;
-          }
           if (this.stopRequestedByUser) {
             this.notifyStatus("idle", { cancelled: true });
           }
@@ -872,13 +742,7 @@ export class VoiceControlSystem {
 
   // ---- Public API ----
 
-  private listenStartTimeout: any = null;
-
   public forceStopListening() {
-    if (this.listenStartTimeout) {
-      clearTimeout(this.listenStartTimeout);
-      this.listenStartTimeout = null;
-    }
     if (this.isListening) {
       this.stopRequestedByUser = true;
       speakSeeYouAgain();
@@ -901,11 +765,6 @@ export class VoiceControlSystem {
   }
 
   public async toggleListening() {
-    if (this.listenStartTimeout) {
-      clearTimeout(this.listenStartTimeout);
-      this.listenStartTimeout = null;
-    }
-
     if (this.isListening) {
       // User toggled off: say goodbye (like 2D dashboard) then stop
       speakSeeYouAgain();
@@ -926,10 +785,8 @@ export class VoiceControlSystem {
     this.isListening = true;
     this.notifyStatus("listening");
 
-    // Await greeting so the mic doesn't capture the robot's voice (skip if already in instruction session)
-    if (!this.skipGreetingChecker?.()) {
-      await speakGreeting();
-    }
+    // Await greeting so the mic doesn't capture the robot's voice
+    await speakGreeting();
 
     if (!this.isListening) return; // In case user toggled off while speaking
 

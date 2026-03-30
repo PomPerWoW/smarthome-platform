@@ -30,16 +30,11 @@ import {
 import {
   speakInstruction,
   speakInstructionWaitMe,
-  speakFollowUpAnythingElse,
   speakSeeYouAgain,
-  speakSorryDidntCatch,
   speakText,
 } from "../utils/VoiceTextToSpeech";
 import { getStore } from "../store/DeviceStore";
 import { BackendApiClient } from "../api/BackendApiClient";
-
-/** Delay (ms) before starting mic after TTS so we don't capture the robot's voice. */
-const LISTEN_START_DELAY_MS = 700;
 
 // ============================================================================
 // CONFIG
@@ -144,7 +139,7 @@ export class RobotAssistantSystem extends createSystem({
   /** Ring buffer of recently blocked unit-directions (room-local). */
   private recentBlockedDirs: { x: number; z: number }[] = [];
 
-  /** Instruction session: robot has reached user and is in "do you want anything else?" loop. */
+  /** Legacy flag; kept for movement/guards. No longer used for multi-turn follow-up (one session per mic use). */
   inInstructionSession = false;
   /** Robot is walking to user; when reached, play pendingInstructionTopic and enter session. */
   walkingToUser = false;
@@ -158,19 +153,8 @@ export class RobotAssistantSystem extends createSystem({
   private trackUserWhileWalking = true;
   /** Fixed target used for device-approach commands. */
   private fixedWalkTarget: { x: number; z: number } | null = null;
-  /** Debounce: avoid speaking "Do you want anything else?" twice when two idles arrive in quick succession. */
-  private lastDeviceSuccessHandledAt = 0;
-  private static readonly DEVICE_SUCCESS_DEBOUNCE_MS = 3000;
-  /** Re-entrancy guard: skip second idle if we're already handling device success in session (e.g. two notifyStatus calls). */
-  private handlingDeviceSuccessInSession = false;
   /** Temporary target when dodging an obstacle during walkingToUser */
   private stepAsideTarget: { x: number; z: number } | null = null;
-  /** Delay re-prompt so a success idle (e.g. device action) can cancel it and we only say follow-up once. */
-  private rePromptTimeoutId: ReturnType<typeof setTimeout> | null = null;
-  private static readonly RE_PROMPT_DELAY_MS = 500;
-  /** When we spoke the re-prompt ("Sorry... Do you want...?"), skip saying "Do you want...?" again if success idle arrives right after. */
-  private lastRepromptSpokenAt = 0;
-  private static readonly SKIP_FOLLOW_UP_AFTER_REPROMPT_MS = 3000;
   /** Time when robot started walking to user (for timeout detection). */
   private walkToUserStartTime = -1;
   /** Number of step-aside attempts while walking to user. */
@@ -184,10 +168,6 @@ export class RobotAssistantSystem extends createSystem({
     // Register on globalThis so VoicePanelSystem can access it
     (globalThis as any).__robotAssistantSystem = this;
     const voiceSystem = VoiceControlSystem.getInstance();
-    voiceSystem.registerSkipGreetingChecker(() => this.inInstructionSession);
-    voiceSystem.registerInstructionSessionChecker(
-      () => this.inInstructionSession,
-    );
     voiceSystem.addStatusListener(
       (
         status: "listening" | "processing" | "idle",
@@ -209,10 +189,6 @@ export class RobotAssistantSystem extends createSystem({
                 payload.deviceId,
               );
               return;
-            }
-            if (this.rePromptTimeoutId !== null) {
-              clearTimeout(this.rePromptTimeoutId);
-              this.rePromptTimeoutId = null;
             }
             console.log(
               "[RobotAssistant] Device action succeeded - closing dialogue and stopping listening",
@@ -238,15 +214,11 @@ export class RobotAssistantSystem extends createSystem({
             });
             return;
           }
-          // Handle endSession flag first - this prevents further prompts after "no thank you"
+          // Handle endSession flag (legacy / future use)
           if (payload?.endSession) {
             console.log(
               "[RobotAssistant] 🛑 End session requested - stopping all prompts",
             );
-            if (this.rePromptTimeoutId !== null) {
-              clearTimeout(this.rePromptTimeoutId);
-              this.rePromptTimeoutId = null;
-            }
             this.walkingToUser = false;
             this.pendingInstructionTopic = null;
             this.inInstructionSession = false;
@@ -255,10 +227,6 @@ export class RobotAssistantSystem extends createSystem({
           }
 
           if (payload?.success && payload.instructionTopic) {
-            if (this.rePromptTimeoutId !== null) {
-              clearTimeout(this.rePromptTimeoutId);
-              this.rePromptTimeoutId = null;
-            }
             const topic = payload.instructionTopic;
             if (topic === "goodbye") {
               this.walkingToUser = false;
@@ -268,66 +236,14 @@ export class RobotAssistantSystem extends createSystem({
               speakSeeYouAgain();
               this.playEmoteSequence(["Wave"], () => {
                 this.setVoiceListening(false);
-              });
-              return;
-            }
-            if (this.inInstructionSession) {
-              // Robot already at user: speak instruction
-              // Use dynamic text from backend if available, otherwise use predefined text
-              const instructionText =
-                payload.instructionText || this.getInstructionText(topic);
-              if (instructionText) {
-                this.notifyDialogueMessage(instructionText);
-                // If we have dynamic text (from LLM), speak it directly
-                if (payload.instructionText) {
-                  speakText(instructionText).then(() => {
-                    // For device_info and other informational queries, don't ask follow-up - just close
-                    if (topic === "device_info" || topic === "goodbye") {
-                      this.inInstructionSession = false;
-                      this.setVoiceListening(false);
-                      const voicePanelSystem = (globalThis as any)
-                        .__voicePanelSystem;
-                      if (
-                        voicePanelSystem &&
-                        typeof voicePanelSystem.beginClosing === "function"
-                      ) {
-                        voicePanelSystem.beginClosing();
-                      }
-                    } else {
-                      // For other instructions, ask follow-up
-                      this.notifyDialogueMessage(
-                        "Do you want me to do anything else?",
-                      );
-                      speakFollowUpAnythingElse().then(() => {
-                        VoiceControlSystem.getInstance().scheduleStartListeningWithoutGreeting(LISTEN_START_DELAY_MS);
-                      });
-                    }
-                  });
-                } else {
-                  speakInstruction(topic).then(() => {
-                    // For device_info, don't ask follow-up
-                    if (topic === "device_info" || topic === "goodbye") {
-                      this.inInstructionSession = false;
-                      this.setVoiceListening(false);
-                      const voicePanelSystem = (globalThis as any)
-                        .__voicePanelSystem;
-                      if (
-                        voicePanelSystem &&
-                        typeof voicePanelSystem.beginClosing === "function"
-                      ) {
-                        voicePanelSystem.beginClosing();
-                      }
-                    } else {
-                      this.notifyDialogueMessage(
-                        "Do you want me to do anything else?",
-                      );
-                      speakFollowUpAnythingElse().then(() => {
-                        VoiceControlSystem.getInstance().scheduleStartListeningWithoutGreeting(LISTEN_START_DELAY_MS);
-                      });
-                    }
-                  });
+                const voicePanelSystem = (globalThis as any).__voicePanelSystem;
+                if (
+                  voicePanelSystem &&
+                  typeof voicePanelSystem.beginClosing === "function"
+                ) {
+                  voicePanelSystem.beginClosing();
                 }
-              }
+              });
               return;
             }
             if (this.walkingToUser) {
@@ -357,10 +273,6 @@ export class RobotAssistantSystem extends createSystem({
             return;
           }
           if (payload?.serverError) {
-            if (this.rePromptTimeoutId !== null) {
-              clearTimeout(this.rePromptTimeoutId);
-              this.rePromptTimeoutId = null;
-            }
             this.walkingToUser = false;
             this.pendingInstructionTopic = null;
             this.pendingInstructionText = null;
@@ -369,33 +281,8 @@ export class RobotAssistantSystem extends createSystem({
             this.returnToPatrol();
             return;
           }
-          // Timeout, no match, or failure while in instruction session: delay re-prompt so a late success idle can cancel it (avoids saying "Do you want...?" twice)
-          // BUT: Don't re-prompt if endSession was already requested (user said "no thank you")
-          if (this.inInstructionSession && !payload?.endSession) {
-            if (this.rePromptTimeoutId !== null)
-              clearTimeout(this.rePromptTimeoutId);
-            this.rePromptTimeoutId = setTimeout(() => {
-              // Double-check that session hasn't ended before prompting
-              if (!this.inInstructionSession) {
-                this.rePromptTimeoutId = null;
-                return;
-              }
-              this.rePromptTimeoutId = null;
-              this.lastRepromptSpokenAt = Date.now();
-              this.notifyDialogueMessage(
-                "Sorry, I didn't catch that. Do you want me to do anything else?",
-              );
-              speakSorryDidntCatch().then(() => {
-                // Triple-check before starting listening again
-                if (this.inInstructionSession) {
-                  VoiceControlSystem.getInstance().scheduleStartListeningWithoutGreeting(LISTEN_START_DELAY_MS);
-                }
-              });
-            }, RobotAssistantSystem.RE_PROMPT_DELAY_MS);
-            return;
-          }
           this.setVoiceListening(false);
-          if (payload?.noMatch && !this.inInstructionSession) {
+          if (payload?.noMatch) {
             this.returnToPatrol();
           }
         }
@@ -817,11 +704,6 @@ export class RobotAssistantSystem extends createSystem({
     this.walkToUserStartTime = -1;
     this.stepAsideAttempts = 0;
 
-    if (this.rePromptTimeoutId !== null) {
-      clearTimeout(this.rePromptTimeoutId);
-      this.rePromptTimeoutId = null;
-    }
-
     // Voice UI often leaves the robot in "Standing" or an emote; movement only runs for Walking/Idle.
     this.setVoiceListening(false);
 
@@ -1072,6 +954,19 @@ export class RobotAssistantSystem extends createSystem({
     record.currentAction = name;
   }
 
+  /** After spoken instruction: stop voice stance and close the conversation UI. */
+  private finishInstructionAndClosePanel(): void {
+    this.inInstructionSession = false;
+    this.setVoiceListening(false);
+    const voicePanelSystem = (globalThis as any).__voicePanelSystem;
+    if (
+      voicePanelSystem &&
+      typeof voicePanelSystem.beginClosing === "function"
+    ) {
+      voicePanelSystem.beginClosing();
+    }
+  }
+
   // Turn voice-listening mode on or off
   setVoiceListening(active: boolean): void {
     if (active) {
@@ -1080,20 +975,6 @@ export class RobotAssistantSystem extends createSystem({
       this.voiceActive = true;
       console.log("[RobotAssistant] 🎤 Voice listening ON");
     } else {
-      if (this.inInstructionSession) {
-        this.voiceActive = false;
-        this.voiceEmoteSequence = null;
-        for (const record of this.robotRecords.values()) {
-          this.fadeToAction(record, "Standing", FADE_DURATION);
-          record.entity.setValue(
-            RobotAssistantComponent,
-            "currentState",
-            "Standing",
-          );
-        }
-        console.log("[RobotAssistant] 🎤 Voice idle — keep standing in session");
-        return;
-      }
       this.voiceActive = false;
       this.voiceEmoteSequence = null;
       console.log("[RobotAssistant] 🎤 Voice listening OFF");
@@ -1101,8 +982,7 @@ export class RobotAssistantSystem extends createSystem({
   }
 
   // Play a sequence of emotes
-  // NOTE: caller's onDone is responsible for calling setVoiceListening(false)
-  // when appropriate (instruction-session callers restart listening instead).
+  // NOTE: caller's onDone should call setVoiceListening(false) when the flow is complete.
   playEmoteSequence(emotes: string[], onDone?: () => void): void {
     if (emotes.length === 0) {
       onDone?.();
@@ -1734,10 +1614,8 @@ export class RobotAssistantSystem extends createSystem({
                   continue;
                 }
 
-                // Otherwise, handle instruction topic flow (existing behavior)
+                // Otherwise, handle instruction topic flow (speak once, then close — one session per mic use)
                 if (topic) {
-                  this.inInstructionSession = true;
-                  this.setVoiceListening(true);
                   this.fadeToAction(record, "Standing", FADE_DURATION);
                   record.entity.setValue(
                     RobotAssistantComponent,
@@ -1752,58 +1630,17 @@ export class RobotAssistantSystem extends createSystem({
                   console.log(
                     `[RobotAssistant] 👋 Reached user (dist=${distToUser.toFixed(2)}m), speaking instruction: ${topic}`,
                   );
-                  // Use dynamic text if available, otherwise use predefined text
                   const instructionText =
                     this.pendingInstructionText || this.getInstructionText(topic);
                   if (instructionText) {
                     this.notifyDialogueMessage(instructionText);
-                    // If we have dynamic text, speak it directly; otherwise use speakInstruction
+                    const afterInstruction = () => {
+                      this.finishInstructionAndClosePanel();
+                    };
                     if (this.pendingInstructionText) {
-                      speakText(instructionText).then(() => {
-                        // For device_info and other informational queries, don't ask follow-up - just close
-                        if (topic === "device_info" || topic === "goodbye") {
-                          this.inInstructionSession = false;
-                          this.setVoiceListening(false);
-                          const voicePanelSystem = (globalThis as any)
-                            .__voicePanelSystem;
-                          if (
-                            voicePanelSystem &&
-                            typeof voicePanelSystem.beginClosing === "function"
-                          ) {
-                            voicePanelSystem.beginClosing();
-                          }
-                        } else {
-                          this.notifyDialogueMessage(
-                            "Do you want me to do anything else?",
-                          );
-                          speakFollowUpAnythingElse().then(() => {
-                            VoiceControlSystem.getInstance().scheduleStartListeningWithoutGreeting(LISTEN_START_DELAY_MS);
-                          });
-                        }
-                      });
+                      speakText(instructionText).then(afterInstruction);
                     } else {
-                      speakInstruction(topic).then(() => {
-                        // For device_info, don't ask follow-up
-                        if (topic === "device_info" || topic === "goodbye") {
-                          this.inInstructionSession = false;
-                          this.setVoiceListening(false);
-                          const voicePanelSystem = (globalThis as any)
-                            .__voicePanelSystem;
-                          if (
-                            voicePanelSystem &&
-                            typeof voicePanelSystem.beginClosing === "function"
-                          ) {
-                            voicePanelSystem.beginClosing();
-                          }
-                        } else {
-                          this.notifyDialogueMessage(
-                            "Do you want me to do anything else?",
-                          );
-                          speakFollowUpAnythingElse().then(() => {
-                            VoiceControlSystem.getInstance().scheduleStartListeningWithoutGreeting(LISTEN_START_DELAY_MS);
-                          });
-                        }
-                      });
+                      speakInstruction(topic).then(afterInstruction);
                     }
                   }
                   this.pendingInstructionText = null; // Clear after use

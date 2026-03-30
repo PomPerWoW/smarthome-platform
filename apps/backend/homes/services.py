@@ -32,6 +32,9 @@ class VoiceAssistantService:
             "how to",
             "what is",
             "what's",
+            "what can you",  # "what can you do" often has no "?" from ASR — must match without t.endswith("?")
+            "what can i",  # "what can i say", etc. (overlaps filtered below if pure device command)
+            "who are you",
             "explain",
             "tell me about",
             "help me",
@@ -67,35 +70,26 @@ class VoiceAssistantService:
         def has_word(word: str) -> bool:
             return re.search(rf"\b{re.escape(word)}\b", t) is not None
 
-        # End of instruction session: "no thank you" / "that's all" → goodbye (3D follow-up flow)
-        # Normalize punctuation so "no, thanks" / "no, thank you" match
-        t_normalized = re.sub(r"[,.]", " ", t)
-        t_normalized = " ".join(t_normalized.split())
+        # ── Capability / identity (do NOT require is_instruction_like: ASR often drops "?") ──
         if any(
-            x in t_normalized or x in t
+            x in t
             for x in (
-                "no thank you",
-                "no thanks",
-                "no thank",
-                "that's all",
-                "that is all",
-                "nothing else",
-                "i'm good",
-                "im good",
-                "all good",
+                "what can you do",
+                "what can you help",
+                "what can you help me",
+                "what do you do",
+                "what are you for",
+                "what are you",
+                "who are you",
+                "what's your purpose",
+                "what is your purpose",
+                "tell me what you can do",
+                "what help can you give",
+                "what are your capabilities",
+                "what else can you do",
             )
         ):
-            return "goodbye"
-
-        # Follow-up: short agreement or "another question" → client plays "What would you like to know?"
-        t_short = t.strip().lower().rstrip(".,!?")
-        if t_short in ("yes", "yeah", "yep", "yup", "sure", "ok", "okay"):
-            return "yes_more"
-        if (
-            any(x in t for x in ("another question", "one more", "more questions"))
-            and len(t.split()) <= 5
-        ):
-            return "yes_more"
+            return "what_can_you_do"
 
         # "How to control the fan/light/tv/ac" → device topic (must run BEFORE generic "control" below)
         if is_instruction_like and ("control" in t):
@@ -201,22 +195,7 @@ class VoiceAssistantService:
             )
         ):
             return "getting_started"
-        # what_can_you_do - explain robot capabilities
-        if is_instruction_like and any(
-            x in t
-            for x in (
-                "what can you do",
-                "what can you help with",
-                "what do you do",
-                "what are you",
-                "what's your purpose",
-                "what is your purpose",
-                "tell me what you can do",
-                "what help can you give",
-                "what are your capabilities",
-            )
-        ):
-            return "what_can_you_do"
+        # what_can_you_do: handled earlier (without is_instruction_like) for ASR without "?"
         # navigation - how to navigate the interface
         if is_instruction_like and any(
             x in t

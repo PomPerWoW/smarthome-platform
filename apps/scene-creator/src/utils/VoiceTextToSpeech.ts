@@ -1,13 +1,12 @@
 const PREFERRED_VOICE_NAME = "Samantha";
 const GREETING = "How can I help you?";
 const GOODBYE = "See you again.";
-const NO_MATCH = "I'm sorry, I didn't quite understand that. I can help you with controlling your devices, using the panel, voice commands, and troubleshooting. Try asking me 'what can you do?' to see all the ways I can help, or ask about a specific device like 'how do I use the fan?'. What would you like to know?";
+/** Shown in the conversation UI when the user ends the session (matches TTS intent). */
+export const GOODBYE_ASSISTANT_MESSAGE = "See you again! 👋";
+const NO_MATCH =
+  "I'm sorry, I didn't quite understand that. You can control devices with phrases like \"turn on the fan\" or \"set the temperature to twenty-four\", or ask for help with \"how do I use the panel\" or \"how do I use the fan\". What would you like to try?";
 // Instruction flow (3D): robot walking to user
 const INSTRUCTION_WAIT_ME = "Ok, I will explain that for you. Wait for me.";
-const FOLLOW_UP_ANYTHING_ELSE = "Do you want me to do anything else?";
-const FOLLOW_UP_WHAT_QUESTION = "What would you like to know?";
-const SORRY_DIDNT_CATCH = "Sorry, I didn't catch that. Do you want me to do anything else?";
-
 function getEnUsLocalVoices(): SpeechSynthesisVoice[] {
   if (typeof window === "undefined" || !window.speechSynthesis) return [];
   return window.speechSynthesis
@@ -157,17 +156,4 @@ export function speakInstruction(topic: string): Promise<void> {
 
 export function speakInstructionWaitMe(): Promise<void> {
   return speakText(INSTRUCTION_WAIT_ME);
-}
-
-export function speakFollowUpAnythingElse(): Promise<void> {
-  console.log("[TTS] 🔔 speakFollowUpAnythingElse CALLED from:", new Error().stack?.split("\n").slice(1, 4).join(" | "));
-  return speakText(FOLLOW_UP_ANYTHING_ELSE);
-}
-
-export function speakFollowUpWhatQuestion(): Promise<void> {
-  return speakText(FOLLOW_UP_WHAT_QUESTION);
-}
-
-export function speakSorryDidntCatch(): Promise<void> {
-  return speakText(SORRY_DIDNT_CATCH);
 }

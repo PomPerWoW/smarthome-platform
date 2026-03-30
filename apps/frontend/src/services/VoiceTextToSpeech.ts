@@ -3,7 +3,8 @@ import { useUIStore } from "@/stores/ui_store";
 const PREFERRED_VOICE_NAME = "Samantha";
 const GREETING = "How can I help you?";
 const GOODBYE = "See you again.";
-const NO_MATCH = "I'm sorry, I didn't quite understand that. I can help you with controlling your devices, using the panel, voice commands, and troubleshooting. Try asking me 'what can you do?' to see all the ways I can help, or ask about a specific device like 'how do I use the fan?'. What would you like to know?";
+const NO_MATCH =
+  "I'm sorry, I didn't quite understand that. You can control devices with phrases like \"turn on the fan\" or \"set the temperature to twenty-four\", or ask for help with \"how do I use the panel\" or \"how do I use the fan\". What would you like to try?";
 
 function getEnUsLocalVoices(): SpeechSynthesisVoice[] {
   if (typeof window === "undefined" || !window.speechSynthesis) return [];

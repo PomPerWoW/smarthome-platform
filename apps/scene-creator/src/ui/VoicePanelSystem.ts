@@ -11,6 +11,10 @@ import { VoiceControlSystem } from "../systems/VoiceControlSystem";
 import { RobotAssistantSystem } from "../systems/RobotAssistantSystem";
 import { DialogueOverlay } from "./DialogueOverlay";
 import { sceneNotify, SN_ICONS } from "./SceneNotification";
+import {
+  GOODBYE_ASSISTANT_MESSAGE,
+  speakSeeYouAgain,
+} from "../utils/VoiceTextToSpeech";
 
 // ============================================================================
 // Dialogue interaction states
@@ -28,6 +32,8 @@ enum DialogueState {
 }
 
 const CLOSING_DURATION = 1.5; // Seconds in CLOSING state before going IDLE
+/** Let the user read the goodbye line after they tap to stop (accidental open / cancel). */
+const USER_GOODBYE_OVERLAY_SEC = 1.8;
 
 type DashboardVoiceHooks = {
   onShow?: () => void;
@@ -60,6 +66,10 @@ export class VoicePanelSystem extends createSystem({
 
   // Dialogue closing timer
   private closingTimer = 0;
+
+  /** True while showing goodbye after user cancelled — delays hide until timeout. */
+  private pendingUserGoodbyeOverlay = false;
+  private userGoodbyeTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
   // Track if we're in an active conversation (robot is waiting for user response)
   private inActiveConversation = false;
@@ -206,8 +216,10 @@ export class VoicePanelSystem extends createSystem({
               });
             } else if (payload?.success && payload.instructionTopic) {
               if (payload.instructionTopic === "goodbye") {
-                this.dialogue.addAssistantMessage("See you again! 👋");
-                this.dashboardHooks?.onAssistantMessage?.("See you again! 👋");
+                this.dialogue.addAssistantMessage(GOODBYE_ASSISTANT_MESSAGE);
+                this.dashboardHooks?.onAssistantMessage?.(
+                  GOODBYE_ASSISTANT_MESSAGE,
+                );
                 this.inActiveConversation = false;
                 sceneNotify({
                   title: "Voice session ended",
@@ -217,23 +229,13 @@ export class VoicePanelSystem extends createSystem({
                   iconBg: "rgba(100,116,139,0.15)",
                   iconFg: "#94a3b8",
                 });
-                // Stop listening when conversation ends
-                if (
-                  this.currentStatus === "listening" ||
-                  this.currentStatus === "processing"
-                ) {
-                  this.voiceSystem.toggleListening();
-                }
-                setTimeout(() => this.beginClosing(), 1000);
+                this.beginClosing({
+                  userInitiated: true,
+                  skipGoodbyeBubble: true,
+                });
               } else {
-                // Don't add generic message - the actual instruction text will be added by RobotAssistantSystem
-                // Only mark as active conversation if it's not device_info (which should close)
-                if (payload.instructionTopic !== "device_info") {
-                  this.inActiveConversation = true;
-                } else {
-                  // device_info should close after answering
-                  this.inActiveConversation = false;
-                }
+                // Robot speaks then closes the dialogue (one session per mic); keep mic idle until then.
+                this.inActiveConversation = false;
                 sceneNotify({
                   title: "Robot provided information",
                   description: `Topic: ${payload.instructionTopic.replace(/_/g, " ")}`,
@@ -244,8 +246,10 @@ export class VoicePanelSystem extends createSystem({
                 });
               }
             } else if (payload?.cancelled) {
-              this.dialogue.addAssistantMessage("See you again! 👋");
-              this.dashboardHooks?.onAssistantMessage?.("See you again! 👋");
+              this.dialogue.addAssistantMessage(GOODBYE_ASSISTANT_MESSAGE);
+              this.dashboardHooks?.onAssistantMessage?.(
+                GOODBYE_ASSISTANT_MESSAGE,
+              );
               this.inActiveConversation = false;
               sceneNotify({
                 title: "Voice session cancelled",
@@ -255,15 +259,11 @@ export class VoicePanelSystem extends createSystem({
                 iconBg: "rgba(100,116,139,0.15)",
                 iconFg: "#94a3b8",
               });
-              // Stop listening when cancelled
-              if (
-                this.currentStatus === "listening" ||
-                this.currentStatus === "processing"
-              ) {
-                this.voiceSystem.toggleListening();
-              }
-              // Close dialogue after goodbye message
-              setTimeout(() => this.beginClosing(), 1000);
+              this.beginClosing({
+                userInitiated: true,
+                skipGoodbyeTts: true,
+                skipGoodbyeBubble: true,
+              });
             } else if (payload?.serverError) {
               this.dialogue.setStatus("Server error", "#ef4444");
               const errMsg =
@@ -298,7 +298,6 @@ export class VoicePanelSystem extends createSystem({
                 iconFg: "#f59e0b",
               });
             } else if (payload?.endSession) {
-              // End of instruction session
               this.inActiveConversation = false;
               sceneNotify({
                 title: "Instruction session ended",
@@ -308,14 +307,7 @@ export class VoicePanelSystem extends createSystem({
                 iconBg: "rgba(99,102,241,0.15)",
                 iconFg: "#818cf8",
               });
-              // Stop listening when session ends
-              if (
-                this.currentStatus === "listening" ||
-                this.currentStatus === "processing"
-              ) {
-                this.voiceSystem.toggleListening();
-              }
-              setTimeout(() => this.beginClosing(), 1000);
+              this.beginClosing();
             }
 
             // Only begin closing if we're not in an active conversation
@@ -355,15 +347,12 @@ export class VoicePanelSystem extends createSystem({
       `[VoicePanel] 🎤 Mic clicked — current state: ${DialogueState[this.dialogueState]}, voice status: ${this.currentStatus}, inActiveConversation: ${this.inActiveConversation}`,
     );
 
-            // If currently listening or processing, stop it and close dialogue
-            // This handles the case where robot auto-started listening after asking "anything else?"
-            if (
-              this.currentStatus === "listening" ||
-              this.currentStatus === "processing"
-            ) {
-              console.log("[VoicePanel] Stopping active listening/processing");
-              this.voiceSystem.forceStopListening();
-              // Clear instruction session state in RobotAssistantSystem
+    // User tapped to stop while the mic is on (very common accidental case)
+    if (
+      this.currentStatus === "listening" ||
+      this.currentStatus === "processing"
+    ) {
+      console.log("[VoicePanel] Stopping active listening/processing");
       const robotSystem = (globalThis as any).__robotAssistantSystem;
       if (robotSystem) {
         robotSystem.inInstructionSession = false;
@@ -371,20 +360,20 @@ export class VoicePanelSystem extends createSystem({
         robotSystem.pendingInstructionTopic = null;
         robotSystem.pendingInstructionText = null;
       }
-      // Always close the dialogue when user stops
       if (
         this.dialogueState === DialogueState.ACTIVE ||
         this.dialogueState === DialogueState.APPROACHING
       ) {
-        this.beginClosing();
+        this.beginClosing({ userInitiated: true });
+      } else {
+        this.voiceSystem.forceStopListening();
       }
       return;
     }
 
-    // If already in active dialogue (including when robot is waiting for response), close the dialogue
+    // Active dialogue but mic idle — still a deliberate dismiss (e.g. mis-tap after reply)
     if (this.dialogueState === DialogueState.ACTIVE) {
       console.log("[VoicePanel] Closing dialogue (ACTIVE → closing)");
-      // Clear instruction session state in RobotAssistantSystem
       const robotSystem = (globalThis as any).__robotAssistantSystem;
       if (robotSystem) {
         robotSystem.inInstructionSession = false;
@@ -392,14 +381,13 @@ export class VoicePanelSystem extends createSystem({
         robotSystem.pendingInstructionTopic = null;
         robotSystem.pendingInstructionText = null;
       }
-      this.beginClosing(); // beginClosing() already handles stopping listening
+      this.beginClosing({ userInitiated: true });
       return;
     }
 
-    // If approaching, cancel the approach
     if (this.dialogueState === DialogueState.APPROACHING) {
       console.log("[VoicePanel] Cancelling approach");
-      this.beginClosing();
+      this.beginClosing({ userInitiated: true });
       return;
     }
 
@@ -458,19 +446,39 @@ export class VoicePanelSystem extends createSystem({
     this.voiceSystem.toggleListening();
   }
 
-  /** Begin the closing / camera-return phase. */
-  private beginClosing(): void {
+  /**
+   * End the voice conversation. When `userInitiated`, show a clear goodbye and
+   * brief delay so mis-taps still feel intentional; robot/system closes stay snappy.
+   */
+  beginClosing(
+    opts?: {
+      userInitiated?: boolean;
+      skipGoodbyeTts?: boolean;
+      skipGoodbyeBubble?: boolean;
+    },
+  ): void {
     if (this.dialogueState === DialogueState.CLOSING) return;
     if (this.dialogueState === DialogueState.IDLE) return;
 
+    if (this.userGoodbyeTimeoutId) {
+      clearTimeout(this.userGoodbyeTimeoutId);
+      this.userGoodbyeTimeoutId = null;
+    }
+
+    const userInitiated = opts?.userInitiated ?? false;
+
     console.log(
-      `[VoicePanel] 🔚 Closing (was ${DialogueState[this.dialogueState]})`,
+      `[VoicePanel] 🔚 Closing (was ${DialogueState[this.dialogueState]}, userInitiated=${userInitiated})`,
     );
+
+    const listening =
+      this.currentStatus === "listening" ||
+      this.currentStatus === "processing";
+
     this.dialogueState = DialogueState.CLOSING;
     this.closingTimer = 0;
     this.inActiveConversation = false;
 
-    // Clear instruction session state in RobotAssistantSystem
     const robotSystem = (globalThis as any).__robotAssistantSystem;
     if (robotSystem) {
       robotSystem.inInstructionSession = false;
@@ -479,31 +487,48 @@ export class VoicePanelSystem extends createSystem({
       robotSystem.pendingInstructionText = null;
     }
 
-            // Stop listening when closing
-            if (
-              this.currentStatus === "listening" ||
-              this.currentStatus === "processing" ||
-              this.inActiveConversation
-            ) {
-              console.log("[VoicePanel] Stopping listening during close");
-              this.voiceSystem.forceStopListening();
-            }
+    if (listening) {
+      this.voiceSystem.forceStopListening();
+    } else if (userInitiated && !opts?.skipGoodbyeTts) {
+      void speakSeeYouAgain();
+    }
 
-    // Explicitly reset button to idle state (blue) when closing
     if (this.micButtonRef && this.statusTextRef) {
-      this.micButtonRef.setProperties({ backgroundColor: "#2563eb" }); // Blue
+      this.micButtonRef.setProperties({ backgroundColor: "#2563eb" });
       this.statusTextRef.setProperties({ text: "Say 'Turn on...'" });
     }
 
-    // Hide dialogue overlay
+    const runFinishOverlay = () => {
+      this.pendingUserGoodbyeOverlay = false;
+      this.userGoodbyeTimeoutId = null;
+      this.finishClosingOverlay();
+    };
+
+    if (userInitiated) {
+      if (!opts?.skipGoodbyeBubble && this.dialogue?.isVisible()) {
+        this.dialogue.hideTyping();
+        this.dialogue.addAssistantMessage(GOODBYE_ASSISTANT_MESSAGE);
+        this.dashboardHooks?.onAssistantMessage?.(GOODBYE_ASSISTANT_MESSAGE);
+      }
+      this.pendingUserGoodbyeOverlay = true;
+      this.userGoodbyeTimeoutId = setTimeout(
+        runFinishOverlay,
+        USER_GOODBYE_OVERLAY_SEC * 1000,
+      );
+      return;
+    }
+
+    runFinishOverlay();
+  }
+
+  private finishClosingOverlay(): void {
+    this.dashboardHooks?.onStatus?.("Goodbye");
     if (this.dialogue) {
       this.dialogue.setStatus("Goodbye", "#94a3b8");
       this.dialogue.hide();
     }
-    this.dashboardHooks?.onStatus?.("Goodbye");
     this.dashboardHooks?.onHide?.();
 
-    // Tell robot to go back to patrol
     const robot = this.robotSystem;
     if (robot) {
       robot.returnToPatrol();
@@ -521,21 +546,6 @@ export class VoicePanelSystem extends createSystem({
     if (this.dialogue && this.dialogue.isVisible()) {
       this.dialogue.addAssistantMessage(message);
       this.dashboardHooks?.onAssistantMessage?.(message);
-      // When robot asks a question, we're in active conversation
-      if (
-        message.includes("Do you want") ||
-        message.includes("What would you like") ||
-        message.includes("Sorry, I didn't catch")
-      ) {
-        this.inActiveConversation = true;
-        // Update button state to show we're waiting for user
-        if (this.micButtonRef && this.statusTextRef) {
-          this.micButtonRef.setProperties({ backgroundColor: "#ef4444" }); // Red
-          this.statusTextRef.setProperties({ text: "Click to stop" });
-        }
-        // Show typing indicator to indicate waiting for user
-        this.dialogue.showTyping("Listening…");
-      }
     }
   }
 
@@ -545,6 +555,7 @@ export class VoicePanelSystem extends createSystem({
 
   update(dt: number) {
     if (this.dialogueState !== DialogueState.CLOSING) return;
+    if (this.pendingUserGoodbyeOverlay) return;
 
     this.closingTimer += dt;
     if (this.closingTimer >= CLOSING_DURATION) {

@@ -125,15 +125,20 @@ export class PanelSystem extends createSystem({
           roomModel.visible = !ar;
         }
 
-        // Update mode button styling via backgroundColor
+        const activeBg = "rgba(124, 58, 237, 0.84)";
+        const activeBorder = "rgba(124, 58, 237, 1)";
+        const inactiveBg = "rgba(255, 255, 255, 0.24)";
+        const inactiveBorder = "rgba(255, 255, 255, 0.36)";
         if (vrModeBtn) {
           vrModeBtn.setProperties({
-            backgroundColor: ar ? "#27272a" : "#7c3aed",
+            backgroundColor: ar ? inactiveBg : activeBg,
+            borderColor: ar ? inactiveBorder : activeBorder,
           });
         }
         if (arModeBtn) {
           arModeBtn.setProperties({
-            backgroundColor: ar ? "#7c3aed" : "#27272a",
+            backgroundColor: ar ? activeBg : inactiveBg,
+            borderColor: ar ? activeBorder : inactiveBorder,
           });
         }
 

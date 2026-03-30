@@ -407,7 +407,10 @@ function buildHTML(): string {
       <div class="xr-ol__chips">
         <span class="xr-ol__chip xr-ol__chip--key">Y&nbsp;—&nbsp;summon in front</span>
         <span class="xr-ol__chip xr-ol__chip--key">U&nbsp;—&nbsp;toggle on/off</span>
-        <span class="xr-ol__chip xr-ol__chip--controller">Trigger button (controller)</span>
+        <span class="xr-ol__chip xr-ol__chip--key">T&nbsp;—&nbsp;head-follow on/off</span>
+        <span class="xr-ol__chip xr-ol__chip--controller">Trigger — summon panel</span>
+        <span class="xr-ol__chip xr-ol__chip--controller">Squeeze / grip — follow mode</span>
+        <span class="xr-ol__chip xr-ol__chip--controller">Thumbstick click — hide/show</span>
         <span class="xr-ol__chip xr-ol__chip--gesture">Palm-up gesture</span>
         <span class="xr-ol__chip xr-ol__chip--gesture">Point &amp; curl gesture</span>
       </div>
@@ -437,8 +440,11 @@ function buildHTML(): string {
         <p class="xr-ol__item-name">Controller Trigger</p>
       </div>
       <p class="xr-ol__item-desc">
-        Press the <strong style="color:#93c5fd">primary trigger</strong> on either
-        Meta Quest controller to instantly summon the panel in front of you.
+        <strong style="color:#93c5fd">Trigger</strong> summons the dashboard.
+        <strong style="color:#93c5fd">Grip (squeeze)</strong> toggles whether the
+        panel follows your view (same as <code style="font-size:11px">T</code> on keyboard).
+        <strong style="color:#93c5fd">Thumbstick press</strong> shows or hides the panel
+        (same as <code style="font-size:11px">U</code>). Works on Meta Quest 3 Touch controllers.
       </p>
     </div>
 
@@ -485,8 +491,9 @@ function buildHTML(): string {
         <p class="xr-ol__item-name">Keyboard Shortcuts</p>
       </div>
       <p class="xr-ol__item-desc">
-        Use <code style="color:#fb7185;background:rgba(244,63,94,0.12);padding:1px 5px;border-radius:4px">Y</code> to summon &amp;
-        <code style="color:#fb7185;background:rgba(244,63,94,0.12);padding:1px 5px;border-radius:4px">U</code> to toggle the panel.
+        Use <code style="color:#fb7185;background:rgba(244,63,94,0.12);padding:1px 5px;border-radius:4px">Y</code> to summon,
+        <code style="color:#fb7185;background:rgba(244,63,94,0.12);padding:1px 5px;border-radius:4px">U</code> to toggle the panel,
+        <code style="color:#fb7185;background:rgba(244,63,94,0.12);padding:1px 5px;border-radius:4px">T</code> for head-follow.
         <code style="color:#fb7185;background:rgba(244,63,94,0.12);padding:1px 5px;border-radius:4px">I/J/K/L</code> move your avatar.
       </p>
     </div>
