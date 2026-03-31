@@ -65,7 +65,6 @@ import {
   setOnAvatarSwitch,
   setupAvatarSwitcherPanel,
 } from "./ui/AvatarSwitcherPanel";
-import { setupLipSyncControlPanel } from "./ui/LipSyncPanel";
 import {
   speakGreeting,
   speakSeeYouAgain,
@@ -681,7 +680,6 @@ async function main(): Promise<void> {
   // 1) RPM Avatar — full-body (SlimeVR) + lip sync; SlimeVR bridge optional (?slimevrWs=...)
   const rpmAvatarSystem = world.getSystem(RPMUserControlledAvatarSystem);
   const slimeVRSystem = world.getSystem(SlimeVRFullBodySystem);
-  let lipSyncSetEnabled: ((enabled: boolean) => void) | undefined;
   if (rpmAvatarSystem) {
     const playerEntity = await rpmAvatarSystem.createRPMUserControlledAvatar(
       "player1",
@@ -694,7 +692,6 @@ async function main(): Promise<void> {
       "player1",
       "RPM Avatar",
     );
-    lipSyncSetEnabled = setupLipSyncControlPanel(rpmAvatarSystem);
     console.log(
       "✅ RPM avatar (MediumRes12.glb) — SlimeVR leg IK when bridge connected",
     );
@@ -785,15 +782,6 @@ async function main(): Promise<void> {
     console.log("✅ 4 NPC RPM Avatars (npc/RPM_clip.glb) - stationary");
   }
 
-  if (rpmAvatarSystem && lipSyncSetEnabled) {
-    setOnAvatarSwitch((entry) => {
-      if (entry?.avatarId !== "player1") {
-        rpmAvatarSystem.setMicrophoneMode(false);
-        rpmAvatarSystem.stopSpeaking();
-      }
-      lipSyncSetEnabled(entry?.avatarId === "player1");
-    });
-  }
   setupAvatarSwitcherPanel();
 
   console.log(
