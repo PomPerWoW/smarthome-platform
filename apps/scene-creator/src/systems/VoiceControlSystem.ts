@@ -397,7 +397,7 @@ export class VoiceControlSystem {
       const response =
         await BackendApiClient.getInstance().sendVoiceCommand(
           trimmedTranscript,
-          false,
+          true,
         );
       console.log("[VoiceControl] Backend response:", response);
 
@@ -433,7 +433,7 @@ export class VoiceControlSystem {
             device,
             deviceId,
             commandText: trimmedTranscript,
-            executeAfterMovement: true,
+            executeAfterMovement: false,
             noMatch: false,
           });
           return;

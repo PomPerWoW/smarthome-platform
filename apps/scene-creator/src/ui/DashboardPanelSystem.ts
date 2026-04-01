@@ -100,7 +100,7 @@ export class DashboardPanelSystem extends createSystem({
   private attemptedInitialDataFetch = false;
   private roomNameById: Map<string, string> = new Map();
   private roomNameFetchInFlight: Set<string> = new Set();
-  private voiceDialogueLines: string[] = [];
+  private voiceStatus: string = "Idle";
   private homeWelcomeText = "Welcome, User";
   private unsubscribeVisibility?: () => void;
   private refreshDashboardXRSectionUI?: () => void;
@@ -243,6 +243,7 @@ export class DashboardPanelSystem extends createSystem({
     this.setupXRSection(document);
     this.setupVoiceAssistantPanel(document);
     this.setupPlacementSection(document);
+    this.setupWallpaperSection(document);
 
     // ── Close button ─────────────────────────────────────────────────────────
     const closeBtn = document.getElementById("close-dashboard-btn");
@@ -397,7 +398,7 @@ export class DashboardPanelSystem extends createSystem({
     const railIds = [
       "rail-home-btn",
       "rail-devices-btn",
-      "rail-refresh-btn",
+      "rail-wallpaper-btn",
       "rail-mic-btn",
       "rail-xr-btn",
     ];
@@ -454,15 +455,13 @@ export class DashboardPanelSystem extends createSystem({
       (railAlignBtn as any).setProperties?.({ display: "none" });
     }
 
-    // Refresh
-    const railRefreshBtn = document.getElementById("rail-refresh-btn");
-    if (railRefreshBtn) {
-      railRefreshBtn.addEventListener("click", async () => {
-        setActiveRail("rail-refresh-btn");
-        this.showDashboardHomeSection(document);
-        console.log("[DashboardPanel] Refreshing devices...");
-        await getStore().refreshDevices();
-        setActiveRail("rail-home-btn");
+    const railWallpaperBtn = document.getElementById("rail-wallpaper-btn");
+    if (railWallpaperBtn) {
+      railWallpaperBtn.addEventListener("click", () => {
+        setActiveRail("rail-wallpaper-btn");
+        this.showDashboardWallpaperSection(document);
+        const placementEntity = (globalThis as any).__placementPanelEntity;
+        if (placementEntity?.object3D) placementEntity.object3D.visible = false;
       });
     }
 
@@ -506,15 +505,10 @@ export class DashboardPanelSystem extends createSystem({
       onStatus: (text: string) => {
         this.setVoiceStatus(document, text);
       },
-      onUserMessage: (text: string) => {
-        this.pushVoiceDialogueLine(document, `You: ${text}`);
-      },
-      onAssistantMessage: (text: string) => {
-        this.pushVoiceDialogueLine(document, `Assistant: ${text}`);
-      },
-      onSystemMessage: (text: string) => {
-        this.pushVoiceDialogueLine(document, `System: ${text}`);
-      },
+      // Dialogue hooks are no-ops — no dialogue box in new design
+      onUserMessage: (_text: string) => {},
+      onAssistantMessage: (_text: string) => {},
+      onSystemMessage: (_text: string) => {},
       onTyping: (text?: string) => {
         this.setVoiceStatus(document, text ?? "Listening...");
       },
@@ -526,20 +520,6 @@ export class DashboardPanelSystem extends createSystem({
 
   private showVoiceAssistantPanel(document: UIKitDocument): void {
     this.showDashboardSection(document, "voice");
-
-    const panel = document.getElementById(
-      "voice-assistant-panel",
-    ) as UIKit.Container;
-    if (panel) {
-      panel.setProperties({ display: "flex" });
-    }
-    if (this.voiceDialogueLines.length === 0) {
-      this.pushVoiceDialogueLine(
-        document,
-        'Press "Voice Command" to talk with assistant.',
-        true,
-      );
-    }
   }
 
   private showDashboardHomeSection(document: UIKitDocument): void {
@@ -548,6 +528,10 @@ export class DashboardPanelSystem extends createSystem({
 
   private showDashboardPlacementSection(document: UIKitDocument): void {
     this.showDashboardSection(document, "placement");
+  }
+
+  private showDashboardWallpaperSection(document: UIKitDocument): void {
+    this.showDashboardSection(document, "wallpaper");
   }
 
   private showDashboardAlignmentSection(document: UIKitDocument): void {
@@ -561,18 +545,16 @@ export class DashboardPanelSystem extends createSystem({
 
   private showDashboardSection(
     document: UIKitDocument,
-    section: "home" | "voice" | "placement" | "alignment" | "xr",
+    section: "home" | "voice" | "placement" | "alignment" | "xr" | "wallpaper",
   ): void {
     const deviceGrid = document.getElementById("device-grid") as UIKit.Container;
     if (deviceGrid) {
       deviceGrid.setProperties({ display: section === "home" ? "flex" : "none" });
     }
 
-    const panel = document.getElementById(
-      "voice-assistant-panel",
-    ) as UIKit.Container;
-    if (panel) {
-      panel.setProperties({ display: section === "voice" ? "flex" : "none" });
+    const voiceSection = document.getElementById("voice-section") as UIKit.Container;
+    if (voiceSection) {
+      voiceSection.setProperties({ display: section === "voice" ? "flex" : "none" });
     }
 
     const placementSection = document.getElementById(
@@ -597,6 +579,15 @@ export class DashboardPanelSystem extends createSystem({
     if (xrSection) {
       xrSection.setProperties({
         display: section === "xr" ? "flex" : "none",
+      });
+    }
+
+    const wallpaperSection = document.getElementById(
+      "wallpaper-section",
+    ) as UIKit.Container;
+    if (wallpaperSection) {
+      wallpaperSection.setProperties({
+        display: section === "wallpaper" ? "flex" : "none",
       });
     }
   }
@@ -786,7 +777,9 @@ export class DashboardPanelSystem extends createSystem({
         this.showDashboardHomeSection(document);
       });
     }
+  }
 
+  private setupWallpaperSection(document: UIKitDocument): void {
     document
       .getElementById("place-wallpaper-upload")
       ?.addEventListener("click", async () => {
@@ -925,38 +918,27 @@ export class DashboardPanelSystem extends createSystem({
       return;
     }
 
-    this.setVoiceStatus(document, "Voice system not ready");
-    this.pushVoiceDialogueLine(
-      document,
-      "System: Voice assistant is still initializing. Try again in a moment.",
-    );
+    this.setVoiceStatus(document, "Not ready — try again in a moment.");
   }
 
   private setVoiceStatus(document: UIKitDocument, text: string): void {
-    const status = document.getElementById("voice-status-inline") as UIKit.Text;
-    if (status) {
-      status.setProperties({ text });
+    this.voiceStatus = text;
+    const label = document.getElementById("voice-status-inline") as UIKit.Text;
+    if (label) {
+      label.setProperties({ text });
     }
-  }
-
-  private pushVoiceDialogueLine(
-    document: UIKitDocument,
-    text: string,
-    replace = false,
-  ): void {
-    const dialogueText = document.getElementById("voice-dialogue-text") as UIKit.Text;
-    if (!dialogueText) return;
-
-    if (replace) {
-      this.voiceDialogueLines = [text];
-    } else {
-      this.voiceDialogueLines.push(text);
-      if (this.voiceDialogueLines.length > 6) {
-        this.voiceDialogueLines = this.voiceDialogueLines.slice(-6);
+    // Update status dot color to give visual feedback
+    const dot = document.getElementById("voice-status-dot") as UIKit.Container;
+    if (dot) {
+      const lower = text.toLowerCase();
+      let dotColor = "#64748b"; // Idle — slate
+      if (lower.includes("listen") || lower.includes("active")) {
+        dotColor = "#7c3aed"; // Listening / Active — purple
+      } else if (lower === "active") {
+        dotColor = "#22c55e"; // Active — green
       }
+      dot.setProperties({ backgroundColor: dotColor });
     }
-
-    dialogueText.setProperties({ text: this.voiceDialogueLines.join("\n") });
   }
 
   // ── Card Interactions ──────────────────────────────────────────────────────

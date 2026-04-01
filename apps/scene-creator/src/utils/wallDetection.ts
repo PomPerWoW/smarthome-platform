@@ -135,47 +135,83 @@ export function getWallById(id: string): WallInfo | null {
 }
 
 /**
- * Open a browser file-picker and return the selected image as a data-URL,
- * or `null` if the user cancels.
+ * Open a file picker and return the chosen image file, or `null` if the user
+ * cancels (or the dialog times out without a selection).
  */
-export function pickImageAsDataUrl(): Promise<string | null> {
+export function pickImageFile(): Promise<File | null> {
   return new Promise((resolve) => {
     const input = document.createElement("input");
     input.type = "file";
     input.accept = "image/*";
 
-    input.onchange = () => {
-      const file = input.files?.[0];
-      if (!file) {
-        resolve(null);
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = (e) => resolve((e.target?.result as string) ?? null);
-      reader.onerror = () => resolve(null);
-      reader.readAsDataURL(file);
-    };
-
-    // If the dialog is dismissed without a selection the change event never
-    // fires; resolve with null after a generous timeout so the promise
-    // doesn't leak.
-    const TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+    const TIMEOUT_MS = 5 * 60 * 1000;
     const timer = window.setTimeout(() => resolve(null), TIMEOUT_MS);
+
     input.onchange = () => {
       clearTimeout(timer);
-      const file = input.files?.[0];
-      if (!file) {
-        resolve(null);
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = (e) => resolve((e.target?.result as string) ?? null);
-      reader.onerror = () => resolve(null);
-      reader.readAsDataURL(file);
+      resolve(input.files?.[0] ?? null);
     };
 
     input.click();
   });
+}
+
+const WALLPAPER_IMAGE_MAX_EDGE = 4096;
+
+/**
+ * Decode any image file the browser understands into a PNG data-URL suitable
+ * for Three.js `TextureLoader`. HEIC/WebP and raw FileReader URLs are
+ * normalized so loading matches solid-colour canvas PNGs.
+ */
+export async function decodeImageFileToWallpaperDataUrl(
+  file: File,
+): Promise<string | null> {
+  const toPngDataUrl = (
+    source: CanvasImageSource,
+    sw: number,
+    sh: number,
+  ): string | null => {
+    const maxEdge = Math.max(sw, sh);
+    const scale =
+      maxEdge > WALLPAPER_IMAGE_MAX_EDGE
+        ? WALLPAPER_IMAGE_MAX_EDGE / maxEdge
+        : 1;
+    const w = Math.max(1, Math.round(sw * scale));
+    const h = Math.max(1, Math.round(sh * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    ctx.drawImage(source, 0, 0, w, h);
+    return canvas.toDataURL("image/png");
+  };
+
+  try {
+    const bmp = await createImageBitmap(file);
+    try {
+      return toPngDataUrl(bmp, bmp.width, bmp.height);
+    } finally {
+      bmp.close();
+    }
+  } catch {
+    // Fall through — some formats need the classic Image + object URL path.
+  }
+
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    await new Promise<void>((res, rej) => {
+      img.onload = () => res();
+      img.onerror = () => rej(new Error("image-decode"));
+      img.src = objectUrl;
+    });
+    return toPngDataUrl(img, img.naturalWidth, img.naturalHeight);
+  } catch {
+    return null;
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
 }
 
 /**

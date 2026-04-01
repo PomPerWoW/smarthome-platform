@@ -59,6 +59,12 @@ let _paintedMeshes: PaintedMeshRecord[] = [];
 /** Texture instances currently painted onto room meshes (if any). */
 let _activePaintTextures: Texture[] = [];
 
+/**
+ * Room-model wall meshes hidden when a plane-overlay wallpaper is applied
+ * (uploaded image path). Restored to visible when wallpaper is cleared.
+ */
+let _hiddenWallMeshes: Mesh[] = [];
+
 // ─────────────────────────────────────────────────────────────────────────────
 //  ① Primary path — paint texture directly onto room-model wall meshes
 // ─────────────────────────────────────────────────────────────────────────────
@@ -152,6 +158,17 @@ export function restoreRoomWallMaterials(): void {
   }
   _activePaintTextures = [];
 
+  // Restore any wall meshes that were hidden by the plane-overlay path.
+  for (const mesh of _hiddenWallMeshes) {
+    mesh.visible = true;
+  }
+  if (_hiddenWallMeshes.length > 0) {
+    console.log(
+      `[WallpaperRenderer] Restored visibility of ${_hiddenWallMeshes.length} hidden wall mesh(es)`,
+    );
+  }
+  _hiddenWallMeshes = [];
+
   console.log("[WallpaperRenderer] Restored original wall materials");
 }
 
@@ -169,29 +186,120 @@ export function restoreRoomWallMaterials(): void {
  *
  * Returns the list of generated wallpaper ids (one per wall).
  */
+/**
+ * Create one `PlaneGeometry` mesh per detected wall mesh, cover it with the
+ * given texture, orient it to face the wall, and add it as a child of
+ * `__labRoomModel`. The original wall meshes are hidden so they don't
+ * show through the wallpaper planes.
+ *
+ * Returns the list of generated wallpaper ids (one per wall mesh).
+ */
 export function createPlanesOnAllWalls(
   imageDataUrl: string,
   idPrefix: string = "wallpaper",
 ): string[] {
-  const walls = getAvailableWalls();
-  if (walls.length === 0) {
-    console.warn("[WallpaperRenderer] No walls detected — nothing to cover");
+  const labModel = getLabModel();
+  if (!labModel) {
+    console.warn("[WallpaperRenderer] No room model — cannot create wallpaper planes");
     return [];
   }
 
   const ids: string[] = [];
+  let wallIdx = 0;
 
-  for (const wall of walls) {
-    const id = `${idPrefix}-${wall.id}-${Date.now()}`;
-    createWallpaperMesh(id, wall, imageDataUrl);
+  labModel.traverse((child) => {
+    const mesh = child as Mesh;
+    if (!mesh.isMesh || !mesh.material) return;
+    if (!isLikelyWallMesh(mesh)) return;
+    if (!mesh.visible) return; // already hidden
+
+    // ── Compute world-space bounding box of this wall mesh ──────────────────
+    mesh.updateMatrixWorld(true);
+    const worldBox = new Box3().setFromObject(mesh);
+    const worldSize = new Vector3();
+    worldBox.getSize(worldSize);
+    const worldCenter = new Vector3();
+    worldBox.getCenter(worldCenter);
+
+    // Wall width is the longer horizontal span, height is Y span.
+    const wallWidth = Math.max(worldSize.x, worldSize.z);
+    const wallHeight = worldSize.y;
+
+    // ── Compute outward normal from mesh face geometry ───────────────────────
+    const wallNormal = computeMeshOutwardNormal(mesh);
+
+    // Offset the plane slightly outward from the wall surface to avoid z-fighting.
+    const OFFSET = 0.015;
+    const planeCenter = worldCenter.clone().addScaledVector(wallNormal, OFFSET);
+
+    // ── Convert world position to labModel-local space ───────────────────────
+    const localCenter = labModel.worldToLocal(planeCenter.clone());
+
+    // Build a WallInfo-compatible record so createWallpaperMesh can be reused.
+    const wallInfo = {
+      id: `mesh-wall-${wallIdx++}`,
+      label: mesh.name || `Wall ${wallIdx}`,
+      wallNormal: [wallNormal.x, wallNormal.y, wallNormal.z] as [number, number, number],
+      wallPosition: 0,
+      width: wallWidth,
+      height: wallHeight,
+      center: [localCenter.x, localCenter.y, localCenter.z] as [number, number, number],
+    };
+
+    const id = `${idPrefix}-${wallInfo.id}-${Date.now()}`;
+    createWallpaperMesh(id, wallInfo, imageDataUrl);
+    ids.push(id);
+
+    // Hide the original mesh now that its plane replacement is created.
+    mesh.visible = false;
+    _hiddenWallMeshes.push(mesh);
+  });
+
+  if (ids.length === 0) {
+    console.warn(
+      "[WallpaperRenderer] No wall meshes found — trying cardinal walls from room bbox",
+    );
+    return createPlanesOnCardinalWalls(imageDataUrl, idPrefix);
+  }
+
+  console.log(
+    `[WallpaperRenderer] Created ${ids.length} wallpaper plane(s) from wall meshes`,
+  );
+  return ids;
+}
+
+/**
+ * Place one wallpaper plane on each cardinal wall derived from the room
+ * model's bounding box (same basis as the wall picker). Used when no wall
+ * meshes are detected but the lab model exists.
+ */
+export function createPlanesOnCardinalWalls(
+  imageDataUrl: string,
+  idPrefix: string = "wallpaper",
+): string[] {
+  const labModel = getLabModel();
+  if (!labModel) {
+    console.warn(
+      "[WallpaperRenderer] No room model — cardinal wallpaper planes skipped",
+    );
+    return [];
+  }
+
+  const walls = getAvailableWalls();
+  if (walls.length === 0) return [];
+
+  const ids: string[] = [];
+  const t = Date.now();
+  for (let i = 0; i < walls.length; i++) {
+    const w = walls[i]!;
+    const id = `${idPrefix}-cardinal-${w.id}-${t}-${i}`;
+    createWallpaperMesh(id, w, imageDataUrl);
     ids.push(id);
   }
 
   console.log(
-    `[WallpaperRenderer] Created ${ids.length} wallpaper plane(s) ` +
-    `covering walls: ${walls.map((w) => w.id).join(", ")}`,
+    `[WallpaperRenderer] Created ${ids.length} cardinal wallpaper plane(s) from room bbox`,
   );
-
   return ids;
 }
 
@@ -216,8 +324,8 @@ export function removeAllWallpaperPlanes(): void {
  * Attempt order:
  *   1. Paint the texture directly onto detected wall meshes in `__labRoomModel`
  *      (zero z-fighting, looks part of the geometry).
- *   2. If no wall meshes were detected, create floating `PlaneGeometry` planes
- *      covering all four cardinal walls (reliable fallback for any model).
+ *   2. If no wall meshes were painted, create overlay planes from wall meshes;
+ *      if none match, use the room bbox cardinal walls (`getAvailableWalls`).
  *
  * @param imageDataUrl  A `data:image/...;base64,...` string or any URL the
  *                      `TextureLoader` can resolve.
@@ -252,15 +360,15 @@ export function applyWallpaperToAll(
     return "mesh";
   }
 
-  // Mesh-paint found nothing usable — fall back to planes
+  // Mesh-paint found nothing — wall-mesh planes, or cardinal bbox walls inside helper
   const ids = createPlanesOnAllWalls(imageDataUrl, idPrefix);
   if (ids.length > 0) {
     return "plane";
   }
 
   console.warn(
-    "[WallpaperRenderer] applyWallpaperToAll: both paths produced nothing — " +
-    "room model may not be loaded yet",
+    "[WallpaperRenderer] applyWallpaperToAll: mesh paint and all plane fallbacks failed — " +
+      "room model may not be loaded yet",
   );
   return "none";
 }
@@ -591,6 +699,112 @@ function hasUsableUVs(geometry: BufferGeometry): boolean {
 function getLabModel(): Object3D | null {
   return (globalThis as any).__labRoomModel ?? null;
 }
+
+/**
+ * Compute a world-space outward-facing normal for a wall mesh.
+ *
+ * Strategy:
+ *   1. Sample the first triangle's face normal in world space (most reliable
+ *      for flat wall geometry).
+ *   2. Fallback: use the axis the bounding box is thinnest in — that is the
+ *      wall's thickness direction, which IS its normal axis.
+ */
+function computeMeshOutwardNormal(mesh: Mesh): Vector3 {
+  mesh.updateMatrixWorld(true);
+  const geo = mesh.geometry as ThreeBufferGeometry;
+  const pos = geo.attributes.position;
+
+  let n = new Vector3(0, 0, 1);
+  let haveFaceNormal = false;
+
+  if (pos && pos.count >= 3) {
+    const idx = geo.index;
+    let ai = 0, bi = 1, ci = 2;
+    if (idx) { ai = idx.getX(0); bi = idx.getX(1); ci = idx.getX(2); }
+
+    const a = new Vector3(pos.getX(ai), pos.getY(ai), pos.getZ(ai));
+    const b = new Vector3(pos.getX(bi), pos.getY(bi), pos.getZ(bi));
+    const c = new Vector3(pos.getX(ci), pos.getY(ci), pos.getZ(ci));
+
+    const ab = b.clone().sub(a);
+    const ac = c.clone().sub(a);
+    const faceNormal = ab.cross(ac).normalize();
+
+    // Transform to world space (use normal matrix = inverse-transpose of model matrix)
+    faceNormal.transformDirection(mesh.matrixWorld).normalize();
+
+    // Ensure the normal has a meaningful length (degenerate faces return zero)
+    if (faceNormal.lengthSq() > 0.5) {
+      n.copy(faceNormal);
+      haveFaceNormal = true;
+    }
+  }
+
+  if (!haveFaceNormal) {
+    // Fallback: thinnest axis = wall normal (must stay horizontal for vertical walls)
+    const worldBox = new Box3().setFromObject(mesh);
+    const size = new Vector3();
+    worldBox.getSize(size);
+
+    if (size.x <= size.z && size.x <= size.y) n.set(1, 0, 0);
+    else if (size.z <= size.x && size.z <= size.y) n.set(0, 0, 1);
+    else n.copy(horizontalNormalFromWallBbox(mesh, new Vector3(1, 0, 0)));
+  }
+
+  // Wallpaper planes use PlaneGeometry in XY with +Z outward; if we align +Z to a
+  // mostly vertical world normal, the plane lies flat (XZ). Force a horizontal
+  // facing direction for any vertical-ish normal.
+  const VERTICAL_NORMAL_THRESHOLD = 0.65;
+  if (Math.abs(n.y) > VERTICAL_NORMAL_THRESHOLD) {
+    n.copy(horizontalNormalFromWallBbox(mesh, n));
+  }
+
+  return n;
+}
+
+/**
+ * Outward normal in the XZ plane for a vertical wall. Used when face winding
+ * or bbox fallback yields ±Y, which would lay the wallpaper plane horizontal.
+ */
+function horizontalNormalFromWallBbox(mesh: Mesh, hint: Vector3): Vector3 {
+  const worldBox = new Box3().setFromObject(mesh);
+  const size = new Vector3();
+  worldBox.getSize(size);
+  const center = new Vector3();
+  worldBox.getCenter(center);
+
+  const tx = size.x;
+  const tz = size.z;
+  const eps = 1e-4;
+  const maxFoot = Math.max(tx, tz, eps);
+
+  let axis = new Vector3();
+  if (Math.abs(tx - tz) < eps * maxFoot) {
+    axis.set(hint.x, 0, hint.z);
+    if (axis.lengthSq() < 1e-8) axis.set(1, 0, 0);
+  } else if (tx < tz) {
+    axis.set(1, 0, 0);
+  } else {
+    axis.set(0, 0, 1);
+  }
+  axis.normalize();
+
+  const hHint = new Vector3(hint.x, 0, hint.z);
+  if (hHint.lengthSq() > 1e-8 && hint.dot(axis) < 0) axis.negate();
+
+  if (hHint.lengthSq() <= 1e-8) {
+    const lab = getLabModel();
+    if (lab) {
+      const labCenter = new Box3().setFromObject(lab).getCenter(new Vector3());
+      const outward = center.clone().sub(labCenter);
+      outward.y = 0;
+      if (outward.lengthSq() > 1e-8 && outward.dot(axis) < 0) axis.negate();
+    }
+  }
+
+  return axis;
+}
+
 
 /**
  * Load a texture from a data-URL or any URL recognised by `TextureLoader`.

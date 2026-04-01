@@ -106,71 +106,101 @@
     flex: 1;
   }
 
-  .voice-assistant-panel {
-    width: 24;
-    display: none;
-    flex-direction: column;
-    gap: 0.5;
-    padding: 0.65 0.8;
-    background-color: rgba(15, 23, 42, 0.28);
-    border-radius: 1.4;
-    border-width: 0.1;
-    border-color: rgba(148, 163, 184, 0.35);
-    flex-shrink: 0;
-  }
-
-  .voice-assistant-header {
+  /* ──────────────────────────────────────────────
+     Voice Assistant Section (full content area)
+     ────────────────────────────────────────────── */
+  .voice-section-inner {
+    flex: 1;
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     align-items: center;
-    justify-content: space-between;
+    justify-content: center;
+    gap: 1.6;
+    padding: 1.6 1.2;
+    background: linear-gradient(160deg, rgba(15,23,42,0.72) 0%, rgba(30,10,60,0.68) 100%);
+    border-radius: 1.8;
+    border-width: 0.12;
+    border-color: rgba(139, 92, 246, 0.4);
+    box-shadow: 0 0 40px rgba(124, 58, 237, 0.12), inset 0 1px 0 rgba(255,255,255,0.06);
   }
 
-  .voice-assistant-title {
-    font-size: 1.1;
-    font-weight: 600;
+  .voice-section-title {
+    font-size: 1.45;
+    font-weight: 700;
+    color: #f1f5f9;
+    letter-spacing: 0.04em;
+  }
+
+  .voice-orb-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.1;
+  }
+
+  .voice-orb-ring {
+    width: 12;
+    height: 12;
+    border-radius: 6;
+    background-color: rgba(139, 92, 246, 0.10);
+    border-width: 0.15;
+    border-color: rgba(139, 92, 246, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 28px rgba(139, 92, 246, 0.28), 0 0 6px rgba(139, 92, 246, 0.18);
+  }
+
+  .voice-orb-btn {
+    width: 9;
+    height: 9;
+    border-radius: 4.5;
+    background: linear-gradient(145deg, rgba(124,58,237,0.9) 0%, rgba(37,99,235,0.85) 100%);
+    border-width: 0.12;
+    border-color: rgba(196, 181, 253, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 6px 30px rgba(124, 58, 237, 0.55), 0 2px 8px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.18);
+  }
+
+  .voice-orb-icon {
+    width: 3.2;
+    height: 3.2;
     color: #f8fafc;
   }
 
-  .voice-status {
-    font-size: 0.95;
-    color: #cbd5e1;
+  .voice-tip-text {
+    font-size: 0.96;
+    color: rgba(148, 163, 184, 0.9);
+    text-align: center;
   }
 
-  .voice-command-btn {
+  .voice-status-badge {
     display: flex;
     flex-direction: row;
     align-items: center;
     justify-content: center;
     gap: 0.35;
-    padding: 0.45 0.9;
-    border-radius: 1.1;
-    background-color: rgba(37, 99, 235, 0.38);
-    border-width: 0.1;
-    border-color: rgba(96, 165, 250, 0.5);
-    cursor: pointer;
-  }
-
-  .voice-command-btn-text {
-    font-size: 0.95;
-    font-weight: 600;
-    color: #eff6ff;
-  }
-
-  .voice-dialogue-box {
-    width: 100%;
-    min-height: 5.4;
-    max-height: 9;
-    padding: 0.5 0.6;
-    border-radius: 1;
-    background-color: rgba(15, 23, 42, 0.36);
+    padding: 0.32 1.1;
+    border-radius: 2;
+    background-color: rgba(30, 41, 59, 0.7);
     border-width: 0.08;
-    border-color: rgba(148, 163, 184, 0.28);
+    border-color: rgba(100, 116, 139, 0.45);
   }
 
-  .voice-dialogue-text {
+  .voice-status-dot {
+    width: 0.7;
+    height: 0.7;
+    border-radius: 0.35;
+    background-color: #64748b;
+  }
+
+  .voice-status-label {
     font-size: 0.88;
-    color: #e2e8f0;
+    font-weight: 500;
+    color: #94a3b8;
   }
 
   /* ──────────────────────────────────────────────
@@ -646,8 +676,8 @@
       <button class="rail-btn" id="rail-align-room-btn">
         <MoveIcon class="rail-icon" />
       </button>
-      <button class="rail-btn" id="rail-refresh-btn">
-        <RefreshCwIcon class="rail-icon" />
+      <button class="rail-btn" id="rail-wallpaper-btn" title="Wallpaper">
+        <ImageIcon class="rail-icon" />
       </button>
       <button class="rail-btn" id="rail-mic-btn">
         <MicIcon class="rail-icon" />
@@ -907,8 +937,12 @@
           <button class="section-btn" id="place-chair6"><img class="section-btn-icon" src="./ui/thumbnails/chair.png"></img><span class="section-btn-text">Chair 6</span></button>
         </div>
       </div>
+    </div>
+
+    <div class="dashboard-section" id="wallpaper-section">
       <div class="section-card">
         <span class="section-title">Wallpaper</span>
+        <span class="section-sub">Upload an image or pick a colour for the room walls.</span>
         <div class="section-grid">
           <button class="section-btn" id="place-wallpaper-upload"><ImageIcon class="section-btn-icon" /><span class="section-btn-text">Upload</span></button>
           <button class="section-btn" id="place-wallpaper-white"><div class="section-btn-swatch" style="background-color: #f8f8f8;"></div><span class="section-btn-text">White</span></button>
@@ -940,17 +974,21 @@
     </div>
 
     <!-- ─── Voice Assistant Section (open via mic rail button) ─── -->
-    <div class="voice-assistant-panel" id="voice-assistant-panel">
-      <div class="voice-assistant-header">
-        <span class="voice-assistant-title">Voice Assistant</span>
-        <span class="voice-status" id="voice-status-inline">Idle</span>
-      </div>
-      <button class="voice-command-btn" id="voice-command-btn">
-        <MicIcon class="rail-icon" />
-        <span class="voice-command-btn-text">Voice Command</span>
-      </button>
-      <div class="voice-dialogue-box">
-        <span class="voice-dialogue-text" id="voice-dialogue-text">Press "Voice Command" to talk with assistant.</span>
+    <div class="dashboard-section" id="voice-section">
+      <div class="voice-section-inner">
+        <span class="voice-section-title">Voice Assistant</span>
+        <div class="voice-orb-wrap">
+          <div class="voice-orb-ring">
+            <button class="voice-orb-btn" id="voice-command-btn" title="Tap to speak">
+              <MicIcon class="voice-orb-icon" />
+            </button>
+          </div>
+          <span class="voice-tip-text">Tap the mic to speak</span>
+        </div>
+        <div class="voice-status-badge">
+          <div class="voice-status-dot" id="voice-status-dot"></div>
+          <span class="voice-status-label" id="voice-status-inline">Idle</span>
+        </div>
       </div>
     </div>
   </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Plus, Home as HomeIcon, Loader2, DoorOpen } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
@@ -80,6 +80,16 @@ function DashboardPage() {
       loadRoomDevices();
     }
   }, [rooms, isLoadingRooms]);
+
+  const roomsGroupedByHome = useMemo(() => {
+    const byHome = new Map<string, Room[]>();
+    for (const room of roomsWithDevices) {
+      const list = byHome.get(room.homeId) ?? [];
+      list.push(room);
+      byHome.set(room.homeId, list);
+    }
+    return byHome;
+  }, [roomsWithDevices]);
 
   useEffect(() => {
     const open = isCreateOpen || !!homeToDelete || !!homeToRename;
@@ -239,25 +249,75 @@ function DashboardPage() {
         </div>
       )}
 
-      {/* Rooms grid */}
-      {!isLoadingRooms && !isLoadingRoomDevices && roomsWithDevices.length > 0 && (
+      {/* Rooms grouped by home (wait for homes so labels are correct) */}
+      {!isLoadingHomes &&
+        !isLoadingRooms &&
+        !isLoadingRoomDevices &&
+        roomsWithDevices.length > 0 && (
         <div className="space-y-6">
-          <h2 className="text-xl font-semibold flex items-center gap-2">
-            <DoorOpen className="h-5 w-5" />
-            Your Rooms
-          </h2>
-          <div className="flex flex-wrap gap-4">
-            {roomsWithDevices.map((room) => (
-              <Link
-                key={room.id}
-                to="/homes/$homeId"
-                params={{ homeId: room.homeId }}
-                search={{ room: room.id }}
-                className="block"
-              >
-                <RoomBlock room={room} />
-              </Link>
-            ))}
+          <div>
+            <h2 className="text-xl font-semibold flex items-center gap-2">
+              <DoorOpen className="h-5 w-5" />
+              Your Rooms
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Rooms are listed under the home they belong to.
+            </p>
+          </div>
+          <div className="space-y-8">
+            {homes.map((home) => {
+              const homeRooms = roomsGroupedByHome.get(home.id);
+              if (!homeRooms?.length) return null;
+              return (
+                <div key={home.id} className="space-y-3">
+                  <h3 className="text-base font-semibold flex items-center gap-2 text-foreground">
+                    <HomeIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="truncate">{home.name}</span>
+                  </h3>
+                  <div className="flex flex-wrap gap-4">
+                    {homeRooms.map((room) => (
+                      <Link
+                        key={room.id}
+                        to="/homes/$homeId"
+                        params={{ homeId: room.homeId }}
+                        search={{ room: room.id }}
+                        className="block"
+                      >
+                        <RoomBlock room={room} />
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+            {(() => {
+              const knownIds = new Set(homes.map((h) => h.id));
+              const orphanRooms = roomsWithDevices.filter(
+                (r) => !knownIds.has(r.homeId),
+              );
+              if (orphanRooms.length === 0) return null;
+              return (
+                <div className="space-y-3">
+                  <h3 className="text-base font-semibold flex items-center gap-2 text-muted-foreground">
+                    <HomeIcon className="h-4 w-4 shrink-0" />
+                    Other
+                  </h3>
+                  <div className="flex flex-wrap gap-4">
+                    {orphanRooms.map((room) => (
+                      <Link
+                        key={room.id}
+                        to="/homes/$homeId"
+                        params={{ homeId: room.homeId }}
+                        search={{ room: room.id }}
+                        className="block"
+                      >
+                        <RoomBlock room={room} />
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}

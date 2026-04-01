@@ -203,8 +203,8 @@ export class VoicePanelSystem extends createSystem({
               const doneMessage = `Done! I've ${payload.action.replace(/_/g, " ")} the ${payload.device}.`;
               this.dialogue.addAssistantMessage(doneMessage);
               this.dashboardHooks?.onAssistantMessage?.(doneMessage);
-              // After successful action, robot will ask follow-up, so stay in conversation
-              this.inActiveConversation = true;
+              // Command is completely resolved, do not stay in conversation to await follow up
+              this.inActiveConversation = false;
               // ── scene notification ──────────────────────────────────────────
               sceneNotify({
                 title: "Voice command executed",

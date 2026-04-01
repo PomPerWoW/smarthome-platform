@@ -15,7 +15,11 @@ import {
   updateLassoConfirmOverlay,
   updateLassoPreviewOverlay,
 } from "../entities/WallpaperRenderer";
-import { pickImageAsDataUrl, solidColorDataUrl } from "../utils/wallDetection";
+import {
+  decodeImageFileToWallpaperDataUrl,
+  pickImageFile,
+  solidColorDataUrl,
+} from "../utils/wallDetection";
 import { sceneNotify } from "../ui/SceneNotification";
 
 /**
@@ -408,16 +412,34 @@ export function removeAllWallpaper(): void {
 
 /**
  * Open the browser file-picker and apply the chosen image to all walls.
- * Returns without doing anything if the user cancels the picker.
+ * Uses the same mesh-first / plane-fallback pipeline as solid colours, after
+ * decoding the file to a PNG data URL for reliable Three.js loading.
  */
 export async function pickAndApplyWallpaper(): Promise<void> {
-  const dataUrl = await pickImageAsDataUrl();
-  if (!dataUrl) {
+  const file = await pickImageFile();
+  if (!file) {
     console.log("[WallpaperSystem] Image picker cancelled");
     return;
   }
-  // Uploaded images use plane overlays for predictable UV mapping.
-  await applyWallpaperToAllWalls(dataUrl, "Custom Image", { preferPlane: true });
+
+  const dataUrl = await decodeImageFileToWallpaperDataUrl(file);
+  if (!dataUrl) {
+    sceneNotify({
+      title: "Wallpaper — could not use image",
+      description:
+        "Try JPEG or PNG, or another photo. Very large files are scaled down automatically.",
+      severity: "warning",
+      icon: "🖼",
+      iconBg: "rgba(245,158,11,0.15)",
+      iconFg: "#f59e0b",
+      duration: 4500,
+    });
+    return;
+  }
+
+  const label =
+    file.name.replace(/\.[^.]+$/, "").trim() || "Custom Image";
+  await applyWallpaperToAllWalls(dataUrl, label);
 }
 
 /**
