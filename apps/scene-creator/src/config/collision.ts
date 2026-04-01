@@ -14,7 +14,15 @@
  * for the interactive grab system. This way collision works without
  * interfering with device grab interactions.
  */
-import { Box3, Mesh, Object3D, Raycaster, Vector3, Intersection } from "three";
+import {
+  Box3,
+  Group,
+  Mesh,
+  Object3D,
+  Raycaster,
+  Vector3,
+  Intersection,
+} from "three";
 import { AVATAR_VISUAL_SCALE } from "./avatarScale";
 
 // ── Private state ──────────────────────────────────────────────────────────
@@ -32,6 +40,220 @@ let _floorWalkMeshes: Mesh[] = [];
 
 /** Name of the invisible floor-walk GLB root parented under the room (see index.ts). */
 export const FLOOR_WALK_COLLISION_ROOT_NAME = "__floorWalkCollision";
+
+/**
+ * Wraps loaded GLTF content under the room root so AR mode can hide walls/furniture
+ * without moving device roots (siblings of this group).
+ */
+export const ROOM_INTERIOR_VISUAL_NAME = "__roomInteriorVisual";
+
+export function wrapRoomInteriorVisual(
+  roomModel: Object3D,
+  floorWalkRoot: Object3D | null,
+): void {
+  if (roomModel.getObjectByName(ROOM_INTERIOR_VISUAL_NAME)) {
+    return;
+  }
+  const roomInterior = new Group();
+  roomInterior.name = ROOM_INTERIOR_VISUAL_NAME;
+  const snapshot = [...roomModel.children];
+  for (const child of snapshot) {
+    if (floorWalkRoot && child === floorWalkRoot) continue;
+    roomInterior.add(child);
+  }
+  roomModel.add(roomInterior);
+}
+
+function restoreMaterialARBackup(m: any): void {
+  if (!m.userData.__arFloorBackup) return;
+  const b = m.userData.__arFloorBackup;
+  m.opacity = b.opacity;
+  m.transparent = b.transparent;
+  m.depthWrite = b.depthWrite;
+  delete m.userData.__arFloorBackup;
+  m.needsUpdate = true;
+}
+
+function applyFloorWalkARMaterial(floorWalkRoot: Object3D, ar: boolean): void {
+  floorWalkRoot.traverse((child: any) => {
+    if (!child.isMesh || !child.material) return;
+    const mats = Array.isArray(child.material) ? child.material : [child.material];
+    for (const m of mats) {
+      if (!ar) {
+        restoreMaterialARBackup(m);
+        continue;
+      }
+      if (!child.visible) {
+        restoreMaterialARBackup(m);
+        continue;
+      }
+      if (!m.userData.__arFloorBackup) {
+        m.userData.__arFloorBackup = {
+          opacity: m.opacity,
+          transparent: m.transparent,
+          depthWrite: m.depthWrite,
+        };
+      }
+      m.transparent = true;
+      m.opacity = 0.5;
+      m.depthWrite = false;
+      m.needsUpdate = true;
+    }
+  });
+}
+
+function meshNameExcludedFromPrimaryFloor(name: string): boolean {
+  const s = name.toLowerCase();
+  return (
+    s.includes("wall") ||
+    s.includes("ceiling") ||
+    s.includes("outline") ||
+    s.includes("edge") ||
+    s.includes("helper") ||
+    s.includes("debug") ||
+    s.includes("bbox") ||
+    s.includes("grid") ||
+    s.includes("wire") ||
+    s.includes("gizmo")
+  );
+}
+
+function pickPrimaryFloorMesh(meshes: Mesh[]): Mesh {
+  if (meshes.length === 1) return meshes[0];
+
+  const notExcluded = meshes.filter((m) => !meshNameExcludedFromPrimaryFloor(m.name || ""));
+  const candidates = notExcluded.length > 0 ? notExcluded : meshes;
+
+  const hinted = candidates.filter((m) => {
+    const s = (m.name || "").toLowerCase();
+    return (
+      s.includes("floor") ||
+      s.includes("ground") ||
+      s.includes("plane") ||
+      s.includes("walk") ||
+      s.includes("nav") ||
+      s.includes("groundplane")
+    );
+  });
+  if (hinted.length === 1) return hinted[0];
+
+  const pool = hinted.length > 0 ? hinted : candidates;
+
+  const box = new Box3();
+  let best = pool[0];
+  let bestScore = -Infinity;
+  for (const m of pool) {
+    m.updateMatrixWorld(true);
+    box.setFromObject(m);
+    const dx = box.max.x - box.min.x;
+    const dz = box.max.z - box.min.z;
+    const dy = box.max.y - box.min.y;
+    const area = dx * dz;
+    const thinBoost = dy < 0.35 ? 1.0 : 0.35 / (0.35 + dy);
+    const score = area * thinBoost;
+    if (score > bestScore) {
+      bestScore = score;
+      best = m;
+    }
+  }
+  return best;
+}
+
+/** Hide line/point decorations in the floor-walk asset (often show as faded edges in AR). */
+function setFloorWalkNonMeshDecorVisibility(floorWalkRoot: Object3D, ar: boolean): void {
+  floorWalkRoot.traverse((child: any) => {
+    const t = child.type as string;
+    if (
+      t !== "Line" &&
+      t !== "LineSegments" &&
+      t !== "LineLoop" &&
+      t !== "Points"
+    ) {
+      return;
+    }
+    if (ar) {
+      if (child.userData.__arFloorDecorVis === undefined) {
+        child.userData.__arFloorDecorVis = child.visible;
+      }
+      child.visible = false;
+    } else {
+      if (child.userData.__arFloorDecorVis !== undefined) {
+        child.visible = child.userData.__arFloorDecorVis;
+        delete child.userData.__arFloorDecorVis;
+      }
+    }
+  });
+}
+
+/** Show exactly one floor slab mesh; hide other meshes in the cutout GLB (walls, overlays, etc.). */
+function setFloorWalkMeshPickVisibility(floorWalkRoot: Object3D, ar: boolean): void {
+  const meshes: Mesh[] = [];
+  floorWalkRoot.traverse((child: any) => {
+    if (child.isMesh) meshes.push(child);
+  });
+  if (meshes.length === 0) return;
+  if (!ar) {
+    for (const m of meshes) {
+      m.visible = true;
+    }
+    return;
+  }
+  const primary = pickPrimaryFloorMesh(meshes);
+  for (const m of meshes) {
+    m.visible = m === primary;
+  }
+}
+
+function setFloorWalkARContentVisibility(floorWalkRoot: Object3D, ar: boolean): void {
+  setFloorWalkNonMeshDecorVisibility(floorWalkRoot, ar);
+  setFloorWalkMeshPickVisibility(floorWalkRoot, ar);
+}
+
+/** Hide devices (and any other siblings) parented under the room root so AR shows only the floor guide. */
+function setRoomRootSiblingsARVisibility(
+  roomModel: Object3D,
+  interior: Object3D,
+  floorWalk: Object3D | null,
+  ar: boolean,
+): void {
+  for (const child of roomModel.children) {
+    if (child === interior) continue;
+    if (floorWalk && child === floorWalk) continue;
+    child.visible = !ar;
+  }
+}
+
+/**
+ * AR: hide room interior and devices; under the cutout floor asset, show a single floor
+ * mesh (largest thin slab / name hints) and hide lines/outlines. VR: restore defaults.
+ */
+export function setRoomARVisualMode(roomModel: Object3D | null, ar: boolean): void {
+  if (!roomModel) return;
+  const interior = roomModel.getObjectByName(
+    ROOM_INTERIOR_VISUAL_NAME,
+  ) as Object3D | null;
+  const floorWalk = roomModel.getObjectByName(
+    FLOOR_WALK_COLLISION_ROOT_NAME,
+  ) as Object3D | null;
+
+  if (interior) {
+    roomModel.visible = true;
+    interior.visible = !ar;
+    if (floorWalk) {
+      floorWalk.visible = ar;
+      if (ar) {
+        setFloorWalkARContentVisibility(floorWalk, true);
+        applyFloorWalkARMaterial(floorWalk, true);
+      } else {
+        applyFloorWalkARMaterial(floorWalk, false);
+        setFloorWalkARContentVisibility(floorWalk, false);
+      }
+    }
+    setRoomRootSiblingsARVisibility(roomModel, interior, floorWalk, ar);
+  } else {
+    roomModel.visible = !ar;
+  }
+}
 
 function isUnderFloorWalkCollision(node: Object3D): boolean {
   let p: Object3D | null = node.parent;

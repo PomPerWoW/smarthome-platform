@@ -54,7 +54,9 @@ import {
 import {
   FLOOR_WALK_COLLISION_ROOT_NAME,
   initializeCollision,
+  setRoomARVisualMode,
   updateCollisionTransform,
+  wrapRoomInteriorVisual,
 } from "./config/collision";
 import { config } from "./config/env";
 import {
@@ -418,6 +420,8 @@ async function main(): Promise<void> {
       }
     }
 
+    wrapRoomInteriorVisual(roomModel, floorWalkRoot);
+
     // Disable raycasting on all room model meshes so they don't block
     // device grab/move interactions. The room is visual-only.
     roomModel.traverse((child: any) => {
@@ -440,6 +444,7 @@ async function main(): Promise<void> {
     console.log("✅ Collision initialized from room model meshes");
 
     (globalThis as any).__labRoomModel = roomModel;
+    setRoomARVisualMode(roomModel, (globalThis as any).__sceneMode === "ar");
     setRoomTransform(
       roomModel.position.x,
       roomModel.position.y,

@@ -11,6 +11,7 @@ import { Vector3 } from "three";
 
 import { deviceStore, getStore } from "../store/DeviceStore";
 import { getAuth } from "../api/auth";
+import { setRoomARVisualMode } from "../config/collision";
 
 export class PanelSystem extends createSystem({
   welcomePanel: {
@@ -119,11 +120,8 @@ export class PanelSystem extends createSystem({
         isARMode = ar;
         (globalThis as any).__sceneMode = ar ? "ar" : "vr";
 
-        // Toggle room model visibility
         const roomModel = (globalThis as any).__labRoomModel;
-        if (roomModel) {
-          roomModel.visible = !ar;
-        }
+        setRoomARVisualMode(roomModel, ar);
 
         const activeBg = "rgba(124, 58, 237, 0.84)";
         const activeBorder = "rgba(124, 58, 237, 1)";

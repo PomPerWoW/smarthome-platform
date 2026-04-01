@@ -23,7 +23,7 @@ import {
 import { DeviceRendererSystem } from "../systems/DeviceRendererSystem";
 import { getApiClient } from "../api/BackendApiClient";
 import { setRoomTransform } from "../config/navmesh";
-import { updateCollisionTransform } from "../config/collision";
+import { setRoomARVisualMode, updateCollisionTransform } from "../config/collision";
 import {
   applyColorWallpaper,
   pickAndApplyWallpaper,
@@ -649,9 +649,7 @@ export class DashboardPanelSystem extends createSystem({
       (globalThis as any).__sceneMode = ar ? "ar" : "vr";
 
       const roomModel = (globalThis as any).__labRoomModel;
-      if (roomModel) {
-        roomModel.visible = !ar;
-      }
+      setRoomARVisualMode(roomModel, ar);
 
       updateModeChrome();
       updatePrimaryLabels();
