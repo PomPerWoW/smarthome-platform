@@ -3,6 +3,24 @@ import { toast } from "sonner";
 
 const REDIRECT_KEY = "auth_redirect_url";
 
+/**
+ * Convert a browser pathname (or stored redirect) to a TanStack Router path
+ * (relative to `basepath`, e.g. `/homes/abc`), so `navigate({ to })` does not
+ * duplicate `import.meta.env.BASE_URL` (e.g. `/smarthome/home/`).
+ */
+function toRouterPath(path: string): string {
+  const base = import.meta.env.BASE_URL;
+  const normalizedBase = base.endsWith("/") ? base.slice(0, -1) : base;
+  let p = path;
+  if (normalizedBase && p.startsWith(normalizedBase)) {
+    p = p.slice(normalizedBase.length);
+  }
+  if (!p || p === "") {
+    return "/";
+  }
+  return p.startsWith("/") ? p : `/${p}`;
+}
+
 export class ApiService {
   private static instance: ApiService;
   private client: AxiosInstance;
@@ -69,18 +87,17 @@ export class ApiService {
   }
 
   private handleUnauthorized(): void {
-    const currentPath = window.location.pathname;
+    const routePath = toRouterPath(window.location.pathname);
     const loginPath = import.meta.env.BASE_URL + "login";
-    const registerPath = import.meta.env.BASE_URL + "register";
 
-    if (currentPath === loginPath || currentPath === registerPath) {
+    if (routePath === "/login" || routePath === "/register") {
       return;
     }
 
     import("@/stores/auth").then(({ useAuthStore }) => {
       const { logout, isAuthenticated } = useAuthStore.getState();
 
-      sessionStorage.setItem(REDIRECT_KEY, currentPath);
+      sessionStorage.setItem(REDIRECT_KEY, routePath);
 
       logout();
 
@@ -106,7 +123,11 @@ export class ApiService {
     if (url) {
       sessionStorage.removeItem(REDIRECT_KEY);
     }
-    return url;
+    if (!url) {
+      return null;
+    }
+    // Normalize legacy values that stored the full pathname including BASE_URL.
+    return toRouterPath(url);
   }
 
   async get<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
