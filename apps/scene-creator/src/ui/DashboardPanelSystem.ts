@@ -1346,9 +1346,9 @@ export class DashboardPanelSystem extends createSystem({
     const forward = new Vector3();
     camera.getWorldDirection(forward);
 
-    const targetX = camera.position.x + forward.x * 0.8;
+    const targetX = camera.position.x + forward.x * 0.95;
     const targetY = camera.position.y - 0.2;
-    const targetZ = camera.position.z + forward.z * 0.8;
+    const targetZ = camera.position.z + forward.z * 0.95;
 
     entity.object3D.position.set(targetX, targetY, targetZ);
     entity.object3D.lookAt(camera.position);
@@ -1368,9 +1368,9 @@ export class DashboardPanelSystem extends createSystem({
     const forward = new Vector3();
     camera.getWorldDirection(forward);
 
-    const targetX = camera.position.x + forward.x * 0.85;
+    const targetX = camera.position.x + forward.x * 1.0;
     const targetY = camera.position.y - 0.18;
-    const targetZ = camera.position.z + forward.z * 0.85;
+    const targetZ = camera.position.z + forward.z * 1.0;
 
     const t = Math.min(1, 4.5 * dt);
     panel.position.x += (targetX - panel.position.x) * t;

@@ -246,6 +246,49 @@ async function main(): Promise<void> {
 
   console.log("✅ World created");
 
+  // --- Quest 3 WebXR Performance Optimizations ---
+  try {
+    const renderer = (world as any).renderer;
+    if (renderer) {
+      // 1. Cap pixel ratio to save fill-rate on heavy mobile VR displays
+      renderer.setPixelRatio(1);
+      
+      // 2. Disable heavy shadow mapping
+      if (renderer.shadowMap) {
+        renderer.shadowMap.enabled = false;
+      }
+      
+      // 3. Enable maximum Fixed Foveated Rendering (FFR) for Quest
+      if (renderer.xr) {
+        // Only works for layers/VR on supported devices
+        if (typeof renderer.xr.setFoveation === 'function') {
+          renderer.xr.setFoveation(1.0);
+          console.log("✅ WebXR Foveation enabled (1.0)");
+        }
+        
+        // 4. Target 72Hz specifically for Quest 3 to limit instant lag during heavy rendering
+        renderer.xr.addEventListener('sessionstart', () => {
+          const session = renderer.xr.getSession();
+          if (session && session.supportedFrameRates) {
+            console.log("Supported frame rates:", session.supportedFrameRates);
+            try {
+               // If 72hz is supported (Quest 2/3), specifically request it to save 25% render budget
+               if (Array.from(session.supportedFrameRates).includes(72)) {
+                 session.updateRenderState({ targetFrameRate: 72 });
+                 console.log("✅ WebXR targetFrameRate set to 72Hz for Quest stability");
+               }
+            } catch (e) {
+               console.warn("Failed to set target frame rate", e);
+            }
+          }
+        });
+      }
+    }
+  } catch (err) {
+    console.warn("⚠️ Could not apply custom renderer optimizations:", err);
+  }
+  // -----------------------------------------------
+
   initBodyTrackingModeFromUrl();
 
   // On desktop without WebXR (no navigator.xr), start a simple fake leg
