@@ -88,34 +88,6 @@
     color: #0f172a;
   }
 
-  /* Compact Enter/Exit XR — same action as AR/VR section primary button */
-  .header-xr-btn {
-    flex-shrink: 0;
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: center;
-    gap: 0.35;
-    padding: 0.45 0.75;
-    border-radius: 0.85;
-    background-color: rgba(37, 99, 235, 0.3);
-    border-width: 0.1;
-    border-color: rgba(37, 99, 235, 0.55);
-    cursor: pointer;
-  }
-
-  .header-xr-btn .rail-icon {
-    width: 1.35;
-    height: 1.35;
-  }
-
-  .header-xr-btn-text {
-    font-size: 1.05;
-    font-weight: 600;
-    color: #0f172a;
-    white-space: nowrap;
-  }
-
   .header-right {
     display: flex;
     flex-direction: row;
@@ -496,6 +468,65 @@
     color: #10b981;
   }
 
+  /* Stacked Lucide icons — TS shows one layer per device type */
+  .device-card-icon-stack {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .device-card-icon-layer {
+    display: none;
+  }
+
+  .card-icon-wrap-xr {
+    background-color: rgba(124, 58, 237, 0.2);
+    border-color: rgba(124, 58, 237, 0.45);
+  }
+
+  .card-icon-xr {
+    color: #7c3aed;
+  }
+
+  .xr-quick-card {
+    border-color: rgba(124, 58, 237, 0.38);
+  }
+
+  .xr-quick-card-body {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35;
+    padding: 0.15 0 0 0;
+  }
+
+  .xr-card-primary-btn {
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45;
+    padding: 0.55 0.72;
+    border-radius: 1.05;
+    background-color: rgba(37, 99, 235, 0.3);
+    border-width: 0.1;
+    border-color: rgba(37, 99, 235, 0.55);
+    cursor: pointer;
+  }
+
+  .xr-card-primary-icon {
+    width: 1.4;
+    height: 1.4;
+    color: #1e3a8a;
+  }
+
+  .xr-quick-hint {
+    font-size: 0.88;
+    color: #64748b;
+    font-weight: 500;
+  }
+
   .card-icon-wrap-light {
     background-color: rgba(234, 179, 8, 0.16);
     border-color: rgba(234, 179, 8, 0.3);
@@ -681,10 +712,6 @@
         <UserIcon class="avatar-icon" />
       </div>
       <span class="welcome-text" id="welcome-text">Welcome, User</span>
-      <button class="header-xr-btn" id="header-xr-primary-btn" title="Enter or exit immersive AR/VR">
-        <GlassesIcon class="rail-icon" />
-        <span class="header-xr-btn-text" id="header-xr-primary-text">Enter VR</span>
-      </button>
     </div>
 
     <div class="header-right">
@@ -722,36 +749,32 @@
     <!-- Content Area — Device Cards Grid -->
     <div class="content-area" id="device-grid">
 
-      <!-- ── Card 0: Smart Light ──────────────── -->
-      <div class="device-card" id="device-card-0">
+      <!-- ── Card 0: AR/VR quick entry (testing) ─ -->
+      <div class="device-card xr-quick-card" id="device-card-0">
         <div class="card-header">
-          <div class="card-icon-wrap card-icon-wrap-light">
-            <LightbulbIcon class="card-icon card-icon-light" id="card-icon-0" />
+          <div class="card-icon-wrap card-icon-wrap-xr">
+            <GlassesIcon class="card-icon card-icon-xr" />
           </div>
-          <span class="card-name" id="card-name-0">Smart Light</span>
-          <button class="card-toggle" id="card-toggle-0">
-            <PowerIcon class="toggle-icon" />
+          <span class="card-name" id="card-name-0">Immersive AR/VR</span>
+        </div>
+        <div class="xr-quick-card-body">
+          <button class="xr-card-primary-btn" id="xr-card-primary-btn" type="button" title="Enter or exit immersive session">
+            <GlassesIcon class="xr-card-primary-icon" />
+            <span id="xr-card-primary-text">Enter VR</span>
           </button>
         </div>
-        <div class="card-body">
-          <span class="card-value" id="card-value-0">75%</span>
-          <div class="card-controls">
-            <button class="card-ctrl-btn" id="card-up-0">
-              <ChevronUpIcon class="ctrl-icon" />
-            </button>
-            <button class="card-ctrl-btn" id="card-down-0">
-              <ChevronDownIcon class="ctrl-icon" />
-            </button>
-          </div>
-        </div>
-        <span class="card-status" id="card-status-0">Off</span>
+        <span class="card-status xr-quick-hint" id="card-status-0">Testing · rail icon for full AR/VR settings</span>
       </div>
 
-      <!-- ── Card 1: Smart TV ─────────────────── -->
+      <!-- ── Card 1: device slot ──────────────── -->
       <div class="device-card" id="device-card-1">
         <div class="card-header">
-          <div class="card-icon-wrap card-icon-wrap-tv">
-            <TvIcon class="card-icon card-icon-tv" id="card-icon-1" />
+          <div class="card-icon-wrap device-card-icon-stack" id="card-icon-wrap-1">
+            <LightbulbIcon class="card-icon card-icon-light device-card-icon-layer" id="card-icon-1-lb" />
+            <TvIcon class="card-icon card-icon-tv device-card-icon-layer" id="card-icon-1-tv" />
+            <FanIcon class="card-icon card-icon-fan device-card-icon-layer" id="card-icon-1-fan" />
+            <AirVentIcon class="card-icon card-icon-ac device-card-icon-layer" id="card-icon-1-ac" />
+            <ActivityIcon class="card-icon card-icon-meter device-card-icon-layer" id="card-icon-1-meter" />
           </div>
           <span class="card-name" id="card-name-1">Smart TV</span>
           <button class="card-toggle" id="card-toggle-1">
@@ -772,11 +795,15 @@
         <span class="card-status" id="card-status-1">Off</span>
       </div>
 
-      <!-- ── Card 2: Fan ──────────────────────── -->
+      <!-- ── Card 2: device slot ──────────────── -->
       <div class="device-card" id="device-card-2">
         <div class="card-header">
-          <div class="card-icon-wrap card-icon-wrap-fan">
-            <FanIcon class="card-icon card-icon-fan" id="card-icon-2" />
+          <div class="card-icon-wrap device-card-icon-stack" id="card-icon-wrap-2">
+            <LightbulbIcon class="card-icon card-icon-light device-card-icon-layer" id="card-icon-2-lb" />
+            <TvIcon class="card-icon card-icon-tv device-card-icon-layer" id="card-icon-2-tv" />
+            <FanIcon class="card-icon card-icon-fan device-card-icon-layer" id="card-icon-2-fan" />
+            <AirVentIcon class="card-icon card-icon-ac device-card-icon-layer" id="card-icon-2-ac" />
+            <ActivityIcon class="card-icon card-icon-meter device-card-icon-layer" id="card-icon-2-meter" />
           </div>
           <span class="card-name" id="card-name-2">Fan</span>
           <button class="card-toggle" id="card-toggle-2">
@@ -797,11 +824,15 @@
         <span class="card-status" id="card-status-2">Off</span>
       </div>
 
-      <!-- ── Card 3: Air Conditioner ──────────── -->
+      <!-- ── Card 3: device slot ──────────────── -->
       <div class="device-card" id="device-card-3">
         <div class="card-header">
-          <div class="card-icon-wrap card-icon-wrap-ac">
-            <AirVentIcon class="card-icon card-icon-ac" id="card-icon-3" />
+          <div class="card-icon-wrap device-card-icon-stack" id="card-icon-wrap-3">
+            <LightbulbIcon class="card-icon card-icon-light device-card-icon-layer" id="card-icon-3-lb" />
+            <TvIcon class="card-icon card-icon-tv device-card-icon-layer" id="card-icon-3-tv" />
+            <FanIcon class="card-icon card-icon-fan device-card-icon-layer" id="card-icon-3-fan" />
+            <AirVentIcon class="card-icon card-icon-ac device-card-icon-layer" id="card-icon-3-ac" />
+            <ActivityIcon class="card-icon card-icon-meter device-card-icon-layer" id="card-icon-3-meter" />
           </div>
           <span class="card-name" id="card-name-3">Air Conditioner</span>
           <button class="card-toggle" id="card-toggle-3">
@@ -822,11 +853,15 @@
         <span class="card-status" id="card-status-3">Off</span>
       </div>
 
-      <!-- ── Card 4: Smart Meter ──────────────── -->
+      <!-- ── Card 4: device slot ──────────────── -->
       <div class="device-card" id="device-card-4">
         <div class="card-header">
-          <div class="card-icon-wrap card-icon-wrap-meter">
-            <ActivityIcon class="card-icon card-icon-meter" id="card-icon-4" />
+          <div class="card-icon-wrap device-card-icon-stack" id="card-icon-wrap-4">
+            <LightbulbIcon class="card-icon card-icon-light device-card-icon-layer" id="card-icon-4-lb" />
+            <TvIcon class="card-icon card-icon-tv device-card-icon-layer" id="card-icon-4-tv" />
+            <FanIcon class="card-icon card-icon-fan device-card-icon-layer" id="card-icon-4-fan" />
+            <AirVentIcon class="card-icon card-icon-ac device-card-icon-layer" id="card-icon-4-ac" />
+            <ActivityIcon class="card-icon card-icon-meter device-card-icon-layer" id="card-icon-4-meter" />
           </div>
           <span class="card-name" id="card-name-4">Smart Meter</span>
           <button class="card-toggle" id="card-toggle-4">
@@ -847,11 +882,15 @@
         <span class="card-status" id="card-status-4">Off</span>
       </div>
 
-      <!-- ── Card 5: Smart Light 2 ───────────── -->
+      <!-- ── Card 5: device slot ──────────────── -->
       <div class="device-card" id="device-card-5">
         <div class="card-header">
-          <div class="card-icon-wrap card-icon-wrap-light">
-            <LightbulbIcon class="card-icon card-icon-light" id="card-icon-5" />
+          <div class="card-icon-wrap device-card-icon-stack" id="card-icon-wrap-5">
+            <LightbulbIcon class="card-icon card-icon-light device-card-icon-layer" id="card-icon-5-lb" />
+            <TvIcon class="card-icon card-icon-tv device-card-icon-layer" id="card-icon-5-tv" />
+            <FanIcon class="card-icon card-icon-fan device-card-icon-layer" id="card-icon-5-fan" />
+            <AirVentIcon class="card-icon card-icon-ac device-card-icon-layer" id="card-icon-5-ac" />
+            <ActivityIcon class="card-icon card-icon-meter device-card-icon-layer" id="card-icon-5-meter" />
           </div>
           <span class="card-name" id="card-name-5">Device</span>
           <button class="card-toggle" id="card-toggle-5">
@@ -872,11 +911,15 @@
         <span class="card-status" id="card-status-5">Off</span>
       </div>
 
-      <!-- ── Card 6: Device Slot ──────────────── -->
+      <!-- ── Card 6: device slot ──────────────── -->
       <div class="device-card" id="device-card-6">
         <div class="card-header">
-          <div class="card-icon-wrap">
-            <LightbulbIcon class="card-icon" id="card-icon-6" />
+          <div class="card-icon-wrap device-card-icon-stack" id="card-icon-wrap-6">
+            <LightbulbIcon class="card-icon card-icon-light device-card-icon-layer" id="card-icon-6-lb" />
+            <TvIcon class="card-icon card-icon-tv device-card-icon-layer" id="card-icon-6-tv" />
+            <FanIcon class="card-icon card-icon-fan device-card-icon-layer" id="card-icon-6-fan" />
+            <AirVentIcon class="card-icon card-icon-ac device-card-icon-layer" id="card-icon-6-ac" />
+            <ActivityIcon class="card-icon card-icon-meter device-card-icon-layer" id="card-icon-6-meter" />
           </div>
           <span class="card-name" id="card-name-6">Device</span>
           <button class="card-toggle" id="card-toggle-6">
@@ -897,11 +940,15 @@
         <span class="card-status" id="card-status-6">Off</span>
       </div>
 
-      <!-- ── Card 7: Device Slot ──────────────── -->
+      <!-- ── Card 7: device slot ──────────────── -->
       <div class="device-card" id="device-card-7">
         <div class="card-header">
-          <div class="card-icon-wrap">
-            <LightbulbIcon class="card-icon" id="card-icon-7" />
+          <div class="card-icon-wrap device-card-icon-stack" id="card-icon-wrap-7">
+            <LightbulbIcon class="card-icon card-icon-light device-card-icon-layer" id="card-icon-7-lb" />
+            <TvIcon class="card-icon card-icon-tv device-card-icon-layer" id="card-icon-7-tv" />
+            <FanIcon class="card-icon card-icon-fan device-card-icon-layer" id="card-icon-7-fan" />
+            <AirVentIcon class="card-icon card-icon-ac device-card-icon-layer" id="card-icon-7-ac" />
+            <ActivityIcon class="card-icon card-icon-meter device-card-icon-layer" id="card-icon-7-meter" />
           </div>
           <span class="card-name" id="card-name-7">Device</span>
           <button class="card-toggle" id="card-toggle-7">

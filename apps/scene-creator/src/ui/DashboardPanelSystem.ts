@@ -38,6 +38,9 @@ import {
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 const CARD_SLOT_COUNT = 8;
+/** Slot 0 is the XR quick card; slots 1..7 show room devices (max 7). */
+const FIRST_DEVICE_SLOT = 1;
+const MAX_DEVICE_CARD_SLOTS = 7;
 
 const FURNITURE_TYPES = new Set<string>([
   DeviceType.Chair,
@@ -80,6 +83,95 @@ function getDeviceValueText(device: Device): string {
 
 function getDeviceStatusText(device: Device): string {
   return device.is_on ? "On" : "Off";
+}
+
+/** Lucide icon layers in each device card (see dashboard.uikitml ids `card-icon-{slot}-{suffix}`). */
+type DeviceCardIconSuffix = "lb" | "tv" | "fan" | "ac" | "meter";
+
+const DEVICE_CARD_ICON_SUFFIXES: DeviceCardIconSuffix[] = [
+  "lb",
+  "tv",
+  "fan",
+  "ac",
+  "meter",
+];
+
+function deviceTypeToCardIconSuffix(type: DeviceType): DeviceCardIconSuffix {
+  switch (type) {
+    case DeviceType.Lightbulb:
+      return "lb";
+    case DeviceType.Television:
+      return "tv";
+    case DeviceType.Fan:
+      return "fan";
+    case DeviceType.AirConditioner:
+      return "ac";
+    case DeviceType.SmartMeter:
+      return "meter";
+    default:
+      return "lb";
+  }
+}
+
+function getDeviceIconWrapStyle(device: Device): {
+  backgroundColor: string;
+  borderColor: string;
+} {
+  const offPalette: Partial<
+    Record<DeviceType, { backgroundColor: string; borderColor: string }>
+  > = {
+    [DeviceType.Lightbulb]: {
+      backgroundColor: "rgba(234, 179, 8, 0.16)",
+      borderColor: "rgba(234, 179, 8, 0.3)",
+    },
+    [DeviceType.Television]: {
+      backgroundColor: "rgba(59, 130, 246, 0.16)",
+      borderColor: "rgba(59, 130, 246, 0.3)",
+    },
+    [DeviceType.Fan]: {
+      backgroundColor: "rgba(6, 182, 212, 0.16)",
+      borderColor: "rgba(6, 182, 212, 0.3)",
+    },
+    [DeviceType.AirConditioner]: {
+      backgroundColor: "rgba(14, 165, 233, 0.16)",
+      borderColor: "rgba(14, 165, 233, 0.3)",
+    },
+    [DeviceType.SmartMeter]: {
+      backgroundColor: "rgba(16, 185, 129, 0.16)",
+      borderColor: "rgba(16, 185, 129, 0.3)",
+    },
+  };
+  const fallback = {
+    backgroundColor: "rgba(99, 102, 241, 0.12)",
+    borderColor: "rgba(99, 102, 241, 0.28)",
+  };
+  if (device.is_on) {
+    return {
+      backgroundColor: "rgba(34, 197, 94, 0.18)",
+      borderColor: "rgba(34, 197, 94, 0.42)",
+    };
+  }
+  return offPalette[device.type] ?? fallback;
+}
+
+function applyDeviceCardIconLayers(
+  document: UIKitDocument,
+  slotIndex: number,
+  device: Device,
+): void {
+  const active = deviceTypeToCardIconSuffix(device.type);
+  for (const v of DEVICE_CARD_ICON_SUFFIXES) {
+    const layer = document.getElementById(`card-icon-${slotIndex}-${v}`);
+    layer?.setProperties?.({
+      display: v === active ? "flex" : "none",
+    });
+  }
+  const wrap = document.getElementById(
+    `card-icon-wrap-${slotIndex}`,
+  ) as UIKit.Container | null;
+  if (wrap) {
+    wrap.setProperties(getDeviceIconWrapStyle(device));
+  }
 }
 
 // ── System ─────────────────────────────────────────────────────────────────────
@@ -600,9 +692,9 @@ export class DashboardPanelSystem extends createSystem({
     const primaryText = document.getElementById(
       "dash-xr-primary-text",
     ) as UIKit.Text;
-    const headerXrBtn = document.getElementById("header-xr-primary-btn");
-    const headerXrText = document.getElementById(
-      "header-xr-primary-text",
+    const xrCardPrimaryBtn = document.getElementById("xr-card-primary-btn");
+    const xrCardPrimaryText = document.getElementById(
+      "xr-card-primary-text",
     ) as UIKit.Text;
 
     const readARPreference = (): boolean =>
@@ -646,7 +738,7 @@ export class DashboardPanelSystem extends createSystem({
           ? "Exit AR"
           : "Exit VR";
       primaryText?.setProperties?.({ text: label });
-      headerXrText?.setProperties?.({ text: label });
+      xrCardPrimaryText?.setProperties?.({ text: label });
       welcomeXrText?.setProperties?.({ text: label });
     };
 
@@ -703,7 +795,7 @@ export class DashboardPanelSystem extends createSystem({
     primaryBtn?.addEventListener("click", () => {
       void handleXrClick();
     });
-    headerXrBtn?.addEventListener("click", () => {
+    xrCardPrimaryBtn?.addEventListener("click", () => {
       void handleXrClick();
     });
 
@@ -950,7 +1042,7 @@ export class DashboardPanelSystem extends createSystem({
   // ── Card Interactions ──────────────────────────────────────────────────────
 
   private setupCardInteractions(document: UIKitDocument): void {
-    for (let i = 0; i < CARD_SLOT_COUNT; i++) {
+    for (let i = FIRST_DEVICE_SLOT; i < CARD_SLOT_COUNT; i++) {
       const slotIndex = i;
 
       // Power toggle
@@ -1137,7 +1229,15 @@ export class DashboardPanelSystem extends createSystem({
 
     this.slotDeviceMap.clear();
 
-    for (let i = 0; i < CARD_SLOT_COUNT; i++) {
+    // Slot 0: XR quick card (always visible when the grid is shown)
+    const xrCard = document.getElementById("device-card-0") as UIKit.Container;
+    if (xrCard) {
+      xrCard.setProperties({ display: "flex" });
+    }
+    this.refreshDashboardXRSectionUI?.();
+
+    for (let i = FIRST_DEVICE_SLOT; i < CARD_SLOT_COUNT; i++) {
+      const deviceIndex = i - FIRST_DEVICE_SLOT;
       const cardContainer = document.getElementById(
         `device-card-${i}`,
       ) as UIKit.Container;
@@ -1151,51 +1251,34 @@ export class DashboardPanelSystem extends createSystem({
       const cardToggle = document.getElementById(
         `card-toggle-${i}`,
       ) as UIKit.Container;
-      const cardIcon = document.getElementById(
-        `card-icon-${i}`,
-      ) as UIKit.Container;
-
-      if (i < devices.length) {
-        const device = devices[i];
+      if (deviceIndex < devices.length && deviceIndex < MAX_DEVICE_CARD_SLOTS) {
+        const device = devices[deviceIndex];
         this.slotDeviceMap.set(i, device.id);
 
-        // Show card
         if (cardContainer) {
           cardContainer.setProperties({ display: "flex" });
         }
 
-        // Device name
         if (cardName) {
           cardName.setProperties({ text: device.name });
         }
 
-        // Status text
         if (cardStatus) {
           cardStatus.setProperties({ text: getDeviceStatusText(device) });
         }
 
-        // Value display
         if (cardValue) {
           cardValue.setProperties({ text: getDeviceValueText(device) });
         }
 
-        // Power toggle color
         if (cardToggle) {
           cardToggle.setProperties({
             backgroundColor: device.is_on ? COLOR_ON : COLOR_OFF,
           });
         }
 
-        // Icon color tint based on power state
-        if (cardIcon) {
-          cardIcon.setProperties({
-            backgroundColor: device.is_on
-              ? "rgba(34, 197, 94, 0.15)"
-              : "rgba(113, 113, 122, 0.15)",
-          });
-        }
+        applyDeviceCardIconLayers(document, i, device);
       } else {
-        // Hide unused card slot
         this.slotDeviceMap.delete(i);
         if (cardContainer) {
           cardContainer.setProperties({ display: "none" });
@@ -1204,7 +1287,7 @@ export class DashboardPanelSystem extends createSystem({
     }
 
     console.log(
-      `[DashboardPanel] Rendered room "${roomMap[roomId]?.roomName ?? this.roomNameById.get(roomId) ?? roomId}" with ${devices.length} device(s)`,
+      `[DashboardPanel] Rendered room "${roomMap[roomId]?.roomName ?? this.roomNameById.get(roomId) ?? roomId}" with ${devices.length} device(s) (max ${MAX_DEVICE_CARD_SLOTS} shown in grid)`,
     );
   }
 
