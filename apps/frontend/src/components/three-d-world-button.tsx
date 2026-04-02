@@ -58,13 +58,17 @@ export function ThreeDWorldButton() {
 
   const handleEnter = () => {
     // Use the Scene Creator base URL from env.
-    const sceneCreatorBaseUrl =
-      import.meta.env.VITE_SCENE_CREATOR_URL ||
-      `https://${window.location.hostname}:3003/smarthome/xr/`;
+    const fallbackBase = `https://${window.location.hostname}:3003/smarthome/xr/`;
+    const fromEnv = import.meta.env.VITE_SCENE_CREATOR_URL?.trim();
+    let url: URL;
+    try {
+      url = new URL(fromEnv || fallbackBase);
+    } catch {
+      url = new URL(fallbackBase);
+    }
 
     // Production serves Scene Creator under `/smarthome/xr/` (see nginx configs).
     // Normalize so we don't accidentally hit `/` which may redirect and drop query params.
-    const url = new URL(sceneCreatorBaseUrl);
     url.port = "3003";
     if (!url.pathname || url.pathname === "/" || url.pathname === "") {
       url.pathname = "/smarthome/xr/";

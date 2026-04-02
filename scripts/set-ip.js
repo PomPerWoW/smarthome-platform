@@ -41,10 +41,21 @@ targetFiles.forEach((filePath) => {
   let originalContent = content;
 
   content = content.replace(/^(VITE_HOST_IP|HOST_IP)=.*/gm, `$1=${newIp}`);
-  
-  // Replace URLs while preserving ports and protocols
-  // Example: VITE_BACKEND_URL=https://192.168.1.5:5500 -> VITE_BACKEND_URL=https://<newIp>:5500
-  content = content.replace(/(VITE_BACKEND_URL|VITE_SCENE_CREATOR_URL|VITE_FRONTEND_URL|VITE_LANDING_PAGE_URL|VITE_DASHBOARD_URL)=(http[s]?:\/\/)[^:]+(:[0-9]+)/g, `$1=$2${newIp}$3`);
+
+  // Replace URLs while preserving port, path, and protocol (avoid regex that only
+  // matched up to the first ":" — that could leave a second ":port" and break new URL()).
+  const urlKeys =
+    /^(VITE_BACKEND_URL|VITE_SCENE_CREATOR_URL|VITE_FRONTEND_URL|VITE_LANDING_PAGE_URL|VITE_DASHBOARD_URL)=(.*)$/gm;
+  content = content.replace(urlKeys, (line, key, value) => {
+    const trimmed = String(value).trim();
+    try {
+      const u = new URL(trimmed);
+      u.hostname = newIp;
+      return `${key}=${u.toString()}`;
+    } catch {
+      return line;
+    }
+  });
 
   if (content !== originalContent) {
     fs.writeFileSync(filePath, content, 'utf8');
