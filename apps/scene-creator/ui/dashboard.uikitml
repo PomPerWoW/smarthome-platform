@@ -88,6 +88,34 @@
     color: #0f172a;
   }
 
+  /* Compact Enter/Exit XR — same action as AR/VR section primary button */
+  .header-xr-btn {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35;
+    padding: 0.45 0.75;
+    border-radius: 0.85;
+    background-color: rgba(37, 99, 235, 0.3);
+    border-width: 0.1;
+    border-color: rgba(37, 99, 235, 0.55);
+    cursor: pointer;
+  }
+
+  .header-xr-btn .rail-icon {
+    width: 1.35;
+    height: 1.35;
+  }
+
+  .header-xr-btn-text {
+    font-size: 1.05;
+    font-weight: 600;
+    color: #0f172a;
+    white-space: nowrap;
+  }
+
   .header-right {
     display: flex;
     flex-direction: row;
@@ -653,6 +681,10 @@
         <UserIcon class="avatar-icon" />
       </div>
       <span class="welcome-text" id="welcome-text">Welcome, User</span>
+      <button class="header-xr-btn" id="header-xr-primary-btn" title="Enter or exit immersive AR/VR">
+        <GlassesIcon class="rail-icon" />
+        <span class="header-xr-btn-text" id="header-xr-primary-text">Enter VR</span>
+      </button>
     </div>
 
     <div class="header-right">

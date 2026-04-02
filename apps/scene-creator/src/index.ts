@@ -832,6 +832,10 @@ async function main(): Promise<void> {
 
   setupAvatarSwitcherPanel();
 
+  if (rpmAvatarSystem) {
+    rpmAvatarSystem.alignFollowCameraToCurrentAvatar();
+  }
+
   console.log(
     "🎮 Controls: I/K/J/L = Move, Shift = Run, SPACE = Jump. O = switch avatar (when 2+ avatars).",
   );

@@ -101,6 +101,29 @@ export class RPMUserControlledAvatarSystem extends createSystem({
     this.followCamera = cam;
   }
 
+  /**
+   * Desktop / inline view: place the follow camera behind the current avatar and look at torso height,
+   * matching the framing used when moving with IJKL. No-op while WebXR is presenting.
+   */
+  alignFollowCameraToCurrentAvatar(): void {
+    if (this.isXRPresenting()) return;
+    if (!this.followCamera) return;
+    const record = this.currentControlledAvatarId
+      ? this.avatarRecords.get(this.currentControlledAvatarId)
+      : null;
+    if (!record) return;
+
+    const m = record.model.position;
+    const lookY = m.y + 1;
+    const camY = getWorldFloorY() + 1.6;
+    const distanceZ = 2.4;
+    this.followCamera.position.set(m.x, camY, m.z + distanceZ);
+    record.cameraTarget.set(m.x, lookY, m.z);
+    if (this.followCamera.lookAt) {
+      this.followCamera.lookAt(record.cameraTarget);
+    }
+  }
+
   setActive(active: boolean): void {
     if (active) this.keyStates.clear();
     this.active = active;

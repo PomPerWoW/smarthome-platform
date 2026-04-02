@@ -600,6 +600,10 @@ export class DashboardPanelSystem extends createSystem({
     const primaryText = document.getElementById(
       "dash-xr-primary-text",
     ) as UIKit.Text;
+    const headerXrBtn = document.getElementById("header-xr-primary-btn");
+    const headerXrText = document.getElementById(
+      "header-xr-primary-text",
+    ) as UIKit.Text;
 
     const readARPreference = (): boolean =>
       (globalThis as any).__sceneMode === "ar";
@@ -642,6 +646,7 @@ export class DashboardPanelSystem extends createSystem({
           ? "Exit AR"
           : "Exit VR";
       primaryText?.setProperties?.({ text: label });
+      headerXrText?.setProperties?.({ text: label });
       welcomeXrText?.setProperties?.({ text: label });
     };
 
@@ -696,6 +701,9 @@ export class DashboardPanelSystem extends createSystem({
     };
 
     primaryBtn?.addEventListener("click", () => {
+      void handleXrClick();
+    });
+    headerXrBtn?.addEventListener("click", () => {
       void handleXrClick();
     });
 

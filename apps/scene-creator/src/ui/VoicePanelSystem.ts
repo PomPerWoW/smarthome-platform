@@ -56,6 +56,7 @@ export class VoicePanelSystem extends createSystem({
   private _robotSystem: RobotAssistantSystem | null = null;
   private _robotSystemResolved = false;
   private currentStatus: "listening" | "processing" | "idle" = "idle";
+  private lastTranscript: string = "";
 
   // Status reset timer
   private resetStatusTimeout: any = null;
@@ -127,16 +128,16 @@ export class VoicePanelSystem extends createSystem({
 
       // ── Transcript listener ──────────────────────────────────
       this.voiceSystem.setTranscriptListener((text) => {
+        // Clean up text if it ends with "..." for active display
+        const cleanText = text.replace(/\.\.\.$/, "");
+        this.lastTranscript = cleanText;
+
         // Update 3D panel status
         if (statusText) {
           statusText.setProperties({ text: `"${text}"` });
 
           if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
-          this.resetStatusTimeout = setTimeout(() => {
-            if (this.currentStatus === "idle") {
-              statusText.setProperties({ text: "Say 'Turn on...'" });
-            }
-          }, 3000);
+          // Do not reset while actively processing
         }
 
         // Update dialogue overlay — show user message
@@ -156,11 +157,14 @@ export class VoicePanelSystem extends createSystem({
         if (micButton && statusText) {
           if (status === "listening") {
             micButton.setProperties({ backgroundColor: "#ef4444" }); // Red
-            statusText.setProperties({ text: "Tap to stop listening" });
+            statusText.setProperties({ text: "Listening..." });
+            this.lastTranscript = "";
             if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
           } else if (status === "processing") {
             micButton.setProperties({ backgroundColor: "#eab308" }); // Yellow/Orange
-            statusText.setProperties({ text: "Processing..." });
+            const pText = this.lastTranscript ? `"${this.lastTranscript}" (Processing...)` : "Processing...";
+            statusText.setProperties({ text: pText });
+            if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
           } else {
             // idle - but check if we're in an active conversation
             if (
@@ -171,11 +175,28 @@ export class VoicePanelSystem extends createSystem({
               micButton.setProperties({ backgroundColor: "#ef4444" }); // Red
               statusText.setProperties({ text: "Click to stop" });
             } else {
-              // Not in conversation, show idle state
               micButton.setProperties({ backgroundColor: "#2563eb" }); // Blue
-              if (!this.resetStatusTimeout) {
+              // Only reset to idle immediately if not a successful action
+              if (payload?.success && payload.action && payload.device) {
+                const doneMessage = `Done! ${payload.action.replace(/_/g, " ")} the ${payload.device}.`;
+                statusText.setProperties({ text: doneMessage });
+              } else if (payload?.noMatch) {
+                statusText.setProperties({ text: "Command not recognized" });
+              } else if (payload?.serverError) {
+                statusText.setProperties({ text: "Server error" });
+              } else if (payload?.cancelled) {
+                statusText.setProperties({ text: "Cancelled" });
+              } else if (!payload?.success && !payload?.instructionTopic && !payload?.endSession) {
                 statusText.setProperties({ text: "Say 'Turn on...'" });
               }
+
+              // Auto-reset to idle text after a delay for finished states
+              if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
+              this.resetStatusTimeout = setTimeout(() => {
+                if (this.currentStatus === "idle") {
+                  statusText.setProperties({ text: "Say 'Turn on...'" });
+                }
+              }, 4000);
             }
           }
         }
@@ -518,7 +539,9 @@ export class VoicePanelSystem extends createSystem({
       return;
     }
 
-    runFinishOverlay();
+    // Small delay so the user can read the final assistant message
+    this.pendingUserGoodbyeOverlay = true;
+    this.userGoodbyeTimeoutId = setTimeout(runFinishOverlay, 1500);
   }
 
   private finishClosingOverlay(): void {
