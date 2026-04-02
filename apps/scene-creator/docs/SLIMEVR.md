@@ -31,6 +31,8 @@ Defaults:
 | `SLIMEVR_OSC_PORT` | `9000` | UDP port the bridge listens on (point SlimeVR here). |
 | `SLIMEVR_WS_PORT` | `8765` | WebSocket port for the scene-creator page. |
 
+If `npm start` fails with **EADDRINUSE**, another process (often a previous bridge) already owns those ports. Stop it (e.g. find the `node` process on `8765` / `9000` and quit it), or run with different `SLIMEVR_OSC_PORT` / `SLIMEVR_WS_PORT` and point SlimeVR OSC and `?slimevrWs=` at the new values.
+
 ## 3. Open scene-creator with tracking
 
 Append a query parameter (or set `VITE_SLIMEVR_WS` for a default in dev):

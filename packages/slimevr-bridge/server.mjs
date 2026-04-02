@@ -75,6 +75,12 @@ const udp = dgram.createSocket("udp4");
 udp.on("message", (msg) => handleOscMessage(msg));
 udp.on("error", (err) => {
   console.error("[slimevr-bridge] UDP error:", err);
+  if (err?.code === "EADDRINUSE") {
+    console.error(
+      `[slimevr-bridge] Port ${OSC_PORT} is in use (another bridge or app). Stop it or set SLIMEVR_OSC_PORT.`,
+    );
+    process.exit(1);
+  }
 });
 udp.bind(OSC_PORT, () => {
   console.log(
@@ -83,6 +89,15 @@ udp.bind(OSC_PORT, () => {
 });
 
 const wss = new WebSocketServer({ port: WS_PORT });
+wss.on("error", (err) => {
+  console.error("[slimevr-bridge] WebSocket server error:", err);
+  if (err?.code === "EADDRINUSE") {
+    console.error(
+      `[slimevr-bridge] Port ${WS_PORT} is in use. Stop the other process or set SLIMEVR_WS_PORT.`,
+    );
+  }
+  process.exit(1);
+});
 let frameSeq = 0;
 const BROADCAST_HZ = 60;
 const intervalMs = 1000 / BROADCAST_HZ;

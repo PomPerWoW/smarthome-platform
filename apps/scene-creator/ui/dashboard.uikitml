@@ -672,7 +672,6 @@
     background-color: rgba(255, 255, 255, 0.2);
     border-width: 0.08;
     border-color: rgba(255, 255, 255, 0.32);
-    cursor: pointer;
     white-space: nowrap;
   }
 
@@ -1074,10 +1073,10 @@
 
   <!-- ─── Bottom Room Tabs Bar ───────────────── -->
   <div class="room-tabs-bar" id="room-tabs">
-    <button class="room-tab room-tab-active" id="room-tab-0">
+    <div class="room-tab room-tab-active" id="room-tab-0">
       <span class="room-tab-text room-tab-text-active" id="current-room-text">Current Room</span>
       <span class="room-guide-text" id="room-guide-text">- T: toggle follow | U: toggle panel | Y: summon panel</span>
-    </button>
+    </div>
   </div>
 
 </div>

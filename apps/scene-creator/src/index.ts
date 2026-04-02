@@ -252,12 +252,12 @@ async function main(): Promise<void> {
     if (renderer) {
       // 1. Cap pixel ratio to save fill-rate on heavy mobile VR displays
       renderer.setPixelRatio(1);
-      
+
       // 2. Disable heavy shadow mapping
       if (renderer.shadowMap) {
         renderer.shadowMap.enabled = false;
       }
-      
+
       // 3. Enable maximum Fixed Foveated Rendering (FFR) for Quest
       if (renderer.xr) {
         // Only works for layers/VR on supported devices
@@ -265,20 +265,20 @@ async function main(): Promise<void> {
           renderer.xr.setFoveation(1.0);
           console.log("✅ WebXR Foveation enabled (1.0)");
         }
-        
+
         // 4. Target 72Hz specifically for Quest 3 to limit instant lag during heavy rendering
         renderer.xr.addEventListener('sessionstart', () => {
           const session = renderer.xr.getSession();
           if (session && session.supportedFrameRates) {
             console.log("Supported frame rates:", session.supportedFrameRates);
             try {
-               // If 72hz is supported (Quest 2/3), specifically request it to save 25% render budget
-               if (Array.from(session.supportedFrameRates).includes(72)) {
-                 session.updateRenderState({ targetFrameRate: 72 });
-                 console.log("✅ WebXR targetFrameRate set to 72Hz for Quest stability");
-               }
+              // If 72hz is supported (Quest 2/3), specifically request it to save 25% render budget
+              if (Array.from(session.supportedFrameRates).includes(72)) {
+                session.updateRenderState({ targetFrameRate: 72 });
+                console.log("✅ WebXR targetFrameRate set to 72Hz for Quest stability");
+              }
             } catch (e) {
-               console.warn("Failed to set target frame rate", e);
+              console.warn("Failed to set target frame rate", e);
             }
           }
         });
@@ -469,7 +469,7 @@ async function main(): Promise<void> {
     // device grab/move interactions. The room is visual-only.
     roomModel.traverse((child: any) => {
       if (child.isMesh) {
-        child.raycast = () => {};
+        child.raycast = () => { };
       }
     });
 
@@ -733,7 +733,7 @@ async function main(): Promise<void> {
       "player1",
       "RPM Avatar",
       "rpmClip_model1",
-      [-0.6, 0, -1.5],
+      [-0.2, 0, -1.0],
     );
     registerAvatar(
       rpmAvatarSystem as ControllableAvatarSystem,

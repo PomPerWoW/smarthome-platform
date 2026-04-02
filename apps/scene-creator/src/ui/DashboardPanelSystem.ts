@@ -40,6 +40,13 @@ import {
 const CARD_SLOT_COUNT = 8;
 /** Slot 0 is the XR quick card; slots 1..7 show room devices (max 7). */
 const FIRST_DEVICE_SLOT = 1;
+
+/** Dashboard panel depth in front of the camera (meters). Summon + head-follow use this. */
+const DASHBOARD_PANEL_DISTANCE_M = 1.4;
+const DASHBOARD_PANEL_Y_OFFSET_SUMMON = -0.2;
+const DASHBOARD_PANEL_Y_OFFSET_FOLLOW = -0.18;
+/** Index–thumb tip distance below this (meters) counts as a pinch (hand tracking). */
+const HAND_PINCH_DISTANCE_M = 0.042;
 const MAX_DEVICE_CARD_SLOTS = 7;
 
 const FURNITURE_TYPES = new Set<string>([
@@ -205,6 +212,8 @@ export class DashboardPanelSystem extends createSystem({
   private xrFrameCallbackId: number | null = null;
   private lastXRGripPressed = new Map<XRInputSource, boolean>();
   private lastXRThumbstickPressed = new Map<XRInputSource, boolean>();
+  /** Per hand input source: previous frame pinch (index+thumb) state for edge detection */
+  private lastXRHandPinchPressed = new Map<XRInputSource, boolean>();
   private xrGripCooldown = 0;
   private xrThumbstickCooldown = 0;
   private readonly XR_INPUT_COOLDOWN_SEC = 0.45;
@@ -220,6 +229,7 @@ export class DashboardPanelSystem extends createSystem({
     this.xrThumbstickCooldown = 0;
     this.lastXRGripPressed.clear();
     this.lastXRThumbstickPressed.clear();
+    this.lastXRHandPinchPressed.clear();
     this.startXRInputFrameLoop();
   };
 
@@ -231,6 +241,7 @@ export class DashboardPanelSystem extends createSystem({
     this.xrSession = null;
     this.lastXRGripPressed.clear();
     this.lastXRThumbstickPressed.clear();
+    this.lastXRHandPinchPressed.clear();
     this.xrGripCooldown = 0;
     this.xrThumbstickCooldown = 0;
     console.log("[DashboardPanel] XR session ended — dashboard controller input stopped");
@@ -387,6 +398,68 @@ export class DashboardPanelSystem extends createSystem({
     );
   }
 
+  /**
+   * Hand tracking: index–thumb pinch. Mirrors controllers — left hand → follow toggle,
+   * right hand → dashboard visibility (requires `hand-tracking` and `frame.getHandPose`, as in WelcomePanelGestureSystem).
+   */
+  private processHandPinchForDashboard(frame: XRFrame): void {
+    if (!this.xrSession) return;
+    const referenceSpace = this.renderer.xr.getReferenceSpace();
+    if (!referenceSpace) return;
+
+    const getHandPose = (frame as XRFrame & { getHandPose?: (h: XRHand) => { joints: Map<string, { transform: XRRigidTransform }> } | null }).getHandPose;
+    if (!getHandPose) return;
+
+    for (const inputSource of this.xrSession.inputSources) {
+      const hand = (inputSource as XRInputSource & { hand?: XRHand }).hand;
+      if (!hand) continue;
+
+      const handedness = inputSource.handedness;
+      if (handedness !== "left" && handedness !== "right") continue;
+
+      const handPose = getHandPose.call(frame, hand);
+      if (!handPose?.joints) continue;
+
+      const thumbTip = handPose.joints.get("thumb-tip");
+      const indexTip = handPose.joints.get("index-finger-tip");
+      if (!thumbTip || !indexTip) continue;
+
+      try {
+        const thumbPose = frame.getPose(
+          thumbTip.transform as unknown as XRSpace,
+          referenceSpace,
+        );
+        const indexPose = frame.getPose(
+          indexTip.transform as unknown as XRSpace,
+          referenceSpace,
+        );
+        if (!thumbPose || !indexPose) continue;
+
+        const tx = thumbPose.transform.position.x - indexPose.transform.position.x;
+        const ty = thumbPose.transform.position.y - indexPose.transform.position.y;
+        const tz = thumbPose.transform.position.z - indexPose.transform.position.z;
+        const dist = Math.sqrt(tx * tx + ty * ty + tz * tz);
+        const pinching = dist < HAND_PINCH_DISTANCE_M;
+
+        const was = this.lastXRHandPinchPressed.get(inputSource) ?? false;
+        if (pinching && !was) {
+          if (handedness === "left" && this.xrGripCooldown <= 0) {
+            this.toggleFollowMode();
+            this.xrGripCooldown = this.XR_INPUT_COOLDOWN_SEC;
+            console.log("[DashboardPanel] Left hand pinch — follow toggle");
+          } else if (handedness === "right" && this.xrThumbstickCooldown <= 0) {
+            this.toggleDashboardVisibilityFromXR();
+            this.xrThumbstickCooldown = this.XR_INPUT_COOLDOWN_SEC;
+            console.log("[DashboardPanel] Right hand pinch — dashboard visibility");
+          }
+        }
+        this.lastXRHandPinchPressed.set(inputSource, pinching);
+      } catch {
+        // Hand API may be partially unavailable
+      }
+    }
+  }
+
   private startXRInputFrameLoop(): void {
     if (!this.xrSession) return;
     if (this.xrFrameCallbackId !== null) {
@@ -394,7 +467,7 @@ export class DashboardPanelSystem extends createSystem({
       this.xrFrameCallbackId = null;
     }
 
-    const onFrame = (_time: number, _frame: XRFrame) => {
+    const onFrame = (_time: number, frame: XRFrame) => {
       if (!this.xrSession) return;
 
       const frameDt = 1 / 72;
@@ -444,6 +517,12 @@ export class DashboardPanelSystem extends createSystem({
         console.debug("[DashboardPanel] XR controller poll error:", e);
       }
 
+      try {
+        this.processHandPinchForDashboard(frame);
+      } catch (e) {
+        console.debug("[DashboardPanel] XR hand pinch error:", e);
+      }
+
       if (this.xrSession) {
         this.xrFrameCallbackId = this.xrSession.requestAnimationFrame(onFrame);
       }
@@ -451,7 +530,7 @@ export class DashboardPanelSystem extends createSystem({
 
     this.xrFrameCallbackId = this.xrSession.requestAnimationFrame(onFrame);
     console.log(
-      "[DashboardPanel] Quest 3: squeeze/grip = toggle head-follow · thumbstick press = show/hide dashboard",
+      "[DashboardPanel] Controllers: squeeze/grip = head-follow · thumbstick click = show/hide · Hands: left pinch = follow · right pinch = show/hide",
     );
   }
 
@@ -1437,9 +1516,9 @@ export class DashboardPanelSystem extends createSystem({
     const forward = new Vector3();
     camera.getWorldDirection(forward);
 
-    const targetX = camera.position.x + forward.x * 0.95;
-    const targetY = camera.position.y - 0.2;
-    const targetZ = camera.position.z + forward.z * 0.95;
+    const targetX = camera.position.x + forward.x * DASHBOARD_PANEL_DISTANCE_M;
+    const targetY = camera.position.y + DASHBOARD_PANEL_Y_OFFSET_SUMMON;
+    const targetZ = camera.position.z + forward.z * DASHBOARD_PANEL_DISTANCE_M;
 
     entity.object3D.position.set(targetX, targetY, targetZ);
     entity.object3D.lookAt(camera.position);
@@ -1459,9 +1538,9 @@ export class DashboardPanelSystem extends createSystem({
     const forward = new Vector3();
     camera.getWorldDirection(forward);
 
-    const targetX = camera.position.x + forward.x * 1.0;
-    const targetY = camera.position.y - 0.18;
-    const targetZ = camera.position.z + forward.z * 1.0;
+    const targetX = camera.position.x + forward.x * DASHBOARD_PANEL_DISTANCE_M;
+    const targetY = camera.position.y + DASHBOARD_PANEL_Y_OFFSET_FOLLOW;
+    const targetZ = camera.position.z + forward.z * DASHBOARD_PANEL_DISTANCE_M;
 
     const t = Math.min(1, 4.5 * dt);
     panel.position.x += (targetX - panel.position.x) * t;
