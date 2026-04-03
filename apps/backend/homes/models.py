@@ -100,6 +100,33 @@ class SmartMeter(Device):
     pass
 
 
+def avatar_script_upload_path(instance, filename):
+    return f"avatar_scripts/{instance.room_id}/{instance.avatar_id}/{filename}"
+
+
+class AvatarScript(models.Model):
+    """Per-room behavior script for an NPC or robot avatar (JSON action list)."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name="avatar_scripts")
+    avatar_id = models.CharField(max_length=50)
+    avatar_name = models.CharField(max_length=100)
+    avatar_type = models.CharField(max_length=20, choices=[("npc", "NPC"), ("robot", "Robot")])
+    script_file = models.FileField(upload_to=avatar_script_upload_path, null=True, blank=True)
+    script_data = models.JSONField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["room", "avatar_id"],
+                name="uniq_avatar_script_per_room_avatar",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.avatar_id} @ {self.room.room_name}"
+
+
 class Automation(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     device = models.ForeignKey(Device, on_delete=models.CASCADE, related_name='automations')

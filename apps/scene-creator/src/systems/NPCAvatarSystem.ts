@@ -8,12 +8,23 @@ import {
     LoopOnce,
 } from "@iwsdk/core";
 
-import { Box3, MathUtils, SkinnedMesh } from "three";
+import { Box3, MathUtils, SkinnedMesh, Vector3 } from "three";
 import { SkeletonUtils } from "three-stdlib";
 import { NPCAvatarComponent } from "../components/NPCAvatarComponent";
 import { AVATAR_VISUAL_SCALE } from "../config/avatarScale";
-import { getRoomBounds, getWorldFloorY, roomLocalToWorld } from "../config/navmesh";
+import {
+    getRoomBounds,
+    getWorldFloorY,
+    roomLocalToWorld,
+    clampToWalkableArea,
+} from "../config/navmesh";
+import {
+    constrainMovement,
+    AVATAR_RADIUS,
+    AVATAR_HEIGHTS,
+} from "../config/collision";
 import { BackendApiClient } from "../api/BackendApiClient";
+import type { AvatarBehaviorAction } from "../scripting/avatarBehaviorScript";
 
 // CONFIG
 
@@ -30,7 +41,6 @@ const NPC_VOICE_CONFIG: Record<string, { pitch: number; rate: number; voiceIndex
     npc1: { pitch: 1.0, rate: 1.0, voiceIndex: 182 }, // Alice - Google UK English Female
     npc2: { pitch: 1.0, rate: 1.0, voiceIndex: 183 }, // Bob - Google UK English Male
     npc3: { pitch: 1.0, rate: 1.0, voiceIndex: 181 }, // Carol - Google US English
-    npc4: { pitch: 0.8, rate: 0.9, voiceIndex: 183 }, // Mike - Google UK English Male (Deeper/Slower)
 };
 
 // PROCEDURAL VISEME SYSTEM
@@ -89,6 +99,11 @@ interface NPCAvatarRecord {
     isInConversation: boolean;
     mediaRecorder: MediaRecorder | null;
     audioChunks: Blob[];
+    /** Scripted behavior (loops); paused while `isInConversation` or speaking. */
+    scriptActions: AvatarBehaviorAction[] | null;
+    scriptIndex: number;
+    scriptPhaseKey: string;
+    scriptTimer: number;
 }
 
 // NPC AVATAR SYSTEM
@@ -104,6 +119,7 @@ export class NPCAvatarSystem extends createSystem({
 
     init() {
         console.log("[NPCAvatar] System initialized (stationary NPCs with LLM chat + procedural lip-sync)");
+        (globalThis as any).__npcAvatarSystem = this;
 
         // List all available voices for the user
         if (typeof window !== "undefined" && window.speechSynthesis) {
@@ -710,6 +726,10 @@ export class NPCAvatarSystem extends createSystem({
                 isInConversation: false,
                 mediaRecorder: null,
                 audioChunks: [],
+                scriptActions: null,
+                scriptIndex: 0,
+                scriptPhaseKey: "",
+                scriptTimer: 0,
             };
             this.npcRecords.set(npcId, record);
 
@@ -750,6 +770,225 @@ export class NPCAvatarSystem extends createSystem({
         console.log(`[NPCAvatar] 👋 ${npcId} waving (${reason})`);
     }
 
+    /** Room-local XZ for all NPCs (for robot / other agents to avoid). */
+    getNpcPositionsRoomLocal(): { id: string; x: number; z: number }[] {
+        const out: { id: string; x: number; z: number }[] = [];
+        for (const [id, rec] of this.npcRecords) {
+            const w = rec.model.position;
+            const loc = this.worldToRoomLocal(w.x, w.y, w.z);
+            out.push({ id, x: loc.x, z: loc.z });
+        }
+        return out;
+    }
+
+    setBehaviorScript(npcId: string, actions: AvatarBehaviorAction[] | null): void {
+        const record = this.npcRecords.get(npcId);
+        if (!record) return;
+        record.scriptActions = actions && actions.length ? actions : null;
+        record.scriptIndex = 0;
+        record.scriptPhaseKey = "";
+        record.scriptTimer = 0;
+        console.log(
+            `[NPCAvatar] Script ${record.scriptActions ? `loaded (${record.scriptActions.length} actions)` : "cleared"} for ${npcId}`,
+        );
+    }
+
+    private getAgentObstaclesRoomLocal(excludeNpcId: string): { x: number; z: number }[] {
+        const pts: { x: number; z: number }[] = [];
+        for (const [id, rec] of this.npcRecords) {
+            if (id === excludeNpcId) continue;
+            const w = rec.model.position;
+            const loc = this.worldToRoomLocal(w.x, w.y, w.z);
+            pts.push({ x: loc.x, z: loc.z });
+        }
+        const robotSys = (globalThis as any).__robotAssistantSystem as
+            | { getRobotRoomLocalXZ?: (id: string) => { x: number; z: number } | null }
+            | undefined;
+        const rz = robotSys?.getRobotRoomLocalXZ?.("robot1");
+        if (rz) pts.push(rz);
+        return pts;
+    }
+
+    private applyAgentAvoidanceRoomLocal(
+        excludeNpcId: string,
+        fromX: number,
+        fromZ: number,
+        toX: number,
+        toZ: number,
+    ): { x: number; z: number } {
+        const NEAR = 0.52;
+        const STOP = 0.3;
+        let x = toX;
+        let z = toZ;
+        const others = this.getAgentObstaclesRoomLocal(excludeNpcId);
+        for (const o of others) {
+            const d = Math.sqrt((toX - o.x) ** 2 + (toZ - o.z) ** 2);
+            if (d < STOP) {
+                return { x: fromX, z: fromZ };
+            }
+        }
+        for (const o of others) {
+            const dx = x - o.x;
+            const dz = z - o.z;
+            const d = Math.sqrt(dx * dx + dz * dz);
+            if (d < NEAR && d > 1e-5) {
+                const push = ((NEAR - d) / NEAR) * 0.22;
+                x += (dx / d) * push;
+                z += (dz / d) * push;
+            }
+        }
+        return { x, z };
+    }
+
+    private playScriptWaveAnimation(record: NPCAvatarRecord, npcId: string): void {
+        if (!record.animationsMap.has("Wave")) return;
+        record.isPlayingWave = true;
+        record.lastWaveTime = this.timeElapsed;
+        this.fadeToAction(record, "Wave", FADE_DURATION);
+        const onFinished = () => {
+            record.mixer.removeEventListener("finished", onFinished);
+            record.isPlayingWave = false;
+            this.fadeToAction(record, "Idle", FADE_DURATION);
+        };
+        record.mixer.addEventListener("finished", onFinished);
+        console.log(`[NPCAvatar] 👋 ${npcId} script wave`);
+    }
+
+    private chooseWalkAnimation(record: NPCAvatarRecord): string {
+        if (record.animationsMap.has("Walking")) return "Walking";
+        if (record.animationsMap.has("Walk")) return "Walk";
+        return "Idle";
+    }
+
+    private processBehaviorScript(
+        npcId: string,
+        record: NPCAvatarRecord,
+        entity: Entity,
+        roomLocal: { x: number; y: number; z: number },
+        roomRotY: number,
+        dt: number,
+    ): void {
+        const actions = record.scriptActions!;
+        if (record.scriptIndex >= actions.length) record.scriptIndex = 0;
+        const action = actions[record.scriptIndex];
+        const phaseKey = `${record.scriptIndex}:${action.type}`;
+        if (record.scriptPhaseKey !== phaseKey) {
+            record.scriptPhaseKey = phaseKey;
+            switch (action.type) {
+                case "wait":
+                    record.scriptTimer = action.duration;
+                    break;
+                case "idle":
+                    record.scriptTimer = action.duration ?? 2;
+                    break;
+                case "wave":
+                    record.scriptTimer = 2.2;
+                    this.playScriptWaveAnimation(record, npcId);
+                    break;
+                case "sit": {
+                    record.scriptTimer = action.duration ?? 4;
+                    const sitName = record.animationsMap.has("Sitting")
+                        ? "Sitting"
+                        : record.animationsMap.has("Sit")
+                          ? "Sit"
+                          : "Idle";
+                    if (sitName !== "Idle") this.fadeToAction(record, sitName, FADE_DURATION);
+                    break;
+                }
+                default:
+                    record.scriptTimer = 0;
+            }
+        }
+
+        switch (action.type) {
+            case "walk": {
+                const tx = action.target[0];
+                const tz = action.target[1];
+                const speed = action.speed ?? 0.4;
+                const dx = tx - roomLocal.x;
+                const dz = tz - roomLocal.z;
+                const dist = Math.sqrt(dx * dx + dz * dz);
+                if (dist < 0.18) {
+                    record.scriptIndex = (record.scriptIndex + 1) % actions.length;
+                    record.scriptPhaseKey = "";
+                    record.model.position.set(roomLocal.x, roomLocal.y, roomLocal.z);
+                    record.lastRoomLocalPos = { x: roomLocal.x, y: roomLocal.y, z: roomLocal.z };
+                    this.fadeToAction(record, "Idle", FADE_DURATION);
+                    entity.setValue(NPCAvatarComponent, "currentState", "Idle");
+                    break;
+                }
+                const mx = (dx / dist) * speed * dt;
+                const mz = (dz / dist) * speed * dt;
+                let nx = roomLocal.x + mx;
+                let nz = roomLocal.z + mz;
+                [nx, nz] = clampToWalkableArea(nx, nz);
+                const oldW = this.roomLocalToWorld(roomLocal.x, roomLocal.y, roomLocal.z);
+                const newW = this.roomLocalToWorld(nx, roomLocal.y, nz);
+                const constrained = constrainMovement(
+                    new Vector3(oldW.x, oldW.y, oldW.z),
+                    new Vector3(newW.x, newW.y, newW.z),
+                    AVATAR_RADIUS,
+                    AVATAR_HEIGHTS,
+                );
+                let c = this.worldToRoomLocal(constrained.x, constrained.y, constrained.z);
+                [c.x, c.z] = clampToWalkableArea(c.x, c.z);
+                const budged = this.applyAgentAvoidanceRoomLocal(
+                    npcId,
+                    roomLocal.x,
+                    roomLocal.z,
+                    c.x,
+                    c.z,
+                );
+                const walkAnim = this.chooseWalkAnimation(record);
+                if (walkAnim !== "Idle" && record.currentAction !== walkAnim) {
+                    this.fadeToAction(record, walkAnim, FADE_DURATION);
+                } else if (walkAnim === "Idle" && record.currentAction !== "Idle") {
+                    this.fadeToAction(record, "Idle", FADE_DURATION);
+                }
+                const rdx = budged.x - roomLocal.x;
+                const rdz = budged.z - roomLocal.z;
+                if (Math.abs(rdx) + Math.abs(rdz) > 1e-4) {
+                    record.model.rotation.y = Math.atan2(rdx, rdz) + roomRotY;
+                }
+                record.model.position.set(budged.x, roomLocal.y, budged.z);
+                record.lastRoomLocalPos = { x: budged.x, y: roomLocal.y, z: budged.z };
+                entity.setValue(
+                    NPCAvatarComponent,
+                    "currentState",
+                    walkAnim === "Idle" ? "Idle" : "Walking",
+                );
+                break;
+            }
+            case "wait":
+            case "idle":
+            case "wave":
+            case "sit": {
+                record.scriptTimer -= dt;
+                record.model.position.set(roomLocal.x, roomLocal.y, roomLocal.z);
+                record.lastRoomLocalPos = { ...roomLocal };
+                if (
+                    (action.type === "wait" || action.type === "idle") &&
+                    record.currentAction !== "Idle" &&
+                    !["Wave", "Sitting", "Sit"].includes(record.currentAction)
+                ) {
+                    this.fadeToAction(record, "Idle", FADE_DURATION);
+                }
+                if (record.scriptTimer <= 0) {
+                    record.scriptIndex = (record.scriptIndex + 1) % actions.length;
+                    record.scriptPhaseKey = "";
+                    if (action.type === "sit") {
+                        this.fadeToAction(record, "Idle", FADE_DURATION);
+                    }
+                }
+                entity.setValue(NPCAvatarComponent, "currentState", record.currentAction);
+                break;
+            }
+            default:
+                record.scriptIndex = (record.scriptIndex + 1) % actions.length;
+                record.scriptPhaseKey = "";
+        }
+    }
+
     // ── UPDATE LOOP ─────────────────────────────────────────────────────
 
     update(dt: number): void {
@@ -775,7 +1014,15 @@ export class NPCAvatarSystem extends createSystem({
             const currentWorldPos = { x: record.model.position.x, y: record.model.position.y, z: record.model.position.z };
             const roomLocal = this.worldToRoomLocal(currentWorldPos.x, currentWorldPos.y, currentWorldPos.z);
 
-            if (record.lastRoomLocalPos !== null) {
+            const runScript =
+                record.scriptActions &&
+                record.scriptActions.length > 0 &&
+                !record.isInConversation &&
+                !record.isSpeaking;
+
+            if (runScript) {
+                this.processBehaviorScript(npcId, record, entity, roomLocal, roomRotY, dt);
+            } else if (record.lastRoomLocalPos !== null) {
                 const posDiff = Math.sqrt(
                     (roomLocal.x - record.lastRoomLocalPos.x) ** 2 + (roomLocal.z - record.lastRoomLocalPos.z) ** 2,
                 );

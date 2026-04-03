@@ -45,6 +45,8 @@ import { XRInstructionSystem } from "./systems/XRInstructionSystem";
 import { WallpaperSystem } from "./systems/WallpaperSystem";
 import { WallpaperCutoutPanelSystem } from "./ui/WallpaperCutoutPanelSystem";
 import { DashboardPanelSystem } from "./ui/DashboardPanelSystem";
+import { BackendApiClient } from "./api/BackendApiClient";
+import { normalizeAvatarBehaviorScript } from "./scripting/avatarBehaviorScript";
 
 import {
   initializeNavMesh,
@@ -816,14 +818,34 @@ async function main(): Promise<void> {
       [-3.5, 0, 2.5],
       Math.PI / 2,
     );
-    await npcAvatarSystem.createNPCAvatar(
-      "npc4",
-      "NPC Mike",
-      "npc_4",
-      [-3.5, 0, -5.0],
-      0,
-    );
-    console.log("✅ 4 NPC RPM Avatars (npc/RPM_clip.glb) - stationary");
+    console.log("✅ 3 NPC RPM Avatars (npc/RPM_clip.glb) - stationary");
+  }
+
+  const roomForScripts = urlRoomId || getStore().roomId;
+  if (roomForScripts) {
+    try {
+      const scriptRows =
+        await BackendApiClient.getInstance().getRoomAvatarScripts(
+          roomForScripts,
+        );
+      for (const row of scriptRows) {
+        const parsed = normalizeAvatarBehaviorScript(row.script_data);
+        if (!parsed) {
+          console.warn(
+            "[Scene] Skipping invalid avatar script for",
+            row.avatar_id,
+          );
+          continue;
+        }
+        if (row.avatar_type === "robot" && robotAssistantSystem) {
+          robotAssistantSystem.loadBehaviorScript(parsed);
+        } else if (row.avatar_type === "npc" && npcAvatarSystem) {
+          npcAvatarSystem.setBehaviorScript(row.avatar_id, parsed);
+        }
+      }
+    } catch (err) {
+      console.warn("[Scene] Avatar scripts could not be loaded:", err);
+    }
   }
 
   setupAvatarSwitcherPanel();

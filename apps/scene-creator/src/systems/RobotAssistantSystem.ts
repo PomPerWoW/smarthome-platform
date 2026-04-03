@@ -35,6 +35,7 @@ import {
 } from "../utils/VoiceTextToSpeech";
 import { getStore } from "../store/DeviceStore";
 import { BackendApiClient } from "../api/BackendApiClient";
+import type { AvatarBehaviorAction } from "../scripting/avatarBehaviorScript";
 
 // ============================================================================
 // CONFIG
@@ -128,6 +129,12 @@ export class RobotAssistantSystem extends createSystem({
   private timeElapsed = 0;
   private voiceActive = false;
   private voiceEmoteSequence: VoiceEmoteSequence | null = null;
+
+  /** Looped JSON behavior script (replaces random waypoints when active). */
+  private behaviorScript: AvatarBehaviorAction[] | null = null;
+  private behaviorScriptIndex = 0;
+  private behaviorScriptPhaseKey = "";
+  private behaviorScriptTimer = 0;
 
   // ── Repath / stuck recovery state ──
   /** Timestamp of the last repath action. */
@@ -981,6 +988,128 @@ export class RobotAssistantSystem extends createSystem({
     }
   }
 
+  loadBehaviorScript(actions: AvatarBehaviorAction[] | null): void {
+    if (actions && actions.length > 0) {
+      this.behaviorScript = actions;
+      this.behaviorScriptIndex = 0;
+      this.behaviorScriptPhaseKey = "";
+      this.behaviorScriptTimer = 0;
+      console.log(
+        `[RobotAssistant] 📜 Behavior script active (${actions.length} actions)`,
+      );
+    } else {
+      this.behaviorScript = null;
+      this.behaviorScriptIndex = 0;
+      this.behaviorScriptPhaseKey = "";
+      this.behaviorScriptTimer = 0;
+      console.log("[RobotAssistant] 📜 Behavior script cleared");
+    }
+  }
+
+  getRobotRoomLocalXZ(robotId: string): { x: number; z: number } | null {
+    const rec = this.robotRecords.get(robotId);
+    if (!rec) return null;
+    const loc = this.worldToRoomLocal(
+      rec.model.position.x,
+      rec.model.position.y,
+      rec.model.position.z,
+    );
+    return { x: loc.x, z: loc.z };
+  }
+
+  private isBehaviorScriptMode(): boolean {
+    return (
+      !!this.behaviorScript &&
+      this.behaviorScript.length > 0 &&
+      !this.voiceActive &&
+      !this.walkingToUser &&
+      !this.inInstructionSession
+    );
+  }
+
+  private stepBehaviorScript(
+    record: RobotAssistantRecord,
+    entity: Entity,
+    roomLocal: { x: number; y: number; z: number },
+    dt: number,
+  ): void {
+    const actions = this.behaviorScript!;
+    if (this.behaviorScriptIndex >= actions.length) this.behaviorScriptIndex = 0;
+    const action = actions[this.behaviorScriptIndex];
+    const pkey = `${this.behaviorScriptIndex}:${action.type}`;
+    if (this.behaviorScriptPhaseKey !== pkey) {
+      this.behaviorScriptPhaseKey = pkey;
+      switch (action.type) {
+        case "wait":
+          this.behaviorScriptTimer = action.duration;
+          break;
+        case "idle":
+          this.behaviorScriptTimer = action.duration ?? 2;
+          break;
+        case "wave":
+          this.behaviorScriptTimer = 2.2;
+          if (record.animationsMap.has("Wave")) {
+            this.fadeToAction(record, "Wave", FADE_DURATION);
+            entity.setValue(RobotAssistantComponent, "currentState", "Wave");
+          }
+          break;
+        case "sit":
+          this.behaviorScriptTimer = action.duration ?? 3;
+          this.fadeToAction(record, "Idle", FADE_DURATION);
+          entity.setValue(RobotAssistantComponent, "currentState", "Idle");
+          break;
+        default:
+          this.behaviorScriptTimer = 0;
+      }
+    }
+
+    switch (action.type) {
+      case "walk": {
+        const tx = action.target[0];
+        const tz = action.target[1];
+        entity.setValue(RobotAssistantComponent, "targetX", tx);
+        entity.setValue(RobotAssistantComponent, "targetZ", tz);
+        entity.setValue(RobotAssistantComponent, "hasReachedTarget", false);
+        const dx = tx - roomLocal.x;
+        const dz = tz - roomLocal.z;
+        const d = Math.sqrt(dx * dx + dz * dz);
+        if (d < PATROL_STYLE_REACH_DISTANCE) {
+          this.behaviorScriptIndex =
+            (this.behaviorScriptIndex + 1) % actions.length;
+          this.behaviorScriptPhaseKey = "";
+          entity.setValue(RobotAssistantComponent, "hasReachedTarget", true);
+        }
+        break;
+      }
+      case "wait":
+      case "idle":
+      case "wave":
+      case "sit": {
+        this.behaviorScriptTimer -= dt;
+        entity.setValue(RobotAssistantComponent, "hasReachedTarget", true);
+        if (
+          (action.type === "wait" || action.type === "idle") &&
+          !["Wave"].includes(record.currentAction)
+        ) {
+          if (record.currentAction !== "Idle") {
+            this.fadeToAction(record, "Idle", FADE_DURATION);
+            entity.setValue(RobotAssistantComponent, "currentState", "Idle");
+          }
+        }
+        if (this.behaviorScriptTimer <= 0) {
+          this.behaviorScriptIndex =
+            (this.behaviorScriptIndex + 1) % actions.length;
+          this.behaviorScriptPhaseKey = "";
+        }
+        break;
+      }
+      default:
+        this.behaviorScriptIndex =
+          (this.behaviorScriptIndex + 1) % actions.length;
+        this.behaviorScriptPhaseKey = "";
+    }
+  }
+
   // Play a sequence of emotes
   // NOTE: caller's onDone should call setVoiceListening(false) when the flow is complete.
   playEmoteSequence(emotes: string[], onDone?: () => void): void {
@@ -1371,6 +1500,9 @@ export class RobotAssistantSystem extends createSystem({
       }
 
       const entity = record.entity;
+      if (this.isBehaviorScriptMode()) {
+        this.stepBehaviorScript(record, entity, roomLocal, dt);
+      }
       const currentState = entity.getValue(
         RobotAssistantComponent,
         "currentState",
@@ -2048,6 +2180,7 @@ export class RobotAssistantSystem extends createSystem({
 
       // Pick new waypoint periodically (not when walking to user or in instruction session)
       if (
+        !this.isBehaviorScriptMode() &&
         !this.walkingToUser &&
         !this.inInstructionSession &&
         this.timeElapsed >= nextWaypointTime

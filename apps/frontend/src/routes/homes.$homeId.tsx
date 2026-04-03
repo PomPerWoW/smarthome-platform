@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
@@ -15,7 +15,9 @@ import {
   Box,
   X,
   CheckCircle2,
-
+  User,
+  Bot,
+  FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -58,12 +60,36 @@ import { HomeService } from "@/services/HomeService";
 import { DeviceService } from "@/services/DeviceService";
 import type { Room, BaseDevice } from "@/models";
 import type { FurnitureItem } from "@/models/Room";
+import type { AvatarScriptDTO } from "@/types/home.types";
 import { DeviceType } from "@/types/device.types";
 import { useUIStore } from "@/stores/ui_store";
+import { cn } from "@/lib/utils";
 
 const ROOM_MODELS = [
   { value: "LabPlan", label: "Lab Plan (Default)" },
 ] as const;
+
+/** Avatars spawned in 3D for this room (ids must match scene-creator). */
+const ROOM_PAGE_AVATARS = [
+  { id: "npc1", label: "Alice", type: "npc" as const },
+  { id: "npc2", label: "Bob", type: "npc" as const },
+  { id: "npc3", label: "Carol", type: "npc" as const },
+  { id: "robot1", label: "Robot", type: "robot" as const },
+] as const;
+type RoomPageAvatar = (typeof ROOM_PAGE_AVATARS)[number];
+
+function avatarApiName(entry: RoomPageAvatar): string {
+  if (entry.type === "robot") return "Robot Assistant";
+  return `${entry.label} (NPC)`;
+}
+
+const AVATAR_SCRIPT_JSON_EXAMPLE = `[
+  { "type": "walk", "target": [2.5, -1.5], "speed": 0.4 },
+  { "type": "wait", "duration": 2 },
+  { "type": "wave" },
+  { "type": "sit", "duration": 5 },
+  { "type": "idle", "duration": 2 }
+]`;
 
 const homeSearchSchema = z.object({
   room: z.string().optional(),
@@ -93,6 +119,10 @@ function HomeDetailPage() {
   const [addDeviceRoomId, setAddDeviceRoomId] = useState<string | null>(null);
   const [furnitureToRename, setFurnitureToRename] = useState<FurnitureItem | null>(null);
   const [furnitureToDelete, setFurnitureToDelete] = useState<FurnitureItem | null>(null);
+  const [avatarScriptModalEntry, setAvatarScriptModalEntry] = useState<RoomPageAvatar | null>(null);
+  const [avatarScriptPendingFile, setAvatarScriptPendingFile] = useState<File | null>(null);
+  const [avatarScriptDropActive, setAvatarScriptDropActive] = useState(false);
+  const avatarScriptFileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -105,7 +135,8 @@ function HomeDetailPage() {
       !!furnitureToRename ||
       !!furnitureToDelete ||
       isAddDeviceOpen ||
-      isDeviceDrawerOpen;
+      isDeviceDrawerOpen ||
+      !!avatarScriptModalEntry;
     setModalOpen(open);
     return () => setModalOpen(false);
   }, [
@@ -118,6 +149,7 @@ function HomeDetailPage() {
     furnitureToDelete,
     isAddDeviceOpen,
     isDeviceDrawerOpen,
+    avatarScriptModalEntry,
     setModalOpen,
   ]);
 
@@ -151,6 +183,13 @@ function HomeDetailPage() {
       return results;
     },
     enabled: allRooms.length > 0,
+  });
+
+  const { data: avatarScripts = [], isLoading: isLoadingAvatarScripts } = useQuery({
+    queryKey: ["avatar-scripts", selectedRoomId],
+    queryFn: () =>
+      HomeService.getInstance().getRoomAvatarScripts(selectedRoomId!),
+    enabled: !!selectedRoomId,
   });
 
   // Derive selectedDevice from fresh query data instead of stale state
@@ -353,6 +392,53 @@ function HomeDetailPage() {
       toast.error(`Failed to delete furniture: ${error.message}`);
     },
   });
+
+  const uploadAvatarScriptMutation = useMutation({
+    mutationFn: ({
+      roomId,
+      entry,
+      file,
+    }: {
+      roomId: string;
+      entry: RoomPageAvatar;
+      file: File;
+    }) =>
+      HomeService.getInstance().uploadAvatarScript(
+        roomId,
+        entry.id,
+        avatarApiName(entry),
+        entry.type,
+        file,
+      ),
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["avatar-scripts", vars.roomId] });
+      setAvatarScriptPendingFile(null);
+      toast.success("Behavior script saved");
+    },
+    onError: (error) => {
+      toast.error(`Upload failed: ${(error as Error).message}`);
+    },
+  });
+
+  const deleteAvatarScriptMutation = useMutation({
+    mutationFn: (id: string) => HomeService.getInstance().deleteAvatarScript(id),
+    onSuccess: () => {
+      if (selectedRoomId) {
+        queryClient.invalidateQueries({ queryKey: ["avatar-scripts", selectedRoomId] });
+      }
+      toast.success("Script removed");
+    },
+    onError: (error) => {
+      toast.error(`Failed to remove script: ${(error as Error).message}`);
+    },
+  });
+
+  useEffect(() => {
+    if (!avatarScriptModalEntry) {
+      setAvatarScriptPendingFile(null);
+      setAvatarScriptDropActive(false);
+    }
+  }, [avatarScriptModalEntry]);
 
   const handleDragStart = (e: React.DragEvent, deviceId: string, deviceType: string) => {
     e.dataTransfer.setData("deviceId", deviceId);
@@ -765,6 +851,293 @@ function HomeDetailPage() {
           )}
         </div>
       )}
+
+      {/* Avatars & behavior scripts — only when a room is selected */}
+      {selectedRoom && (
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold flex items-center gap-3">
+            <div className="p-1.5 bg-sky-500/15 rounded-lg">
+              <User className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+            </div>
+            <span>
+              Avatars &amp; Scripts in{" "}
+              <span className="text-sky-600 dark:text-sky-400">{selectedRoom.name}</span>
+            </span>
+          </h2>
+          <div className="-mx-1 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
+            <p className="text-sm text-muted-foreground whitespace-nowrap px-1">
+              Upload JSON scripts to control how these avatars behave in the 3D scene. If no script is
+              uploaded, they will use their default behavior.
+            </p>
+          </div>
+          {isLoadingAvatarScripts ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+              {ROOM_PAGE_AVATARS.map((entry) => {
+                const script = avatarScripts.find(
+                  (s: AvatarScriptDTO) => s.avatar_id === entry.id,
+                );
+                const hasScript = Boolean(script?.script_data);
+                const Icon = entry.type === "robot" ? Bot : User;
+                const titlePrimary =
+                  entry.type === "npc" ? `${entry.label} (NPC)` : entry.label;
+                const titleSecondary = entry.type === "robot" ? "Assistant" : "NPC";
+                return (
+                  <div
+                    key={entry.id}
+                    className="group relative cursor-pointer transform-gpu transition-all duration-300 hover:-translate-y-1 hover:scale-[1.02]"
+                  >
+                    <div
+                      className={cn(
+                        "relative flex min-h-[200px] flex-col rounded-xl border border-border shadow-md cursor-pointer",
+                        "bg-gradient-to-b from-card to-muted/30",
+                        "transition-all duration-300",
+                        "group-hover:shadow-lg group-hover:border-primary/50",
+                      )}
+                    >
+                      <div className="flex flex-1 flex-col p-5 pt-6">
+                        <div className="flex flex-1 gap-4 items-start">
+                          <div className="w-12 h-12 shrink-0 rounded-xl bg-sky-500/15 flex items-center justify-center border border-sky-500/20">
+                            <Icon className="h-6 w-6 text-sky-600 dark:text-sky-400" />
+                          </div>
+                          <div className="min-w-0 flex-1 pt-1 space-y-1">
+                            <h4 className="font-semibold text-base text-foreground leading-snug truncate">
+                              {titlePrimary}
+                            </h4>
+                            <p className="text-xs text-muted-foreground">{titleSecondary}</p>
+                          </div>
+                        </div>
+
+                        <div className="mt-auto border-t border-border/60 pt-4">
+                          {hasScript ? (
+                            <div className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-3 py-2 text-xs font-semibold text-emerald-700 dark:text-emerald-400 sm:w-auto sm:justify-start">
+                              <FileText className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                              Script Active
+                            </div>
+                          ) : (
+                            <div className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-muted/90 border border-muted-foreground/20 px-3 py-2 text-xs font-medium text-muted-foreground sm:w-auto sm:justify-start">
+                              <FileText className="h-4 w-4 text-muted-foreground/80 shrink-0" />
+                              Default Behavior
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="absolute -top-2 -right-2 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        className="h-6 w-6 shadow-md hover:scale-110 transition-transform"
+                        title="Upload or edit script"
+                        onClick={() => setAvatarScriptModalEntry(entry)}
+                      >
+                        <Upload className="h-3 w-3 text-foreground" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Avatar script upload modal */}
+      <Dialog
+        open={!!avatarScriptModalEntry}
+        onOpenChange={(open) => {
+          if (!open) {
+            setAvatarScriptModalEntry(null);
+            setAvatarScriptPendingFile(null);
+            setAvatarScriptDropActive(false);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-left pr-8">
+              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
+                <Upload className="h-4 w-4" />
+              </span>
+              <span>
+                {avatarScriptModalEntry
+                  ? `Upload Script for ${
+                      avatarScriptModalEntry.type === "npc"
+                        ? `${avatarScriptModalEntry.label} (NPC)`
+                        : `${avatarScriptModalEntry.label} (Robot)`
+                    }`
+                  : "Upload script"}
+              </span>
+            </DialogTitle>
+            <DialogDescription className="text-left">
+              {avatarScriptModalEntry
+                ? `Upload a JSON file containing the behavior script for this ${avatarScriptModalEntry.type}.`
+                : ""}
+            </DialogDescription>
+          </DialogHeader>
+          {avatarScriptModalEntry && selectedRoom && (
+            <div className="space-y-4 py-1">
+              {(() => {
+                const existing = avatarScripts.find(
+                  (s: AvatarScriptDTO) => s.avatar_id === avatarScriptModalEntry.id,
+                );
+                const assignScriptFile = (file: File | null) => {
+                  if (!file) return;
+                  const ok =
+                    file.name.toLowerCase().endsWith(".json") ||
+                    file.name.toLowerCase().endsWith(".txt") ||
+                    file.type === "application/json" ||
+                    file.type === "text/plain";
+                  if (!ok) {
+                    toast.error("Please choose a .json or .txt file.");
+                    return;
+                  }
+                  setAvatarScriptPendingFile(file);
+                };
+
+                return (
+                  <>
+                    <div className="rounded-lg border bg-muted/50 p-3">
+                      <p className="text-[11px] text-muted-foreground mb-2 font-medium">
+                        Example script format:
+                      </p>
+                      <pre className="text-[11px] leading-relaxed overflow-x-auto text-foreground/90 font-mono">
+                        {AVATAR_SCRIPT_JSON_EXAMPLE}
+                      </pre>
+                    </div>
+
+                    {existing?.script_data != null && (
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground mb-1.5">
+                          Current script on server
+                        </p>
+                        <div className="rounded-md border bg-muted/30 p-3 max-h-36 overflow-auto">
+                          <pre className="text-[11px] leading-relaxed whitespace-pre-wrap break-words font-mono">
+                            {JSON.stringify(existing.script_data, null, 2)}
+                          </pre>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="relative">
+                      <input
+                        ref={avatarScriptFileInputRef}
+                        id="avatar-script-modal-file"
+                        type="file"
+                        accept=".json,.txt,application/json,text/plain"
+                        className="sr-only"
+                        disabled={uploadAvatarScriptMutation.isPending}
+                        onChange={(e) => {
+                          assignScriptFile(e.target.files?.[0] ?? null);
+                          e.target.value = "";
+                        }}
+                      />
+                      <label
+                        htmlFor="avatar-script-modal-file"
+                        onDragEnter={(e) => {
+                          e.preventDefault();
+                          setAvatarScriptDropActive(true);
+                        }}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          setAvatarScriptDropActive(true);
+                        }}
+                        onDragLeave={() => setAvatarScriptDropActive(false)}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          setAvatarScriptDropActive(false);
+                          assignScriptFile(e.dataTransfer.files?.[0] ?? null);
+                        }}
+                        className={cn(
+                          "flex flex-col items-center justify-center w-full min-h-[8rem] cursor-pointer rounded-lg border-2 border-dashed transition-colors group/drop",
+                          "border-border bg-muted/50 hover:bg-muted/80",
+                          avatarScriptDropActive && "bg-muted/90 border-muted-foreground/35",
+                        )}
+                      >
+                        <div className="flex flex-col items-center justify-center py-6 px-4">
+                          <Upload className="w-10 h-10 mb-3 text-muted-foreground group-hover/drop:text-foreground transition-colors" />
+                          <p className="mb-1 text-sm text-foreground text-center">
+                            <span className="font-semibold">Click to upload</span> or drag and drop
+                          </p>
+                          <p className="text-xs text-muted-foreground text-center">
+                            JSON or TXT behavior script
+                          </p>
+                          {avatarScriptPendingFile && (
+                            <p className="text-xs text-foreground font-medium mt-3 text-center">
+                              Selected: {avatarScriptPendingFile.name}
+                            </p>
+                          )}
+                        </div>
+                      </label>
+                    </div>
+
+                    {existing && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full text-destructive border-destructive/30 hover:bg-destructive/10"
+                        disabled={deleteAvatarScriptMutation.isPending}
+                        onClick={() =>
+                          deleteAvatarScriptMutation.mutate(existing.id, {
+                            onSuccess: () => {
+                              setAvatarScriptModalEntry(null);
+                              setAvatarScriptPendingFile(null);
+                            },
+                          })
+                        }
+                      >
+                        Remove script from server
+                      </Button>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
+          )}
+          <DialogFooter className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end sm:gap-4">
+            <Button
+              variant="outline"
+              className="sm:min-w-[100px]"
+              onClick={() => {
+                setAvatarScriptModalEntry(null);
+                setAvatarScriptPendingFile(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="sm:min-w-[100px]"
+              disabled={
+                !avatarScriptPendingFile ||
+                uploadAvatarScriptMutation.isPending ||
+                !avatarScriptModalEntry ||
+                !selectedRoom
+              }
+              onClick={() => {
+                if (!avatarScriptPendingFile || !avatarScriptModalEntry || !selectedRoom) return;
+                uploadAvatarScriptMutation.mutate({
+                  roomId: selectedRoom.id,
+                  entry: avatarScriptModalEntry,
+                  file: avatarScriptPendingFile,
+                });
+              }}
+            >
+              {uploadAvatarScriptMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Uploading…
+                </>
+              ) : (
+                "Upload"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Device Control Drawer */}
       <DeviceControlDrawer

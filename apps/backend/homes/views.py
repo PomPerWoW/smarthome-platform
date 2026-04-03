@@ -9,9 +9,12 @@ from datetime import datetime
 from django.conf import settings
 from django.contrib.gis.geos import Point
 from django.core.files.base import ContentFile
-from rest_framework import permissions, viewsets
+import json
+
+from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 
 from .models import *
@@ -1572,6 +1575,113 @@ class NPCChatViewSet(viewsets.ViewSet):
         farewell_text = get_farewell(npc_id)
         reset_history(npc_id)
         return Response({"npc_id": npc_id, "farewell": farewell_text})
+
+
+ALLOWED_SCRIPT_ACTION_TYPES = frozenset({"walk", "wait", "idle", "wave", "sit"})
+
+
+def _normalize_avatar_script_data(script_data):
+    if isinstance(script_data, dict) and "actions" in script_data:
+        script_data = script_data["actions"]
+    if not isinstance(script_data, list):
+        return None, "Script must be a JSON array of actions (or an object with an 'actions' array)."
+    for i, action in enumerate(script_data):
+        if not isinstance(action, dict):
+            return None, f"Action at index {i} must be an object."
+        t = action.get("type")
+        if t not in ALLOWED_SCRIPT_ACTION_TYPES:
+            return (
+                None,
+                f"Action at index {i} has invalid type '{t}'. "
+                f"Allowed: {', '.join(sorted(ALLOWED_SCRIPT_ACTION_TYPES))}.",
+            )
+    return script_data, None
+
+
+class AvatarScriptViewSet(viewsets.ModelViewSet):
+    """
+    List / create / delete behavior scripts for avatars in a room.
+
+    POST (multipart): room, avatar_id, avatar_name, avatar_type, file (.json/.txt)
+    GET: ?room=<uuid> lists scripts for that room.
+    """
+
+    serializer_class = AvatarScriptSerializer
+    permission_classes = [permissions.IsAuthenticated, IsHomeOwner]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+    http_method_names = ["get", "post", "delete", "head", "options"]
+
+    def get_queryset(self):
+        qs = AvatarScript.objects.filter(room__home__user=self.request.user)
+        room_id = self.request.query_params.get("room")
+        if room_id:
+            qs = qs.filter(room_id=room_id)
+        return qs.order_by("avatar_id")
+
+    def get_serializer_context(self):
+        ctx = super().get_serializer_context()
+        ctx["request"] = self.request
+        return ctx
+
+    def create(self, request, *args, **kwargs):
+        room_id = request.data.get("room")
+        avatar_id = (request.data.get("avatar_id") or "").strip()
+        avatar_name = (request.data.get("avatar_name") or "").strip() or avatar_id
+        avatar_type = (request.data.get("avatar_type") or "npc").strip()
+        if avatar_type not in ("npc", "robot"):
+            return Response({"error": "avatar_type must be 'npc' or 'robot'"}, status=400)
+        if not room_id or not avatar_id:
+            return Response({"error": "room and avatar_id are required"}, status=400)
+
+        room = Room.objects.filter(pk=room_id, home__user=request.user).first()
+        if not room:
+            return Response({"error": "Room not found"}, status=404)
+
+        script_data = None
+        raw_json = request.data.get("script_data")
+        if raw_json not in (None, ""):
+            if isinstance(raw_json, str):
+                try:
+                    script_data = json.loads(raw_json)
+                except json.JSONDecodeError as e:
+                    return Response({"error": f"Invalid script_data JSON: {e}"}, status=400)
+            else:
+                script_data = raw_json
+
+        upload = request.FILES.get("file")
+        if upload is not None:
+            try:
+                text = upload.read().decode("utf-8")
+            except UnicodeDecodeError:
+                return Response({"error": "Script file must be UTF-8 text"}, status=400)
+            try:
+                script_data = json.loads(text)
+            except json.JSONDecodeError as e:
+                return Response({"error": f"Invalid script file JSON: {e}"}, status=400)
+
+        if script_data is None:
+            return Response({"error": "Provide script_data or a JSON/TXT file"}, status=400)
+
+        script_data, err = _normalize_avatar_script_data(script_data)
+        if err:
+            return Response({"error": err}, status=400)
+
+        obj, created = AvatarScript.objects.update_or_create(
+            room=room,
+            avatar_id=avatar_id,
+            defaults={
+                "avatar_name": avatar_name,
+                "avatar_type": avatar_type,
+                "script_data": script_data,
+            },
+        )
+        if upload is not None:
+            upload.seek(0)
+            obj.script_file = upload
+            obj.save()
+
+        out = AvatarScriptSerializer(obj, context=self.get_serializer_context())
+        return Response(out.data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
 
 class AutomationViewSet(viewsets.ModelViewSet):

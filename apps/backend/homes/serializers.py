@@ -170,6 +170,32 @@ class FurnitureSerializer(serializers.ModelSerializer):
         return data
 
         
+class AvatarScriptSerializer(serializers.ModelSerializer):
+    script_file_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AvatarScript
+        fields = [
+            "id",
+            "room",
+            "avatar_id",
+            "avatar_name",
+            "avatar_type",
+            "script_data",
+            "script_file_url",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "script_file_url", "updated_at"]
+
+    def get_script_file_url(self, obj):
+        if not obj.script_file:
+            return None
+        request = self.context.get("request")
+        if request:
+            return request.build_absolute_uri(obj.script_file.url)
+        return obj.script_file.url
+
+
 class AutomationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Automation

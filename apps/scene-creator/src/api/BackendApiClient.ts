@@ -67,6 +67,24 @@ export class BackendApiClient {
     return response.data;
   }
 
+  async getRoomAvatarScripts(roomId: string): Promise<
+    {
+      id: string;
+      room: string;
+      avatar_id: string;
+      avatar_name: string;
+      avatar_type: string;
+      script_data: unknown;
+      script_file_url: string | null;
+      updated_at: string;
+    }[]
+  > {
+    const response = await api.get(
+      `/api/homes/avatar-scripts/?room=${encodeURIComponent(roomId)}`,
+    );
+    return response.data;
+  }
+
   async setRoomAlignment(
     roomId: string,
     alignment: {

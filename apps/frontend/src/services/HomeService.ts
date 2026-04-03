@@ -7,6 +7,7 @@ import type {
   CreateHomeDTO,
   CreateRoomDTO,
   FurnitureDTO,
+  AvatarScriptDTO,
 } from "@/types/home.types";
 import type { DeviceDTO } from "@/types/device.types";
 
@@ -142,5 +143,36 @@ export class HomeService {
 
   async deleteFurniture(id: string): Promise<void> {
     await this.api.delete(`/api/homes/furniture/${id}/`);
+  }
+
+  // === Avatar behavior scripts (per room) ===
+
+  async getRoomAvatarScripts(roomId: string): Promise<AvatarScriptDTO[]> {
+    return this.api.get<AvatarScriptDTO[]>(
+      `/api/homes/avatar-scripts/?room=${encodeURIComponent(roomId)}`,
+    );
+  }
+
+  async uploadAvatarScript(
+    roomId: string,
+    avatarId: string,
+    avatarName: string,
+    avatarType: "npc" | "robot",
+    file: File,
+  ): Promise<AvatarScriptDTO> {
+    const formData = new FormData();
+    formData.append("room", roomId);
+    formData.append("avatar_id", avatarId);
+    formData.append("avatar_name", avatarName);
+    formData.append("avatar_type", avatarType);
+    formData.append("file", file);
+    return this.api.post<AvatarScriptDTO>(
+      "/api/homes/avatar-scripts/",
+      formData,
+    );
+  }
+
+  async deleteAvatarScript(id: string): Promise<void> {
+    await this.api.delete(`/api/homes/avatar-scripts/${id}/`);
   }
 }

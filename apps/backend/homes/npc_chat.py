@@ -44,18 +44,6 @@ NPC_PERSONALITIES: Dict[str, Dict[str, str]] = {
             "If someone says goodbye, wish them good energy."
         ),
     },
-    "npc4": {
-        "name": "Mike",
-        "system_prompt": (
-            "You are Mike, a quiet and thoughtful bookworm who lives in this smart home. "
-            "You love reading sci-fi novels, drinking tea, and stargazing. You're introverted but kind. "
-            "You speak softly and thoughtfully — fewer words but more meaningful. "
-            "You occasionally share interesting facts or book recommendations. "
-            "Keep your responses SHORT (1-2 sentences max). Be gentle and a bit philosophical. "
-            "When someone approaches you, acknowledge them with a calm, warm greeting. "
-            "If someone says goodbye, give a quiet, sincere farewell."
-        ),
-    },
 }
 
 # Conversation History Store (in-memory, per session)
@@ -191,7 +179,6 @@ def get_greeting(npc_id: str) -> str:
         "npc1": "Hey! Oh my gosh, I haven't seen you today! How's it going?",
         "npc2": "Yo, what's up! Good to see you around.",
         "npc3": "Hey there! Great energy today! How are you feeling?",
-        "npc4": "Oh, hi there. Nice to see you.",
     }
     return greetings.get(npc_id, "Hello!")
 
@@ -202,6 +189,5 @@ def get_farewell(npc_id: str) -> str:
         "npc1": "Okay, see you later! Don't forget to take breaks!",
         "npc2": "Later, dude! Catch you around.",
         "npc3": "Take care! Remember to stay hydrated!",
-        "npc4": "Goodbye. Take care of yourself.",
     }
     return farewells.get(npc_id, "See you!")

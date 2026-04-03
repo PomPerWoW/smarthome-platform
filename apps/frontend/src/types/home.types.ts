@@ -38,3 +38,14 @@ export interface FurnitureDTO {
   device_pos: { x: number | null; y: number | null; z: number | null };
   device_rotation: { x: number; y: number; z: number };
 }
+
+export interface AvatarScriptDTO {
+  id: string;
+  room: string;
+  avatar_id: string;
+  avatar_name: string;
+  avatar_type: "npc" | "robot";
+  script_data: unknown[] | Record<string, unknown> | null;
+  script_file_url: string | null;
+  updated_at: string;
+}
