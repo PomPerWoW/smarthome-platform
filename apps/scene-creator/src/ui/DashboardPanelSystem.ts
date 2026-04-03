@@ -893,7 +893,7 @@ export class DashboardPanelSystem extends createSystem({
     this.setupBodyTrackingToggle(document);
   }
 
-  /** SlimeVR WebSocket leg IK vs animation-only legs (see SlimeVRFullBodySystem). */
+  /** SlimeVR WebSocket debug markers vs off (see SlimeVRFullBodySystem). */
   private setupBodyTrackingToggle(document: UIKitDocument): void {
     const slimevrBtn = document.getElementById(
       "dash-body-slimevr-btn",

@@ -1,22 +1,10 @@
-import { resolveSlimeVRWebSocketUrl } from "./SlimeVRClient";
-
-let legTrackingActive = false;
-
-export function setSlimeVRLegTrackingActive(value: boolean): void {
-  legTrackingActive = value;
-}
-
-export function getSlimeVRLegTrackingActive(): boolean {
-  return legTrackingActive;
-}
-
 export type BodyTrackingMode = "slimevr" | "off";
 
 let bodyTrackingMode: BodyTrackingMode = "off";
 
 /**
  * Call once at startup (e.g. from index.ts). Resolves ?bodyTracking=off|slimevr;
- * if omitted, defaults to slimevr when a SlimeVR WebSocket URL is configured, else off.
+ * if omitted, defaults to slimevr (our single source of tracking).
  */
 export function initBodyTrackingModeFromUrl(): void {
   if (typeof window === "undefined") return;
@@ -29,7 +17,8 @@ export function initBodyTrackingModeFromUrl(): void {
     bodyTrackingMode = "slimevr";
     return;
   }
-  bodyTrackingMode = resolveSlimeVRWebSocketUrl() ? "slimevr" : "off";
+  // We automatically inject the WS URL now, so tracking is always "slimevr" by default
+  bodyTrackingMode = "slimevr";
 }
 
 export function getBodyTrackingMode(): BodyTrackingMode {

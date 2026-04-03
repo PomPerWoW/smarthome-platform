@@ -7,6 +7,8 @@ export function resolveSlimeVRWebSocketUrl(): string | null {
   const env = (import.meta as ImportMeta & { env?: { VITE_SLIMEVR_WS?: string } })
     .env?.VITE_SLIMEVR_WS;
   if (env && env.trim()) return env.trim();
+  const definedEnv = process.env.VITE_SLIMEVR_WS;
+  if (definedEnv && definedEnv.trim()) return definedEnv.trim();
   return null;
 }
 

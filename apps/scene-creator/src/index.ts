@@ -725,11 +725,10 @@ async function main(): Promise<void> {
 
   setAvatarSwitcherCamera(camera);
 
-  // 1) RPM Avatar — full-body (SlimeVR) + lip sync; SlimeVR bridge optional (?slimevrWs=...)
+  // 1) RPM Avatar + lip sync; SlimeVR bridge optional — debug markers only (?slimevrWs=...)
   const rpmAvatarSystem = world.getSystem(RPMUserControlledAvatarSystem);
-  const slimeVRSystem = world.getSystem(SlimeVRFullBodySystem);
   if (rpmAvatarSystem) {
-    const playerEntity = await rpmAvatarSystem.createRPMUserControlledAvatar(
+    await rpmAvatarSystem.createRPMUserControlledAvatar(
       "player1",
       "RPM Avatar",
       "rpmClip_model1",
@@ -741,11 +740,8 @@ async function main(): Promise<void> {
       "RPM Avatar",
     );
     console.log(
-      "✅ RPM avatar (MediumRes12.glb) — SlimeVR leg IK when bridge connected",
+      "✅ RPM avatar (MediumRes12.glb) — SlimeVR bridge shows tracker markers only",
     );
-    if (slimeVRSystem && playerEntity?.object3D) {
-      slimeVRSystem.setAvatarRoot(playerEntity.object3D);
-    }
   }
 
   // 2) Skeleton-controlled (bone-only) — disabled

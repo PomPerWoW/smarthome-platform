@@ -240,9 +240,11 @@
   }
 
   .xr-mode-btn-text {
+    width: 100%;
     font-size: 1.32;
     color: #1e293b;
     font-weight: 600;
+    text-align: center;
   }
 
   .xr-primary-btn {
@@ -652,7 +654,7 @@
     display: flex;
     flex-direction: row;
     align-items: center;
-    gap: 0.5;
+    justify-content: center;
     padding: 0.5 0.6;
     background-color: rgba(255, 255, 255, 0.14);
     border-radius: 1.6;
@@ -661,13 +663,27 @@
     overflow-x: auto;
   }
 
+  /* Full-width row so justify-content centers the pill + hint as one group. */
+  .room-tabs-inner {
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.9;
+  }
+
   .room-tab {
+    width: auto;
+    max-width: 100%;
+    flex-shrink: 0;
     display: flex;
     flex-direction: row;
     align-items: center;
     justify-content: center;
     gap: 0.6;
-    padding: 0.5 1.1;
+    padding: 0.5 0.45;
     border-radius: 1.2;
     background-color: rgba(255, 255, 255, 0.2);
     border-width: 0.08;
@@ -684,6 +700,7 @@
     font-size: 1.05;
     font-weight: 500;
     color: #334155;
+    text-align: center;
   }
 
   .room-tab-text-active {
@@ -695,6 +712,7 @@
     font-size: 0.92;
     color: #475569;
     font-weight: 500;
+    text-align: center;
   }
 
 </style>
@@ -748,32 +766,15 @@
     <!-- Content Area — Device Cards Grid -->
     <div class="content-area" id="device-grid">
 
-      <!-- ── Card 0: AR/VR quick entry (testing) ─ -->
-      <div class="device-card xr-quick-card" id="device-card-0">
-        <div class="card-header">
-          <div class="card-icon-wrap card-icon-wrap-xr">
-            <GlassesIcon class="card-icon card-icon-xr" />
-          </div>
-          <span class="card-name" id="card-name-0">Immersive AR/VR</span>
-        </div>
-        <div class="xr-quick-card-body">
-          <button class="xr-card-primary-btn" id="xr-card-primary-btn" type="button" title="Enter or exit immersive session">
-            <GlassesIcon class="xr-card-primary-icon" />
-            <span id="xr-card-primary-text">Enter VR</span>
-          </button>
-        </div>
-        <span class="card-status xr-quick-hint" id="card-status-0">Testing · rail icon for full AR/VR settings</span>
-      </div>
-
       <!-- ── Card 1: device slot ──────────────── -->
       <div class="device-card" id="device-card-1">
         <div class="card-header">
           <div class="card-icon-wrap device-card-icon-stack" id="card-icon-wrap-1">
-            <LightbulbIcon class="card-icon card-icon-light device-card-icon-layer" id="card-icon-1-lb" />
-            <TvIcon class="card-icon card-icon-tv device-card-icon-layer" id="card-icon-1-tv" />
-            <FanIcon class="card-icon card-icon-fan device-card-icon-layer" id="card-icon-1-fan" />
-            <AirVentIcon class="card-icon card-icon-ac device-card-icon-layer" id="card-icon-1-ac" />
-            <ActivityIcon class="card-icon card-icon-meter device-card-icon-layer" id="card-icon-1-meter" />
+            <LightbulbIcon class="card-icon card-icon-light device-card-icon-layer" id="card-icon-1-lb"></LightbulbIcon>
+            <TvMinimalIcon class="card-icon card-icon-tv device-card-icon-layer" id="card-icon-1-tv"></TvMinimalIcon>
+            <RotateCwIcon class="card-icon card-icon-fan device-card-icon-layer" id="card-icon-1-fan"></RotateCwIcon>
+            <ThermometerIcon class="card-icon card-icon-ac device-card-icon-layer" id="card-icon-1-ac"></ThermometerIcon>
+            <GaugeIcon class="card-icon card-icon-meter device-card-icon-layer" id="card-icon-1-meter"></GaugeIcon>
           </div>
           <span class="card-name" id="card-name-1">Smart TV</span>
           <button class="card-toggle" id="card-toggle-1">
@@ -798,11 +799,11 @@
       <div class="device-card" id="device-card-2">
         <div class="card-header">
           <div class="card-icon-wrap device-card-icon-stack" id="card-icon-wrap-2">
-            <LightbulbIcon class="card-icon card-icon-light device-card-icon-layer" id="card-icon-2-lb" />
-            <TvIcon class="card-icon card-icon-tv device-card-icon-layer" id="card-icon-2-tv" />
-            <FanIcon class="card-icon card-icon-fan device-card-icon-layer" id="card-icon-2-fan" />
-            <AirVentIcon class="card-icon card-icon-ac device-card-icon-layer" id="card-icon-2-ac" />
-            <ActivityIcon class="card-icon card-icon-meter device-card-icon-layer" id="card-icon-2-meter" />
+            <LightbulbIcon class="card-icon card-icon-light device-card-icon-layer" id="card-icon-2-lb"></LightbulbIcon>
+            <TvMinimalIcon class="card-icon card-icon-tv device-card-icon-layer" id="card-icon-2-tv"></TvMinimalIcon>
+            <RotateCwIcon class="card-icon card-icon-fan device-card-icon-layer" id="card-icon-2-fan"></RotateCwIcon>
+            <ThermometerIcon class="card-icon card-icon-ac device-card-icon-layer" id="card-icon-2-ac"></ThermometerIcon>
+            <GaugeIcon class="card-icon card-icon-meter device-card-icon-layer" id="card-icon-2-meter"></GaugeIcon>
           </div>
           <span class="card-name" id="card-name-2">Fan</span>
           <button class="card-toggle" id="card-toggle-2">
@@ -827,11 +828,11 @@
       <div class="device-card" id="device-card-3">
         <div class="card-header">
           <div class="card-icon-wrap device-card-icon-stack" id="card-icon-wrap-3">
-            <LightbulbIcon class="card-icon card-icon-light device-card-icon-layer" id="card-icon-3-lb" />
-            <TvIcon class="card-icon card-icon-tv device-card-icon-layer" id="card-icon-3-tv" />
-            <FanIcon class="card-icon card-icon-fan device-card-icon-layer" id="card-icon-3-fan" />
-            <AirVentIcon class="card-icon card-icon-ac device-card-icon-layer" id="card-icon-3-ac" />
-            <ActivityIcon class="card-icon card-icon-meter device-card-icon-layer" id="card-icon-3-meter" />
+            <LightbulbIcon class="card-icon card-icon-light device-card-icon-layer" id="card-icon-3-lb"></LightbulbIcon>
+            <TvMinimalIcon class="card-icon card-icon-tv device-card-icon-layer" id="card-icon-3-tv"></TvMinimalIcon>
+            <RotateCwIcon class="card-icon card-icon-fan device-card-icon-layer" id="card-icon-3-fan"></RotateCwIcon>
+            <ThermometerIcon class="card-icon card-icon-ac device-card-icon-layer" id="card-icon-3-ac"></ThermometerIcon>
+            <GaugeIcon class="card-icon card-icon-meter device-card-icon-layer" id="card-icon-3-meter"></GaugeIcon>
           </div>
           <span class="card-name" id="card-name-3">Air Conditioner</span>
           <button class="card-toggle" id="card-toggle-3">
@@ -856,11 +857,11 @@
       <div class="device-card" id="device-card-4">
         <div class="card-header">
           <div class="card-icon-wrap device-card-icon-stack" id="card-icon-wrap-4">
-            <LightbulbIcon class="card-icon card-icon-light device-card-icon-layer" id="card-icon-4-lb" />
-            <TvIcon class="card-icon card-icon-tv device-card-icon-layer" id="card-icon-4-tv" />
-            <FanIcon class="card-icon card-icon-fan device-card-icon-layer" id="card-icon-4-fan" />
-            <AirVentIcon class="card-icon card-icon-ac device-card-icon-layer" id="card-icon-4-ac" />
-            <ActivityIcon class="card-icon card-icon-meter device-card-icon-layer" id="card-icon-4-meter" />
+            <LightbulbIcon class="card-icon card-icon-light device-card-icon-layer" id="card-icon-4-lb"></LightbulbIcon>
+            <TvMinimalIcon class="card-icon card-icon-tv device-card-icon-layer" id="card-icon-4-tv"></TvMinimalIcon>
+            <RotateCwIcon class="card-icon card-icon-fan device-card-icon-layer" id="card-icon-4-fan"></RotateCwIcon>
+            <ThermometerIcon class="card-icon card-icon-ac device-card-icon-layer" id="card-icon-4-ac"></ThermometerIcon>
+            <GaugeIcon class="card-icon card-icon-meter device-card-icon-layer" id="card-icon-4-meter"></GaugeIcon>
           </div>
           <span class="card-name" id="card-name-4">Smart Meter</span>
           <button class="card-toggle" id="card-toggle-4">
@@ -885,11 +886,11 @@
       <div class="device-card" id="device-card-5">
         <div class="card-header">
           <div class="card-icon-wrap device-card-icon-stack" id="card-icon-wrap-5">
-            <LightbulbIcon class="card-icon card-icon-light device-card-icon-layer" id="card-icon-5-lb" />
-            <TvIcon class="card-icon card-icon-tv device-card-icon-layer" id="card-icon-5-tv" />
-            <FanIcon class="card-icon card-icon-fan device-card-icon-layer" id="card-icon-5-fan" />
-            <AirVentIcon class="card-icon card-icon-ac device-card-icon-layer" id="card-icon-5-ac" />
-            <ActivityIcon class="card-icon card-icon-meter device-card-icon-layer" id="card-icon-5-meter" />
+            <LightbulbIcon class="card-icon card-icon-light device-card-icon-layer" id="card-icon-5-lb"></LightbulbIcon>
+            <TvMinimalIcon class="card-icon card-icon-tv device-card-icon-layer" id="card-icon-5-tv"></TvMinimalIcon>
+            <RotateCwIcon class="card-icon card-icon-fan device-card-icon-layer" id="card-icon-5-fan"></RotateCwIcon>
+            <ThermometerIcon class="card-icon card-icon-ac device-card-icon-layer" id="card-icon-5-ac"></ThermometerIcon>
+            <GaugeIcon class="card-icon card-icon-meter device-card-icon-layer" id="card-icon-5-meter"></GaugeIcon>
           </div>
           <span class="card-name" id="card-name-5">Device</span>
           <button class="card-toggle" id="card-toggle-5">
@@ -914,11 +915,11 @@
       <div class="device-card" id="device-card-6">
         <div class="card-header">
           <div class="card-icon-wrap device-card-icon-stack" id="card-icon-wrap-6">
-            <LightbulbIcon class="card-icon card-icon-light device-card-icon-layer" id="card-icon-6-lb" />
-            <TvIcon class="card-icon card-icon-tv device-card-icon-layer" id="card-icon-6-tv" />
-            <FanIcon class="card-icon card-icon-fan device-card-icon-layer" id="card-icon-6-fan" />
-            <AirVentIcon class="card-icon card-icon-ac device-card-icon-layer" id="card-icon-6-ac" />
-            <ActivityIcon class="card-icon card-icon-meter device-card-icon-layer" id="card-icon-6-meter" />
+            <LightbulbIcon class="card-icon card-icon-light device-card-icon-layer" id="card-icon-6-lb"></LightbulbIcon>
+            <TvMinimalIcon class="card-icon card-icon-tv device-card-icon-layer" id="card-icon-6-tv"></TvMinimalIcon>
+            <RotateCwIcon class="card-icon card-icon-fan device-card-icon-layer" id="card-icon-6-fan"></RotateCwIcon>
+            <ThermometerIcon class="card-icon card-icon-ac device-card-icon-layer" id="card-icon-6-ac"></ThermometerIcon>
+            <GaugeIcon class="card-icon card-icon-meter device-card-icon-layer" id="card-icon-6-meter"></GaugeIcon>
           </div>
           <span class="card-name" id="card-name-6">Device</span>
           <button class="card-toggle" id="card-toggle-6">
@@ -943,11 +944,11 @@
       <div class="device-card" id="device-card-7">
         <div class="card-header">
           <div class="card-icon-wrap device-card-icon-stack" id="card-icon-wrap-7">
-            <LightbulbIcon class="card-icon card-icon-light device-card-icon-layer" id="card-icon-7-lb" />
-            <TvIcon class="card-icon card-icon-tv device-card-icon-layer" id="card-icon-7-tv" />
-            <FanIcon class="card-icon card-icon-fan device-card-icon-layer" id="card-icon-7-fan" />
-            <AirVentIcon class="card-icon card-icon-ac device-card-icon-layer" id="card-icon-7-ac" />
-            <ActivityIcon class="card-icon card-icon-meter device-card-icon-layer" id="card-icon-7-meter" />
+            <LightbulbIcon class="card-icon card-icon-light device-card-icon-layer" id="card-icon-7-lb"></LightbulbIcon>
+            <TvMinimalIcon class="card-icon card-icon-tv device-card-icon-layer" id="card-icon-7-tv"></TvMinimalIcon>
+            <RotateCwIcon class="card-icon card-icon-fan device-card-icon-layer" id="card-icon-7-fan"></RotateCwIcon>
+            <ThermometerIcon class="card-icon card-icon-ac device-card-icon-layer" id="card-icon-7-ac"></ThermometerIcon>
+            <GaugeIcon class="card-icon card-icon-meter device-card-icon-layer" id="card-icon-7-meter"></GaugeIcon>
           </div>
           <span class="card-name" id="card-name-7">Device</span>
           <button class="card-toggle" id="card-toggle-7">
@@ -1073,8 +1074,10 @@
 
   <!-- ─── Bottom Room Tabs Bar ───────────────── -->
   <div class="room-tabs-bar" id="room-tabs">
-    <div class="room-tab room-tab-active" id="room-tab-0">
-      <span class="room-tab-text room-tab-text-active" id="current-room-text">Current Room</span>
+    <div class="room-tabs-inner">
+      <div class="room-tab room-tab-active" id="room-tab-0">
+        <span class="room-tab-text room-tab-text-active" id="current-room-text">Current Room</span>
+      </div>
       <span class="room-guide-text" id="room-guide-text">- T: toggle follow | U: toggle panel | Y: summon panel</span>
     </div>
   </div>

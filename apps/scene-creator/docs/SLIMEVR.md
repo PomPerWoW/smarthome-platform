@@ -1,52 +1,48 @@
-# SlimeVR with Scene Creator
+# SlimeVR Bridge in Scene Creator
 
-This app receives full-body tracker data over **WebSocket** from the **`@smarthome/slimevr-bridge`** helper. SlimeVR Server sends **OSC (UDP)**; the browser cannot listen on UDP, so the bridge listens for OSC and forwards JSON frames.
+The app can connect to the **SlimeVR OSC → WebSocket bridge** to visualize tracker positions in the scene. **There is no tracker-to-avatar bone mapping or IK** in the client; the avatar always uses its normal animation clips.
 
-## 1. SlimeVR Server (P0 checklist)
+## Architecture
 
-1. Complete hardware setup per [SlimeVR quick setup](https://docs.slimevr.dev/quick-setup.html).
-2. Open **SlimeVR Server → Settings → OSC** and enable **VRChat OSC Trackers** (or equivalent tracker output).
-3. Set the OSC **target address** to the machine running the bridge:
-   - **Same PC as the browser (IWER / desktop):** `127.0.0.1`
-   - **Quest browser, bridge on PC:** your **PC’s LAN IP** (same subnet as the headset).
-4. Set the OSC **port** to match the bridge (default **9000** unless you change `SLIMEVR_OSC_PORT`).
-5. In the server UI, assign body roles to each tracker (chest, thighs, ankles, hands, head) so indices match your layout. The bridge forwards **whatever OSC addresses** SlimeVR emits (e.g. `/tracking/trackers/<id>/position` and `/rotation`).
+1. **SlimeVR Server (Windows):** Aggregates physical trackers (or Joy-Cons/smartphones) and runs body emulation. Outputs OSC over UDP to `9000`.
+2. **SlimeVR Bridge (Node.js):** Reads OSC UDP packets, packages them up, and broadcasts them via WebSocket on `ws://<host_ip>:8765`.
+3. **Scene-Creator:** Subscribes to the WebSocket and draws **green debug markers** at each reported tracker position (after coordinate conversion in `coords.ts`).
 
-Official OSC details: [SlimeVR OSC information](https://docs.slimevr.dev/server/osc-information.html).
+## 1. Network Configuration & Auto-Connection
 
-## 2. Run the bridge
+The connection to SlimeVR runs dynamically over the local network.
 
-From the monorepo root:
+1. Ensure your machine's local IP address is set in `.env.network`:
+   ```env
+   VITE_HOST_IP=192.168.4.181
+   # (Your specific IP)
+   ```
+2. During the Vite build, the application can inject the address: `ws://192.168.4.181:8765` so the headset will connect to the bridge correctly.
+
+> [!NOTE]
+> `?bodyTracking=off` can be attached to the URL to disable the SlimeVR WebSocket client and hide markers.
+
+## 2. Starting the SlimeVR Bridge
+
+In a separate terminal, start the dedicated OSC-to-WebSocket bridge:
 
 ```bash
 cd packages/slimevr-bridge
-npm install
 npm start
 ```
 
-Defaults:
+*Wait for it to say `WebSocket server listening on port 8765`.*
 
-| Env variable | Default | Meaning |
-|--------------|---------|---------|
-| `SLIMEVR_OSC_PORT` | `9000` | UDP port the bridge listens on (point SlimeVR here). |
-| `SLIMEVR_WS_PORT` | `8765` | WebSocket port for the scene-creator page. |
+## 3. OSC / tracker IDs
 
-If `npm start` fails with **EADDRINUSE**, another process (often a previous bridge) already owns those ports. Stop it (e.g. find the `node` process on `8765` / `9000` and quit it), or run with different `SLIMEVR_OSC_PORT` / `SLIMEVR_WS_PORT` and point SlimeVR OSC and `?slimevrWs=` at the new values.
+The bridge forwards VRChat-style OSC paths (e.g. `/tracking/trackers/1/position`) as string keys in each JSON frame. Use `node test-osc-debug.mjs` in `slimevr-bridge` if you need to see which IDs are live.
 
-## 3. Open scene-creator with tracking
+## 4. Scene visualization
 
-Append a query parameter (or set `VITE_SLIMEVR_WS` for a default in dev):
+`SlimeVRFullBodySystem.ts` only updates **debug markers** in the Three.js scene. It does not move the RPM avatar skeleton.
 
-```
-https://<host>:3003/smarthome/xr/?slimevrWs=ws://127.0.0.1:8765
-```
+---
 
-On Quest, use your PC IP, e.g. `ws://192.168.1.10:8765`.
+## Troubleshooting
 
-## 4. VRChat-style tracker indices (reference)
-
-SlimeVR’s mapping to numbered trackers follows VRChat conventions (hip, chest, feet, knees, elbows, etc.). Your **exact** index→body mapping depends on how trackers are assigned in SlimeVR Server—use the server UI and, if needed, the **debug axes** in the scene to confirm which id moves which tracker.
-
-## 5. Coordinate space
-
-OSC positions/rotations use SlimeVR’s documented frame (Unity-style). The client applies a **fixed handedness conversion** into Three.js / WebXR (Y-up, right-handed). Fine-tune in code via `slimevr/coords.ts` if gizmos drift.
+- **Debug markers appear far away:** Ensure the SlimeVR Server application has performed a "Full Reset" while standing straight after connecting. The Y-plane origin must match the ground.

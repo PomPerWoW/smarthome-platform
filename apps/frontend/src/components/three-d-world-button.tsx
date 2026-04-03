@@ -82,6 +82,14 @@ export function ThreeDWorldButton() {
       url.searchParams.set("roomId", selectedRoomId);
     }
 
+    // Inject dynamic SlimeVR WS URL based on the current hostname
+    const slimeWsFromEnv = import.meta.env.VITE_SLIMEVR_WS?.trim();
+    if (slimeWsFromEnv) {
+      url.searchParams.set("slimevrWs", slimeWsFromEnv);
+    } else {
+      url.searchParams.set("slimevrWs", `ws://${window.location.hostname}:8765`);
+    }
+
     window.open(url.toString(), "_blank", "noopener,noreferrer");
     setOpen(false);
   };

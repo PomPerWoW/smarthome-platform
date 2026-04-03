@@ -22,8 +22,6 @@ import {
   AVATAR_RADIUS,
   AVATAR_HEIGHTS,
 } from "../config/collision";
-import { getSlimeVRLegTrackingActive } from "../slimevr/slimevrState";
-
 // ============================================================================
 // CONFIG (Ready Player Me: forwardOffset = Math.PI so I/K/J/L face movement)
 // ============================================================================
@@ -450,7 +448,6 @@ export class RPMUserControlledAvatarSystem extends createSystem({
 
 
   update(dt: number): void {
-    // Always advance all avatar mixers so inactive avatars keep playing Idle (no T-pose freeze)
     for (const record of this.avatarRecords.values()) {
       record.mixer.update(dt);
     }
@@ -465,16 +462,13 @@ export class RPMUserControlledAvatarSystem extends createSystem({
     const directionPressed = DIRECTIONS.some((k) => this.isKeyPressed(k));
     if (!record.isPlayingJump && !record.isPlayingWave && !record.isSitting && !record.isSleeping) {
       let play = "Idle";
-      const fbtLegs = getSlimeVRLegTrackingActive();
       if (
-        !fbtLegs &&
         directionPressed &&
         record.toggleRun &&
         record.animationsMap.has("Run")
       ) {
         play = "Run";
       } else if (
-        !fbtLegs &&
         directionPressed &&
         (record.animationsMap.has("Walk") || record.animationsMap.has("Walking"))
       ) {

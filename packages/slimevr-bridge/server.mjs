@@ -9,7 +9,6 @@ import { fromBuffer } from "osc-min";
 const OSC_PORT = Number(process.env.SLIMEVR_OSC_PORT || 9000);
 const WS_PORT = Number(process.env.SLIMEVR_WS_PORT || 8765);
 
-/** @type {Map<string, { position?: number[], rotation?: number[] }>} */
 const trackers = new Map();
 
 function oscArgsToFloats(args) {
