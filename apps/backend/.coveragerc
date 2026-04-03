@@ -1,0 +1,28 @@
+[run]
+source = .
+omit =
+    */migrations/*
+    */tests.py
+    */test_*.py
+    */admin.py
+    */apps.py
+    */wsgi.py
+    */asgi.py
+    home/*
+    manage.py
+    app/settings.py
+    app/urls.py
+    homes/routing.py
+    homes/middleware.py
+
+[report]
+show_missing = True
+skip_covered = True
+exclude_lines =
+    pragma: no cover
+    def __str__
+    if self.debug:
+    if settings.DEBUG:
+    raise AssertionError
+    raise NotImplementedError
+    if __name__ == .__main__.:

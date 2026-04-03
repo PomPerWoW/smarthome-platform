@@ -219,6 +219,20 @@ DATABASES = {
     }
 }
 
+if "test" in sys.argv:
+    DATABASES["default"]["ENGINE"] = "django.db.backends.sqlite3"
+    DATABASES["default"]["NAME"] = ":memory:"
+    
+    try:
+        import django.contrib.gis.db.models.fields
+        django.contrib.gis.db.models.fields.GeometryField.db_type = lambda self, connection: "varchar(255)"
+        django.contrib.gis.db.models.fields.GeometryField.get_placeholder = lambda self, value, compiler, connection: "%s"
+        django.contrib.gis.db.models.fields.GeometryField.get_prep_value = lambda self, value: str(value) if value else None
+        django.contrib.gis.db.models.fields.GeometryField.get_db_prep_value = lambda self, value, connection, prepared=False: str(value) if value else None
+        django.contrib.gis.db.models.fields.GeometryField.select_format = lambda self, compiler, sql, params: (sql, params)
+    except ImportError:
+        pass
+
 ZODB_FILE = BASE_DIR / "database/zodb_home.fs"
 
 
