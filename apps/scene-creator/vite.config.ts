@@ -36,7 +36,8 @@ export default defineConfig(({ mode }) => {
       alias: {
         three: "three",
       },
-      dedupe: ["three", "@pmndrs/uikit"],
+      // Single copies: avoids broken `instanceof` / raycast state across nested packages.
+      dedupe: ["three", "@pmndrs/uikit", "@pmndrs/pointer-events"],
     },
     server: { host: "0.0.0.0", port: 3003, open: false },
     build: {

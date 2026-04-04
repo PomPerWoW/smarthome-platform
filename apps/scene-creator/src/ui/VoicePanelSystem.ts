@@ -140,10 +140,10 @@ export class VoicePanelSystem extends createSystem({
           // Do not reset while actively processing
         }
 
-        // Update dialogue overlay — show user message
+        // One live user bubble (frontend-style thread) — no duplicate rows per interim event
         if (this.dialogue && this.dialogue.isVisible()) {
           this.dialogue.hideTyping();
-          this.dialogue.addUserMessage(text);
+          this.dialogue.setLiveUserTranscript(text);
         }
         this.dashboardHooks?.onTypingEnd?.();
         this.dashboardHooks?.onUserMessage?.(text);
@@ -204,11 +204,13 @@ export class VoicePanelSystem extends createSystem({
         // Update dialogue overlay
         if (this.dialogue && this.dialogue.isVisible()) {
           if (status === "listening") {
+            this.dialogue.clearLiveUserTranscript();
             this.dialogue.setStatus("Listening", "#4ade80");
             this.dialogue.showTyping("Listening…");
             this.dashboardHooks?.onStatus?.("Listening");
             this.dashboardHooks?.onTyping?.("Listening...");
           } else if (status === "processing") {
+            this.dialogue.finalizeLiveUserTranscript(this.lastTranscript);
             this.dialogue.setStatus("Processing", "#facc15");
             this.dialogue.showTyping("Processing…");
             this.dashboardHooks?.onStatus?.("Processing");
@@ -267,6 +269,7 @@ export class VoicePanelSystem extends createSystem({
                 });
               }
             } else if (payload?.cancelled) {
+              this.dialogue.clearLiveUserTranscript();
               this.dialogue.addAssistantMessage(GOODBYE_ASSISTANT_MESSAGE);
               this.dashboardHooks?.onAssistantMessage?.(
                 GOODBYE_ASSISTANT_MESSAGE,

@@ -8,7 +8,7 @@ import {
   Entity,
   VisibilityState,
 } from "@iwsdk/core";
-import { Vector3 } from "three";
+import { BufferGeometry, Object3D, Vector3 } from "three";
 
 import { deviceStore, getStore } from "../store/DeviceStore";
 import { getAuth } from "../api/auth";
@@ -161,6 +161,43 @@ function getDeviceIconWrapStyle(device: Device): {
   return offPalette[device.type] ?? fallback;
 }
 
+/**
+ * IWSDK / @pmndrs/pointer-events use three-mesh-bvh accelerated `Mesh.raycast`.
+ * The XR white dot cursor only renders when the ray hits a real object (not the void
+ * miss sentinel) — see `@iwsdk/xr-input` RayPointer `intersectionValid`.
+ *
+ * @pmndrs/uikit `Component` meshes **share one** `panelGeometry` instance. Traversing the
+ * dashboard and calling `disposeBoundsTree()` on every mesh was running dispose/rebuild
+ * hundreds of times on that shared buffer per frame, corrupting the BVH and eliminating
+ * hits (line visible, endpoint dot gone).
+ *
+ * We touch each **unique** `BufferGeometry` at most once, and never dispose — only
+ * `computeBoundsTree` when no tree exists yet (matches InputSystem’s first-time setup).
+ */
+type RaycastBVHGeometry = BufferGeometry & {
+  boundsTree?: unknown;
+  computeBoundsTree?: () => void;
+};
+
+function refreshUIKitInteractableBVH(root: Object3D | null | undefined): void {
+  if (!root) return;
+  const seen = new WeakSet<BufferGeometry>();
+  root.traverse((child) => {
+    const o = child as Object3D & { isMesh?: boolean; geometry?: BufferGeometry };
+    if (o.isMesh !== true || !o.geometry) return;
+    const geom = o.geometry as RaycastBVHGeometry;
+    if (seen.has(geom)) return;
+    seen.add(geom);
+    try {
+      if (geom.boundsTree == null && typeof geom.computeBoundsTree === "function") {
+        geom.computeBoundsTree();
+      }
+    } catch {
+      /* non-BVH geometry or compute failed — ignore */
+    }
+  });
+}
+
 function applyDeviceCardIconLayers(
   document: UIKitDocument,
   slotIndex: number,
@@ -205,6 +242,12 @@ export class DashboardPanelSystem extends createSystem({
   private refreshDashboardXRSectionUI?: () => void;
   private uiPropertyCache = new Map<string, any>();
 
+  /**
+   * Monotonic generation for BVH refresh: double-rAF runs only for the latest schedule,
+   * and destroy() bumps this so in-flight callbacks skip.
+   */
+  private bvhRefreshGen = 0;
+
   // Map card slot index → device id for click handling
   private slotDeviceMap: Map<number, string> = new Map();
 
@@ -232,6 +275,7 @@ export class DashboardPanelSystem extends createSystem({
     this.lastXRThumbstickPressed.clear();
     this.lastXRHandPinchPressed.clear();
     this.startXRInputFrameLoop();
+    this.scheduleDashboardBVHRefresh();
   };
 
   private readonly onXRSessionEnd = (): void => {
@@ -278,6 +322,8 @@ export class DashboardPanelSystem extends createSystem({
     this.renderer.xr.removeEventListener("sessionend", this.onXRSessionEnd);
     this.onXRSessionEnd();
 
+    this.bvhRefreshGen++;
+
     this.unsubscribeDevices?.();
     this.unsubscribeDevices = undefined;
     this.unsubscribeVisibility?.();
@@ -322,6 +368,9 @@ export class DashboardPanelSystem extends createSystem({
       if (entity.object3D) {
         const isVisible = entity.object3D.visible;
         entity.object3D.visible = !isVisible;
+        if (!isVisible) {
+          this.scheduleDashboardBVHRefresh();
+        }
         console.log(
           `[DashboardPanel] Panel ${!isVisible ? "shown" : "hidden"}`,
         );
@@ -762,6 +811,8 @@ export class DashboardPanelSystem extends createSystem({
         display: section === "wallpaper" ? "flex" : "none",
       });
     }
+
+    this.scheduleDashboardBVHRefresh();
   }
 
   /** AR/VR mode + immersive enter/exit (aligned with welcome `panel.ts`). */
@@ -1383,6 +1434,8 @@ export class DashboardPanelSystem extends createSystem({
     console.log(
       `[DashboardPanel] Rendered room "${roomMap[roomId]?.roomName ?? this.roomNameById.get(roomId) ?? roomId}" with ${devices.length} device(s) (max ${MAX_DEVICE_CARD_SLOTS} shown in grid)`,
     );
+
+    this.scheduleDashboardBVHRefresh();
   }
 
   private hideAllCards(document: UIKitDocument): void {
@@ -1395,6 +1448,18 @@ export class DashboardPanelSystem extends createSystem({
         cardContainer.setProperties({ display: "none" });
       }
     }
+    this.scheduleDashboardBVHRefresh();
+  }
+
+  /** After UIKit DOM-style updates, rebuild BVHs so XR laser hits match the new layout. */
+  private scheduleDashboardBVHRefresh(): void {
+    const gen = ++this.bvhRefreshGen;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (gen !== this.bvhRefreshGen) return;
+        refreshUIKitInteractableBVH(this.dashboardObject3D);
+      });
+    });
   }
 
   // ── Public-facing helpers ──────────────────────────────────────────────────
@@ -1538,6 +1603,8 @@ export class DashboardPanelSystem extends createSystem({
     entity.object3D.position.set(targetX, targetY, targetZ);
     entity.object3D.lookAt(camera.position);
     entity.object3D.visible = true;
+
+    this.scheduleDashboardBVHRefresh();
 
     console.log("[DashboardPanel] ✅ Dashboard summoned in front of user");
   }
