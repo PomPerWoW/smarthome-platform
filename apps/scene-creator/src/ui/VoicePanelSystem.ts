@@ -20,6 +20,8 @@ import {
   NO_MATCH_SPOKEN_TEXT,
   speakSeeYouAgain,
 } from "../utils/VoiceTextToSpeech";
+import { Object3D } from "three";
+import { scheduleUIKitInteractableBVHRefresh } from "./uikitRaycastBVH";
 
 // ============================================================================
 // Dialogue interaction states
@@ -82,6 +84,11 @@ export class VoicePanelSystem extends createSystem({
 
   private statusTextRef: UIKit.Text | null = null;
   private micButtonRef: UIKit.Container | null = null;
+  private voicePanelRoot: Object3D | null = null;
+
+  private refreshVoiceUIKitBVH(): void {
+    scheduleUIKitInteractableBVHRefresh(this.voicePanelRoot);
+  }
 
   private get dashboardHooks(): DashboardVoiceHooks | null {
     return ((globalThis as any).__dashboardVoiceHooks as DashboardVoiceHooks) ?? null;
@@ -137,6 +144,8 @@ export class VoicePanelSystem extends createSystem({
       ] as UIKitDocument;
       if (!document) return;
 
+      this.voicePanelRoot = entity.object3D ?? null;
+
       const micButton = document.getElementById(
         "mic-button",
       ) as UIKit.Container;
@@ -155,6 +164,7 @@ export class VoicePanelSystem extends createSystem({
 
       // Initial state
       if (statusText) statusText.setProperties({ text: "Say 'Turn on...'" });
+      this.refreshVoiceUIKitBVH();
     });
   }
 
@@ -168,6 +178,7 @@ export class VoicePanelSystem extends createSystem({
 
       if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
     }
+    this.refreshVoiceUIKitBVH();
 
     if (this.shouldMirrorFloatingDialogue) {
       this.dialogue!.hideTyping();
@@ -232,11 +243,14 @@ export class VoicePanelSystem extends createSystem({
           this.resetStatusTimeout = setTimeout(() => {
             if (this.currentStatus === "idle") {
               statusText.setProperties({ text: "Say 'Turn on...'" });
+              this.refreshVoiceUIKitBVH();
             }
           }, 4000);
         }
       }
     }
+
+    this.refreshVoiceUIKitBVH();
 
     if (!this.shouldMirrorFloatingDialogue || !this.dialogue) return;
 
@@ -530,6 +544,7 @@ export class VoicePanelSystem extends createSystem({
       this.micButtonRef.setProperties({ backgroundColor: "#2563eb" });
       this.statusTextRef.setProperties({ text: "Say 'Turn on...'" });
     }
+    this.refreshVoiceUIKitBVH();
 
     const runFinishOverlay = () => {
       this.pendingUserGoodbyeOverlay = false;
@@ -601,6 +616,7 @@ export class VoicePanelSystem extends createSystem({
         this.micButtonRef.setProperties({ backgroundColor: "#2563eb" });
         this.statusTextRef.setProperties({ text: "Say 'Turn on...'" });
       }
+      this.refreshVoiceUIKitBVH();
     }
   }
 }

@@ -16,6 +16,7 @@ import { DeviceComponent } from "../components/DeviceComponent";
 import { deviceStore, getStore } from "../store/DeviceStore";
 import { DeviceType } from "../types";
 import { DeviceRendererSystem } from "../systems/DeviceRendererSystem";
+import { scheduleUIKitInteractableBVHRefresh } from "./uikitRaycastBVH";
 
 export class TelevisionPanelSystem extends createSystem({
   tvPanel: {
@@ -411,6 +412,10 @@ export class TelevisionPanelSystem extends createSystem({
       muteBtn.setProperties({
         backgroundColor: device.is_mute ? "#ef4444" : "#64748b",
       });
+    }
+
+    if (entity.object3D) {
+      scheduleUIKitInteractableBVHRefresh(entity.object3D);
     }
   }
 

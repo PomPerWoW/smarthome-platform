@@ -16,6 +16,7 @@ import { DeviceComponent } from "../components/DeviceComponent";
 import { deviceStore, getStore } from "../store/DeviceStore";
 import { DeviceType, Lightbulb } from "../types";
 import { DeviceRendererSystem } from "../systems/DeviceRendererSystem";
+import { scheduleUIKitInteractableBVHRefresh } from "./uikitRaycastBVH";
 
 // Color options matching the UIKitML file
 const COLOR_OPTIONS = [
@@ -434,6 +435,10 @@ export class LightbulbPanelSystem extends createSystem({
           borderWidth: isSelected ? 0.25 : 0.15,
         });
       }
+    }
+
+    if (entity.object3D) {
+      scheduleUIKitInteractableBVHRefresh(entity.object3D);
     }
   }
 

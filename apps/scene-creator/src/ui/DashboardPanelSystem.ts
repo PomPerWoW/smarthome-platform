@@ -8,7 +8,7 @@ import {
   Entity,
   VisibilityState,
 } from "@iwsdk/core";
-import { BufferGeometry, Object3D, Vector3 } from "three";
+import { Vector3 } from "three";
 
 import { deviceStore, getStore } from "../store/DeviceStore";
 import { getAuth } from "../api/auth";
@@ -34,6 +34,10 @@ import {
   getBodyTrackingMode,
   setBodyTrackingMode,
 } from "../slimevr/slimevrState";
+import {
+  invalidateUIKitInteractableBVHSchedule,
+  scheduleUIKitInteractableBVHRefresh,
+} from "./uikitRaycastBVH";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -161,43 +165,6 @@ function getDeviceIconWrapStyle(device: Device): {
   return offPalette[device.type] ?? fallback;
 }
 
-/**
- * IWSDK / @pmndrs/pointer-events use three-mesh-bvh accelerated `Mesh.raycast`.
- * The XR white dot cursor only renders when the ray hits a real object (not the void
- * miss sentinel) — see `@iwsdk/xr-input` RayPointer `intersectionValid`.
- *
- * @pmndrs/uikit `Component` meshes **share one** `panelGeometry` instance. Traversing the
- * dashboard and calling `disposeBoundsTree()` on every mesh was running dispose/rebuild
- * hundreds of times on that shared buffer per frame, corrupting the BVH and eliminating
- * hits (line visible, endpoint dot gone).
- *
- * We touch each **unique** `BufferGeometry` at most once, and never dispose — only
- * `computeBoundsTree` when no tree exists yet (matches InputSystem’s first-time setup).
- */
-type RaycastBVHGeometry = BufferGeometry & {
-  boundsTree?: unknown;
-  computeBoundsTree?: () => void;
-};
-
-function refreshUIKitInteractableBVH(root: Object3D | null | undefined): void {
-  if (!root) return;
-  const seen = new WeakSet<BufferGeometry>();
-  root.traverse((child) => {
-    const o = child as Object3D & { isMesh?: boolean; geometry?: BufferGeometry };
-    if (o.isMesh !== true || !o.geometry) return;
-    const geom = o.geometry as RaycastBVHGeometry;
-    if (seen.has(geom)) return;
-    seen.add(geom);
-    try {
-      if (geom.boundsTree == null && typeof geom.computeBoundsTree === "function") {
-        geom.computeBoundsTree();
-      }
-    } catch {
-      /* non-BVH geometry or compute failed — ignore */
-    }
-  });
-}
-
 function applyDeviceCardIconLayers(
   document: UIKitDocument,
   slotIndex: number,
@@ -241,12 +208,6 @@ export class DashboardPanelSystem extends createSystem({
   private unsubscribeVisibility?: () => void;
   private refreshDashboardXRSectionUI?: () => void;
   private uiPropertyCache = new Map<string, any>();
-
-  /**
-   * Monotonic generation for BVH refresh: double-rAF runs only for the latest schedule,
-   * and destroy() bumps this so in-flight callbacks skip.
-   */
-  private bvhRefreshGen = 0;
 
   // Map card slot index → device id for click handling
   private slotDeviceMap: Map<number, string> = new Map();
@@ -322,7 +283,7 @@ export class DashboardPanelSystem extends createSystem({
     this.renderer.xr.removeEventListener("sessionend", this.onXRSessionEnd);
     this.onXRSessionEnd();
 
-    this.bvhRefreshGen++;
+    invalidateUIKitInteractableBVHSchedule(this.dashboardObject3D);
 
     this.unsubscribeDevices?.();
     this.unsubscribeDevices = undefined;
@@ -1453,13 +1414,7 @@ export class DashboardPanelSystem extends createSystem({
 
   /** After UIKit DOM-style updates, rebuild BVHs so XR laser hits match the new layout. */
   private scheduleDashboardBVHRefresh(): void {
-    const gen = ++this.bvhRefreshGen;
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        if (gen !== this.bvhRefreshGen) return;
-        refreshUIKitInteractableBVH(this.dashboardObject3D);
-      });
-    });
+    scheduleUIKitInteractableBVHRefresh(this.dashboardObject3D);
   }
 
   // ── Public-facing helpers ──────────────────────────────────────────────────

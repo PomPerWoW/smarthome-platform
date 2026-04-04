@@ -13,6 +13,7 @@ import { deviceStore, getStore } from "../store/DeviceStore";
 import { DeviceType, SmartMeter } from "../types";
 import { DeviceRendererSystem } from "../systems/DeviceRendererSystem";
 import { getWebSocketClient } from "../api/WebSocketClient";
+import { scheduleUIKitInteractableBVHRefresh } from "./uikitRaycastBVH";
 
 export class SmartMeterPanelSystem extends createSystem({
     smartMeterPanel: {
@@ -69,6 +70,9 @@ export class SmartMeterPanelSystem extends createSystem({
                                     const document = PanelDocument.data.document[entity.index] as UIKitDocument;
                                     if (document) {
                                         this.updatePanelMetricsOnly(document, deviceId);
+                                        if (entity.object3D) {
+                                            scheduleUIKitInteractableBVHRefresh(entity.object3D);
+                                        }
                                     }
                                 }
                             }
@@ -222,6 +226,10 @@ export class SmartMeterPanelSystem extends createSystem({
 
         // Also update metrics if we have them cached
         this.updatePanelMetricsOnly(document, deviceId);
+
+        if (entity.object3D) {
+            scheduleUIKitInteractableBVHRefresh(entity.object3D);
+        }
     }
 
     destroy(): void {

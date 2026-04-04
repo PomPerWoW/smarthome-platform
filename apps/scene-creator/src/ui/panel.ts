@@ -12,6 +12,7 @@ import { Vector3 } from "three";
 import { deviceStore, getStore } from "../store/DeviceStore";
 import { getAuth } from "../api/auth";
 import { setRoomARVisualMode } from "../config/collision";
+import { scheduleUIKitInteractableBVHRefresh } from "./uikitRaycastBVH";
 
 export class PanelSystem extends createSystem({
   welcomePanel: {
@@ -25,6 +26,10 @@ export class PanelSystem extends createSystem({
   private triggerCooldown = 0;
   private readonly TRIGGER_COOLDOWN_TIME = 0.5; // 500ms cooldown to prevent rapid triggers
   private welcomeObject3D: any = null;
+
+  private scheduleWelcomeBVHRefresh(): void {
+    scheduleUIKitInteractableBVHRefresh(this.welcomeObject3D);
+  }
 
   init() {
     this.queries.welcomePanel.subscribe("qualify", (entity) => {
@@ -77,6 +82,7 @@ export class PanelSystem extends createSystem({
                 : "rgba(255, 255, 255, 0.35)",
           });
         }
+        this.scheduleWelcomeBVHRefresh();
       };
 
       // Update user email
@@ -94,6 +100,7 @@ export class PanelSystem extends createSystem({
           text: `${count} devices | ${active} active`,
         });
       }
+      this.scheduleWelcomeBVHRefresh();
 
       // Subscribe to device changes to update stats
       deviceStore.subscribe(
@@ -106,6 +113,7 @@ export class PanelSystem extends createSystem({
               text: `${count} devices | ${active} active`,
             });
           }
+          this.scheduleWelcomeBVHRefresh();
         },
       );
 
@@ -159,6 +167,7 @@ export class PanelSystem extends createSystem({
         }
 
         console.log(`[Panel] Mode switched to: ${ar ? "AR" : "VR"}`);
+        this.scheduleWelcomeBVHRefresh();
       };
 
       if (vrModeBtn) {
@@ -236,6 +245,7 @@ export class PanelSystem extends createSystem({
           } else {
             xrBtnText.setProperties({ text: isARMode ? "Exit AR" : "Exit VR" });
           }
+          this.scheduleWelcomeBVHRefresh();
         };
 
         // Set initial text
@@ -321,6 +331,7 @@ export class PanelSystem extends createSystem({
       if (railAlignButton) {
         railAlignButton.setProperties?.({ display: "none" });
       }
+      this.scheduleWelcomeBVHRefresh();
 
       const railHomeButton = document.getElementById(
         "rail-home-btn",
@@ -703,6 +714,7 @@ export class PanelSystem extends createSystem({
     // Make panel visible
     welcomeEntity.object3D.visible = true;
 
+    this.scheduleWelcomeBVHRefresh();
     console.log("[Panel] ✅ Panel summoned in front of user");
   }
 

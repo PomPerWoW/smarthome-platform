@@ -16,6 +16,7 @@ import { DeviceComponent } from "../components/DeviceComponent";
 import { deviceStore, getStore } from "../store/DeviceStore";
 import { DeviceType } from "../types";
 import { DeviceRendererSystem } from "../systems/DeviceRendererSystem";
+import { scheduleUIKitInteractableBVHRefresh } from "./uikitRaycastBVH";
 
 export class FanPanelSystem extends createSystem({
   fanPanel: {
@@ -362,6 +363,10 @@ export class FanPanelSystem extends createSystem({
         backgroundColor: device.is_on ? "#22c55e" : "#71717a",
       });
       statusText.setProperties({ text: device.is_on ? "On" : "Off" });
+    }
+
+    if (entity.object3D) {
+      scheduleUIKitInteractableBVHRefresh(entity.object3D);
     }
   }
 

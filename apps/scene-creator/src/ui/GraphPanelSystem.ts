@@ -12,6 +12,8 @@ import { DeviceComponent } from "../components/DeviceComponent";
 import { DeviceRendererSystem } from "../systems/DeviceRendererSystem";
 import { ChartType } from "../components/Chart3D";
 import { DeviceType } from "../types";
+import { Object3D } from "three";
+import { scheduleUIKitInteractableBVHRefresh } from "./uikitRaycastBVH";
 
 interface DatePickerState {
     selectedDate: Date;
@@ -41,6 +43,12 @@ export class GraphPanelSystem extends createSystem({
     private setupPanels = new Set<Entity>();
     private datePickerStates = new Map<string, DatePickerState>();
     private dayCells = new Map<string, DayCellInfo[]>();
+    private panelRootByDeviceId = new Map<string, Object3D>();
+
+    private scheduleGraphPanelBVH(deviceId: string): void {
+        const root = this.panelRootByDeviceId.get(deviceId);
+        scheduleUIKitInteractableBVHRefresh(root ?? null);
+    }
 
     init() {
         console.log("[GraphPanel] System initialized");
@@ -72,6 +80,10 @@ export class GraphPanelSystem extends createSystem({
             if (!deviceId) {
                 console.warn("[GraphPanel] No device ID found for panel");
                 return;
+            }
+
+            if (entity.object3D) {
+                this.panelRootByDeviceId.set(deviceId, entity.object3D);
             }
 
             const deviceType = entity.getValue(DeviceComponent, "deviceType") as DeviceType;
@@ -149,6 +161,7 @@ export class GraphPanelSystem extends createSystem({
         }
 
         console.log(`[GraphPanel] Button listeners set up for ${deviceId}`);
+        this.scheduleGraphPanelBVH(deviceId);
     }
 
     private setupDatePicker(document: UIKitDocument, deviceId: string): void {
@@ -211,6 +224,8 @@ export class GraphPanelSystem extends createSystem({
 
                 if (state.isOpen) {
                     this.renderCalendarGrid(document, deviceId);
+                } else {
+                    this.scheduleGraphPanelBVH(deviceId);
                 }
             });
         }
@@ -357,6 +372,8 @@ export class GraphPanelSystem extends createSystem({
                 display: hasCurrentMonthInSixthRow ? "flex" : "none"
             });
         }
+
+        this.scheduleGraphPanelBVH(deviceId);
     }
 
     private handleDayCellClick(document: UIKitDocument, deviceId: string, cellIndex: number): void {
@@ -389,6 +406,8 @@ export class GraphPanelSystem extends createSystem({
 
         // Emit date change event for chart updates
         this.handleDateChange(deviceId, state.selectedDate);
+
+        this.scheduleGraphPanelBVH(deviceId);
     }
 
     private handleDateChange(deviceId: string, date: Date): void {
@@ -425,6 +444,7 @@ export class GraphPanelSystem extends createSystem({
         this.setupPanels.clear();
         this.datePickerStates.clear();
         this.dayCells.clear();
+        this.panelRootByDeviceId.clear();
         console.log("[GraphPanel] System destroyed");
     }
 
