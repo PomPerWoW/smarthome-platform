@@ -20,6 +20,7 @@ export function FanModel({ speed, swing }: FanModelProps) {
     if (action) {
       // Animation depends on swing property from backend
       if (swing) {
+        // eslint-disable-next-line react-hooks/immutability
         action.timeScale = speed > 0 ? speed / 2 : 1;
         action.play();
       } else {

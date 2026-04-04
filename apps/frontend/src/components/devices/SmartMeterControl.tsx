@@ -146,16 +146,17 @@ export function SmartMeterControl({ device, onUpdate }: SmartMeterControlProps) 
         if (!isOn) return;
 
         const ws = WebSocketService.getInstance();
-        const unsubscribe = ws.subscribe((data) => {
-            if (data.type === "smartmeter_update" && data.tag) {
+        const unsubscribe = ws.subscribe((data: unknown) => {
+            const msg = data as { type: string; tag?: string; value: number; timestamp: string };
+            if (msg.type === "smartmeter_update" && msg.tag) {
                 // Determine if this tag belongs to this device
                 // The backend sends tag like: "smartmeter-raspi.meter-1phase-01.v"
-                if (data.tag.startsWith(device.tag || "")) {
-                    const suffix = data.tag.split(".").pop();
+                if (msg.tag.startsWith(device.tag || "")) {
+                    const suffix = msg.tag.split(".").pop();
                     if (suffix) {
                         setReadings(prev => ({
                             ...prev,
-                            [suffix]: { value: data.value, timestamp: data.timestamp }
+                            [suffix]: { value: msg.value, timestamp: msg.timestamp }
                         }));
                     }
                 }
@@ -175,7 +176,7 @@ export function SmartMeterControl({ device, onUpdate }: SmartMeterControlProps) 
             await DeviceService.getInstance().togglePower(device.id, newIsOn);
             toast.success(newIsOn ? "Smart Meter connection started" : "Smart Meter connection stopped");
             onUpdate?.();
-        } catch (err) {
+        } catch {
             toast.error("Failed to toggle Smart Meter connection");
             setIsOn(!newIsOn);
         } finally {

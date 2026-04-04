@@ -42,7 +42,7 @@ function ActivityOverviewPage() {
     queryFn: async () => {
       const service = DeviceService.getInstance()
       const typeSet = new Set(devices.map(d => d.type))
-      const logByType = new Map<string, any[]>()
+      const logByType = new Map<string, Record<string, unknown>[]>()
 
       await Promise.all(
         Array.from(typeSet).map(async (type) => {
@@ -64,7 +64,7 @@ function ActivityOverviewPage() {
 
     const deviceOnHours = devices.map((device) => {
       const logs = allDeviceLogs.get(device.type) || []
-      const onCount = logs.filter((l: any) => l.onoff === true).length
+      const onCount = logs.filter((l: Record<string, unknown>) => l.onoff === true).length
       const onHours = (onCount * 5) / 60
 
       return {

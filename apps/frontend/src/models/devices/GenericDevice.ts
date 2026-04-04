@@ -4,7 +4,7 @@ import { BaseDevice } from "./BaseDevice";
 export class GenericDevice extends BaseDevice {
   readonly type: DeviceType;
 
-  constructor(data: DeviceBaseDTO | any) {
+  constructor(data: DeviceBaseDTO) {
     super(data);
     this.type = data.type as DeviceType;
   }
@@ -21,7 +21,7 @@ export class GenericDevice extends BaseDevice {
     return this.type || "Unknown Device";
   }
 
-  updateFromData(_data: unknown): void {
+  updateFromData(): void {
     // No specific properties to update for generic device
   }
 }

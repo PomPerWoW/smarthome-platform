@@ -49,10 +49,7 @@ export function ThreeDWorldButton() {
     return () => setModalOpen(false);
   }, [open, setModalOpen]);
 
-  // Reset room selection when home changes
-  useEffect(() => {
-    setSelectedRoomId("");
-  }, [selectedHomeId]);
+
 
   const rooms = allRooms.filter((r) => r.homeId === selectedHomeId);
 
@@ -126,7 +123,10 @@ export function ThreeDWorldButton() {
                 <div className="col-span-3">
                   <Select
                     value={selectedHomeId}
-                    onValueChange={setSelectedHomeId}
+                    onValueChange={(val) => {
+                      setSelectedHomeId(val);
+                      setSelectedRoomId(""); // Reset room selection when home changes
+                    }}
                     disabled={isLoadingHomes}
                   >
                     <SelectTrigger>

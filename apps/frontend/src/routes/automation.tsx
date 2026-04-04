@@ -18,8 +18,9 @@ import {
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { type BaseDevice } from "@/models";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -392,7 +393,7 @@ function AutomationCard({
   automation: Automation;
   onEdit: (a: Automation) => void;
   onDelete: (a: Automation) => void;
-  devices: any[];
+  devices: BaseDevice[];
 }) {
   const targetDevice = devices.find((d) => d.id === automation.device);
   const deviceType = targetDevice?.type;
@@ -535,12 +536,12 @@ function AutomationSheet({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   automation: Automation | null;
-  devices: any[];
+  devices: BaseDevice[];
   onSubmit: (values: AutomationFormValues) => void;
   isPending: boolean;
 }) {
   const form = useForm<AutomationFormValues>({
-    resolver: zodResolver(automationSchema) as any,
+    resolver: zodResolver(automationSchema),
     defaultValues: {
       title: "",
       device: "",
@@ -573,11 +574,22 @@ function AutomationSheet({
       : undefined,
   });
 
-  const { watch, setValue } = form;
-  const isSunriseSunset = watch("sunrise_sunset");
-  const repeatDays = watch("repeat_days");
-  const selectedDeviceId = watch("device");
+  const control = form.control;
+  const isSunriseSunset = useWatch({ control, name: "sunrise_sunset" });
+  const repeatDays = useWatch({ control, name: "repeat_days" });
+  const selectedDeviceId = useWatch({ control, name: "device" });
   const selectedDevice = devices.find((d) => d.id === selectedDeviceId);
+  const actionIsOn = useWatch({ control, name: "action.is_on" });
+  const actionBrightness = useWatch({ control, name: "action.brightness" });
+  const actionColor = useWatch({ control, name: "action.color" });
+  const actionTemperature = useWatch({ control, name: "action.temperature" });
+  const actionSpeed = useWatch({ control, name: "action.speed" });
+  const actionSwing = useWatch({ control, name: "action.swing" });
+  const actionVolume = useWatch({ control, name: "action.volume" });
+  const actionChannel = useWatch({ control, name: "action.channel" });
+  const isActive = useWatch({ control, name: "is_active" });
+  const solarEvent = useWatch({ control, name: "solar_event" });
+  const { setValue } = form;
 
   const toggleDay = (day: DayOfWeek) => {
     const current = repeatDays || [];
@@ -594,6 +606,7 @@ function AutomationSheet({
   const days = Object.values(DayOfWeek);
 
   const clearActionValue = (field: keyof AutomationFormValues["action"]) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     setValue(`action.${field}` as any, undefined);
   };
 
@@ -630,7 +643,7 @@ function AutomationSheet({
             <Label className="font-semibold">Device</Label>
             <Select
               onValueChange={(val) => setValue("device", val)}
-              value={watch("device")}
+              value={selectedDeviceId}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select a device" />
@@ -673,7 +686,7 @@ function AutomationSheet({
                   onValueChange={(val) =>
                     setValue("solar_event", val as SolarEvent)
                   }
-                  value={watch("solar_event") || undefined}
+                  value={solarEvent || undefined}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select event" />
@@ -718,18 +731,18 @@ function AutomationSheet({
               <span className="text-sm text-muted-foreground">Turn the device</span>
               <div className="flex items-center gap-3">
                 <span
-                  className={`text-xs ${watch("action.is_on") === false ? "font-bold text-foreground" : "text-muted-foreground"}`}
+                  className={`text-xs ${actionIsOn === false ? "font-bold text-foreground" : "text-muted-foreground"}`}
                 >
                   OFF
                 </span>
                 <Switch
-                  checked={watch("action.is_on") !== false}
+                  checked={actionIsOn !== false}
                   onCheckedChange={(checked) =>
                     setValue("action.is_on", checked)
                   }
                 />
                 <span
-                  className={`text-xs ${watch("action.is_on") !== false ? "font-bold text-foreground" : "text-muted-foreground"}`}
+                  className={`text-xs ${actionIsOn !== false ? "font-bold text-foreground" : "text-muted-foreground"}`}
                 >
                   ON
                 </span>
@@ -744,7 +757,7 @@ function AutomationSheet({
                     <span className="text-sm text-muted-foreground">Brightness</span>
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-medium">
-                        {watch("action.brightness") !== undefined ? `${watch("action.brightness")}%` : "Not set"}
+                        {actionBrightness !== undefined ? `${actionBrightness}%` : "Not set"}
                       </span>
                       <Button
                         type="button"
@@ -759,7 +772,7 @@ function AutomationSheet({
                     </div>
                   </div>
                   <Slider
-                    value={[watch("action.brightness") ?? 100]}
+                    value={[actionBrightness ?? 100]}
                     max={100}
                     step={1}
                     onValueChange={([val]) => setValue("action.brightness", val)}
@@ -770,7 +783,7 @@ function AutomationSheet({
                     <span className="text-sm text-muted-foreground">Color</span>
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-medium uppercase">
-                        {watch("action.color") || "Not set"}
+                        {actionColor || "Not set"}
                       </span>
                       <Button
                         type="button"
@@ -786,7 +799,7 @@ function AutomationSheet({
                   </div>
                   <Input
                     type="color"
-                    value={watch("action.color") || "#ffffff"}
+                    value={actionColor || "#ffffff"}
                     onChange={(e) => setValue("action.color", e.target.value)}
                     className="h-10 w-full cursor-pointer p-1"
                   />
@@ -802,7 +815,7 @@ function AutomationSheet({
                     <span className="text-sm text-muted-foreground">Temperature (°C)</span>
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-medium">
-                        {watch("action.temperature") !== undefined ? watch("action.temperature") : "Not set"}
+                        {actionTemperature !== undefined ? actionTemperature : "Not set"}
                       </span>
                       <Button
                         type="button"
@@ -821,7 +834,7 @@ function AutomationSheet({
                     step="0.5"
                     min="16"
                     max="30"
-                    value={watch("action.temperature") ?? ""}
+                    value={actionTemperature ?? ""}
                     onChange={(e) => setValue("action.temperature", parseFloat(e.target.value))}
                   />
                 </div>
@@ -836,7 +849,7 @@ function AutomationSheet({
                     <span className="text-sm text-muted-foreground">Speed (1-5)</span>
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-medium">
-                        {watch("action.speed") !== undefined ? watch("action.speed") : "Not set"}
+                        {actionSpeed !== undefined ? actionSpeed : "Not set"}
                       </span>
                       <Button
                         type="button"
@@ -851,7 +864,7 @@ function AutomationSheet({
                     </div>
                   </div>
                   <Slider
-                    value={[watch("action.speed") ?? 1]}
+                    value={[actionSpeed ?? 1]}
                     min={1}
                     max={5}
                     step={1}
@@ -862,10 +875,10 @@ function AutomationSheet({
                   <span className="text-sm text-muted-foreground">Swing</span>
                   <div className="flex items-center gap-3">
                     <span className="text-xs font-medium">
-                      {watch("action.swing") !== undefined ? (watch("action.swing") ? "On" : "Off") : "Not set"}
+                      {actionSwing !== undefined ? (actionSwing ? "On" : "Off") : "Not set"}
                     </span>
                     <Switch
-                      checked={!!watch("action.swing")}
+                      checked={!!actionSwing}
                       onCheckedChange={(val) => setValue("action.swing", val)}
                     />
                     <Button
@@ -891,7 +904,7 @@ function AutomationSheet({
                     <span className="text-sm text-muted-foreground">Volume</span>
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-medium">
-                        {watch("action.volume") !== undefined ? watch("action.volume") : "Not set"}
+                        {actionVolume !== undefined ? actionVolume : "Not set"}
                       </span>
                       <Button
                         type="button"
@@ -906,7 +919,7 @@ function AutomationSheet({
                     </div>
                   </div>
                   <Slider
-                    value={[watch("action.volume") ?? 10]}
+                    value={[actionVolume ?? 10]}
                     min={0}
                     max={100}
                     step={1}
@@ -918,7 +931,7 @@ function AutomationSheet({
                     <span className="text-sm text-muted-foreground">Channel</span>
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-medium">
-                        {watch("action.channel") !== undefined ? watch("action.channel") : "Not set"}
+                        {actionChannel !== undefined ? actionChannel : "Not set"}
                       </span>
                       <Button
                         type="button"
@@ -935,7 +948,7 @@ function AutomationSheet({
                   <Input
                     type="number"
                     min="1"
-                    value={watch("action.channel") ?? ""}
+                    value={actionChannel ?? ""}
                     onChange={(e) => setValue("action.channel", parseInt(e.target.value))}
                   />
                 </div>
@@ -947,7 +960,7 @@ function AutomationSheet({
           <div className="flex items-center justify-between border p-4 rounded-xl bg-card">
             <h4 className="text-sm font-semibold">Automation Active</h4>
             <Switch
-              checked={watch("is_active")}
+              checked={isActive}
               onCheckedChange={(checked) => setValue("is_active", checked)}
             />
           </div>

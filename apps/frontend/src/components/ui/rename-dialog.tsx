@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,13 +31,13 @@ export function RenameDialog({
   isPending = false,
 }: RenameDialogProps) {
   const [name, setName] = useState(currentName);
+  const [prevCurrentName, setPrevCurrentName] = useState(currentName);
 
-  // Reset name when dialog opens with new currentName
-  useEffect(() => {
-    if (open) {
-      setName(currentName);
-    }
-  }, [open, currentName]);
+  // Sync name when currentName prop changes
+  if (currentName !== prevCurrentName) {
+    setName(currentName);
+    setPrevCurrentName(currentName);
+  }
 
   const handleSave = () => {
     const trimmedName = name.trim();
