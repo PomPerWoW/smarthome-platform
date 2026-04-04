@@ -84,7 +84,7 @@ function avatarApiName(entry: RoomPageAvatar): string {
 }
 
 const AVATAR_SCRIPT_JSON_EXAMPLE = `[
-  { "type": "walk", "target": [2.5, -1.5], "speed": 0.4 },
+  { "type": "walk", "target": [0.5, -0.5], "speed": 0.4 },
   { "type": "wait", "duration": 2 },
   { "type": "wave" },
   { "type": "sit", "duration": 5 },
@@ -117,10 +117,14 @@ function HomeDetailPage() {
   const [isDeviceDrawerOpen, setIsDeviceDrawerOpen] = useState(false);
   const [isAddDeviceOpen, setIsAddDeviceOpen] = useState(false);
   const [addDeviceRoomId, setAddDeviceRoomId] = useState<string | null>(null);
-  const [furnitureToRename, setFurnitureToRename] = useState<FurnitureItem | null>(null);
-  const [furnitureToDelete, setFurnitureToDelete] = useState<FurnitureItem | null>(null);
-  const [avatarScriptModalEntry, setAvatarScriptModalEntry] = useState<RoomPageAvatar | null>(null);
-  const [avatarScriptPendingFile, setAvatarScriptPendingFile] = useState<File | null>(null);
+  const [furnitureToRename, setFurnitureToRename] =
+    useState<FurnitureItem | null>(null);
+  const [furnitureToDelete, setFurnitureToDelete] =
+    useState<FurnitureItem | null>(null);
+  const [avatarScriptModalEntry, setAvatarScriptModalEntry] =
+    useState<RoomPageAvatar | null>(null);
+  const [avatarScriptPendingFile, setAvatarScriptPendingFile] =
+    useState<File | null>(null);
   const [avatarScriptDropActive, setAvatarScriptDropActive] = useState(false);
   const avatarScriptFileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
@@ -177,7 +181,9 @@ function HomeDetailPage() {
       const homeRooms = allRooms.filter((r) => r.homeId === homeId);
       const results: FurnitureItem[] = [];
       for (const room of homeRooms) {
-        const roomFurniture = await HomeService.getInstance().getRoomFurniture(room.id);
+        const roomFurniture = await HomeService.getInstance().getRoomFurniture(
+          room.id,
+        );
         results.push(...roomFurniture);
       }
       return results;
@@ -185,12 +191,13 @@ function HomeDetailPage() {
     enabled: allRooms.length > 0,
   });
 
-  const { data: avatarScripts = [], isLoading: isLoadingAvatarScripts } = useQuery({
-    queryKey: ["avatar-scripts", selectedRoomId],
-    queryFn: () =>
-      HomeService.getInstance().getRoomAvatarScripts(selectedRoomId!),
-    enabled: !!selectedRoomId,
-  });
+  const { data: avatarScripts = [], isLoading: isLoadingAvatarScripts } =
+    useQuery({
+      queryKey: ["avatar-scripts", selectedRoomId],
+      queryFn: () =>
+        HomeService.getInstance().getRoomAvatarScripts(selectedRoomId!),
+      enabled: !!selectedRoomId,
+    });
 
   // Derive selectedDevice from fresh query data instead of stale state
   const selectedDevice = selectedDeviceId
@@ -245,7 +252,9 @@ function HomeDetailPage() {
       setNewRoomModel("LabPlan");
       setNewRoomModelFile(null);
       // Reset file input
-      const fileInput = document.getElementById("room-model-file") as HTMLInputElement;
+      const fileInput = document.getElementById(
+        "room-model-file",
+      ) as HTMLInputElement;
       if (fileInput) {
         fileInput.value = "";
       }
@@ -294,9 +303,10 @@ function HomeDetailPage() {
       }
 
       // Validate file size (100MB max for ZIP, 50MB for single files)
-      const maxSize = fileExtension === ".zip" 
-        ? 100 * 1024 * 1024  // 100MB for ZIP
-        : 50 * 1024 * 1024;  // 50MB for single files
+      const maxSize =
+        fileExtension === ".zip"
+          ? 100 * 1024 * 1024 // 100MB for ZIP
+          : 50 * 1024 * 1024; // 50MB for single files
       if (file.size > maxSize) {
         toast.error(
           `File too large. Please upload a file smaller than ${fileExtension === ".zip" ? "100MB" : "50MB"}.`,
@@ -310,7 +320,7 @@ function HomeDetailPage() {
       toast.success(
         fileExtension === ".zip"
           ? "ZIP archive selected. It will be extracted on upload."
-          : "3D model file selected successfully"
+          : "3D model file selected successfully",
       );
     }
   };
@@ -411,7 +421,9 @@ function HomeDetailPage() {
         file,
       ),
     onSuccess: (_data, vars) => {
-      queryClient.invalidateQueries({ queryKey: ["avatar-scripts", vars.roomId] });
+      queryClient.invalidateQueries({
+        queryKey: ["avatar-scripts", vars.roomId],
+      });
       setAvatarScriptPendingFile(null);
       toast.success("Behavior script saved");
     },
@@ -421,10 +433,13 @@ function HomeDetailPage() {
   });
 
   const deleteAvatarScriptMutation = useMutation({
-    mutationFn: (id: string) => HomeService.getInstance().deleteAvatarScript(id),
+    mutationFn: (id: string) =>
+      HomeService.getInstance().deleteAvatarScript(id),
     onSuccess: () => {
       if (selectedRoomId) {
-        queryClient.invalidateQueries({ queryKey: ["avatar-scripts", selectedRoomId] });
+        queryClient.invalidateQueries({
+          queryKey: ["avatar-scripts", selectedRoomId],
+        });
       }
       toast.success("Script removed");
     },
@@ -440,18 +455,26 @@ function HomeDetailPage() {
     }
   }, [avatarScriptModalEntry]);
 
-  const handleDragStart = (e: React.DragEvent, deviceId: string, deviceType: string) => {
+  const handleDragStart = (
+    e: React.DragEvent,
+    deviceId: string,
+    deviceType: string,
+  ) => {
     e.dataTransfer.setData("deviceId", deviceId);
     e.dataTransfer.setData("deviceType", deviceType);
     e.dataTransfer.effectAllowed = "move";
   };
 
-  const handleDeviceDrop = async (deviceId: string, deviceType: string, targetRoomId: string) => {
+  const handleDeviceDrop = async (
+    deviceId: string,
+    deviceType: string,
+    targetRoomId: string,
+  ) => {
     try {
       const deviceService = DeviceService.getInstance();
       await deviceService.updateRoom(deviceType, deviceId, targetRoomId);
       await deviceService.resetPosition(deviceType, deviceId);
-      
+
       toast.success("Device moved successfully");
       queryClient.invalidateQueries({ queryKey: ["home-devices", homeId] });
       queryClient.invalidateQueries({ queryKey: ["home-rooms", homeId] });
@@ -473,7 +496,7 @@ function HomeDetailPage() {
             </Link>
           </Button>
           <div>
-            <h1 
+            <h1
               className="text-2xl font-bold cursor-pointer hover:text-primary transition-all duration-200"
               onClick={() => navigate({ search: { room: undefined } })}
               title="Click to see all devices in this home"
@@ -537,7 +560,9 @@ function HomeDetailPage() {
                   }}
                   disabled={!!newRoomModelFile || createRoomMutation.isPending}
                 >
-                  <SelectTrigger className={newRoomModelFile ? "opacity-50" : ""}>
+                  <SelectTrigger
+                    className={newRoomModelFile ? "opacity-50" : ""}
+                  >
                     <SelectValue placeholder="Select a room model" />
                   </SelectTrigger>
                   <SelectContent>
@@ -572,7 +597,10 @@ function HomeDetailPage() {
               </div>
 
               <div className="space-y-3">
-                <Label htmlFor="room-model-file" className="text-base font-semibold">
+                <Label
+                  htmlFor="room-model-file"
+                  className="text-base font-semibold"
+                >
                   Upload Custom 3D Model
                   <span className="ml-2 text-xs font-normal text-muted-foreground">
                     (Optional)
@@ -596,7 +624,8 @@ function HomeDetailPage() {
                       <div className="flex flex-col items-center justify-center pt-5 pb-6">
                         <Upload className="w-10 h-10 mb-3 text-muted-foreground group-hover:text-foreground transition-colors" />
                         <p className="mb-2 text-sm text-foreground font-medium">
-                          <span className="font-semibold">Click to upload</span> or drag and drop
+                          <span className="font-semibold">Click to upload</span>{" "}
+                          or drag and drop
                         </p>
                         <p className="text-xs text-muted-foreground">
                           GLTF, GLB file, or ZIP archive (max 50MB/100MB)
@@ -622,13 +651,14 @@ function HomeDetailPage() {
                             <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
                           </div>
                           <p className="text-xs text-muted-foreground">
-                            {(newRoomModelFile.size / 1024 / 1024).toFixed(2)} MB
+                            {(newRoomModelFile.size / 1024 / 1024).toFixed(2)}{" "}
+                            MB
                             {" · "}
                             {newRoomModelFile.name.endsWith(".zip")
                               ? "ZIP Archive"
                               : newRoomModelFile.name.endsWith(".glb")
-                              ? "Binary GLTF"
-                              : "GLTF"}
+                                ? "Binary GLTF"
+                                : "GLTF"}
                           </p>
                         </div>
                       </div>
@@ -653,13 +683,17 @@ function HomeDetailPage() {
                     </div>
                     <div className="rounded-md bg-primary/5 border border-primary/20 p-2">
                       <p className="text-xs text-primary font-medium">
-                        ✓ This custom model will override the pre-built model above
+                        ✓ This custom model will override the pre-built model
+                        above
                       </p>
                     </div>
                   </div>
                 )}
                 <p className="text-xs text-muted-foreground">
-                  Upload your own 3D room model in GLTF, GLB format, or as a ZIP archive containing the model folder with all textures and resources. The file will be used when viewing this room in the 3D scene creator.
+                  Upload your own 3D room model in GLTF, GLB format, or as a ZIP
+                  archive containing the model folder with all textures and
+                  resources. The file will be used when viewing this room in the
+                  3D scene creator.
                 </p>
               </div>
             </div>
@@ -716,7 +750,9 @@ function HomeDetailPage() {
                   isSelected={selectedRoom?.id === room.id}
                   onRename={() => setRoomToRename(room)}
                   onDelete={() => setRoomToDelete(room)}
-                  onDrop={(deviceId, deviceType) => handleDeviceDrop(deviceId, deviceType, room.id)}
+                  onDrop={(deviceId, deviceType) =>
+                    handleDeviceDrop(deviceId, deviceType, room.id)
+                  }
                 />
               ))}
             </div>
@@ -733,13 +769,23 @@ function HomeDetailPage() {
                 <Lightbulb className="h-4 w-4 text-primary" />
               </div>
               {selectedRoom ? (
-                <span>Devices in <span className="text-primary">{selectedRoom.name}</span></span>
+                <span>
+                  Devices in{" "}
+                  <span className="text-primary">{selectedRoom.name}</span>
+                </span>
               ) : (
-                <span>All Devices in <span className="text-primary">{home?.name}</span></span>
+                <span>
+                  All Devices in{" "}
+                  <span className="text-primary">{home?.name}</span>
+                </span>
               )}
             </h2>
             {selectedRoom && (
-              <Button onClick={() => handleAddDevice(selectedRoom.id)} size="sm" className="shadow-sm">
+              <Button
+                onClick={() => handleAddDevice(selectedRoom.id)}
+                size="sm"
+                className="shadow-sm"
+              >
                 <Plus className="mr-2 h-4 w-4" />
                 Add Device
               </Button>
@@ -749,11 +795,14 @@ function HomeDetailPage() {
           {filteredDevices.length === 0 ? (
             <div className="text-center py-12 border rounded-xl bg-card/40 border-border/50">
               <Lightbulb className="h-10 w-10 mx-auto mb-3 opacity-30" />
-              <p className="text-muted-foreground text-sm">No devices yet{selectedRoom ? " in this room" : " in this home"}.</p>
+              <p className="text-muted-foreground text-sm">
+                No devices yet{selectedRoom ? " in this room" : " in this home"}
+                .
+              </p>
               {selectedRoom && (
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  variant="outline"
+                  size="sm"
                   className="mt-4"
                   onClick={() => handleAddDevice(selectedRoom.id)}
                 >
@@ -775,7 +824,9 @@ function HomeDetailPage() {
                   onRename={() => setDeviceToRename(device)}
                   onDelete={() => setDeviceToDelete(device)}
                   draggable
-                  onDragStart={(e) => handleDragStart(e, device.id, device.type)}
+                  onDragStart={(e) =>
+                    handleDragStart(e, device.id, device.type)
+                  }
                 />
               ))}
             </div>
@@ -791,17 +842,28 @@ function HomeDetailPage() {
               <Armchair className="h-4 w-4 text-orange-500" />
             </div>
             {selectedRoom ? (
-              <span>Furniture in <span className="text-orange-500">{selectedRoom.name}</span></span>
+              <span>
+                Furniture in{" "}
+                <span className="text-orange-500">{selectedRoom.name}</span>
+              </span>
             ) : (
-              <span>All Furniture in <span className="text-orange-500">{home?.name}</span></span>
+              <span>
+                All Furniture in{" "}
+                <span className="text-orange-500">{home?.name}</span>
+              </span>
             )}
           </h2>
 
           {filteredFurniture.length === 0 ? (
             <div className="text-center py-12 border rounded-xl bg-card/40 border-border/50">
               <Armchair className="h-10 w-10 mx-auto mb-3 opacity-30" />
-              <p className="text-muted-foreground text-sm">No furniture yet{selectedRoom ? " in this room" : " in this home"}.</p>
-              <p className="text-xs text-muted-foreground mt-1">Place furniture in the 3D Scene Creator.</p>
+              <p className="text-muted-foreground text-sm">
+                No furniture yet
+                {selectedRoom ? " in this room" : " in this home"}.
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Place furniture in the 3D Scene Creator.
+              </p>
             </div>
           ) : (
             <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
@@ -839,10 +901,14 @@ function HomeDetailPage() {
 
                   {/* Info */}
                   <div className="space-y-1">
-                    <h4 className="font-semibold text-sm truncate">{item.name}</h4>
+                    <h4 className="font-semibold text-sm truncate">
+                      {item.name}
+                    </h4>
                     <p className="text-xs text-muted-foreground">{item.type}</p>
                     {item.roomName && (
-                      <p className="text-xs text-muted-foreground/70">{item.roomName}</p>
+                      <p className="text-xs text-muted-foreground/70">
+                        {item.roomName}
+                      </p>
                     )}
                   </div>
                 </div>
@@ -861,13 +927,16 @@ function HomeDetailPage() {
             </div>
             <span>
               Avatars &amp; Scripts in{" "}
-              <span className="text-sky-600 dark:text-sky-400">{selectedRoom.name}</span>
+              <span className="text-sky-600 dark:text-sky-400">
+                {selectedRoom.name}
+              </span>
             </span>
           </h2>
           <div className="-mx-1 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
             <p className="text-sm text-muted-foreground whitespace-nowrap px-1">
-              Upload JSON scripts to control how these avatars behave in the 3D scene. If no script is
-              uploaded, they will use their default behavior.
+              Upload JSON scripts to control how these avatars behave in the 3D
+              scene. If no script is uploaded, they will use their default
+              behavior.
             </p>
           </div>
           {isLoadingAvatarScripts ? (
@@ -884,7 +953,8 @@ function HomeDetailPage() {
                 const Icon = entry.type === "robot" ? Bot : User;
                 const titlePrimary =
                   entry.type === "npc" ? `${entry.label} (NPC)` : entry.label;
-                const titleSecondary = entry.type === "robot" ? "Assistant" : "NPC";
+                const titleSecondary =
+                  entry.type === "robot" ? "Assistant" : "NPC";
                 return (
                   <div
                     key={entry.id}
@@ -907,7 +977,9 @@ function HomeDetailPage() {
                             <h4 className="font-semibold text-base text-foreground leading-snug truncate">
                               {titlePrimary}
                             </h4>
-                            <p className="text-xs text-muted-foreground">{titleSecondary}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {titleSecondary}
+                            </p>
                           </div>
                         </div>
 
@@ -973,17 +1045,31 @@ function HomeDetailPage() {
                   : "Upload script"}
               </span>
             </DialogTitle>
-            <DialogDescription className="text-left">
-              {avatarScriptModalEntry
-                ? `Upload a JSON file containing the behavior script for this ${avatarScriptModalEntry.type}.`
-                : ""}
+            <DialogDescription className="text-left space-y-1">
+              {avatarScriptModalEntry ? (
+                <>
+                  <span>
+                    Upload a JSON file containing the behavior script for this{" "}
+                    {avatarScriptModalEntry.type}.
+                  </span>
+                  <span className="block text-muted-foreground">
+                    Walk <code className="text-xs">target</code> is{" "}
+                    <code className="text-xs">[x, z]</code> in room-local floor
+                    space (inside the room bounds). Scripts pause during NPC
+                    voice chat when you are in range.
+                  </span>
+                </>
+              ) : (
+                ""
+              )}
             </DialogDescription>
           </DialogHeader>
           {avatarScriptModalEntry && selectedRoom && (
             <div className="space-y-4 py-1">
               {(() => {
                 const existing = avatarScripts.find(
-                  (s: AvatarScriptDTO) => s.avatar_id === avatarScriptModalEntry.id,
+                  (s: AvatarScriptDTO) =>
+                    s.avatar_id === avatarScriptModalEntry.id,
                 );
                 const assignScriptFile = (file: File | null) => {
                   if (!file) return;
@@ -1003,7 +1089,8 @@ function HomeDetailPage() {
                   <>
                     <div className="rounded-lg border bg-muted/50 p-3">
                       <p className="text-[11px] text-muted-foreground mb-2 font-medium">
-                        Example script format:
+                        Example script format (adjust walk targets to your
+                        room):
                       </p>
                       <pre className="text-[11px] leading-relaxed overflow-x-auto text-foreground/90 font-mono">
                         {AVATAR_SCRIPT_JSON_EXAMPLE}
@@ -1055,13 +1142,17 @@ function HomeDetailPage() {
                         className={cn(
                           "flex flex-col items-center justify-center w-full min-h-[8rem] cursor-pointer rounded-lg border-2 border-dashed transition-colors group/drop",
                           "border-border bg-muted/50 hover:bg-muted/80",
-                          avatarScriptDropActive && "bg-muted/90 border-muted-foreground/35",
+                          avatarScriptDropActive &&
+                            "bg-muted/90 border-muted-foreground/35",
                         )}
                       >
                         <div className="flex flex-col items-center justify-center py-6 px-4">
                           <Upload className="w-10 h-10 mb-3 text-muted-foreground group-hover/drop:text-foreground transition-colors" />
                           <p className="mb-1 text-sm text-foreground text-center">
-                            <span className="font-semibold">Click to upload</span> or drag and drop
+                            <span className="font-semibold">
+                              Click to upload
+                            </span>{" "}
+                            or drag and drop
                           </p>
                           <p className="text-xs text-muted-foreground text-center">
                             JSON or TXT behavior script
@@ -1118,7 +1209,12 @@ function HomeDetailPage() {
                 !selectedRoom
               }
               onClick={() => {
-                if (!avatarScriptPendingFile || !avatarScriptModalEntry || !selectedRoom) return;
+                if (
+                  !avatarScriptPendingFile ||
+                  !avatarScriptModalEntry ||
+                  !selectedRoom
+                )
+                  return;
                 uploadAvatarScriptMutation.mutate({
                   roomId: selectedRoom.id,
                   entry: avatarScriptModalEntry,
@@ -1269,7 +1365,10 @@ function HomeDetailPage() {
         description="Enter a new name for this furniture."
         onSave={(newName) =>
           furnitureToRename &&
-          renameFurnitureMutation.mutate({ id: furnitureToRename.id, name: newName })
+          renameFurnitureMutation.mutate({
+            id: furnitureToRename.id,
+            name: newName,
+          })
         }
         isPending={renameFurnitureMutation.isPending}
       />

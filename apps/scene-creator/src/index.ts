@@ -47,6 +47,10 @@ import { WallpaperCutoutPanelSystem } from "./ui/WallpaperCutoutPanelSystem";
 import { DashboardPanelSystem } from "./ui/DashboardPanelSystem";
 import { BackendApiClient } from "./api/BackendApiClient";
 import { normalizeAvatarBehaviorScript } from "./scripting/avatarBehaviorScript";
+import {
+  buildDefaultNpcBehaviorScript,
+  DEFAULT_NPC_IDS,
+} from "./scripting/defaultNpcBehaviorScripts";
 
 import {
   initializeNavMesh,
@@ -822,6 +826,7 @@ async function main(): Promise<void> {
   }
 
   const roomForScripts = urlRoomId || getStore().roomId;
+  const npcIdsWithServerScript = new Set<string>();
   if (roomForScripts) {
     try {
       const scriptRows =
@@ -840,11 +845,23 @@ async function main(): Promise<void> {
         if (row.avatar_type === "robot" && robotAssistantSystem) {
           robotAssistantSystem.loadBehaviorScript(parsed);
         } else if (row.avatar_type === "npc" && npcAvatarSystem) {
+          npcIdsWithServerScript.add(row.avatar_id);
           npcAvatarSystem.setBehaviorScript(row.avatar_id, parsed);
         }
       }
     } catch (err) {
       console.warn("[Scene] Avatar scripts could not be loaded:", err);
+    }
+  }
+
+  if (npcAvatarSystem) {
+    for (const id of DEFAULT_NPC_IDS) {
+      if (npcIdsWithServerScript.has(id)) continue;
+      const def = buildDefaultNpcBehaviorScript(id);
+      if (def && def.length > 0) {
+        npcAvatarSystem.setBehaviorScript(id, def);
+        console.log(`[Scene] Default behavior script applied for ${id}`);
+      }
     }
   }
 

@@ -6,6 +6,7 @@ import {
     AnimationMixer,
     AnimationAction,
     LoopOnce,
+    LoopRepeat,
 } from "@iwsdk/core";
 
 import { Box3, MathUtils, SkinnedMesh, Vector3 } from "three";
@@ -29,6 +30,18 @@ import type { AvatarBehaviorAction } from "../scripting/avatarBehaviorScript";
 // CONFIG
 
 const FADE_DURATION = 0.25;
+
+/** Script default `speed` and reference for matching walk clip playback to displacement (m/s). */
+const SCRIPT_WALK_REFERENCE_SPEED = 0.4;
+
+const LOOP_REPEAT_CLIP_NAMES = new Set([
+    "Idle",
+    "Walk",
+    "Walking",
+    "Run",
+    "Sit",
+    "Sleep",
+]);
 const ENGAGEMENT_RADIUS = 1.2;
 const DISENGAGE_RADIUS = 1.8;
 const WAVE_COOLDOWN = 5.0;
@@ -671,6 +684,9 @@ export class NPCAvatarSystem extends createSystem({
                     if (c.name === "Wave") {
                         action.clampWhenFinished = true;
                         action.loop = LoopOnce;
+                    } else if (LOOP_REPEAT_CLIP_NAMES.has(c.name)) {
+                        action.setLoop(LoopRepeat, Infinity);
+                        action.clampWhenFinished = false;
                     }
                     animationsMap.set(c.name, action);
                 }
@@ -785,6 +801,9 @@ export class NPCAvatarSystem extends createSystem({
         const record = this.npcRecords.get(npcId);
         if (!record) return;
         record.scriptActions = actions && actions.length ? actions : null;
+        if (!record.scriptActions) {
+            this.resetWalkClipTimeScales(record);
+        }
         record.scriptIndex = 0;
         record.scriptPhaseKey = "";
         record.scriptTimer = 0;
@@ -860,6 +879,22 @@ export class NPCAvatarSystem extends createSystem({
         return "Idle";
     }
 
+    private resetWalkClipTimeScales(record: NPCAvatarRecord): void {
+        for (const name of ["Walk", "Walking"] as const) {
+            const a = record.animationsMap.get(name);
+            if (a) a.setEffectiveTimeScale(1);
+        }
+    }
+
+    /** Scale walk clip speed so foot cycle matches scripted `speed` (see SCRIPT_WALK_REFERENCE_SPEED). */
+    private applyScriptWalkTimeScale(record: NPCAvatarRecord, walkAnim: string, speed: number): void {
+        const scale = speed / SCRIPT_WALK_REFERENCE_SPEED;
+        for (const name of ["Walk", "Walking"] as const) {
+            const a = record.animationsMap.get(name);
+            if (a) a.setEffectiveTimeScale(name === walkAnim ? scale : 1);
+        }
+    }
+
     private processBehaviorScript(
         npcId: string,
         record: NPCAvatarRecord,
@@ -913,6 +948,7 @@ export class NPCAvatarSystem extends createSystem({
                     record.scriptPhaseKey = "";
                     record.model.position.set(roomLocal.x, roomLocal.y, roomLocal.z);
                     record.lastRoomLocalPos = { x: roomLocal.x, y: roomLocal.y, z: roomLocal.z };
+                    this.resetWalkClipTimeScales(record);
                     this.fadeToAction(record, "Idle", FADE_DURATION);
                     entity.setValue(NPCAvatarComponent, "currentState", "Idle");
                     break;
@@ -943,7 +979,13 @@ export class NPCAvatarSystem extends createSystem({
                 if (walkAnim !== "Idle" && record.currentAction !== walkAnim) {
                     this.fadeToAction(record, walkAnim, FADE_DURATION);
                 } else if (walkAnim === "Idle" && record.currentAction !== "Idle") {
+                    this.resetWalkClipTimeScales(record);
                     this.fadeToAction(record, "Idle", FADE_DURATION);
+                }
+                if (walkAnim !== "Idle") {
+                    this.applyScriptWalkTimeScale(record, walkAnim, speed);
+                } else {
+                    this.resetWalkClipTimeScales(record);
                 }
                 const rdx = budged.x - roomLocal.x;
                 const rdz = budged.z - roomLocal.z;
@@ -1001,11 +1043,6 @@ export class NPCAvatarSystem extends createSystem({
         const userWorldZ = (camera as any).position.z;
 
         for (const [npcId, record] of this.npcRecords) {
-            record.mixer.update(dt);
-
-            // Procedural lip-sync (every frame)
-            this.processProceduralLipSync(record, dt);
-
             const entity = record.entity;
             const roomModel = (globalThis as any).__labRoomModel;
             const roomRotY = roomModel ? roomModel.rotation.y : 0;
@@ -1081,10 +1118,13 @@ export class NPCAvatarSystem extends createSystem({
                 }
             }
 
-            // Back to world
+            // Back to world — scripted root position is final before mixer so skeleton samples match this frame
             const worldPos = this.roomLocalToWorld(record.model.position.x, record.model.position.y, record.model.position.z);
             record.model.position.set(worldPos.x, worldPos.y, worldPos.z);
             record.model.rotation.y += roomRotY;
+
+            record.mixer.update(dt);
+            this.processProceduralLipSync(record, dt);
         }
     }
 
