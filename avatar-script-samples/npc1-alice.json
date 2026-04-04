@@ -1,9 +1,5 @@
 [
-  { "type": "walk", "target": [2.0, -2.0], "speed": 0.35 },
-  { "type": "wait", "duration": 2.5 },
+  { "type": "wander", "duration": 45, "speed": 0.5 },
   { "type": "wave" },
-  { "type": "idle", "duration": 2 },
-  { "type": "walk", "target": [4.0, -3.5], "speed": 0.35 },
-  { "type": "wait", "duration": 2 },
-  { "type": "walk", "target": [3.0, -3.0], "speed": 0.4 }
+  { "type": "idle", "duration": 3 }
 ]

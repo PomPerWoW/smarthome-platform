@@ -23,6 +23,11 @@ import {
     AVATAR_RADIUS,
     AVATAR_HEIGHTS,
 } from "../config/collision";
+import {
+    pickSmartWanderingWaypoint,
+    resolveSafeWanderTarget,
+    rememberBlockedMoveDirection,
+} from "../config/agentWander";
 import { BackendApiClient } from "../api/BackendApiClient";
 import type { AvatarBehaviorAction } from "../scripting/avatarBehaviorScript";
 
@@ -35,6 +40,20 @@ const WAVE_COOLDOWN = 5.0;
 const LISTEN_START_DELAY_MS = 600;
 const MAX_RECORDING_DURATION = 15000;
 const SILENCE_DURATION = 1200;
+
+/** Scripted move: turn toward waypoint before moving (reduces strafe / slide). */
+const NPC_SCRIPT_TURN_RADIANS_PER_SEC = 3.8;
+const NPC_SCRIPT_ALIGN_LOOSE = MathUtils.degToRad(42);
+const NPC_SCRIPT_ALIGN_TIGHT = MathUtils.degToRad(10);
+/** Walk clip is forward along body; require facing within this cone before walking (rad). */
+const NPC_SCRIPT_MAX_WALK_YAW_ERR = MathUtils.degToRad(50);
+const NPC_SCRIPT_MIN_WALK_DOT = Math.cos(NPC_SCRIPT_MAX_WALK_YAW_ERR);
+/**
+ * GLTF / RPM meshes typically follow Three.js: character faces **-local Z**.
+ * Travel direction (dx, dz) in room XZ → yaw must use atan2(dx, -dz), and forward = (sin(y), -cos(y)).
+ * If your asset faces +Z instead, set to true (uses atan2(dx, dz) and (sin, cos)).
+ */
+const NPC_SCRIPT_MODEL_FACES_POSITIVE_Z = false;
 
 // Update this once you see the voice list in console
 const NPC_VOICE_CONFIG: Record<string, { pitch: number; rate: number; voiceIndex?: number }> = {
@@ -104,6 +123,20 @@ interface NPCAvatarRecord {
     scriptIndex: number;
     scriptPhaseKey: string;
     scriptTimer: number;
+    /** Scripted walk: detour target when stuck against geometry. */
+    scriptWalkDetour: { x: number; z: number } | null;
+    scriptWalkStuckTime: number;
+    /** Robot-style wander patrol */
+    wanderTargetX: number;
+    wanderTargetZ: number;
+    wanderNextWaypointAt: number;
+    wanderStuckTime: number;
+    wanderLastX: number;
+    wanderLastZ: number;
+    wanderBlockedDirs: { x: number; z: number }[];
+    wanderCollisionCooldown: number;
+    wanderConsecutiveRepaths: number;
+    wanderLastRepathTime: number;
 }
 
 // NPC AVATAR SYSTEM
@@ -730,6 +763,18 @@ export class NPCAvatarSystem extends createSystem({
                 scriptIndex: 0,
                 scriptPhaseKey: "",
                 scriptTimer: 0,
+                scriptWalkDetour: null,
+                scriptWalkStuckTime: 0,
+                wanderTargetX: NaN,
+                wanderTargetZ: NaN,
+                wanderNextWaypointAt: 0,
+                wanderStuckTime: 0,
+                wanderLastX: NaN,
+                wanderLastZ: NaN,
+                wanderBlockedDirs: [],
+                wanderCollisionCooldown: 0,
+                wanderConsecutiveRepaths: 0,
+                wanderLastRepathTime: -999,
             };
             this.npcRecords.set(npcId, record);
 
@@ -788,6 +833,18 @@ export class NPCAvatarSystem extends createSystem({
         record.scriptIndex = 0;
         record.scriptPhaseKey = "";
         record.scriptTimer = 0;
+        record.scriptWalkDetour = null;
+        record.scriptWalkStuckTime = 0;
+        record.wanderTargetX = NaN;
+        record.wanderTargetZ = NaN;
+        record.wanderNextWaypointAt = 0;
+        record.wanderStuckTime = 0;
+        record.wanderLastX = NaN;
+        record.wanderLastZ = NaN;
+        record.wanderBlockedDirs = [];
+        record.wanderCollisionCooldown = 0;
+        record.wanderConsecutiveRepaths = 0;
+        record.wanderLastRepathTime = -999;
         console.log(
             `[NPCAvatar] Script ${record.scriptActions ? `loaded (${record.scriptActions.length} actions)` : "cleared"} for ${npcId}`,
         );
@@ -860,6 +917,274 @@ export class NPCAvatarSystem extends createSystem({
         return "Idle";
     }
 
+    /** Room-local yaw so the model's forward axis points along (dirX, dirZ) on the XZ plane. */
+    private npcScriptTargetYawFromDir(dirX: number, dirZ: number): number {
+        if (NPC_SCRIPT_MODEL_FACES_POSITIVE_Z) {
+            return Math.atan2(dirX, dirZ);
+        }
+        return Math.atan2(dirX, -dirZ);
+    }
+
+    /** Unit forward on XZ for current room-local yaw (matches {@link npcScriptTargetYawFromDir}). */
+    private npcScriptForwardXZ(localYaw: number): { x: number; z: number } {
+        if (NPC_SCRIPT_MODEL_FACES_POSITIVE_Z) {
+            return { x: Math.sin(localYaw), z: Math.cos(localYaw) };
+        }
+        return { x: Math.sin(localYaw), z: -Math.cos(localYaw) };
+    }
+
+    /**
+     * Rotate toward target yaw (room-local), capped by turn rate.
+     * `record.model.rotation.y` is stored as room-local yaw + roomRotY until end of update.
+     * @returns absolute angle remaining to target (rad)
+     */
+    private stepNpcScriptYawToward(
+        record: NPCAvatarRecord,
+        roomRotY: number,
+        targetYaw: number,
+        dt: number,
+    ): number {
+        const cur = record.model.rotation.y - roomRotY;
+        const delta =
+            MathUtils.euclideanModulo(targetYaw - cur + Math.PI, Math.PI * 2) -
+            Math.PI;
+        const maxStep = NPC_SCRIPT_TURN_RADIANS_PER_SEC * dt;
+        const step = Math.sign(delta) * Math.min(Math.abs(delta), maxStep);
+        const localYaw = cur + step;
+        record.model.rotation.y = localYaw + roomRotY;
+        return Math.abs(
+            MathUtils.euclideanModulo(targetYaw - localYaw + Math.PI, Math.PI * 2) -
+                Math.PI,
+        );
+    }
+
+    /** 0..1 scale for forward speed from heading error (turn first, then walk). */
+    private npcScriptAlignMoveScale(angleRemaining: number): number {
+        if (angleRemaining >= NPC_SCRIPT_ALIGN_LOOSE) return 0.06;
+        if (angleRemaining <= NPC_SCRIPT_ALIGN_TIGHT) return 1.0;
+        const t =
+            (NPC_SCRIPT_ALIGN_LOOSE - angleRemaining) /
+            (NPC_SCRIPT_ALIGN_LOOSE - NPC_SCRIPT_ALIGN_TIGHT);
+        const k = t * t;
+        return 0.06 + k * (1 - 0.06);
+    }
+
+    /**
+     * Displacement along the avatar's forward axis only (matches yaw from atan2(dx,dz)).
+     * Prevents "moonwalk": root moving toward a waypoint behind the body while Walk plays forward.
+     */
+    private computeNpcForwardWalkStep(
+        record: NPCAvatarRecord,
+        roomRotY: number,
+        desiredDirX: number,
+        desiredDirZ: number,
+        walkSpeed: number,
+        dt: number,
+        angleRem: number,
+    ): { moveX: number; moveZ: number; useIdleAnim: boolean } {
+        const localYaw = record.model.rotation.y - roomRotY;
+        const fwd = this.npcScriptForwardXZ(localYaw);
+        const dotRaw = fwd.x * desiredDirX + fwd.z * desiredDirZ;
+        const align = Math.max(0, dotRaw);
+        const useIdleAnim = dotRaw < NPC_SCRIPT_MIN_WALK_DOT;
+        const moveScale = this.npcScriptAlignMoveScale(angleRem);
+        const stepLen = useIdleAnim
+            ? 0
+            : walkSpeed * dt * align * moveScale;
+        return {
+            moveX: fwd.x * stepLen,
+            moveZ: fwd.z * stepLen,
+            useIdleAnim,
+        };
+    }
+
+    /** Robot-style room patrol: random safe waypoints, mesh collision, stuck repath. */
+    private processNpcWanderMode(
+        npcId: string,
+        record: NPCAvatarRecord,
+        entity: Entity,
+        roomLocal: { x: number; y: number; z: number },
+        roomRotY: number,
+        dt: number,
+        walkSpeed: number,
+    ): void {
+        const WAYPOINT_REACH = 0.5;
+        const WAYPOINT_INTERVAL = 8.0;
+        const REPATH_COOLDOWN = 0.35;
+        const STUCK_THRESHOLD = 0.85;
+        const roomLtw = (lx: number, ly: number, lz: number) =>
+            this.roomLocalToWorld(lx, ly, lz);
+
+        if (record.wanderCollisionCooldown > 0) {
+            record.wanderCollisionCooldown = Math.max(0, record.wanderCollisionCooldown - dt);
+        }
+
+        let tx = record.wanderTargetX;
+        let tz = record.wanderTargetZ;
+        let dx = Number.isFinite(tx) ? tx - roomLocal.x : 0;
+        let dz = Number.isFinite(tz) ? tz - roomLocal.z : 0;
+        let dist = Math.sqrt(dx * dx + dz * dz);
+
+        const timerPick = this.timeElapsed >= record.wanderNextWaypointAt;
+        const reached =
+            Number.isFinite(record.wanderTargetX) && dist < WAYPOINT_REACH && dist >= 1e-4;
+        if (!Number.isFinite(record.wanderTargetX) || timerPick || reached) {
+            const bounds = getRoomBounds();
+            const desiredX = bounds
+                ? bounds.minX + Math.random() * (bounds.maxX - bounds.minX)
+                : roomLocal.x + (Math.random() - 0.5) * 4;
+            const desiredZ = bounds
+                ? bounds.minZ + Math.random() * (bounds.maxZ - bounds.minZ)
+                : roomLocal.z + (Math.random() - 0.5) * 4;
+            const safe = resolveSafeWanderTarget(
+                roomLocal.x,
+                roomLocal.z,
+                desiredX,
+                desiredZ,
+                roomLtw,
+                AVATAR_RADIUS,
+                record.wanderBlockedDirs,
+            );
+            record.wanderTargetX = safe.x;
+            record.wanderTargetZ = safe.z;
+            record.wanderNextWaypointAt =
+                this.timeElapsed + WAYPOINT_INTERVAL + Math.random() * 4.0;
+            tx = record.wanderTargetX;
+            tz = record.wanderTargetZ;
+            dx = tx - roomLocal.x;
+            dz = tz - roomLocal.z;
+            dist = Math.sqrt(dx * dx + dz * dz);
+        }
+
+        if (dist < 1e-4) {
+            record.wanderNextWaypointAt = 0;
+            return;
+        }
+
+        const targetYaw = this.npcScriptTargetYawFromDir(dx, dz);
+        const angleRem = this.stepNpcScriptYawToward(record, roomRotY, targetYaw, dt);
+        const desiredNX = dx / dist;
+        const desiredNZ = dz / dist;
+        const { moveX, moveZ, useIdleAnim } = this.computeNpcForwardWalkStep(
+            record,
+            roomRotY,
+            desiredNX,
+            desiredNZ,
+            walkSpeed,
+            dt,
+            angleRem,
+        );
+        const walkAnim = useIdleAnim ? "Idle" : this.chooseWalkAnimation(record);
+        if (walkAnim !== "Idle" && record.currentAction !== walkAnim) {
+            this.fadeToAction(record, walkAnim, FADE_DURATION);
+        } else if (walkAnim === "Idle" && record.currentAction !== "Idle") {
+            this.fadeToAction(record, "Idle", FADE_DURATION);
+        }
+        entity.setValue(
+            NPCAvatarComponent,
+            "currentState",
+            walkAnim === "Idle" ? "Idle" : "Walking",
+        );
+        let nx = roomLocal.x + moveX;
+        let nz = roomLocal.z + moveZ;
+        [nx, nz] = clampToWalkableArea(nx, nz);
+        const oldW = this.roomLocalToWorld(roomLocal.x, roomLocal.y, roomLocal.z);
+        const newW = this.roomLocalToWorld(nx, roomLocal.y, nz);
+        const constrained = constrainMovement(
+            new Vector3(oldW.x, oldW.y, oldW.z),
+            new Vector3(newW.x, newW.y, newW.z),
+            AVATAR_RADIUS,
+            AVATAR_HEIGHTS,
+        );
+        let c = this.worldToRoomLocal(constrained.x, constrained.y, constrained.z);
+        [c.x, c.z] = clampToWalkableArea(c.x, c.z);
+        const budged = this.applyAgentAvoidanceRoomLocal(
+            npcId,
+            roomLocal.x,
+            roomLocal.z,
+            c.x,
+            c.z,
+        );
+
+        if (record.wanderCollisionCooldown <= 0 && dist > 0.01) {
+            const scanDist = Math.min(0.5, dist);
+            const ndx = dx / dist;
+            const ndz = dz / dist;
+            const scanLX = budged.x + ndx * scanDist;
+            const scanLZ = budged.z + ndz * scanDist;
+            const scanW = this.roomLocalToWorld(scanLX, roomLocal.y, scanLZ);
+            const scanConstrained = constrainMovement(
+                new Vector3(constrained.x, constrained.y, constrained.z),
+                new Vector3(scanW.x, scanW.y, scanW.z),
+                AVATAR_RADIUS,
+                AVATAR_HEIGHTS,
+            );
+            const blockDist = Math.hypot(
+                scanW.x - scanConstrained.x,
+                scanW.z - scanConstrained.z,
+            );
+            if (
+                blockDist > 0.15 &&
+                this.timeElapsed - record.wanderLastRepathTime > REPATH_COOLDOWN
+            ) {
+                rememberBlockedMoveDirection(record.wanderBlockedDirs, moveX, moveZ);
+                const nt = pickSmartWanderingWaypoint(
+                    budged.x,
+                    budged.z,
+                    roomLtw,
+                    AVATAR_RADIUS,
+                    record.wanderBlockedDirs,
+                );
+                record.wanderTargetX = nt.x;
+                record.wanderTargetZ = nt.z;
+                record.wanderCollisionCooldown = 0.5;
+                record.wanderLastRepathTime = this.timeElapsed;
+            }
+        }
+
+        const movedDist = Math.hypot(
+            budged.x - record.wanderLastX,
+            budged.z - record.wanderLastZ,
+        );
+        if (movedDist < 0.004) {
+            record.wanderStuckTime += dt;
+        } else {
+            record.wanderStuckTime = Math.max(0, record.wanderStuckTime - dt * 2);
+            if (movedDist > 0.02) record.wanderConsecutiveRepaths = 0;
+        }
+        record.wanderLastX = budged.x;
+        record.wanderLastZ = budged.z;
+
+        const intendedDist = Math.hypot(moveX, moveZ);
+        const hardCollision =
+            movedDist < 0.002 &&
+            intendedDist > 0.01 &&
+            this.timeElapsed - record.wanderLastRepathTime > REPATH_COOLDOWN;
+        const canRepath =
+            (record.wanderStuckTime > STUCK_THRESHOLD || hardCollision) &&
+            this.timeElapsed - record.wanderLastRepathTime > REPATH_COOLDOWN;
+
+        if (canRepath) {
+            record.wanderConsecutiveRepaths++;
+            record.wanderLastRepathTime = this.timeElapsed;
+            rememberBlockedMoveDirection(record.wanderBlockedDirs, moveX, moveZ);
+            const nt = pickSmartWanderingWaypoint(
+                budged.x,
+                budged.z,
+                roomLtw,
+                AVATAR_RADIUS,
+                record.wanderBlockedDirs,
+            );
+            record.wanderTargetX = nt.x;
+            record.wanderTargetZ = nt.z;
+            record.wanderStuckTime = 0;
+            record.wanderCollisionCooldown = 0.5;
+        }
+
+        record.model.position.set(budged.x, roomLocal.y, budged.z);
+        record.lastRoomLocalPos = { x: budged.x, y: roomLocal.y, z: budged.z };
+    }
+
     private processBehaviorScript(
         npcId: string,
         record: NPCAvatarRecord,
@@ -885,6 +1210,25 @@ export class NPCAvatarSystem extends createSystem({
                     record.scriptTimer = 2.2;
                     this.playScriptWaveAnimation(record, npcId);
                     break;
+                case "walk":
+                    record.scriptTimer = 0;
+                    record.scriptWalkDetour = null;
+                    record.scriptWalkStuckTime = 0;
+                    record.wanderBlockedDirs = [];
+                    break;
+                case "wander":
+                    record.scriptTimer = action.duration;
+                    record.wanderTargetX = NaN;
+                    record.wanderTargetZ = NaN;
+                    record.wanderNextWaypointAt = 0;
+                    record.wanderStuckTime = 0;
+                    record.wanderLastX = roomLocal.x;
+                    record.wanderLastZ = roomLocal.z;
+                    record.wanderBlockedDirs = [];
+                    record.wanderCollisionCooldown = 0;
+                    record.wanderConsecutiveRepaths = 0;
+                    record.wanderLastRepathTime = -999;
+                    break;
                 case "sit": {
                     record.scriptTimer = action.duration ?? 4;
                     const sitName = record.animationsMap.has("Sitting")
@@ -902,13 +1246,27 @@ export class NPCAvatarSystem extends createSystem({
 
         switch (action.type) {
             case "walk": {
-                const tx = action.target[0];
-                const tz = action.target[1];
+                const goalX = action.target[0];
+                const goalZ = action.target[1];
+                const detour = record.scriptWalkDetour;
+                const tx = detour ? detour.x : goalX;
+                const tz = detour ? detour.z : goalZ;
                 const speed = action.speed ?? 0.4;
                 const dx = tx - roomLocal.x;
                 const dz = tz - roomLocal.z;
                 const dist = Math.sqrt(dx * dx + dz * dz);
-                if (dist < 0.18) {
+                const distToGoal = Math.hypot(goalX - roomLocal.x, goalZ - roomLocal.z);
+
+                if (detour) {
+                    const detourDist = Math.hypot(detour.x - roomLocal.x, detour.z - roomLocal.z);
+                    if (detourDist < 0.48) {
+                        record.scriptWalkDetour = null;
+                    }
+                }
+
+                if (distToGoal < 0.22) {
+                    record.scriptWalkDetour = null;
+                    record.scriptWalkStuckTime = 0;
                     record.scriptIndex = (record.scriptIndex + 1) % actions.length;
                     record.scriptPhaseKey = "";
                     record.model.position.set(roomLocal.x, roomLocal.y, roomLocal.z);
@@ -917,8 +1275,49 @@ export class NPCAvatarSystem extends createSystem({
                     entity.setValue(NPCAvatarComponent, "currentState", "Idle");
                     break;
                 }
-                const mx = (dx / dist) * speed * dt;
-                const mz = (dz / dist) * speed * dt;
+
+                if (dist < 1e-5) {
+                    record.scriptWalkStuckTime += dt;
+                    if (!record.scriptWalkDetour) {
+                        const roomLtw = (lx: number, ly: number, lz: number) =>
+                            this.roomLocalToWorld(lx, ly, lz);
+                        rememberBlockedMoveDirection(record.wanderBlockedDirs, 0.01, 0);
+                        record.scriptWalkDetour = pickSmartWanderingWaypoint(
+                            roomLocal.x,
+                            roomLocal.z,
+                            roomLtw,
+                            AVATAR_RADIUS,
+                            record.wanderBlockedDirs,
+                        );
+                    }
+                    break;
+                }
+
+                const targetYaw = this.npcScriptTargetYawFromDir(dx, dz);
+                const angleRem = this.stepNpcScriptYawToward(record, roomRotY, targetYaw, dt);
+                const desiredNX = dx / dist;
+                const desiredNZ = dz / dist;
+                const { moveX: mx, moveZ: mz, useIdleAnim } =
+                    this.computeNpcForwardWalkStep(
+                        record,
+                        roomRotY,
+                        desiredNX,
+                        desiredNZ,
+                        speed,
+                        dt,
+                        angleRem,
+                    );
+                const walkAnim = useIdleAnim ? "Idle" : this.chooseWalkAnimation(record);
+                if (walkAnim !== "Idle" && record.currentAction !== walkAnim) {
+                    this.fadeToAction(record, walkAnim, FADE_DURATION);
+                } else if (walkAnim === "Idle" && record.currentAction !== "Idle") {
+                    this.fadeToAction(record, "Idle", FADE_DURATION);
+                }
+                entity.setValue(
+                    NPCAvatarComponent,
+                    "currentState",
+                    walkAnim === "Idle" ? "Idle" : "Walking",
+                );
                 let nx = roomLocal.x + mx;
                 let nz = roomLocal.z + mz;
                 [nx, nz] = clampToWalkableArea(nx, nz);
@@ -939,23 +1338,55 @@ export class NPCAvatarSystem extends createSystem({
                     c.x,
                     c.z,
                 );
-                const walkAnim = this.chooseWalkAnimation(record);
-                if (walkAnim !== "Idle" && record.currentAction !== walkAnim) {
-                    this.fadeToAction(record, walkAnim, FADE_DURATION);
-                } else if (walkAnim === "Idle" && record.currentAction !== "Idle") {
-                    this.fadeToAction(record, "Idle", FADE_DURATION);
+
+                const stepDist = Math.hypot(budged.x - roomLocal.x, budged.z - roomLocal.z);
+                if (stepDist < 0.004) {
+                    record.scriptWalkStuckTime += dt;
+                } else {
+                    record.scriptWalkStuckTime = Math.max(0, record.scriptWalkStuckTime - dt * 2);
                 }
-                const rdx = budged.x - roomLocal.x;
-                const rdz = budged.z - roomLocal.z;
-                if (Math.abs(rdx) + Math.abs(rdz) > 1e-4) {
-                    record.model.rotation.y = Math.atan2(rdx, rdz) + roomRotY;
+                const roomLtw = (lx: number, ly: number, lz: number) =>
+                    this.roomLocalToWorld(lx, ly, lz);
+                if (
+                    record.scriptWalkStuckTime > 0.85 &&
+                    !record.scriptWalkDetour
+                ) {
+                    rememberBlockedMoveDirection(record.wanderBlockedDirs, mx, mz);
+                    record.scriptWalkDetour = pickSmartWanderingWaypoint(
+                        roomLocal.x,
+                        roomLocal.z,
+                        roomLtw,
+                        AVATAR_RADIUS,
+                        record.wanderBlockedDirs,
+                    );
+                    record.scriptWalkStuckTime = 0;
                 }
+
                 record.model.position.set(budged.x, roomLocal.y, budged.z);
                 record.lastRoomLocalPos = { x: budged.x, y: roomLocal.y, z: budged.z };
-                entity.setValue(
-                    NPCAvatarComponent,
-                    "currentState",
-                    walkAnim === "Idle" ? "Idle" : "Walking",
+                break;
+            }
+            case "wander": {
+                record.scriptTimer -= dt;
+                if (record.scriptTimer <= 0) {
+                    record.scriptIndex = (record.scriptIndex + 1) % actions.length;
+                    record.scriptPhaseKey = "";
+                    if (record.currentAction !== "Idle") {
+                        this.fadeToAction(record, "Idle", FADE_DURATION);
+                    }
+                    entity.setValue(NPCAvatarComponent, "currentState", "Idle");
+                    record.model.position.set(roomLocal.x, roomLocal.y, roomLocal.z);
+                    record.lastRoomLocalPos = { x: roomLocal.x, y: roomLocal.y, z: roomLocal.z };
+                    break;
+                }
+                this.processNpcWanderMode(
+                    npcId,
+                    record,
+                    entity,
+                    roomLocal,
+                    roomRotY,
+                    dt,
+                    action.speed ?? 0.5,
                 );
                 break;
             }

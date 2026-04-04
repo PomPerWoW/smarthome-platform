@@ -989,6 +989,20 @@ export class RobotAssistantSystem extends createSystem({
   }
 
   loadBehaviorScript(actions: AvatarBehaviorAction[] | null): void {
+    if (
+      actions &&
+      actions.length === 1 &&
+      actions[0].type === "wander"
+    ) {
+      this.behaviorScript = null;
+      this.behaviorScriptIndex = 0;
+      this.behaviorScriptPhaseKey = "";
+      this.behaviorScriptTimer = 0;
+      console.log(
+        "[RobotAssistant] 📜 Wander-only script → native patrol (same as default)",
+      );
+      return;
+    }
     if (actions && actions.length > 0) {
       this.behaviorScript = actions;
       this.behaviorScriptIndex = 0;

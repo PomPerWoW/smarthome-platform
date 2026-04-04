@@ -1,8 +1,5 @@
 [
-  { "type": "walk", "target": [3.5, 3.5], "speed": 0.32 },
-  { "type": "idle", "duration": 3 },
-  { "type": "walk", "target": [5.0, 4.5], "speed": 0.32 },
-  { "type": "wave" },
-  { "type": "wait", "duration": 2 },
-  { "type": "walk", "target": [4.0, 4.5], "speed": 0.35 }
+  { "type": "wander", "duration": 60, "speed": 0.48 },
+  { "type": "sit", "duration": 5 },
+  { "type": "idle", "duration": 2 }
 ]

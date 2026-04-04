@@ -866,8 +866,12 @@ function HomeDetailPage() {
           </h2>
           <div className="-mx-1 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
             <p className="text-sm text-muted-foreground whitespace-nowrap px-1">
-              Upload JSON scripts to control how these avatars behave in the 3D scene. If no script is
-              uploaded, they will use their default behavior.
+              Upload JSON scripts to control how these avatars behave in the 3D scene. Use{" "}
+              <code className="text-xs">wander</code> with a positive{" "}
+              <code className="text-xs">duration</code> (seconds), then add{" "}
+              <code className="text-xs">wave</code>, <code className="text-xs">idle</code>,{" "}
+              <code className="text-xs">sit</code>, etc. If no script is uploaded, they use default
+              behavior.
             </p>
           </div>
           {isLoadingAvatarScripts ? (

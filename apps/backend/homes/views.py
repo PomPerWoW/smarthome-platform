@@ -1577,7 +1577,9 @@ class NPCChatViewSet(viewsets.ViewSet):
         return Response({"npc_id": npc_id, "farewell": farewell_text})
 
 
-ALLOWED_SCRIPT_ACTION_TYPES = frozenset({"walk", "wait", "idle", "wave", "sit"})
+ALLOWED_SCRIPT_ACTION_TYPES = frozenset(
+    {"walk", "wander", "wait", "idle", "wave", "sit"}
+)
 
 
 def _normalize_avatar_script_data(script_data):
@@ -1595,6 +1597,13 @@ def _normalize_avatar_script_data(script_data):
                 f"Action at index {i} has invalid type '{t}'. "
                 f"Allowed: {', '.join(sorted(ALLOWED_SCRIPT_ACTION_TYPES))}.",
             )
+        if t == "wander":
+            d = action.get("duration")
+            if not isinstance(d, (int, float)) or d <= 0:
+                return (
+                    None,
+                    f"Action at index {i} (wander) requires a positive numeric 'duration' (seconds).",
+                )
     return script_data, None
 
 

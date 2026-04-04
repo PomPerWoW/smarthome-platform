@@ -5,6 +5,7 @@
 
 export type AvatarBehaviorAction =
   | { type: "walk"; target: [number, number]; speed?: number }
+  | { type: "wander"; duration: number; speed?: number }
   | { type: "wait"; duration: number }
   | { type: "idle"; duration?: number }
   | { type: "wave" }
@@ -12,6 +13,7 @@ export type AvatarBehaviorAction =
 
 const ALLOWED = new Set([
   "walk",
+  "wander",
   "wait",
   "idle",
   "wave",
@@ -44,6 +46,19 @@ export function normalizeAvatarBehaviorScript(raw: unknown): AvatarBehaviorActio
         out.push({
           type: "walk",
           target: [t[0], t[1]],
+          speed: typeof speed === "number" ? speed : undefined,
+        });
+        break;
+      }
+      case "wander": {
+        const dur = (item as { duration?: unknown }).duration;
+        if (typeof dur !== "number" || dur <= 0 || !Number.isFinite(dur)) {
+          return null;
+        }
+        const speed = (item as { speed?: number }).speed;
+        out.push({
+          type: "wander",
+          duration: dur,
           speed: typeof speed === "number" ? speed : undefined,
         });
         break;
