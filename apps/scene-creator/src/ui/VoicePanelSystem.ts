@@ -7,12 +7,17 @@ import {
   UIKit,
 } from "@iwsdk/core";
 
-import { VoiceControlSystem } from "../systems/VoiceControlSystem";
+import {
+  VoiceControlSystem,
+  type VoiceIdlePayload,
+} from "../systems/VoiceControlSystem";
 import { RobotAssistantSystem } from "../systems/RobotAssistantSystem";
 import { DialogueOverlay } from "./DialogueOverlay";
 import { sceneNotify, SN_ICONS } from "./SceneNotification";
 import {
   GOODBYE_ASSISTANT_MESSAGE,
+  getCompletionMessage,
+  NO_MATCH_SPOKEN_TEXT,
   speakSeeYouAgain,
 } from "../utils/VoiceTextToSpeech";
 
@@ -82,6 +87,14 @@ export class VoicePanelSystem extends createSystem({
     return ((globalThis as any).__dashboardVoiceHooks as DashboardVoiceHooks) ?? null;
   }
 
+  /** Mirror transcript / bubbles whenever a voice session is in progress (not `isVisible()`, which drops updates during transitions). */
+  private get shouldMirrorFloatingDialogue(): boolean {
+    return (
+      this.dialogueState !== DialogueState.IDLE &&
+      this.dialogue !== null
+    );
+  }
+
   /** Lazily resolve RobotAssistantSystem — safe even if called before
    *  the robot entity is created. */
   private get robotSystem(): RobotAssistantSystem | null {
@@ -103,6 +116,20 @@ export class VoicePanelSystem extends createSystem({
 
     // Register a callback for robot messages (to be called by RobotAssistantSystem)
     this.setupRobotMessageListener();
+
+    // Must attach before welcome panel qualifies — otherwise dashboard / early
+    // `__voicePanelSystem.triggerAssistant()` runs with no transcript/status hooks
+    // and the floating dialogue never updates for user speech or completion.
+    this.voiceSystem.setTranscriptListener((text) => {
+      this.onVoiceTranscript(text);
+    });
+    this.voiceSystem.addStatusListener((status, payload) => {
+      this.onVoiceStatus(status, payload);
+    });
+
+    (globalThis as any).__triggerVoiceAssistant = () => {
+      this.triggerAssistant();
+    };
 
     this.queries.voicePanel.subscribe("qualify", (entity) => {
       const document = PanelDocument.data.document[
@@ -126,235 +153,217 @@ export class VoicePanelSystem extends createSystem({
         });
       }
 
-      // ── Transcript listener ──────────────────────────────────
-      this.voiceSystem.setTranscriptListener((text) => {
-        // Clean up text if it ends with "..." for active display
-        const cleanText = text.replace(/\.\.\.$/, "");
-        this.lastTranscript = cleanText;
-
-        // Update 3D panel status
-        if (statusText) {
-          statusText.setProperties({ text: `"${text}"` });
-
-          if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
-          // Do not reset while actively processing
-        }
-
-        // One live user bubble (frontend-style thread) — no duplicate rows per interim event
-        if (this.dialogue && this.dialogue.isVisible()) {
-          this.dialogue.hideTyping();
-          this.dialogue.setLiveUserTranscript(text);
-        }
-        this.dashboardHooks?.onTypingEnd?.();
-        this.dashboardHooks?.onUserMessage?.(text);
-      });
-
-      // ── Voice status listener ────────────────────────────────
-      this.voiceSystem.addStatusListener((status, payload) => {
-        this.currentStatus = status;
-
-        // Update 3D panel appearance
-        if (micButton && statusText) {
-          if (status === "listening") {
-            micButton.setProperties({ backgroundColor: "#ef4444" }); // Red
-            statusText.setProperties({ text: "Listening..." });
-            this.lastTranscript = "";
-            if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
-          } else if (status === "processing") {
-            micButton.setProperties({ backgroundColor: "#eab308" }); // Yellow/Orange
-            const pText = this.lastTranscript ? `"${this.lastTranscript}" (Processing...)` : "Processing...";
-            statusText.setProperties({ text: pText });
-            if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
-          } else {
-            // idle - but check if we're in an active conversation
-            if (
-              this.inActiveConversation &&
-              this.dialogueState === DialogueState.ACTIVE
-            ) {
-              // Still in conversation, keep button active (red) to indicate user can click to stop
-              micButton.setProperties({ backgroundColor: "#ef4444" }); // Red
-              statusText.setProperties({ text: "Click to stop" });
-            } else {
-              micButton.setProperties({ backgroundColor: "#2563eb" }); // Blue
-              // Only reset to idle immediately if not a successful action
-              if (payload?.success && payload.action && payload.device) {
-                const doneMessage = `Done! ${payload.action.replace(/_/g, " ")} the ${payload.device}.`;
-                statusText.setProperties({ text: doneMessage });
-              } else if (payload?.noMatch) {
-                statusText.setProperties({ text: "Command not recognized" });
-              } else if (payload?.serverError) {
-                statusText.setProperties({ text: "Server error" });
-              } else if (payload?.cancelled) {
-                statusText.setProperties({ text: "Cancelled" });
-              } else if (!payload?.success && !payload?.instructionTopic && !payload?.endSession) {
-                statusText.setProperties({ text: "Say 'Turn on...'" });
-              }
-
-              // Auto-reset to idle text after a delay for finished states
-              if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
-              this.resetStatusTimeout = setTimeout(() => {
-                if (this.currentStatus === "idle") {
-                  statusText.setProperties({ text: "Say 'Turn on...'" });
-                }
-              }, 4000);
-            }
-          }
-        }
-
-        // Update dialogue overlay
-        if (this.dialogue && this.dialogue.isVisible()) {
-          if (status === "listening") {
-            this.dialogue.clearLiveUserTranscript();
-            this.dialogue.setStatus("Listening", "#4ade80");
-            this.dialogue.showTyping("Listening…");
-            this.dashboardHooks?.onStatus?.("Listening");
-            this.dashboardHooks?.onTyping?.("Listening...");
-          } else if (status === "processing") {
-            this.dialogue.finalizeLiveUserTranscript(this.lastTranscript);
-            this.dialogue.setStatus("Processing", "#facc15");
-            this.dialogue.showTyping("Processing…");
-            this.dashboardHooks?.onStatus?.("Processing");
-            this.dashboardHooks?.onTyping?.("Processing...");
-          } else {
-            // idle — always refresh header (otherwise "Listening" / "Processing" sticks)
-            this.dialogue.hideTyping();
-            this.dashboardHooks?.onTypingEnd?.();
-            this.dialogue.setStatus("Ready", "#94a3b8");
-            this.dashboardHooks?.onStatus?.("Idle");
-
-            if (payload?.success && payload.action && payload.device) {
-              const doneMessage = `Done! I've ${payload.action.replace(/_/g, " ")} the ${payload.device}.`;
-              this.dialogue.addAssistantMessage(doneMessage);
-              this.dashboardHooks?.onAssistantMessage?.(doneMessage);
-              // Command is completely resolved, do not stay in conversation to await follow up
-              this.inActiveConversation = false;
-              // ── scene notification ──────────────────────────────────────────
-              sceneNotify({
-                title: "Voice command executed",
-                description: `${payload.action.replace(/_/g, " ")} → ${payload.device}`,
-                severity: "success",
-                icon: SN_ICONS.checkCircle,
-                iconBg: "rgba(34,197,94,0.15)",
-                iconFg: "#22c55e",
-              });
-            } else if (payload?.success && payload.instructionTopic) {
-              if (payload.instructionTopic === "goodbye") {
-                this.dialogue.addAssistantMessage(GOODBYE_ASSISTANT_MESSAGE);
-                this.dashboardHooks?.onAssistantMessage?.(
-                  GOODBYE_ASSISTANT_MESSAGE,
-                );
-                this.inActiveConversation = false;
-                sceneNotify({
-                  title: "Voice session ended",
-                  description: "Robot assistant returned to standby",
-                  severity: "info",
-                  icon: SN_ICONS.micOff,
-                  iconBg: "rgba(100,116,139,0.15)",
-                  iconFg: "#94a3b8",
-                });
-                this.beginClosing({
-                  userInitiated: true,
-                  skipGoodbyeBubble: true,
-                });
-              } else {
-                // Robot speaks then closes the dialogue (one session per mic); keep mic idle until then.
-                this.inActiveConversation = false;
-                sceneNotify({
-                  title: "Robot provided information",
-                  description: `Topic: ${payload.instructionTopic.replace(/_/g, " ")}`,
-                  severity: "info",
-                  icon: SN_ICONS.bot,
-                  iconBg: "rgba(99,102,241,0.15)",
-                  iconFg: "#818cf8",
-                });
-              }
-            } else if (payload?.cancelled) {
-              this.dialogue.clearLiveUserTranscript();
-              this.dialogue.addAssistantMessage(GOODBYE_ASSISTANT_MESSAGE);
-              this.dashboardHooks?.onAssistantMessage?.(
-                GOODBYE_ASSISTANT_MESSAGE,
-              );
-              this.inActiveConversation = false;
-              sceneNotify({
-                title: "Voice session cancelled",
-                description: "Robot assistant returned to standby",
-                severity: "info",
-                icon: SN_ICONS.micOff,
-                iconBg: "rgba(100,116,139,0.15)",
-                iconFg: "#94a3b8",
-              });
-              this.beginClosing({
-                userInitiated: true,
-                skipGoodbyeTts: true,
-                skipGoodbyeBubble: true,
-              });
-            } else if (payload?.serverError) {
-              this.dialogue.setStatus("Server error", "#ef4444");
-              const errMsg =
-                "The voice service failed (server error). Make sure the backend on port 5500 is running the latest code, then tap the mic to try again.";
-              this.dialogue.addAssistantMessage(errMsg);
-              this.dashboardHooks?.onAssistantMessage?.(errMsg);
-              this.inActiveConversation = false;
-              sceneNotify({
-                title: "Voice service error",
-                description: "Check backend logs for /api/homes/voice/command/",
-                severity: "error",
-                icon: SN_ICONS.alertCircle,
-                iconBg: "rgba(239,68,68,0.15)",
-                iconFg: "#ef4444",
-              });
-              // Close dialogue after showing error
-              setTimeout(() => this.beginClosing(), 3000);
-            } else if (payload?.noMatch) {
-              this.dialogue.setStatus("Not recognized", "#f59e0b");
-              const noMatchMessage =
-                "Sorry, I didn't understand that. Could you try again?";
-              this.dialogue.addAssistantMessage(noMatchMessage);
-              this.dashboardHooks?.onAssistantMessage?.(noMatchMessage);
-              // Mic is not listening after idle — show idle mic, not "click to stop"
-              this.inActiveConversation = false;
-              sceneNotify({
-                title: "Command not recognized",
-                description: 'Try rephrasing — e.g. "Turn on the fan"',
-                severity: "warning",
-                icon: SN_ICONS.alertCircle,
-                iconBg: "rgba(245,158,11,0.14)",
-                iconFg: "#f59e0b",
-              });
-            } else if (payload?.endSession) {
-              this.inActiveConversation = false;
-              sceneNotify({
-                title: "Instruction session ended",
-                description: "Robot returned to patrol",
-                severity: "info",
-                icon: SN_ICONS.bot,
-                iconBg: "rgba(99,102,241,0.15)",
-                iconFg: "#818cf8",
-              });
-              this.beginClosing();
-            }
-
-            // Only begin closing if we're not in an active conversation
-            // (i.e., robot is not waiting for user response)
-            if (
-              this.dialogueState === DialogueState.ACTIVE &&
-              status === "idle" &&
-              !this.inActiveConversation
-            ) {
-              // Don't auto-close if we're still in conversation
-              // Only close if user explicitly stops or conversation ends
-            }
-          }
-        }
-      });
-
       // Initial state
       if (statusText) statusText.setProperties({ text: "Say 'Turn on...'" });
-
-      (globalThis as any).__triggerVoiceAssistant = () => {
-        this.triggerAssistant();
-      };
     });
+  }
+
+  private onVoiceTranscript(text: string): void {
+    const cleanText = text.replace(/\.\.\.$/, "");
+    this.lastTranscript = cleanText;
+
+    const statusText = this.statusTextRef;
+    if (statusText) {
+      statusText.setProperties({ text: `"${text}"` });
+
+      if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
+    }
+
+    if (this.shouldMirrorFloatingDialogue) {
+      this.dialogue!.hideTyping();
+      this.dialogue!.setLiveUserTranscript(text);
+    }
+    this.dashboardHooks?.onTypingEnd?.();
+    this.dashboardHooks?.onUserMessage?.(text);
+  }
+
+  private onVoiceStatus(
+    status: "listening" | "processing" | "idle",
+    payload?: VoiceIdlePayload,
+  ): void {
+    this.currentStatus = status;
+
+    const micButton = this.micButtonRef;
+    const statusText = this.statusTextRef;
+
+    if (micButton && statusText) {
+      if (status === "listening") {
+        micButton.setProperties({ backgroundColor: "#ef4444" }); // Red
+        statusText.setProperties({ text: "Listening..." });
+        this.lastTranscript = "";
+        if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
+      } else if (status === "processing") {
+        micButton.setProperties({ backgroundColor: "#eab308" }); // Yellow/Orange
+        const pText = this.lastTranscript
+          ? `"${this.lastTranscript}" (Processing...)`
+          : "Processing...";
+        statusText.setProperties({ text: pText });
+        if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
+      } else {
+        if (
+          this.inActiveConversation &&
+          this.dialogueState === DialogueState.ACTIVE
+        ) {
+          micButton.setProperties({ backgroundColor: "#ef4444" }); // Red
+          statusText.setProperties({ text: "Click to stop" });
+        } else {
+          micButton.setProperties({ backgroundColor: "#2563eb" }); // Blue
+          if (payload?.success && payload.action && payload.device) {
+            const doneMessage = getCompletionMessage(
+              payload.action,
+              payload.device,
+            );
+            statusText.setProperties({ text: doneMessage });
+          } else if (payload?.noMatch) {
+            statusText.setProperties({ text: "Command not recognized" });
+          } else if (payload?.serverError) {
+            statusText.setProperties({ text: "Server error" });
+          } else if (payload?.cancelled) {
+            statusText.setProperties({ text: "Cancelled" });
+          } else if (
+            !payload?.success &&
+            !payload?.instructionTopic &&
+            !payload?.endSession
+          ) {
+            statusText.setProperties({ text: "Say 'Turn on...'" });
+          }
+
+          if (this.resetStatusTimeout) clearTimeout(this.resetStatusTimeout);
+          this.resetStatusTimeout = setTimeout(() => {
+            if (this.currentStatus === "idle") {
+              statusText.setProperties({ text: "Say 'Turn on...'" });
+            }
+          }, 4000);
+        }
+      }
+    }
+
+    if (!this.shouldMirrorFloatingDialogue || !this.dialogue) return;
+
+    if (status === "listening") {
+      this.dialogue.clearLiveUserTranscript();
+      this.dialogue.setStatus("Listening", "#4ade80");
+      this.dialogue.showTyping("Listening…");
+      this.dashboardHooks?.onStatus?.("Listening");
+      this.dashboardHooks?.onTyping?.("Listening...");
+    } else if (status === "processing") {
+      this.dialogue.finalizeLiveUserTranscript(this.lastTranscript);
+      this.dialogue.setStatus("Processing", "#facc15");
+      this.dialogue.showTyping("Processing…");
+      this.dashboardHooks?.onStatus?.("Processing");
+      this.dashboardHooks?.onTyping?.("Processing...");
+    } else {
+      this.dialogue.hideTyping();
+      this.dashboardHooks?.onTypingEnd?.();
+      this.dialogue.setStatus("Ready", "#94a3b8");
+      this.dashboardHooks?.onStatus?.("Idle");
+
+      if (payload?.success && payload.action && payload.device) {
+        const doneMessage = getCompletionMessage(
+          payload.action,
+          payload.device,
+        );
+        this.dialogue.addAssistantMessage(doneMessage);
+        this.dashboardHooks?.onAssistantMessage?.(doneMessage);
+        this.inActiveConversation = false;
+        sceneNotify({
+          title: "Voice command executed",
+          description: `${payload.action.replace(/_/g, " ")} → ${payload.device}`,
+          severity: "success",
+          icon: SN_ICONS.checkCircle,
+          iconBg: "rgba(34,197,94,0.15)",
+          iconFg: "#22c55e",
+        });
+      } else if (payload?.success && payload.instructionTopic) {
+        if (payload.instructionTopic === "goodbye") {
+          this.dialogue.addAssistantMessage(GOODBYE_ASSISTANT_MESSAGE);
+          this.dashboardHooks?.onAssistantMessage?.(GOODBYE_ASSISTANT_MESSAGE);
+          this.inActiveConversation = false;
+          sceneNotify({
+            title: "Voice session ended",
+            description: "Robot assistant returned to standby",
+            severity: "info",
+            icon: SN_ICONS.micOff,
+            iconBg: "rgba(100,116,139,0.15)",
+            iconFg: "#94a3b8",
+          });
+          this.beginClosing({
+            userInitiated: true,
+            skipGoodbyeBubble: true,
+          });
+        } else {
+          this.inActiveConversation = false;
+          sceneNotify({
+            title: "Robot provided information",
+            description: `Topic: ${payload.instructionTopic.replace(/_/g, " ")}`,
+            severity: "info",
+            icon: SN_ICONS.bot,
+            iconBg: "rgba(99,102,241,0.15)",
+            iconFg: "#818cf8",
+          });
+        }
+      } else if (payload?.cancelled) {
+        this.dialogue.clearLiveUserTranscript();
+        this.dialogue.addAssistantMessage(GOODBYE_ASSISTANT_MESSAGE);
+        this.dashboardHooks?.onAssistantMessage?.(GOODBYE_ASSISTANT_MESSAGE);
+        this.inActiveConversation = false;
+        sceneNotify({
+          title: "Voice session cancelled",
+          description: "Robot assistant returned to standby",
+          severity: "info",
+          icon: SN_ICONS.micOff,
+          iconBg: "rgba(100,116,139,0.15)",
+          iconFg: "#94a3b8",
+        });
+        this.beginClosing({
+          userInitiated: true,
+          skipGoodbyeTts: true,
+          skipGoodbyeBubble: true,
+        });
+      } else if (payload?.serverError) {
+        this.dialogue.setStatus("Server error", "#ef4444");
+        const errMsg =
+          "The voice service failed (server error). Make sure the backend on port 5500 is running the latest code, then tap the mic to try again.";
+        this.dialogue.addAssistantMessage(errMsg);
+        this.dashboardHooks?.onAssistantMessage?.(errMsg);
+        this.inActiveConversation = false;
+        sceneNotify({
+          title: "Voice service error",
+          description: "Check backend logs for /api/homes/voice/command/",
+          severity: "error",
+          icon: SN_ICONS.alertCircle,
+          iconBg: "rgba(239,68,68,0.15)",
+          iconFg: "#ef4444",
+        });
+        setTimeout(() => this.beginClosing(), 3000);
+      } else if (payload?.noMatch) {
+        this.dialogue.setStatus("Not recognized", "#f59e0b");
+        const noMatchMessage = NO_MATCH_SPOKEN_TEXT;
+        this.dialogue.addAssistantMessage(noMatchMessage);
+        this.dashboardHooks?.onAssistantMessage?.(noMatchMessage);
+        this.inActiveConversation = false;
+        sceneNotify({
+          title: "Command not recognized",
+          description: 'Try rephrasing — e.g. "Turn on the fan"',
+          severity: "warning",
+          icon: SN_ICONS.alertCircle,
+          iconBg: "rgba(245,158,11,0.14)",
+          iconFg: "#f59e0b",
+        });
+      } else if (payload?.endSession) {
+        this.inActiveConversation = false;
+        sceneNotify({
+          title: "Instruction session ended",
+          description: "Robot returned to patrol",
+          severity: "info",
+          icon: SN_ICONS.bot,
+          iconBg: "rgba(99,102,241,0.15)",
+          iconFg: "#818cf8",
+        });
+        this.beginClosing();
+      }
+
+    }
   }
 
   /** DOM floating mic button & shortcuts — same as tapping the 3D mic. */
@@ -569,7 +578,7 @@ export class VoicePanelSystem extends createSystem({
 
   /** Public method to add robot assistant message to dialogue */
   public addRobotMessage(message: string): void {
-    if (this.dialogue && this.dialogue.isVisible()) {
+    if (this.dialogue && this.dialogueState !== DialogueState.IDLE) {
       this.dialogue.addAssistantMessage(message);
       this.dashboardHooks?.onAssistantMessage?.(message);
     }

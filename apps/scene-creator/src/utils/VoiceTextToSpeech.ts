@@ -3,7 +3,8 @@ const GREETING = "How can I help you?";
 const GOODBYE = "See you again.";
 /** Shown in the conversation UI when the user ends the session (matches TTS intent). */
 export const GOODBYE_ASSISTANT_MESSAGE = "See you again! 👋";
-const NO_MATCH =
+/** Same wording as `speakNoMatch()` — use for floating dialogue / status parity with TTS. */
+export const NO_MATCH_SPOKEN_TEXT =
   "I'm sorry, I didn't quite understand that. You can control devices with phrases like \"turn on the fan\" or \"set the temperature to twenty-four\", or ask for help with \"how do I use the panel\" or \"how do I use the fan\". What would you like to try?";
 // Instruction flow (3D): robot walking to user
 const INSTRUCTION_WAIT_ME = "Ok, I will explain that for you. Wait for me.";
@@ -86,7 +87,7 @@ export function speakSeeYouAgain(): Promise<void> {
 }
 
 export function speakNoMatch(): Promise<void> {
-  return speakText(NO_MATCH);
+  return speakText(NO_MATCH_SPOKEN_TEXT);
 }
 
 // Format action name from backend format (e.g., "turn_on") to natural language (e.g., "turn on")
@@ -106,10 +107,14 @@ function formatAction(action: string): string {
   return actionMap[action] || action.replace(/_/g, " ");
 }
 
-export function speakCompletion(action: string, device: string): void {
+/** Same wording as `speakCompletion()` — use for floating dialogue / status parity with TTS. */
+export function getCompletionMessage(action: string, device: string): string {
   const formattedAction = formatAction(action);
-  const message = `Finished ${formattedAction} ${device}`;
-  speakText(message);
+  return `Finished ${formattedAction} ${device}`;
+}
+
+export function speakCompletion(action: string, device: string): void {
+  speakText(getCompletionMessage(action, device));
 }
 
 // Predefined instruction texts (guideline / how-to) — same topics as backend instruction_topic

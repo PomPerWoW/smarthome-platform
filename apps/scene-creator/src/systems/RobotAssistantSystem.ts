@@ -1707,6 +1707,7 @@ export class RobotAssistantSystem extends createSystem({
 
               if (arrivedAtUserBubble || arrivedAtFixedGoal) {
                 const topic = this.pendingInstructionTopic;
+                const savedInstructionText = this.pendingInstructionText;
                 const callback = this.onReachedUserCallback;
                 this.walkingToUser = false;
                 this.pendingInstructionTopic = null;
@@ -1763,19 +1764,18 @@ export class RobotAssistantSystem extends createSystem({
                     `[RobotAssistant] 👋 Reached user (dist=${distToUser.toFixed(2)}m), speaking instruction: ${topic}`,
                   );
                   const instructionText =
-                    this.pendingInstructionText || this.getInstructionText(topic);
+                    savedInstructionText || this.getInstructionText(topic);
                   if (instructionText) {
                     this.notifyDialogueMessage(instructionText);
                     const afterInstruction = () => {
                       this.finishInstructionAndClosePanel();
                     };
-                    if (this.pendingInstructionText) {
+                    if (savedInstructionText) {
                       speakText(instructionText).then(afterInstruction);
                     } else {
                       speakInstruction(topic).then(afterInstruction);
                     }
                   }
-                  this.pendingInstructionText = null; // Clear after use
                   // Apply room transform and skip rest of movement for this frame
                   const worldPos = this.roomLocalToWorld(
                     record.model.position.x,
