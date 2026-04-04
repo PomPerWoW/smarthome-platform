@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { DeviceCard } from "@/components/devices/DeviceCard";
 import { Lightbulb } from "@/models/devices/Lightbulb";
 import type { LightbulbDTO } from "@/types/device.types";
-import React from "react";
+
 
 // Mock the 3D component to avoid WebGL errors in tests
 vi.mock("./models", () => ({

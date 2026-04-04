@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ErrorState, EmptyState } from "@/components/devices/StateComponents";
-import React from "react";
+
 
 describe("StateComponents", () => {
   describe("ErrorState", () => {
