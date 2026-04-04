@@ -49,25 +49,27 @@ class SchedulerTests(TestCase):
         self.assertTrue(self.scheduler._running)
         self.scheduler.stop()
 
-    def test_execute_automation_edge_cases(self):
-        light = Lightbulb.objects.create(room=self.room, device_name="Bulb", tag=None)
+    @patch("homes.services.get_channel_layer", return_value=None)
+    def test_execute_automation_edge_cases(self, _mock_channel):
+        light = Lightbulb.objects.create(
+            room=self.room, device_name="Bulb", tag=None, is_on=False
+        )
         auto = Automation.objects.create(
             device=light, title="No Tag Auto", action={"is_on": True}
         )
-        
-        # Should return early if no tag
-        with patch('builtins.print') as mock_print:
-            self.scheduler._execute_automation(auto)
-            mock_print.assert_any_call("Device has no SCADA tag, skipping.")
 
-        # Test unknown action key
+        self.scheduler._execute_automation(auto)
+        light.refresh_from_db()
+        self.assertTrue(light.is_on)
+
         light.tag = "L1"
         light.save()
         auto.action = {"unknown_key": "val"}
         auto.save()
-        with patch('builtins.print') as mock_print:
+        with patch("homes.services.ScadaManager") as mock_scada_class:
+            mock_scada = mock_scada_class.return_value
             self.scheduler._execute_automation(auto)
-            mock_print.assert_any_call("Unknown action key: unknown_key")
+            mock_scada.send_command.assert_not_called()
 
     @patch('homes.scheduler.time.sleep')
     @patch('homes.services.update_all_solar_automations')

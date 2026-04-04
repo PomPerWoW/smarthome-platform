@@ -88,7 +88,9 @@ const automationSchema = z.object({
   sunrise_sunset: z.boolean().default(false),
   time: z.string().nullable().optional(),
   solar_event: z.nativeEnum(SolarEvent).nullable().optional(),
-  repeat_days: z.array(z.nativeEnum(DayOfWeek)).default([]),
+  repeat_days: z
+    .array(z.nativeEnum(DayOfWeek))
+    .min(1, "Select at least one day"),
   action: z.object({
     is_on: z.boolean().optional(),
     brightness: z.number().min(0).max(100).optional(),
@@ -102,6 +104,36 @@ const automationSchema = z.object({
 });
 
 type AutomationFormValues = z.infer<typeof automationSchema>;
+
+/** Persist only action fields that apply to the selected device type. */
+function buildActionForDevice(
+  deviceType: string | undefined,
+  action: AutomationFormValues["action"],
+): AutomationFormValues["action"] {
+  const a = action;
+  const out: Record<string, unknown> = {};
+  if (a.is_on !== undefined) out.is_on = a.is_on;
+  switch (deviceType) {
+    case DeviceType.Lightbulb:
+      if (a.brightness !== undefined) out.brightness = a.brightness;
+      if (a.color !== undefined) out.color = a.color;
+      break;
+    case DeviceType.AirConditioner:
+      if (a.temperature !== undefined) out.temperature = a.temperature;
+      break;
+    case DeviceType.Fan:
+      if (a.speed !== undefined) out.speed = a.speed;
+      if (a.swing !== undefined) out.swing = a.swing;
+      break;
+    case DeviceType.Television:
+      if (a.volume !== undefined) out.volume = a.volume;
+      if (a.channel !== undefined) out.channel = a.channel;
+      break;
+    default:
+      break;
+  }
+  return out as AutomationFormValues["action"];
+}
 
 function AutomationPage() {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -285,26 +317,14 @@ function AutomationPage() {
               }
             }
 
-            // Handle Action fields
-            // We compare specific known keys for the current device type or just check all keys in values.action
-            // Since values.action is from the form, it defaults populated.
-            // We should check if any meaningful value is different from editingAutomation.action
-            const currentAction = values.action;
-            const originalAction = editingAutomation.action;
-
-            let actionChanged = false;
-            // Check common fields
-            if (currentAction.is_on !== originalAction.is_on) actionChanged = true;
-            if (currentAction.brightness !== originalAction.brightness) actionChanged = true;
-            if (currentAction.color !== originalAction.color) actionChanged = true;
-            if (currentAction.temperature !== originalAction.temperature) actionChanged = true;
-            if (currentAction.speed !== originalAction.speed) actionChanged = true;
-            if (currentAction.swing !== originalAction.swing) actionChanged = true;
-            if (currentAction.volume !== originalAction.volume) actionChanged = true;
-            if (currentAction.channel !== originalAction.channel) actionChanged = true;
-
-            if (actionChanged) {
-              submissionData.action = values.action;
+            const deviceType = devices.find((d) => d.id === values.device)?.type;
+            const newAction = buildActionForDevice(deviceType, values.action);
+            const oldAction = buildActionForDevice(
+              deviceType,
+              editingAutomation.action as AutomationFormValues["action"],
+            );
+            if (JSON.stringify(newAction) !== JSON.stringify(oldAction)) {
+              submissionData.action = newAction;
             }
 
             updateMutation.mutate({
@@ -313,8 +333,10 @@ function AutomationPage() {
             });
           } else {
             // For creation, send full data
+            const deviceType = devices.find((d) => d.id === values.device)?.type;
             const submissionData: CreateAutomationDTO = {
               ...values,
+              action: buildActionForDevice(deviceType, values.action),
               time: values.sunrise_sunset ? null : values.time,
               solar_event: values.sunrise_sunset ? values.solar_event : null,
             };
@@ -525,8 +547,16 @@ function AutomationSheet({
       is_active: true,
       sunrise_sunset: false,
       time: "12:00:00",
-      repeat_days: [],
-      action: { is_on: true, brightness: 100 },
+      repeat_days: [
+        DayOfWeek.Mon,
+        DayOfWeek.Tue,
+        DayOfWeek.Wed,
+        DayOfWeek.Thu,
+        DayOfWeek.Fri,
+        DayOfWeek.Sat,
+        DayOfWeek.Sun,
+      ],
+      action: { is_on: true },
       solar_event: SolarEvent.Sunrise,
     },
     values: automation
@@ -537,7 +567,7 @@ function AutomationSheet({
         sunrise_sunset: automation.sunrise_sunset,
         repeat_days: automation.repeat_days,
         time: automation.time || "12:00:00",
-        action: automation.action || { is_on: true, brightness: 100 },
+        action: automation.action || { is_on: true },
         solar_event: automation.solar_event || SolarEvent.Sunrise,
       }
       : undefined,

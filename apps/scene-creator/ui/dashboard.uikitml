@@ -779,9 +779,11 @@
             <GaugeIcon class="card-icon card-icon-meter device-card-icon-layer" id="card-icon-1-meter"></GaugeIcon>
           </div>
           <span class="card-name" id="card-name-1">Smart TV</span>
-          <button class="card-toggle" id="card-toggle-1">
+          <div class="toggle-wrapper" id="toggle-wrap-1" style="pointer-events: auto; cursor: pointer; border-radius: 1.1; width: 2.2; height: 2.2; display: flex; align-items: center; justify-content: center;">
+            <button class="card-toggle" id="card-toggle-1" style="pointer-events: none;">
             <PowerIcon class="toggle-icon" />
           </button>
+          </div>
         </div>
         <div class="card-body">
           <span class="card-value" id="card-value-1">Vol 40</span>
@@ -808,9 +810,11 @@
             <GaugeIcon class="card-icon card-icon-meter device-card-icon-layer" id="card-icon-2-meter"></GaugeIcon>
           </div>
           <span class="card-name" id="card-name-2">Fan</span>
-          <button class="card-toggle" id="card-toggle-2">
+          <div class="toggle-wrapper" id="toggle-wrap-2" style="pointer-events: auto; cursor: pointer; border-radius: 1.1; width: 2.2; height: 2.2; display: flex; align-items: center; justify-content: center;">
+            <button class="card-toggle" id="card-toggle-2" style="pointer-events: none;">
             <PowerIcon class="toggle-icon" />
           </button>
+          </div>
         </div>
         <div class="card-body">
           <span class="card-value" id="card-value-2">Speed 3</span>
@@ -837,9 +841,11 @@
             <GaugeIcon class="card-icon card-icon-meter device-card-icon-layer" id="card-icon-3-meter"></GaugeIcon>
           </div>
           <span class="card-name" id="card-name-3">Air Conditioner</span>
-          <button class="card-toggle" id="card-toggle-3">
+          <div class="toggle-wrapper" id="toggle-wrap-3" style="pointer-events: auto; cursor: pointer; border-radius: 1.1; width: 2.2; height: 2.2; display: flex; align-items: center; justify-content: center;">
+            <button class="card-toggle" id="card-toggle-3" style="pointer-events: none;">
             <PowerIcon class="toggle-icon" />
           </button>
+          </div>
         </div>
         <div class="card-body">
           <span class="card-value" id="card-value-3">24°C</span>
@@ -866,9 +872,11 @@
             <GaugeIcon class="card-icon card-icon-meter device-card-icon-layer" id="card-icon-4-meter"></GaugeIcon>
           </div>
           <span class="card-name" id="card-name-4">Smart Meter</span>
-          <button class="card-toggle" id="card-toggle-4">
+          <div class="toggle-wrapper" id="toggle-wrap-4" style="pointer-events: auto; cursor: pointer; border-radius: 1.1; width: 2.2; height: 2.2; display: flex; align-items: center; justify-content: center;">
+            <button class="card-toggle" id="card-toggle-4" style="pointer-events: none;">
             <PowerIcon class="toggle-icon" />
           </button>
+          </div>
         </div>
         <div class="card-body">
           <span class="card-value" id="card-value-4">--</span>
@@ -895,9 +903,11 @@
             <GaugeIcon class="card-icon card-icon-meter device-card-icon-layer" id="card-icon-5-meter"></GaugeIcon>
           </div>
           <span class="card-name" id="card-name-5">Device</span>
-          <button class="card-toggle" id="card-toggle-5">
+          <div class="toggle-wrapper" id="toggle-wrap-5" style="pointer-events: auto; cursor: pointer; border-radius: 1.1; width: 2.2; height: 2.2; display: flex; align-items: center; justify-content: center;">
+            <button class="card-toggle" id="card-toggle-5" style="pointer-events: none;">
             <PowerIcon class="toggle-icon" />
           </button>
+          </div>
         </div>
         <div class="card-body">
           <span class="card-value" id="card-value-5">--</span>
@@ -924,9 +934,11 @@
             <GaugeIcon class="card-icon card-icon-meter device-card-icon-layer" id="card-icon-6-meter"></GaugeIcon>
           </div>
           <span class="card-name" id="card-name-6">Device</span>
-          <button class="card-toggle" id="card-toggle-6">
+          <div class="toggle-wrapper" id="toggle-wrap-6" style="pointer-events: auto; cursor: pointer; border-radius: 1.1; width: 2.2; height: 2.2; display: flex; align-items: center; justify-content: center;">
+            <button class="card-toggle" id="card-toggle-6" style="pointer-events: none;">
             <PowerIcon class="toggle-icon" />
           </button>
+          </div>
         </div>
         <div class="card-body">
           <span class="card-value" id="card-value-6">--</span>
@@ -953,9 +965,11 @@
             <GaugeIcon class="card-icon card-icon-meter device-card-icon-layer" id="card-icon-7-meter"></GaugeIcon>
           </div>
           <span class="card-name" id="card-name-7">Device</span>
-          <button class="card-toggle" id="card-toggle-7">
+          <div class="toggle-wrapper" id="toggle-wrap-7" style="pointer-events: auto; cursor: pointer; border-radius: 1.1; width: 2.2; height: 2.2; display: flex; align-items: center; justify-content: center;">
+            <button class="card-toggle" id="card-toggle-7" style="pointer-events: none;">
             <PowerIcon class="toggle-icon" />
           </button>
+          </div>
         </div>
         <div class="card-body">
           <span class="card-value" id="card-value-7">--</span>

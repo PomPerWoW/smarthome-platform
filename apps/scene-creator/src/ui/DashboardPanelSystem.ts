@@ -203,6 +203,7 @@ export class DashboardPanelSystem extends createSystem({
   private homeWelcomeText = "Welcome, User";
   private unsubscribeVisibility?: () => void;
   private refreshDashboardXRSectionUI?: () => void;
+  private uiPropertyCache = new Map<string, any>();
 
   // Map card slot index → device id for click handling
   private slotDeviceMap: Map<number, string> = new Map();
@@ -1125,7 +1126,7 @@ export class DashboardPanelSystem extends createSystem({
       const slotIndex = i;
 
       // Power toggle
-      const toggleBtn = document.getElementById(`card-toggle-${i}`);
+      const toggleBtn = document.getElementById(`toggle-wrap-${i}`) || document.getElementById(`card-toggle-${i}`);
       if (toggleBtn) {
         toggleBtn.addEventListener("click", () => {
           const deviceId = this.slotDeviceMap.get(slotIndex);
@@ -1339,21 +1340,35 @@ export class DashboardPanelSystem extends createSystem({
         }
 
         if (cardName) {
-          cardName.setProperties({ text: device.name });
+          const val = device.name;
+          if (this.uiPropertyCache.get(`name-${i}`) !== val) {
+            cardName.setProperties({ text: val });
+            this.uiPropertyCache.set(`name-${i}`, val);
+          }
         }
 
         if (cardStatus) {
-          cardStatus.setProperties({ text: getDeviceStatusText(device) });
+          const val = getDeviceStatusText(device);
+          if (this.uiPropertyCache.get(`status-${i}`) !== val) {
+            cardStatus.setProperties({ text: val });
+            this.uiPropertyCache.set(`status-${i}`, val);
+          }
         }
 
         if (cardValue) {
-          cardValue.setProperties({ text: getDeviceValueText(device) });
+          const val = getDeviceValueText(device);
+          if (this.uiPropertyCache.get(`value-${i}`) !== val) {
+            cardValue.setProperties({ text: val });
+            this.uiPropertyCache.set(`value-${i}`, val);
+          }
         }
 
         if (cardToggle) {
-          cardToggle.setProperties({
-            backgroundColor: device.is_on ? COLOR_ON : COLOR_OFF,
-          });
+          const val = device.is_on ? COLOR_ON : COLOR_OFF;
+          if (this.uiPropertyCache.get(`toggle-${i}`) !== val) {
+            cardToggle.setProperties({ backgroundColor: val });
+            this.uiPropertyCache.set(`toggle-${i}`, val);
+          }
         }
 
         applyDeviceCardIconLayers(document, i, device);

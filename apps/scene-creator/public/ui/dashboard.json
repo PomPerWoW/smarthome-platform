@@ -308,22 +308,46 @@
                         "dataUid": "uid-33"
                       },
                       {
-                        "sourceTag": "button",
-                        "type": "custom",
+                        "type": "container",
+                        "sourceTag": "div",
                         "children": [
                           {
-                            "sourceTag": "powericon",
+                            "sourceTag": "button",
                             "type": "custom",
-                            "children": [],
+                            "children": [
+                              {
+                                "sourceTag": "powericon",
+                                "type": "custom",
+                                "children": [],
+                                "properties": {
+                                  "class": "toggle-icon"
+                                },
+                                "dataUid": "uid-36"
+                              }
+                            ],
                             "properties": {
-                              "class": "toggle-icon"
+                              "class": "card-toggle",
+                              "id": "card-toggle-1",
+                              "style": {
+                                "pointerEvents": "none"
+                              }
                             },
                             "dataUid": "uid-35"
                           }
                         ],
                         "properties": {
-                          "class": "card-toggle",
-                          "id": "card-toggle-1"
+                          "class": "toggle-wrapper",
+                          "id": "toggle-wrap-1",
+                          "style": {
+                            "pointerEvents": "auto",
+                            "cursor": "pointer",
+                            "borderRadius": 1.1,
+                            "width": "2.2",
+                            "height": "2.2",
+                            "display": "flex",
+                            "alignItems": "center",
+                            "justifyContent": "center"
+                          }
                         },
                         "dataUid": "uid-34"
                       }
@@ -347,7 +371,7 @@
                           "class": "card-value",
                           "id": "card-value-1"
                         },
-                        "dataUid": "uid-37"
+                        "dataUid": "uid-38"
                       },
                       {
                         "type": "container",
@@ -364,14 +388,14 @@
                                 "properties": {
                                   "class": "ctrl-icon"
                                 },
-                                "dataUid": "uid-40"
+                                "dataUid": "uid-41"
                               }
                             ],
                             "properties": {
                               "class": "card-ctrl-btn",
                               "id": "card-up-1"
                             },
-                            "dataUid": "uid-39"
+                            "dataUid": "uid-40"
                           },
                           {
                             "sourceTag": "button",
@@ -384,26 +408,26 @@
                                 "properties": {
                                   "class": "ctrl-icon"
                                 },
-                                "dataUid": "uid-42"
+                                "dataUid": "uid-43"
                               }
                             ],
                             "properties": {
                               "class": "card-ctrl-btn",
                               "id": "card-down-1"
                             },
-                            "dataUid": "uid-41"
+                            "dataUid": "uid-42"
                           }
                         ],
                         "properties": {
                           "class": "card-controls"
                         },
-                        "dataUid": "uid-38"
+                        "dataUid": "uid-39"
                       }
                     ],
                     "properties": {
                       "class": "card-body"
                     },
-                    "dataUid": "uid-36"
+                    "dataUid": "uid-37"
                   },
                   {
                     "sourceTag": "span",
@@ -415,7 +439,7 @@
                       "class": "card-status",
                       "id": "card-status-1"
                     },
-                    "dataUid": "uid-43"
+                    "dataUid": "uid-44"
                   }
                 ],
                 "properties": {
@@ -444,7 +468,7 @@
                               "class": "card-icon card-icon-light device-card-icon-layer",
                               "id": "card-icon-2-lb"
                             },
-                            "dataUid": "uid-47"
+                            "dataUid": "uid-48"
                           },
                           {
                             "sourceTag": "tvminimalicon",
@@ -454,7 +478,7 @@
                               "class": "card-icon card-icon-tv device-card-icon-layer",
                               "id": "card-icon-2-tv"
                             },
-                            "dataUid": "uid-48"
+                            "dataUid": "uid-49"
                           },
                           {
                             "sourceTag": "rotatecwicon",
@@ -464,7 +488,7 @@
                               "class": "card-icon card-icon-fan device-card-icon-layer",
                               "id": "card-icon-2-fan"
                             },
-                            "dataUid": "uid-49"
+                            "dataUid": "uid-50"
                           },
                           {
                             "sourceTag": "thermometericon",
@@ -474,7 +498,7 @@
                               "class": "card-icon card-icon-ac device-card-icon-layer",
                               "id": "card-icon-2-ac"
                             },
-                            "dataUid": "uid-50"
+                            "dataUid": "uid-51"
                           },
                           {
                             "sourceTag": "gaugeicon",
@@ -484,14 +508,14 @@
                               "class": "card-icon card-icon-meter device-card-icon-layer",
                               "id": "card-icon-2-meter"
                             },
-                            "dataUid": "uid-51"
+                            "dataUid": "uid-52"
                           }
                         ],
                         "properties": {
                           "class": "card-icon-wrap device-card-icon-stack",
                           "id": "card-icon-wrap-2"
                         },
-                        "dataUid": "uid-46"
+                        "dataUid": "uid-47"
                       },
                       {
                         "sourceTag": "span",
@@ -503,33 +527,57 @@
                           "class": "card-name",
                           "id": "card-name-2"
                         },
-                        "dataUid": "uid-52"
+                        "dataUid": "uid-53"
                       },
                       {
-                        "sourceTag": "button",
-                        "type": "custom",
+                        "type": "container",
+                        "sourceTag": "div",
                         "children": [
                           {
-                            "sourceTag": "powericon",
+                            "sourceTag": "button",
                             "type": "custom",
-                            "children": [],
+                            "children": [
+                              {
+                                "sourceTag": "powericon",
+                                "type": "custom",
+                                "children": [],
+                                "properties": {
+                                  "class": "toggle-icon"
+                                },
+                                "dataUid": "uid-56"
+                              }
+                            ],
                             "properties": {
-                              "class": "toggle-icon"
+                              "class": "card-toggle",
+                              "id": "card-toggle-2",
+                              "style": {
+                                "pointerEvents": "none"
+                              }
                             },
-                            "dataUid": "uid-54"
+                            "dataUid": "uid-55"
                           }
                         ],
                         "properties": {
-                          "class": "card-toggle",
-                          "id": "card-toggle-2"
+                          "class": "toggle-wrapper",
+                          "id": "toggle-wrap-2",
+                          "style": {
+                            "pointerEvents": "auto",
+                            "cursor": "pointer",
+                            "borderRadius": 1.1,
+                            "width": "2.2",
+                            "height": "2.2",
+                            "display": "flex",
+                            "alignItems": "center",
+                            "justifyContent": "center"
+                          }
                         },
-                        "dataUid": "uid-53"
+                        "dataUid": "uid-54"
                       }
                     ],
                     "properties": {
                       "class": "card-header"
                     },
-                    "dataUid": "uid-45"
+                    "dataUid": "uid-46"
                   },
                   {
                     "type": "container",
@@ -545,7 +593,7 @@
                           "class": "card-value",
                           "id": "card-value-2"
                         },
-                        "dataUid": "uid-56"
+                        "dataUid": "uid-58"
                       },
                       {
                         "type": "container",
@@ -562,14 +610,14 @@
                                 "properties": {
                                   "class": "ctrl-icon"
                                 },
-                                "dataUid": "uid-59"
+                                "dataUid": "uid-61"
                               }
                             ],
                             "properties": {
                               "class": "card-ctrl-btn",
                               "id": "card-up-2"
                             },
-                            "dataUid": "uid-58"
+                            "dataUid": "uid-60"
                           },
                           {
                             "sourceTag": "button",
@@ -582,26 +630,26 @@
                                 "properties": {
                                   "class": "ctrl-icon"
                                 },
-                                "dataUid": "uid-61"
+                                "dataUid": "uid-63"
                               }
                             ],
                             "properties": {
                               "class": "card-ctrl-btn",
                               "id": "card-down-2"
                             },
-                            "dataUid": "uid-60"
+                            "dataUid": "uid-62"
                           }
                         ],
                         "properties": {
                           "class": "card-controls"
                         },
-                        "dataUid": "uid-57"
+                        "dataUid": "uid-59"
                       }
                     ],
                     "properties": {
                       "class": "card-body"
                     },
-                    "dataUid": "uid-55"
+                    "dataUid": "uid-57"
                   },
                   {
                     "sourceTag": "span",
@@ -613,14 +661,14 @@
                       "class": "card-status",
                       "id": "card-status-2"
                     },
-                    "dataUid": "uid-62"
+                    "dataUid": "uid-64"
                   }
                 ],
                 "properties": {
                   "class": "device-card",
                   "id": "device-card-2"
                 },
-                "dataUid": "uid-44"
+                "dataUid": "uid-45"
               },
               {
                 "type": "container",
@@ -642,7 +690,7 @@
                               "class": "card-icon card-icon-light device-card-icon-layer",
                               "id": "card-icon-3-lb"
                             },
-                            "dataUid": "uid-66"
+                            "dataUid": "uid-68"
                           },
                           {
                             "sourceTag": "tvminimalicon",
@@ -652,7 +700,7 @@
                               "class": "card-icon card-icon-tv device-card-icon-layer",
                               "id": "card-icon-3-tv"
                             },
-                            "dataUid": "uid-67"
+                            "dataUid": "uid-69"
                           },
                           {
                             "sourceTag": "rotatecwicon",
@@ -662,7 +710,7 @@
                               "class": "card-icon card-icon-fan device-card-icon-layer",
                               "id": "card-icon-3-fan"
                             },
-                            "dataUid": "uid-68"
+                            "dataUid": "uid-70"
                           },
                           {
                             "sourceTag": "thermometericon",
@@ -672,7 +720,7 @@
                               "class": "card-icon card-icon-ac device-card-icon-layer",
                               "id": "card-icon-3-ac"
                             },
-                            "dataUid": "uid-69"
+                            "dataUid": "uid-71"
                           },
                           {
                             "sourceTag": "gaugeicon",
@@ -682,14 +730,14 @@
                               "class": "card-icon card-icon-meter device-card-icon-layer",
                               "id": "card-icon-3-meter"
                             },
-                            "dataUid": "uid-70"
+                            "dataUid": "uid-72"
                           }
                         ],
                         "properties": {
                           "class": "card-icon-wrap device-card-icon-stack",
                           "id": "card-icon-wrap-3"
                         },
-                        "dataUid": "uid-65"
+                        "dataUid": "uid-67"
                       },
                       {
                         "sourceTag": "span",
@@ -701,33 +749,57 @@
                           "class": "card-name",
                           "id": "card-name-3"
                         },
-                        "dataUid": "uid-71"
+                        "dataUid": "uid-73"
                       },
                       {
-                        "sourceTag": "button",
-                        "type": "custom",
+                        "type": "container",
+                        "sourceTag": "div",
                         "children": [
                           {
-                            "sourceTag": "powericon",
+                            "sourceTag": "button",
                             "type": "custom",
-                            "children": [],
+                            "children": [
+                              {
+                                "sourceTag": "powericon",
+                                "type": "custom",
+                                "children": [],
+                                "properties": {
+                                  "class": "toggle-icon"
+                                },
+                                "dataUid": "uid-76"
+                              }
+                            ],
                             "properties": {
-                              "class": "toggle-icon"
+                              "class": "card-toggle",
+                              "id": "card-toggle-3",
+                              "style": {
+                                "pointerEvents": "none"
+                              }
                             },
-                            "dataUid": "uid-73"
+                            "dataUid": "uid-75"
                           }
                         ],
                         "properties": {
-                          "class": "card-toggle",
-                          "id": "card-toggle-3"
+                          "class": "toggle-wrapper",
+                          "id": "toggle-wrap-3",
+                          "style": {
+                            "pointerEvents": "auto",
+                            "cursor": "pointer",
+                            "borderRadius": 1.1,
+                            "width": "2.2",
+                            "height": "2.2",
+                            "display": "flex",
+                            "alignItems": "center",
+                            "justifyContent": "center"
+                          }
                         },
-                        "dataUid": "uid-72"
+                        "dataUid": "uid-74"
                       }
                     ],
                     "properties": {
                       "class": "card-header"
                     },
-                    "dataUid": "uid-64"
+                    "dataUid": "uid-66"
                   },
                   {
                     "type": "container",
@@ -743,7 +815,7 @@
                           "class": "card-value",
                           "id": "card-value-3"
                         },
-                        "dataUid": "uid-75"
+                        "dataUid": "uid-78"
                       },
                       {
                         "type": "container",
@@ -760,14 +832,14 @@
                                 "properties": {
                                   "class": "ctrl-icon"
                                 },
-                                "dataUid": "uid-78"
+                                "dataUid": "uid-81"
                               }
                             ],
                             "properties": {
                               "class": "card-ctrl-btn",
                               "id": "card-up-3"
                             },
-                            "dataUid": "uid-77"
+                            "dataUid": "uid-80"
                           },
                           {
                             "sourceTag": "button",
@@ -780,26 +852,26 @@
                                 "properties": {
                                   "class": "ctrl-icon"
                                 },
-                                "dataUid": "uid-80"
+                                "dataUid": "uid-83"
                               }
                             ],
                             "properties": {
                               "class": "card-ctrl-btn",
                               "id": "card-down-3"
                             },
-                            "dataUid": "uid-79"
+                            "dataUid": "uid-82"
                           }
                         ],
                         "properties": {
                           "class": "card-controls"
                         },
-                        "dataUid": "uid-76"
+                        "dataUid": "uid-79"
                       }
                     ],
                     "properties": {
                       "class": "card-body"
                     },
-                    "dataUid": "uid-74"
+                    "dataUid": "uid-77"
                   },
                   {
                     "sourceTag": "span",
@@ -811,14 +883,14 @@
                       "class": "card-status",
                       "id": "card-status-3"
                     },
-                    "dataUid": "uid-81"
+                    "dataUid": "uid-84"
                   }
                 ],
                 "properties": {
                   "class": "device-card",
                   "id": "device-card-3"
                 },
-                "dataUid": "uid-63"
+                "dataUid": "uid-65"
               },
               {
                 "type": "container",
@@ -840,7 +912,7 @@
                               "class": "card-icon card-icon-light device-card-icon-layer",
                               "id": "card-icon-4-lb"
                             },
-                            "dataUid": "uid-85"
+                            "dataUid": "uid-88"
                           },
                           {
                             "sourceTag": "tvminimalicon",
@@ -850,7 +922,7 @@
                               "class": "card-icon card-icon-tv device-card-icon-layer",
                               "id": "card-icon-4-tv"
                             },
-                            "dataUid": "uid-86"
+                            "dataUid": "uid-89"
                           },
                           {
                             "sourceTag": "rotatecwicon",
@@ -860,7 +932,7 @@
                               "class": "card-icon card-icon-fan device-card-icon-layer",
                               "id": "card-icon-4-fan"
                             },
-                            "dataUid": "uid-87"
+                            "dataUid": "uid-90"
                           },
                           {
                             "sourceTag": "thermometericon",
@@ -870,7 +942,7 @@
                               "class": "card-icon card-icon-ac device-card-icon-layer",
                               "id": "card-icon-4-ac"
                             },
-                            "dataUid": "uid-88"
+                            "dataUid": "uid-91"
                           },
                           {
                             "sourceTag": "gaugeicon",
@@ -880,14 +952,14 @@
                               "class": "card-icon card-icon-meter device-card-icon-layer",
                               "id": "card-icon-4-meter"
                             },
-                            "dataUid": "uid-89"
+                            "dataUid": "uid-92"
                           }
                         ],
                         "properties": {
                           "class": "card-icon-wrap device-card-icon-stack",
                           "id": "card-icon-wrap-4"
                         },
-                        "dataUid": "uid-84"
+                        "dataUid": "uid-87"
                       },
                       {
                         "sourceTag": "span",
@@ -899,33 +971,57 @@
                           "class": "card-name",
                           "id": "card-name-4"
                         },
-                        "dataUid": "uid-90"
+                        "dataUid": "uid-93"
                       },
                       {
-                        "sourceTag": "button",
-                        "type": "custom",
+                        "type": "container",
+                        "sourceTag": "div",
                         "children": [
                           {
-                            "sourceTag": "powericon",
+                            "sourceTag": "button",
                             "type": "custom",
-                            "children": [],
+                            "children": [
+                              {
+                                "sourceTag": "powericon",
+                                "type": "custom",
+                                "children": [],
+                                "properties": {
+                                  "class": "toggle-icon"
+                                },
+                                "dataUid": "uid-96"
+                              }
+                            ],
                             "properties": {
-                              "class": "toggle-icon"
+                              "class": "card-toggle",
+                              "id": "card-toggle-4",
+                              "style": {
+                                "pointerEvents": "none"
+                              }
                             },
-                            "dataUid": "uid-92"
+                            "dataUid": "uid-95"
                           }
                         ],
                         "properties": {
-                          "class": "card-toggle",
-                          "id": "card-toggle-4"
+                          "class": "toggle-wrapper",
+                          "id": "toggle-wrap-4",
+                          "style": {
+                            "pointerEvents": "auto",
+                            "cursor": "pointer",
+                            "borderRadius": 1.1,
+                            "width": "2.2",
+                            "height": "2.2",
+                            "display": "flex",
+                            "alignItems": "center",
+                            "justifyContent": "center"
+                          }
                         },
-                        "dataUid": "uid-91"
+                        "dataUid": "uid-94"
                       }
                     ],
                     "properties": {
                       "class": "card-header"
                     },
-                    "dataUid": "uid-83"
+                    "dataUid": "uid-86"
                   },
                   {
                     "type": "container",
@@ -941,7 +1037,7 @@
                           "class": "card-value",
                           "id": "card-value-4"
                         },
-                        "dataUid": "uid-94"
+                        "dataUid": "uid-98"
                       },
                       {
                         "type": "container",
@@ -958,14 +1054,14 @@
                                 "properties": {
                                   "class": "ctrl-icon"
                                 },
-                                "dataUid": "uid-97"
+                                "dataUid": "uid-101"
                               }
                             ],
                             "properties": {
                               "class": "card-ctrl-btn",
                               "id": "card-up-4"
                             },
-                            "dataUid": "uid-96"
+                            "dataUid": "uid-100"
                           },
                           {
                             "sourceTag": "button",
@@ -978,26 +1074,26 @@
                                 "properties": {
                                   "class": "ctrl-icon"
                                 },
-                                "dataUid": "uid-99"
+                                "dataUid": "uid-103"
                               }
                             ],
                             "properties": {
                               "class": "card-ctrl-btn",
                               "id": "card-down-4"
                             },
-                            "dataUid": "uid-98"
+                            "dataUid": "uid-102"
                           }
                         ],
                         "properties": {
                           "class": "card-controls"
                         },
-                        "dataUid": "uid-95"
+                        "dataUid": "uid-99"
                       }
                     ],
                     "properties": {
                       "class": "card-body"
                     },
-                    "dataUid": "uid-93"
+                    "dataUid": "uid-97"
                   },
                   {
                     "sourceTag": "span",
@@ -1009,14 +1105,14 @@
                       "class": "card-status",
                       "id": "card-status-4"
                     },
-                    "dataUid": "uid-100"
+                    "dataUid": "uid-104"
                   }
                 ],
                 "properties": {
                   "class": "device-card",
                   "id": "device-card-4"
                 },
-                "dataUid": "uid-82"
+                "dataUid": "uid-85"
               },
               {
                 "type": "container",
@@ -1038,7 +1134,7 @@
                               "class": "card-icon card-icon-light device-card-icon-layer",
                               "id": "card-icon-5-lb"
                             },
-                            "dataUid": "uid-104"
+                            "dataUid": "uid-108"
                           },
                           {
                             "sourceTag": "tvminimalicon",
@@ -1048,7 +1144,7 @@
                               "class": "card-icon card-icon-tv device-card-icon-layer",
                               "id": "card-icon-5-tv"
                             },
-                            "dataUid": "uid-105"
+                            "dataUid": "uid-109"
                           },
                           {
                             "sourceTag": "rotatecwicon",
@@ -1058,7 +1154,7 @@
                               "class": "card-icon card-icon-fan device-card-icon-layer",
                               "id": "card-icon-5-fan"
                             },
-                            "dataUid": "uid-106"
+                            "dataUid": "uid-110"
                           },
                           {
                             "sourceTag": "thermometericon",
@@ -1068,7 +1164,7 @@
                               "class": "card-icon card-icon-ac device-card-icon-layer",
                               "id": "card-icon-5-ac"
                             },
-                            "dataUid": "uid-107"
+                            "dataUid": "uid-111"
                           },
                           {
                             "sourceTag": "gaugeicon",
@@ -1078,14 +1174,14 @@
                               "class": "card-icon card-icon-meter device-card-icon-layer",
                               "id": "card-icon-5-meter"
                             },
-                            "dataUid": "uid-108"
+                            "dataUid": "uid-112"
                           }
                         ],
                         "properties": {
                           "class": "card-icon-wrap device-card-icon-stack",
                           "id": "card-icon-wrap-5"
                         },
-                        "dataUid": "uid-103"
+                        "dataUid": "uid-107"
                       },
                       {
                         "sourceTag": "span",
@@ -1097,33 +1193,57 @@
                           "class": "card-name",
                           "id": "card-name-5"
                         },
-                        "dataUid": "uid-109"
+                        "dataUid": "uid-113"
                       },
                       {
-                        "sourceTag": "button",
-                        "type": "custom",
+                        "type": "container",
+                        "sourceTag": "div",
                         "children": [
                           {
-                            "sourceTag": "powericon",
+                            "sourceTag": "button",
                             "type": "custom",
-                            "children": [],
+                            "children": [
+                              {
+                                "sourceTag": "powericon",
+                                "type": "custom",
+                                "children": [],
+                                "properties": {
+                                  "class": "toggle-icon"
+                                },
+                                "dataUid": "uid-116"
+                              }
+                            ],
                             "properties": {
-                              "class": "toggle-icon"
+                              "class": "card-toggle",
+                              "id": "card-toggle-5",
+                              "style": {
+                                "pointerEvents": "none"
+                              }
                             },
-                            "dataUid": "uid-111"
+                            "dataUid": "uid-115"
                           }
                         ],
                         "properties": {
-                          "class": "card-toggle",
-                          "id": "card-toggle-5"
+                          "class": "toggle-wrapper",
+                          "id": "toggle-wrap-5",
+                          "style": {
+                            "pointerEvents": "auto",
+                            "cursor": "pointer",
+                            "borderRadius": 1.1,
+                            "width": "2.2",
+                            "height": "2.2",
+                            "display": "flex",
+                            "alignItems": "center",
+                            "justifyContent": "center"
+                          }
                         },
-                        "dataUid": "uid-110"
+                        "dataUid": "uid-114"
                       }
                     ],
                     "properties": {
                       "class": "card-header"
                     },
-                    "dataUid": "uid-102"
+                    "dataUid": "uid-106"
                   },
                   {
                     "type": "container",
@@ -1139,7 +1259,7 @@
                           "class": "card-value",
                           "id": "card-value-5"
                         },
-                        "dataUid": "uid-113"
+                        "dataUid": "uid-118"
                       },
                       {
                         "type": "container",
@@ -1156,14 +1276,14 @@
                                 "properties": {
                                   "class": "ctrl-icon"
                                 },
-                                "dataUid": "uid-116"
+                                "dataUid": "uid-121"
                               }
                             ],
                             "properties": {
                               "class": "card-ctrl-btn",
                               "id": "card-up-5"
                             },
-                            "dataUid": "uid-115"
+                            "dataUid": "uid-120"
                           },
                           {
                             "sourceTag": "button",
@@ -1176,26 +1296,26 @@
                                 "properties": {
                                   "class": "ctrl-icon"
                                 },
-                                "dataUid": "uid-118"
+                                "dataUid": "uid-123"
                               }
                             ],
                             "properties": {
                               "class": "card-ctrl-btn",
                               "id": "card-down-5"
                             },
-                            "dataUid": "uid-117"
+                            "dataUid": "uid-122"
                           }
                         ],
                         "properties": {
                           "class": "card-controls"
                         },
-                        "dataUid": "uid-114"
+                        "dataUid": "uid-119"
                       }
                     ],
                     "properties": {
                       "class": "card-body"
                     },
-                    "dataUid": "uid-112"
+                    "dataUid": "uid-117"
                   },
                   {
                     "sourceTag": "span",
@@ -1207,14 +1327,14 @@
                       "class": "card-status",
                       "id": "card-status-5"
                     },
-                    "dataUid": "uid-119"
+                    "dataUid": "uid-124"
                   }
                 ],
                 "properties": {
                   "class": "device-card",
                   "id": "device-card-5"
                 },
-                "dataUid": "uid-101"
+                "dataUid": "uid-105"
               },
               {
                 "type": "container",
@@ -1236,7 +1356,7 @@
                               "class": "card-icon card-icon-light device-card-icon-layer",
                               "id": "card-icon-6-lb"
                             },
-                            "dataUid": "uid-123"
+                            "dataUid": "uid-128"
                           },
                           {
                             "sourceTag": "tvminimalicon",
@@ -1246,7 +1366,7 @@
                               "class": "card-icon card-icon-tv device-card-icon-layer",
                               "id": "card-icon-6-tv"
                             },
-                            "dataUid": "uid-124"
+                            "dataUid": "uid-129"
                           },
                           {
                             "sourceTag": "rotatecwicon",
@@ -1256,7 +1376,7 @@
                               "class": "card-icon card-icon-fan device-card-icon-layer",
                               "id": "card-icon-6-fan"
                             },
-                            "dataUid": "uid-125"
+                            "dataUid": "uid-130"
                           },
                           {
                             "sourceTag": "thermometericon",
@@ -1266,7 +1386,7 @@
                               "class": "card-icon card-icon-ac device-card-icon-layer",
                               "id": "card-icon-6-ac"
                             },
-                            "dataUid": "uid-126"
+                            "dataUid": "uid-131"
                           },
                           {
                             "sourceTag": "gaugeicon",
@@ -1276,14 +1396,14 @@
                               "class": "card-icon card-icon-meter device-card-icon-layer",
                               "id": "card-icon-6-meter"
                             },
-                            "dataUid": "uid-127"
+                            "dataUid": "uid-132"
                           }
                         ],
                         "properties": {
                           "class": "card-icon-wrap device-card-icon-stack",
                           "id": "card-icon-wrap-6"
                         },
-                        "dataUid": "uid-122"
+                        "dataUid": "uid-127"
                       },
                       {
                         "sourceTag": "span",
@@ -1295,33 +1415,57 @@
                           "class": "card-name",
                           "id": "card-name-6"
                         },
-                        "dataUid": "uid-128"
+                        "dataUid": "uid-133"
                       },
                       {
-                        "sourceTag": "button",
-                        "type": "custom",
+                        "type": "container",
+                        "sourceTag": "div",
                         "children": [
                           {
-                            "sourceTag": "powericon",
+                            "sourceTag": "button",
                             "type": "custom",
-                            "children": [],
+                            "children": [
+                              {
+                                "sourceTag": "powericon",
+                                "type": "custom",
+                                "children": [],
+                                "properties": {
+                                  "class": "toggle-icon"
+                                },
+                                "dataUid": "uid-136"
+                              }
+                            ],
                             "properties": {
-                              "class": "toggle-icon"
+                              "class": "card-toggle",
+                              "id": "card-toggle-6",
+                              "style": {
+                                "pointerEvents": "none"
+                              }
                             },
-                            "dataUid": "uid-130"
+                            "dataUid": "uid-135"
                           }
                         ],
                         "properties": {
-                          "class": "card-toggle",
-                          "id": "card-toggle-6"
+                          "class": "toggle-wrapper",
+                          "id": "toggle-wrap-6",
+                          "style": {
+                            "pointerEvents": "auto",
+                            "cursor": "pointer",
+                            "borderRadius": 1.1,
+                            "width": "2.2",
+                            "height": "2.2",
+                            "display": "flex",
+                            "alignItems": "center",
+                            "justifyContent": "center"
+                          }
                         },
-                        "dataUid": "uid-129"
+                        "dataUid": "uid-134"
                       }
                     ],
                     "properties": {
                       "class": "card-header"
                     },
-                    "dataUid": "uid-121"
+                    "dataUid": "uid-126"
                   },
                   {
                     "type": "container",
@@ -1337,7 +1481,7 @@
                           "class": "card-value",
                           "id": "card-value-6"
                         },
-                        "dataUid": "uid-132"
+                        "dataUid": "uid-138"
                       },
                       {
                         "type": "container",
@@ -1354,14 +1498,14 @@
                                 "properties": {
                                   "class": "ctrl-icon"
                                 },
-                                "dataUid": "uid-135"
+                                "dataUid": "uid-141"
                               }
                             ],
                             "properties": {
                               "class": "card-ctrl-btn",
                               "id": "card-up-6"
                             },
-                            "dataUid": "uid-134"
+                            "dataUid": "uid-140"
                           },
                           {
                             "sourceTag": "button",
@@ -1374,26 +1518,26 @@
                                 "properties": {
                                   "class": "ctrl-icon"
                                 },
-                                "dataUid": "uid-137"
+                                "dataUid": "uid-143"
                               }
                             ],
                             "properties": {
                               "class": "card-ctrl-btn",
                               "id": "card-down-6"
                             },
-                            "dataUid": "uid-136"
+                            "dataUid": "uid-142"
                           }
                         ],
                         "properties": {
                           "class": "card-controls"
                         },
-                        "dataUid": "uid-133"
+                        "dataUid": "uid-139"
                       }
                     ],
                     "properties": {
                       "class": "card-body"
                     },
-                    "dataUid": "uid-131"
+                    "dataUid": "uid-137"
                   },
                   {
                     "sourceTag": "span",
@@ -1405,14 +1549,14 @@
                       "class": "card-status",
                       "id": "card-status-6"
                     },
-                    "dataUid": "uid-138"
+                    "dataUid": "uid-144"
                   }
                 ],
                 "properties": {
                   "class": "device-card",
                   "id": "device-card-6"
                 },
-                "dataUid": "uid-120"
+                "dataUid": "uid-125"
               },
               {
                 "type": "container",
@@ -1434,7 +1578,7 @@
                               "class": "card-icon card-icon-light device-card-icon-layer",
                               "id": "card-icon-7-lb"
                             },
-                            "dataUid": "uid-142"
+                            "dataUid": "uid-148"
                           },
                           {
                             "sourceTag": "tvminimalicon",
@@ -1444,7 +1588,7 @@
                               "class": "card-icon card-icon-tv device-card-icon-layer",
                               "id": "card-icon-7-tv"
                             },
-                            "dataUid": "uid-143"
+                            "dataUid": "uid-149"
                           },
                           {
                             "sourceTag": "rotatecwicon",
@@ -1454,7 +1598,7 @@
                               "class": "card-icon card-icon-fan device-card-icon-layer",
                               "id": "card-icon-7-fan"
                             },
-                            "dataUid": "uid-144"
+                            "dataUid": "uid-150"
                           },
                           {
                             "sourceTag": "thermometericon",
@@ -1464,7 +1608,7 @@
                               "class": "card-icon card-icon-ac device-card-icon-layer",
                               "id": "card-icon-7-ac"
                             },
-                            "dataUid": "uid-145"
+                            "dataUid": "uid-151"
                           },
                           {
                             "sourceTag": "gaugeicon",
@@ -1474,14 +1618,14 @@
                               "class": "card-icon card-icon-meter device-card-icon-layer",
                               "id": "card-icon-7-meter"
                             },
-                            "dataUid": "uid-146"
+                            "dataUid": "uid-152"
                           }
                         ],
                         "properties": {
                           "class": "card-icon-wrap device-card-icon-stack",
                           "id": "card-icon-wrap-7"
                         },
-                        "dataUid": "uid-141"
+                        "dataUid": "uid-147"
                       },
                       {
                         "sourceTag": "span",
@@ -1493,33 +1637,57 @@
                           "class": "card-name",
                           "id": "card-name-7"
                         },
-                        "dataUid": "uid-147"
+                        "dataUid": "uid-153"
                       },
                       {
-                        "sourceTag": "button",
-                        "type": "custom",
+                        "type": "container",
+                        "sourceTag": "div",
                         "children": [
                           {
-                            "sourceTag": "powericon",
+                            "sourceTag": "button",
                             "type": "custom",
-                            "children": [],
+                            "children": [
+                              {
+                                "sourceTag": "powericon",
+                                "type": "custom",
+                                "children": [],
+                                "properties": {
+                                  "class": "toggle-icon"
+                                },
+                                "dataUid": "uid-156"
+                              }
+                            ],
                             "properties": {
-                              "class": "toggle-icon"
+                              "class": "card-toggle",
+                              "id": "card-toggle-7",
+                              "style": {
+                                "pointerEvents": "none"
+                              }
                             },
-                            "dataUid": "uid-149"
+                            "dataUid": "uid-155"
                           }
                         ],
                         "properties": {
-                          "class": "card-toggle",
-                          "id": "card-toggle-7"
+                          "class": "toggle-wrapper",
+                          "id": "toggle-wrap-7",
+                          "style": {
+                            "pointerEvents": "auto",
+                            "cursor": "pointer",
+                            "borderRadius": 1.1,
+                            "width": "2.2",
+                            "height": "2.2",
+                            "display": "flex",
+                            "alignItems": "center",
+                            "justifyContent": "center"
+                          }
                         },
-                        "dataUid": "uid-148"
+                        "dataUid": "uid-154"
                       }
                     ],
                     "properties": {
                       "class": "card-header"
                     },
-                    "dataUid": "uid-140"
+                    "dataUid": "uid-146"
                   },
                   {
                     "type": "container",
@@ -1535,7 +1703,7 @@
                           "class": "card-value",
                           "id": "card-value-7"
                         },
-                        "dataUid": "uid-151"
+                        "dataUid": "uid-158"
                       },
                       {
                         "type": "container",
@@ -1552,14 +1720,14 @@
                                 "properties": {
                                   "class": "ctrl-icon"
                                 },
-                                "dataUid": "uid-154"
+                                "dataUid": "uid-161"
                               }
                             ],
                             "properties": {
                               "class": "card-ctrl-btn",
                               "id": "card-up-7"
                             },
-                            "dataUid": "uid-153"
+                            "dataUid": "uid-160"
                           },
                           {
                             "sourceTag": "button",
@@ -1572,26 +1740,26 @@
                                 "properties": {
                                   "class": "ctrl-icon"
                                 },
-                                "dataUid": "uid-156"
+                                "dataUid": "uid-163"
                               }
                             ],
                             "properties": {
                               "class": "card-ctrl-btn",
                               "id": "card-down-7"
                             },
-                            "dataUid": "uid-155"
+                            "dataUid": "uid-162"
                           }
                         ],
                         "properties": {
                           "class": "card-controls"
                         },
-                        "dataUid": "uid-152"
+                        "dataUid": "uid-159"
                       }
                     ],
                     "properties": {
                       "class": "card-body"
                     },
-                    "dataUid": "uid-150"
+                    "dataUid": "uid-157"
                   },
                   {
                     "sourceTag": "span",
@@ -1603,14 +1771,14 @@
                       "class": "card-status",
                       "id": "card-status-7"
                     },
-                    "dataUid": "uid-157"
+                    "dataUid": "uid-164"
                   }
                 ],
                 "properties": {
                   "class": "device-card",
                   "id": "device-card-7"
                 },
-                "dataUid": "uid-139"
+                "dataUid": "uid-145"
               }
             ],
             "properties": {
@@ -1636,7 +1804,7 @@
                     "properties": {
                       "class": "section-title"
                     },
-                    "dataUid": "uid-160"
+                    "dataUid": "uid-167"
                   },
                   {
                     "sourceTag": "span",
@@ -1647,7 +1815,7 @@
                     "properties": {
                       "class": "section-sub"
                     },
-                    "dataUid": "uid-161"
+                    "dataUid": "uid-168"
                   },
                   {
                     "type": "container",
@@ -1666,14 +1834,14 @@
                             "properties": {
                               "class": "xr-mode-btn-text"
                             },
-                            "dataUid": "uid-164"
+                            "dataUid": "uid-171"
                           }
                         ],
                         "properties": {
                           "class": "xr-mode-btn-on",
                           "id": "dash-vr-mode-btn"
                         },
-                        "dataUid": "uid-163"
+                        "dataUid": "uid-170"
                       },
                       {
                         "sourceTag": "button",
@@ -1688,20 +1856,20 @@
                             "properties": {
                               "class": "xr-mode-btn-text"
                             },
-                            "dataUid": "uid-166"
+                            "dataUid": "uid-173"
                           }
                         ],
                         "properties": {
                           "class": "xr-mode-btn-off",
                           "id": "dash-ar-mode-btn"
                         },
-                        "dataUid": "uid-165"
+                        "dataUid": "uid-172"
                       }
                     ],
                     "properties": {
                       "class": "xr-mode-row"
                     },
-                    "dataUid": "uid-162"
+                    "dataUid": "uid-169"
                   },
                   {
                     "sourceTag": "button",
@@ -1721,20 +1889,20 @@
                               "class": "xr-primary-btn-text",
                               "id": "dash-xr-primary-text"
                             },
-                            "dataUid": "uid-169"
+                            "dataUid": "uid-176"
                           }
                         ],
                         "properties": {
                           "class": "rail-icon"
                         },
-                        "dataUid": "uid-168"
+                        "dataUid": "uid-175"
                       }
                     ],
                     "properties": {
                       "class": "xr-primary-btn",
                       "id": "dash-xr-primary-btn"
                     },
-                    "dataUid": "uid-167"
+                    "dataUid": "uid-174"
                   },
                   {
                     "sourceTag": "span",
@@ -1745,7 +1913,7 @@
                     "properties": {
                       "class": "section-sub"
                     },
-                    "dataUid": "uid-170"
+                    "dataUid": "uid-177"
                   },
                   {
                     "type": "container",
@@ -1764,7 +1932,7 @@
                             "properties": {
                               "class": "xr-mode-btn-text"
                             },
-                            "dataUid": "uid-173"
+                            "dataUid": "uid-180"
                           }
                         ],
                         "properties": {
@@ -1772,7 +1940,7 @@
                           "id": "dash-body-slimevr-btn",
                           "title": "SlimeVR WebSocket bridge"
                         },
-                        "dataUid": "uid-172"
+                        "dataUid": "uid-179"
                       },
                       {
                         "sourceTag": "button",
@@ -1787,7 +1955,7 @@
                             "properties": {
                               "class": "xr-mode-btn-text"
                             },
-                            "dataUid": "uid-175"
+                            "dataUid": "uid-182"
                           }
                         ],
                         "properties": {
@@ -1795,26 +1963,26 @@
                           "id": "dash-body-off-btn",
                           "title": "Animated legs only, no WebSocket"
                         },
-                        "dataUid": "uid-174"
+                        "dataUid": "uid-181"
                       }
                     ],
                     "properties": {
                       "class": "xr-mode-row"
                     },
-                    "dataUid": "uid-171"
+                    "dataUid": "uid-178"
                   }
                 ],
                 "properties": {
                   "class": "section-card"
                 },
-                "dataUid": "uid-159"
+                "dataUid": "uid-166"
               }
             ],
             "properties": {
               "class": "dashboard-section",
               "id": "xr-section"
             },
-            "dataUid": "uid-158"
+            "dataUid": "uid-165"
           },
           {
             "type": "container",
@@ -1833,7 +2001,7 @@
                     "properties": {
                       "class": "section-title"
                     },
-                    "dataUid": "uid-178"
+                    "dataUid": "uid-185"
                   },
                   {
                     "sourceTag": "span",
@@ -1844,7 +2012,7 @@
                     "properties": {
                       "class": "section-sub"
                     },
-                    "dataUid": "uid-179"
+                    "dataUid": "uid-186"
                   },
                   {
                     "type": "container",
@@ -1861,7 +2029,7 @@
                               "class": "section-btn-icon",
                               "src": "./ui/thumbnails/lightbulb.png"
                             },
-                            "dataUid": "uid-182"
+                            "dataUid": "uid-189"
                           },
                           {
                             "sourceTag": "span",
@@ -1872,14 +2040,14 @@
                             "properties": {
                               "class": "section-btn-text"
                             },
-                            "dataUid": "uid-183"
+                            "dataUid": "uid-190"
                           }
                         ],
                         "properties": {
                           "class": "section-btn",
                           "id": "place-lightbulb"
                         },
-                        "dataUid": "uid-181"
+                        "dataUid": "uid-188"
                       },
                       {
                         "sourceTag": "button",
@@ -1892,7 +2060,7 @@
                               "class": "section-btn-icon",
                               "src": "./ui/thumbnails/television.png"
                             },
-                            "dataUid": "uid-185"
+                            "dataUid": "uid-192"
                           },
                           {
                             "sourceTag": "span",
@@ -1903,14 +2071,14 @@
                             "properties": {
                               "class": "section-btn-text"
                             },
-                            "dataUid": "uid-186"
+                            "dataUid": "uid-193"
                           }
                         ],
                         "properties": {
                           "class": "section-btn",
                           "id": "place-television"
                         },
-                        "dataUid": "uid-184"
+                        "dataUid": "uid-191"
                       },
                       {
                         "sourceTag": "button",
@@ -1923,7 +2091,7 @@
                               "class": "section-btn-icon",
                               "src": "./ui/thumbnails/fan.png"
                             },
-                            "dataUid": "uid-188"
+                            "dataUid": "uid-195"
                           },
                           {
                             "sourceTag": "span",
@@ -1934,14 +2102,14 @@
                             "properties": {
                               "class": "section-btn-text"
                             },
-                            "dataUid": "uid-189"
+                            "dataUid": "uid-196"
                           }
                         ],
                         "properties": {
                           "class": "section-btn",
                           "id": "place-fan"
                         },
-                        "dataUid": "uid-187"
+                        "dataUid": "uid-194"
                       },
                       {
                         "sourceTag": "button",
@@ -1954,7 +2122,7 @@
                               "class": "section-btn-icon",
                               "src": "./ui/thumbnails/ac.png"
                             },
-                            "dataUid": "uid-191"
+                            "dataUid": "uid-198"
                           },
                           {
                             "sourceTag": "span",
@@ -1965,14 +2133,14 @@
                             "properties": {
                               "class": "section-btn-text"
                             },
-                            "dataUid": "uid-192"
+                            "dataUid": "uid-199"
                           }
                         ],
                         "properties": {
                           "class": "section-btn",
                           "id": "place-ac"
                         },
-                        "dataUid": "uid-190"
+                        "dataUid": "uid-197"
                       },
                       {
                         "sourceTag": "button",
@@ -1985,7 +2153,7 @@
                               "class": "section-btn-icon",
                               "src": "./ui/thumbnails/chair.png"
                             },
-                            "dataUid": "uid-194"
+                            "dataUid": "uid-201"
                           },
                           {
                             "sourceTag": "span",
@@ -1996,14 +2164,14 @@
                             "properties": {
                               "class": "section-btn-text"
                             },
-                            "dataUid": "uid-195"
+                            "dataUid": "uid-202"
                           }
                         ],
                         "properties": {
                           "class": "section-btn",
                           "id": "place-chair"
                         },
-                        "dataUid": "uid-193"
+                        "dataUid": "uid-200"
                       },
                       {
                         "sourceTag": "button",
@@ -2016,7 +2184,7 @@
                               "class": "section-btn-icon",
                               "src": "./ui/thumbnails/chair.png"
                             },
-                            "dataUid": "uid-197"
+                            "dataUid": "uid-204"
                           },
                           {
                             "sourceTag": "span",
@@ -2027,14 +2195,14 @@
                             "properties": {
                               "class": "section-btn-text"
                             },
-                            "dataUid": "uid-198"
+                            "dataUid": "uid-205"
                           }
                         ],
                         "properties": {
                           "class": "section-btn",
                           "id": "place-chair2"
                         },
-                        "dataUid": "uid-196"
+                        "dataUid": "uid-203"
                       },
                       {
                         "sourceTag": "button",
@@ -2047,7 +2215,7 @@
                               "class": "section-btn-icon",
                               "src": "./ui/thumbnails/chair.png"
                             },
-                            "dataUid": "uid-200"
+                            "dataUid": "uid-207"
                           },
                           {
                             "sourceTag": "span",
@@ -2058,14 +2226,14 @@
                             "properties": {
                               "class": "section-btn-text"
                             },
-                            "dataUid": "uid-201"
+                            "dataUid": "uid-208"
                           }
                         ],
                         "properties": {
                           "class": "section-btn",
                           "id": "place-chair3"
                         },
-                        "dataUid": "uid-199"
+                        "dataUid": "uid-206"
                       },
                       {
                         "sourceTag": "button",
@@ -2078,7 +2246,7 @@
                               "class": "section-btn-icon",
                               "src": "./ui/thumbnails/chair.png"
                             },
-                            "dataUid": "uid-203"
+                            "dataUid": "uid-210"
                           },
                           {
                             "sourceTag": "span",
@@ -2089,14 +2257,14 @@
                             "properties": {
                               "class": "section-btn-text"
                             },
-                            "dataUid": "uid-204"
+                            "dataUid": "uid-211"
                           }
                         ],
                         "properties": {
                           "class": "section-btn",
                           "id": "place-chair4"
                         },
-                        "dataUid": "uid-202"
+                        "dataUid": "uid-209"
                       },
                       {
                         "sourceTag": "button",
@@ -2109,7 +2277,7 @@
                               "class": "section-btn-icon",
                               "src": "./ui/thumbnails/chair.png"
                             },
-                            "dataUid": "uid-206"
+                            "dataUid": "uid-213"
                           },
                           {
                             "sourceTag": "span",
@@ -2120,14 +2288,14 @@
                             "properties": {
                               "class": "section-btn-text"
                             },
-                            "dataUid": "uid-207"
+                            "dataUid": "uid-214"
                           }
                         ],
                         "properties": {
                           "class": "section-btn",
                           "id": "place-chair5"
                         },
-                        "dataUid": "uid-205"
+                        "dataUid": "uid-212"
                       },
                       {
                         "sourceTag": "button",
@@ -2140,7 +2308,7 @@
                               "class": "section-btn-icon",
                               "src": "./ui/thumbnails/chair.png"
                             },
-                            "dataUid": "uid-209"
+                            "dataUid": "uid-216"
                           },
                           {
                             "sourceTag": "span",
@@ -2151,33 +2319,33 @@
                             "properties": {
                               "class": "section-btn-text"
                             },
-                            "dataUid": "uid-210"
+                            "dataUid": "uid-217"
                           }
                         ],
                         "properties": {
                           "class": "section-btn",
                           "id": "place-chair6"
                         },
-                        "dataUid": "uid-208"
+                        "dataUid": "uid-215"
                       }
                     ],
                     "properties": {
                       "class": "section-grid"
                     },
-                    "dataUid": "uid-180"
+                    "dataUid": "uid-187"
                   }
                 ],
                 "properties": {
                   "class": "section-card"
                 },
-                "dataUid": "uid-177"
+                "dataUid": "uid-184"
               }
             ],
             "properties": {
               "class": "dashboard-section",
               "id": "placement-section"
             },
-            "dataUid": "uid-176"
+            "dataUid": "uid-183"
           },
           {
             "type": "container",
@@ -2196,7 +2364,7 @@
                     "properties": {
                       "class": "section-title"
                     },
-                    "dataUid": "uid-213"
+                    "dataUid": "uid-220"
                   },
                   {
                     "sourceTag": "span",
@@ -2207,7 +2375,7 @@
                     "properties": {
                       "class": "section-sub"
                     },
-                    "dataUid": "uid-214"
+                    "dataUid": "uid-221"
                   },
                   {
                     "type": "container",
@@ -2230,20 +2398,20 @@
                                 "properties": {
                                   "class": "section-btn-text"
                                 },
-                                "dataUid": "uid-218"
+                                "dataUid": "uid-225"
                               }
                             ],
                             "properties": {
                               "class": "section-btn-icon"
                             },
-                            "dataUid": "uid-217"
+                            "dataUid": "uid-224"
                           }
                         ],
                         "properties": {
                           "class": "section-btn",
                           "id": "place-wallpaper-upload"
                         },
-                        "dataUid": "uid-216"
+                        "dataUid": "uid-223"
                       },
                       {
                         "sourceTag": "button",
@@ -2259,7 +2427,7 @@
                                 "backgroundColor": "#f8f8f8"
                               }
                             },
-                            "dataUid": "uid-220"
+                            "dataUid": "uid-227"
                           },
                           {
                             "sourceTag": "span",
@@ -2270,14 +2438,14 @@
                             "properties": {
                               "class": "section-btn-text"
                             },
-                            "dataUid": "uid-221"
+                            "dataUid": "uid-228"
                           }
                         ],
                         "properties": {
                           "class": "section-btn",
                           "id": "place-wallpaper-white"
                         },
-                        "dataUid": "uid-219"
+                        "dataUid": "uid-226"
                       },
                       {
                         "sourceTag": "button",
@@ -2293,7 +2461,7 @@
                                 "backgroundColor": "#fdf6e3"
                               }
                             },
-                            "dataUid": "uid-223"
+                            "dataUid": "uid-230"
                           },
                           {
                             "sourceTag": "span",
@@ -2304,14 +2472,14 @@
                             "properties": {
                               "class": "section-btn-text"
                             },
-                            "dataUid": "uid-224"
+                            "dataUid": "uid-231"
                           }
                         ],
                         "properties": {
                           "class": "section-btn",
                           "id": "place-wallpaper-cream"
                         },
-                        "dataUid": "uid-222"
+                        "dataUid": "uid-229"
                       },
                       {
                         "sourceTag": "button",
@@ -2327,7 +2495,7 @@
                                 "backgroundColor": "#bfdbfe"
                               }
                             },
-                            "dataUid": "uid-226"
+                            "dataUid": "uid-233"
                           },
                           {
                             "sourceTag": "span",
@@ -2338,14 +2506,14 @@
                             "properties": {
                               "class": "section-btn-text"
                             },
-                            "dataUid": "uid-227"
+                            "dataUid": "uid-234"
                           }
                         ],
                         "properties": {
                           "class": "section-btn",
                           "id": "place-wallpaper-sky"
                         },
-                        "dataUid": "uid-225"
+                        "dataUid": "uid-232"
                       },
                       {
                         "sourceTag": "button",
@@ -2361,7 +2529,7 @@
                                 "backgroundColor": "#bbf7d0"
                               }
                             },
-                            "dataUid": "uid-229"
+                            "dataUid": "uid-236"
                           },
                           {
                             "sourceTag": "span",
@@ -2372,14 +2540,14 @@
                             "properties": {
                               "class": "section-btn-text"
                             },
-                            "dataUid": "uid-230"
+                            "dataUid": "uid-237"
                           }
                         ],
                         "properties": {
                           "class": "section-btn",
                           "id": "place-wallpaper-sage"
                         },
-                        "dataUid": "uid-228"
+                        "dataUid": "uid-235"
                       },
                       {
                         "sourceTag": "button",
@@ -2395,7 +2563,7 @@
                                 "backgroundColor": "#fecdd3"
                               }
                             },
-                            "dataUid": "uid-232"
+                            "dataUid": "uid-239"
                           },
                           {
                             "sourceTag": "span",
@@ -2406,14 +2574,14 @@
                             "properties": {
                               "class": "section-btn-text"
                             },
-                            "dataUid": "uid-233"
+                            "dataUid": "uid-240"
                           }
                         ],
                         "properties": {
                           "class": "section-btn",
                           "id": "place-wallpaper-blush"
                         },
-                        "dataUid": "uid-231"
+                        "dataUid": "uid-238"
                       },
                       {
                         "sourceTag": "button",
@@ -2429,7 +2597,7 @@
                                 "backgroundColor": "#ddd6fe"
                               }
                             },
-                            "dataUid": "uid-235"
+                            "dataUid": "uid-242"
                           },
                           {
                             "sourceTag": "span",
@@ -2440,14 +2608,14 @@
                             "properties": {
                               "class": "section-btn-text"
                             },
-                            "dataUid": "uid-236"
+                            "dataUid": "uid-243"
                           }
                         ],
                         "properties": {
                           "class": "section-btn",
                           "id": "place-wallpaper-lavender"
                         },
-                        "dataUid": "uid-234"
+                        "dataUid": "uid-241"
                       },
                       {
                         "sourceTag": "button",
@@ -2466,39 +2634,39 @@
                                 "properties": {
                                   "class": "section-btn-text"
                                 },
-                                "dataUid": "uid-239"
+                                "dataUid": "uid-246"
                               }
                             ],
                             "properties": {
                               "class": "section-btn-icon"
                             },
-                            "dataUid": "uid-238"
+                            "dataUid": "uid-245"
                           }
                         ],
                         "properties": {
                           "class": "section-btn",
                           "id": "remove-wallpaper"
                         },
-                        "dataUid": "uid-237"
+                        "dataUid": "uid-244"
                       }
                     ],
                     "properties": {
                       "class": "section-grid"
                     },
-                    "dataUid": "uid-215"
+                    "dataUid": "uid-222"
                   }
                 ],
                 "properties": {
                   "class": "section-card"
                 },
-                "dataUid": "uid-212"
+                "dataUid": "uid-219"
               }
             ],
             "properties": {
               "class": "dashboard-section",
               "id": "wallpaper-section"
             },
-            "dataUid": "uid-211"
+            "dataUid": "uid-218"
           },
           {
             "type": "container",
@@ -2517,7 +2685,7 @@
                     "properties": {
                       "class": "section-title"
                     },
-                    "dataUid": "uid-242"
+                    "dataUid": "uid-249"
                   },
                   {
                     "sourceTag": "span",
@@ -2529,7 +2697,7 @@
                       "class": "section-sub",
                       "id": "alignment-status"
                     },
-                    "dataUid": "uid-243"
+                    "dataUid": "uid-250"
                   },
                   {
                     "type": "container",
@@ -2548,14 +2716,14 @@
                             "properties": {
                               "class": "section-btn-text"
                             },
-                            "dataUid": "uid-246"
+                            "dataUid": "uid-253"
                           }
                         ],
                         "properties": {
                           "class": "section-btn",
                           "id": "btn-move-fwd"
                         },
-                        "dataUid": "uid-245"
+                        "dataUid": "uid-252"
                       },
                       {
                         "sourceTag": "button",
@@ -2570,14 +2738,14 @@
                             "properties": {
                               "class": "section-btn-text"
                             },
-                            "dataUid": "uid-248"
+                            "dataUid": "uid-255"
                           }
                         ],
                         "properties": {
                           "class": "section-btn",
                           "id": "btn-move-back"
                         },
-                        "dataUid": "uid-247"
+                        "dataUid": "uid-254"
                       },
                       {
                         "sourceTag": "button",
@@ -2592,14 +2760,14 @@
                             "properties": {
                               "class": "section-btn-text"
                             },
-                            "dataUid": "uid-250"
+                            "dataUid": "uid-257"
                           }
                         ],
                         "properties": {
                           "class": "section-btn",
                           "id": "btn-move-left"
                         },
-                        "dataUid": "uid-249"
+                        "dataUid": "uid-256"
                       },
                       {
                         "sourceTag": "button",
@@ -2614,14 +2782,14 @@
                             "properties": {
                               "class": "section-btn-text"
                             },
-                            "dataUid": "uid-252"
+                            "dataUid": "uid-259"
                           }
                         ],
                         "properties": {
                           "class": "section-btn",
                           "id": "btn-move-right"
                         },
-                        "dataUid": "uid-251"
+                        "dataUid": "uid-258"
                       },
                       {
                         "sourceTag": "button",
@@ -2636,14 +2804,14 @@
                             "properties": {
                               "class": "section-btn-text"
                             },
-                            "dataUid": "uid-254"
+                            "dataUid": "uid-261"
                           }
                         ],
                         "properties": {
                           "class": "section-btn",
                           "id": "btn-move-up"
                         },
-                        "dataUid": "uid-253"
+                        "dataUid": "uid-260"
                       },
                       {
                         "sourceTag": "button",
@@ -2658,14 +2826,14 @@
                             "properties": {
                               "class": "section-btn-text"
                             },
-                            "dataUid": "uid-256"
+                            "dataUid": "uid-263"
                           }
                         ],
                         "properties": {
                           "class": "section-btn",
                           "id": "btn-move-down"
                         },
-                        "dataUid": "uid-255"
+                        "dataUid": "uid-262"
                       },
                       {
                         "sourceTag": "button",
@@ -2680,14 +2848,14 @@
                             "properties": {
                               "class": "section-btn-text"
                             },
-                            "dataUid": "uid-258"
+                            "dataUid": "uid-265"
                           }
                         ],
                         "properties": {
                           "class": "section-btn",
                           "id": "btn-rot-left"
                         },
-                        "dataUid": "uid-257"
+                        "dataUid": "uid-264"
                       },
                       {
                         "sourceTag": "button",
@@ -2702,33 +2870,33 @@
                             "properties": {
                               "class": "section-btn-text"
                             },
-                            "dataUid": "uid-260"
+                            "dataUid": "uid-267"
                           }
                         ],
                         "properties": {
                           "class": "section-btn",
                           "id": "btn-rot-right"
                         },
-                        "dataUid": "uid-259"
+                        "dataUid": "uid-266"
                       }
                     ],
                     "properties": {
                       "class": "section-grid"
                     },
-                    "dataUid": "uid-244"
+                    "dataUid": "uid-251"
                   }
                 ],
                 "properties": {
                   "class": "section-card"
                 },
-                "dataUid": "uid-241"
+                "dataUid": "uid-248"
               }
             ],
             "properties": {
               "class": "dashboard-section",
               "id": "alignment-section"
             },
-            "dataUid": "uid-240"
+            "dataUid": "uid-247"
           },
           {
             "type": "container",
@@ -2747,7 +2915,7 @@
                     "properties": {
                       "class": "voice-section-title"
                     },
-                    "dataUid": "uid-263"
+                    "dataUid": "uid-270"
                   },
                   {
                     "type": "container",
@@ -2768,7 +2936,7 @@
                                 "properties": {
                                   "class": "voice-orb-icon"
                                 },
-                                "dataUid": "uid-267"
+                                "dataUid": "uid-274"
                               }
                             ],
                             "properties": {
@@ -2776,13 +2944,13 @@
                               "id": "voice-command-btn",
                               "title": "Tap to speak"
                             },
-                            "dataUid": "uid-266"
+                            "dataUid": "uid-273"
                           }
                         ],
                         "properties": {
                           "class": "voice-orb-ring"
                         },
-                        "dataUid": "uid-265"
+                        "dataUid": "uid-272"
                       },
                       {
                         "sourceTag": "span",
@@ -2793,13 +2961,13 @@
                         "properties": {
                           "class": "voice-tip-text"
                         },
-                        "dataUid": "uid-268"
+                        "dataUid": "uid-275"
                       }
                     ],
                     "properties": {
                       "class": "voice-orb-wrap"
                     },
-                    "dataUid": "uid-264"
+                    "dataUid": "uid-271"
                   },
                   {
                     "type": "container",
@@ -2813,7 +2981,7 @@
                           "class": "voice-status-dot",
                           "id": "voice-status-dot"
                         },
-                        "dataUid": "uid-270"
+                        "dataUid": "uid-277"
                       },
                       {
                         "sourceTag": "span",
@@ -2825,26 +2993,26 @@
                           "class": "voice-status-label",
                           "id": "voice-status-inline"
                         },
-                        "dataUid": "uid-271"
+                        "dataUid": "uid-278"
                       }
                     ],
                     "properties": {
                       "class": "voice-status-badge"
                     },
-                    "dataUid": "uid-269"
+                    "dataUid": "uid-276"
                   }
                 ],
                 "properties": {
                   "class": "voice-section-inner"
                 },
-                "dataUid": "uid-262"
+                "dataUid": "uid-269"
               }
             ],
             "properties": {
               "class": "dashboard-section",
               "id": "voice-section"
             },
-            "dataUid": "uid-261"
+            "dataUid": "uid-268"
           }
         ],
         "properties": {
@@ -2874,14 +3042,14 @@
                       "class": "room-tab-text room-tab-text-active",
                       "id": "current-room-text"
                     },
-                    "dataUid": "uid-275"
+                    "dataUid": "uid-282"
                   }
                 ],
                 "properties": {
                   "class": "room-tab room-tab-active",
                   "id": "room-tab-0"
                 },
-                "dataUid": "uid-274"
+                "dataUid": "uid-281"
               },
               {
                 "sourceTag": "span",
@@ -2893,20 +3061,20 @@
                   "class": "room-guide-text",
                   "id": "room-guide-text"
                 },
-                "dataUid": "uid-276"
+                "dataUid": "uid-283"
               }
             ],
             "properties": {
               "class": "room-tabs-inner"
             },
-            "dataUid": "uid-273"
+            "dataUid": "uid-280"
           }
         ],
         "properties": {
           "class": "room-tabs-bar",
           "id": "room-tabs"
         },
-        "dataUid": "uid-272"
+        "dataUid": "uid-279"
       }
     ],
     "properties": {
@@ -4510,7 +4678,7 @@
         "column": 0
       },
       "end": {
-        "line": 1086,
+        "line": 1100,
         "column": 6
       }
     },
@@ -4600,7 +4768,7 @@
         "column": 2
       },
       "end": {
-        "line": 1074,
+        "line": 1088,
         "column": 8
       }
     },
@@ -4740,7 +4908,7 @@
         "column": 4
       },
       "end": {
-        "line": 973,
+        "line": 987,
         "column": 10
       }
     },
@@ -4750,7 +4918,7 @@
         "column": 6
       },
       "end": {
-        "line": 797,
+        "line": 799,
         "column": 12
       }
     },
@@ -4760,7 +4928,7 @@
         "column": 8
       },
       "end": {
-        "line": 784,
+        "line": 786,
         "column": 14
       }
     },
@@ -4840,8 +5008,8 @@
         "column": 10
       },
       "end": {
-        "line": 783,
-        "column": 19
+        "line": 785,
+        "column": 16
       }
     },
     "uid-35": {
@@ -4850,1068 +5018,1068 @@
         "column": 12
       },
       "end": {
-        "line": 783,
-        "column": 10
+        "line": 784,
+        "column": 19
       }
     },
     "uid-36": {
       "start": {
-        "line": 785,
-        "column": 8
+        "line": 783,
+        "column": 12
       },
       "end": {
-        "line": 795,
-        "column": 14
+        "line": 784,
+        "column": 10
       }
     },
     "uid-37": {
       "start": {
-        "line": 786,
-        "column": 10
+        "line": 787,
+        "column": 8
       },
       "end": {
-        "line": 786,
-        "column": 66
+        "line": 797,
+        "column": 14
       }
     },
     "uid-38": {
       "start": {
-        "line": 787,
+        "line": 788,
         "column": 10
       },
       "end": {
-        "line": 794,
-        "column": 16
+        "line": 788,
+        "column": 66
       }
     },
     "uid-39": {
       "start": {
-        "line": 788,
-        "column": 12
+        "line": 789,
+        "column": 10
       },
       "end": {
-        "line": 790,
-        "column": 21
+        "line": 796,
+        "column": 16
       }
     },
     "uid-40": {
       "start": {
-        "line": 789,
-        "column": 14
-      },
-      "end": {
         "line": 790,
         "column": 12
+      },
+      "end": {
+        "line": 792,
+        "column": 21
       }
     },
     "uid-41": {
       "start": {
         "line": 791,
-        "column": 12
+        "column": 14
       },
       "end": {
-        "line": 793,
-        "column": 21
+        "line": 792,
+        "column": 12
       }
     },
     "uid-42": {
       "start": {
-        "line": 792,
-        "column": 14
-      },
-      "end": {
         "line": 793,
         "column": 12
+      },
+      "end": {
+        "line": 795,
+        "column": 21
       }
     },
     "uid-43": {
       "start": {
-        "line": 796,
-        "column": 8
+        "line": 794,
+        "column": 14
       },
       "end": {
-        "line": 796,
-        "column": 63
+        "line": 795,
+        "column": 12
       }
     },
     "uid-44": {
       "start": {
-        "line": 800,
+        "line": 798,
+        "column": 8
+      },
+      "end": {
+        "line": 798,
+        "column": 63
+      }
+    },
+    "uid-45": {
+      "start": {
+        "line": 802,
         "column": 6
+      },
+      "end": {
+        "line": 830,
+        "column": 12
+      }
+    },
+    "uid-46": {
+      "start": {
+        "line": 803,
+        "column": 8
+      },
+      "end": {
+        "line": 817,
+        "column": 14
+      }
+    },
+    "uid-47": {
+      "start": {
+        "line": 804,
+        "column": 10
+      },
+      "end": {
+        "line": 810,
+        "column": 16
+      }
+    },
+    "uid-48": {
+      "start": {
+        "line": 805,
+        "column": 12
+      },
+      "end": {
+        "line": 805,
+        "column": 120
+      }
+    },
+    "uid-49": {
+      "start": {
+        "line": 806,
+        "column": 12
+      },
+      "end": {
+        "line": 806,
+        "column": 117
+      }
+    },
+    "uid-50": {
+      "start": {
+        "line": 807,
+        "column": 12
+      },
+      "end": {
+        "line": 807,
+        "column": 117
+      }
+    },
+    "uid-51": {
+      "start": {
+        "line": 808,
+        "column": 12
+      },
+      "end": {
+        "line": 808,
+        "column": 121
+      }
+    },
+    "uid-52": {
+      "start": {
+        "line": 809,
+        "column": 12
+      },
+      "end": {
+        "line": 809,
+        "column": 115
+      }
+    },
+    "uid-53": {
+      "start": {
+        "line": 811,
+        "column": 10
+      },
+      "end": {
+        "line": 811,
+        "column": 61
+      }
+    },
+    "uid-54": {
+      "start": {
+        "line": 812,
+        "column": 10
+      },
+      "end": {
+        "line": 816,
+        "column": 16
+      }
+    },
+    "uid-55": {
+      "start": {
+        "line": 813,
+        "column": 12
+      },
+      "end": {
+        "line": 815,
+        "column": 19
+      }
+    },
+    "uid-56": {
+      "start": {
+        "line": 814,
+        "column": 12
+      },
+      "end": {
+        "line": 815,
+        "column": 10
+      }
+    },
+    "uid-57": {
+      "start": {
+        "line": 818,
+        "column": 8
+      },
+      "end": {
+        "line": 828,
+        "column": 14
+      }
+    },
+    "uid-58": {
+      "start": {
+        "line": 819,
+        "column": 10
+      },
+      "end": {
+        "line": 819,
+        "column": 67
+      }
+    },
+    "uid-59": {
+      "start": {
+        "line": 820,
+        "column": 10
+      },
+      "end": {
+        "line": 827,
+        "column": 16
+      }
+    },
+    "uid-60": {
+      "start": {
+        "line": 821,
+        "column": 12
+      },
+      "end": {
+        "line": 823,
+        "column": 21
+      }
+    },
+    "uid-61": {
+      "start": {
+        "line": 822,
+        "column": 14
+      },
+      "end": {
+        "line": 823,
+        "column": 12
+      }
+    },
+    "uid-62": {
+      "start": {
+        "line": 824,
+        "column": 12
+      },
+      "end": {
+        "line": 826,
+        "column": 21
+      }
+    },
+    "uid-63": {
+      "start": {
+        "line": 825,
+        "column": 14
       },
       "end": {
         "line": 826,
         "column": 12
       }
     },
-    "uid-45": {
-      "start": {
-        "line": 801,
-        "column": 8
-      },
-      "end": {
-        "line": 813,
-        "column": 14
-      }
-    },
-    "uid-46": {
-      "start": {
-        "line": 802,
-        "column": 10
-      },
-      "end": {
-        "line": 808,
-        "column": 16
-      }
-    },
-    "uid-47": {
-      "start": {
-        "line": 803,
-        "column": 12
-      },
-      "end": {
-        "line": 803,
-        "column": 120
-      }
-    },
-    "uid-48": {
-      "start": {
-        "line": 804,
-        "column": 12
-      },
-      "end": {
-        "line": 804,
-        "column": 117
-      }
-    },
-    "uid-49": {
-      "start": {
-        "line": 805,
-        "column": 12
-      },
-      "end": {
-        "line": 805,
-        "column": 117
-      }
-    },
-    "uid-50": {
-      "start": {
-        "line": 806,
-        "column": 12
-      },
-      "end": {
-        "line": 806,
-        "column": 121
-      }
-    },
-    "uid-51": {
-      "start": {
-        "line": 807,
-        "column": 12
-      },
-      "end": {
-        "line": 807,
-        "column": 115
-      }
-    },
-    "uid-52": {
-      "start": {
-        "line": 809,
-        "column": 10
-      },
-      "end": {
-        "line": 809,
-        "column": 61
-      }
-    },
-    "uid-53": {
-      "start": {
-        "line": 810,
-        "column": 10
-      },
-      "end": {
-        "line": 812,
-        "column": 19
-      }
-    },
-    "uid-54": {
-      "start": {
-        "line": 811,
-        "column": 12
-      },
-      "end": {
-        "line": 812,
-        "column": 10
-      }
-    },
-    "uid-55": {
-      "start": {
-        "line": 814,
-        "column": 8
-      },
-      "end": {
-        "line": 824,
-        "column": 14
-      }
-    },
-    "uid-56": {
-      "start": {
-        "line": 815,
-        "column": 10
-      },
-      "end": {
-        "line": 815,
-        "column": 67
-      }
-    },
-    "uid-57": {
-      "start": {
-        "line": 816,
-        "column": 10
-      },
-      "end": {
-        "line": 823,
-        "column": 16
-      }
-    },
-    "uid-58": {
-      "start": {
-        "line": 817,
-        "column": 12
-      },
-      "end": {
-        "line": 819,
-        "column": 21
-      }
-    },
-    "uid-59": {
-      "start": {
-        "line": 818,
-        "column": 14
-      },
-      "end": {
-        "line": 819,
-        "column": 12
-      }
-    },
-    "uid-60": {
-      "start": {
-        "line": 820,
-        "column": 12
-      },
-      "end": {
-        "line": 822,
-        "column": 21
-      }
-    },
-    "uid-61": {
-      "start": {
-        "line": 821,
-        "column": 14
-      },
-      "end": {
-        "line": 822,
-        "column": 12
-      }
-    },
-    "uid-62": {
-      "start": {
-        "line": 825,
-        "column": 8
-      },
-      "end": {
-        "line": 825,
-        "column": 63
-      }
-    },
-    "uid-63": {
-      "start": {
-        "line": 829,
-        "column": 6
-      },
-      "end": {
-        "line": 855,
-        "column": 12
-      }
-    },
     "uid-64": {
       "start": {
-        "line": 830,
+        "line": 829,
         "column": 8
       },
       "end": {
-        "line": 842,
-        "column": 14
+        "line": 829,
+        "column": 63
       }
     },
     "uid-65": {
       "start": {
-        "line": 831,
-        "column": 10
+        "line": 833,
+        "column": 6
       },
       "end": {
-        "line": 837,
-        "column": 16
+        "line": 861,
+        "column": 12
       }
     },
     "uid-66": {
       "start": {
-        "line": 832,
-        "column": 12
+        "line": 834,
+        "column": 8
       },
       "end": {
-        "line": 832,
-        "column": 120
+        "line": 848,
+        "column": 14
       }
     },
     "uid-67": {
       "start": {
-        "line": 833,
-        "column": 12
-      },
-      "end": {
-        "line": 833,
-        "column": 117
-      }
-    },
-    "uid-68": {
-      "start": {
-        "line": 834,
-        "column": 12
-      },
-      "end": {
-        "line": 834,
-        "column": 117
-      }
-    },
-    "uid-69": {
-      "start": {
         "line": 835,
-        "column": 12
-      },
-      "end": {
-        "line": 835,
-        "column": 121
-      }
-    },
-    "uid-70": {
-      "start": {
-        "line": 836,
-        "column": 12
-      },
-      "end": {
-        "line": 836,
-        "column": 115
-      }
-    },
-    "uid-71": {
-      "start": {
-        "line": 838,
-        "column": 10
-      },
-      "end": {
-        "line": 838,
-        "column": 73
-      }
-    },
-    "uid-72": {
-      "start": {
-        "line": 839,
         "column": 10
       },
       "end": {
         "line": 841,
-        "column": 19
+        "column": 16
       }
     },
-    "uid-73": {
+    "uid-68": {
+      "start": {
+        "line": 836,
+        "column": 12
+      },
+      "end": {
+        "line": 836,
+        "column": 120
+      }
+    },
+    "uid-69": {
+      "start": {
+        "line": 837,
+        "column": 12
+      },
+      "end": {
+        "line": 837,
+        "column": 117
+      }
+    },
+    "uid-70": {
+      "start": {
+        "line": 838,
+        "column": 12
+      },
+      "end": {
+        "line": 838,
+        "column": 117
+      }
+    },
+    "uid-71": {
+      "start": {
+        "line": 839,
+        "column": 12
+      },
+      "end": {
+        "line": 839,
+        "column": 121
+      }
+    },
+    "uid-72": {
       "start": {
         "line": 840,
         "column": 12
       },
       "end": {
-        "line": 841,
+        "line": 840,
+        "column": 115
+      }
+    },
+    "uid-73": {
+      "start": {
+        "line": 842,
         "column": 10
+      },
+      "end": {
+        "line": 842,
+        "column": 73
       }
     },
     "uid-74": {
       "start": {
         "line": 843,
-        "column": 8
+        "column": 10
       },
       "end": {
-        "line": 853,
-        "column": 14
+        "line": 847,
+        "column": 16
       }
     },
     "uid-75": {
       "start": {
         "line": 844,
-        "column": 10
+        "column": 12
       },
       "end": {
-        "line": 844,
-        "column": 64
+        "line": 846,
+        "column": 19
       }
     },
     "uid-76": {
       "start": {
         "line": 845,
-        "column": 10
+        "column": 12
       },
       "end": {
-        "line": 852,
-        "column": 16
+        "line": 846,
+        "column": 10
       }
     },
     "uid-77": {
       "start": {
-        "line": 846,
-        "column": 12
+        "line": 849,
+        "column": 8
       },
       "end": {
-        "line": 848,
-        "column": 21
+        "line": 859,
+        "column": 14
       }
     },
     "uid-78": {
       "start": {
-        "line": 847,
-        "column": 14
+        "line": 850,
+        "column": 10
       },
       "end": {
-        "line": 848,
-        "column": 12
+        "line": 850,
+        "column": 64
       }
     },
     "uid-79": {
       "start": {
-        "line": 849,
-        "column": 12
+        "line": 851,
+        "column": 10
       },
       "end": {
-        "line": 851,
-        "column": 21
+        "line": 858,
+        "column": 16
       }
     },
     "uid-80": {
       "start": {
-        "line": 850,
-        "column": 14
+        "line": 852,
+        "column": 12
       },
       "end": {
-        "line": 851,
-        "column": 12
+        "line": 854,
+        "column": 21
       }
     },
     "uid-81": {
       "start": {
-        "line": 854,
-        "column": 8
+        "line": 853,
+        "column": 14
       },
       "end": {
         "line": 854,
-        "column": 63
+        "column": 12
       }
     },
     "uid-82": {
       "start": {
-        "line": 858,
-        "column": 6
+        "line": 855,
+        "column": 12
       },
       "end": {
-        "line": 884,
-        "column": 12
+        "line": 857,
+        "column": 21
       }
     },
     "uid-83": {
       "start": {
-        "line": 859,
-        "column": 8
+        "line": 856,
+        "column": 14
       },
       "end": {
-        "line": 871,
-        "column": 14
+        "line": 857,
+        "column": 12
       }
     },
     "uid-84": {
       "start": {
         "line": 860,
-        "column": 10
+        "column": 8
       },
       "end": {
-        "line": 866,
-        "column": 16
+        "line": 860,
+        "column": 63
       }
     },
     "uid-85": {
       "start": {
-        "line": 861,
-        "column": 12
+        "line": 864,
+        "column": 6
       },
       "end": {
-        "line": 861,
-        "column": 120
+        "line": 892,
+        "column": 12
       }
     },
     "uid-86": {
       "start": {
-        "line": 862,
-        "column": 12
+        "line": 865,
+        "column": 8
       },
       "end": {
-        "line": 862,
-        "column": 117
+        "line": 879,
+        "column": 14
       }
     },
     "uid-87": {
       "start": {
-        "line": 863,
-        "column": 12
+        "line": 866,
+        "column": 10
       },
       "end": {
-        "line": 863,
-        "column": 117
+        "line": 872,
+        "column": 16
       }
     },
     "uid-88": {
       "start": {
-        "line": 864,
+        "line": 867,
         "column": 12
       },
       "end": {
-        "line": 864,
-        "column": 121
+        "line": 867,
+        "column": 120
       }
     },
     "uid-89": {
       "start": {
-        "line": 865,
+        "line": 868,
         "column": 12
       },
       "end": {
-        "line": 865,
-        "column": 115
+        "line": 868,
+        "column": 117
       }
     },
     "uid-90": {
-      "start": {
-        "line": 867,
-        "column": 10
-      },
-      "end": {
-        "line": 867,
-        "column": 69
-      }
-    },
-    "uid-91": {
-      "start": {
-        "line": 868,
-        "column": 10
-      },
-      "end": {
-        "line": 870,
-        "column": 19
-      }
-    },
-    "uid-92": {
       "start": {
         "line": 869,
         "column": 12
       },
       "end": {
+        "line": 869,
+        "column": 117
+      }
+    },
+    "uid-91": {
+      "start": {
         "line": 870,
-        "column": 10
+        "column": 12
+      },
+      "end": {
+        "line": 870,
+        "column": 121
+      }
+    },
+    "uid-92": {
+      "start": {
+        "line": 871,
+        "column": 12
+      },
+      "end": {
+        "line": 871,
+        "column": 115
       }
     },
     "uid-93": {
       "start": {
-        "line": 872,
-        "column": 8
-      },
-      "end": {
-        "line": 882,
-        "column": 14
-      }
-    },
-    "uid-94": {
-      "start": {
         "line": 873,
         "column": 10
       },
       "end": {
         "line": 873,
-        "column": 62
+        "column": 69
       }
     },
-    "uid-95": {
+    "uid-94": {
       "start": {
         "line": 874,
         "column": 10
       },
       "end": {
-        "line": 881,
+        "line": 878,
         "column": 16
       }
     },
-    "uid-96": {
+    "uid-95": {
       "start": {
         "line": 875,
         "column": 12
       },
       "end": {
         "line": 877,
-        "column": 21
+        "column": 19
+      }
+    },
+    "uid-96": {
+      "start": {
+        "line": 876,
+        "column": 12
+      },
+      "end": {
+        "line": 877,
+        "column": 10
       }
     },
     "uid-97": {
       "start": {
-        "line": 876,
-        "column": 14
+        "line": 880,
+        "column": 8
       },
       "end": {
-        "line": 877,
-        "column": 12
+        "line": 890,
+        "column": 14
       }
     },
     "uid-98": {
       "start": {
-        "line": 878,
-        "column": 12
+        "line": 881,
+        "column": 10
       },
       "end": {
-        "line": 880,
-        "column": 21
+        "line": 881,
+        "column": 62
       }
     },
     "uid-99": {
       "start": {
-        "line": 879,
-        "column": 14
+        "line": 882,
+        "column": 10
       },
       "end": {
-        "line": 880,
-        "column": 12
+        "line": 889,
+        "column": 16
       }
     },
     "uid-100": {
       "start": {
         "line": 883,
-        "column": 8
+        "column": 12
       },
       "end": {
-        "line": 883,
-        "column": 63
+        "line": 885,
+        "column": 21
       }
     },
     "uid-101": {
       "start": {
-        "line": 887,
-        "column": 6
+        "line": 884,
+        "column": 14
       },
       "end": {
-        "line": 913,
+        "line": 885,
         "column": 12
       }
     },
     "uid-102": {
       "start": {
-        "line": 888,
-        "column": 8
+        "line": 886,
+        "column": 12
       },
       "end": {
-        "line": 900,
-        "column": 14
+        "line": 888,
+        "column": 21
       }
     },
     "uid-103": {
       "start": {
-        "line": 889,
-        "column": 10
+        "line": 887,
+        "column": 14
       },
       "end": {
-        "line": 895,
-        "column": 16
+        "line": 888,
+        "column": 12
       }
     },
     "uid-104": {
       "start": {
-        "line": 890,
-        "column": 12
+        "line": 891,
+        "column": 8
       },
       "end": {
-        "line": 890,
-        "column": 120
+        "line": 891,
+        "column": 63
       }
     },
     "uid-105": {
       "start": {
-        "line": 891,
-        "column": 12
+        "line": 895,
+        "column": 6
       },
       "end": {
-        "line": 891,
-        "column": 117
+        "line": 923,
+        "column": 12
       }
     },
     "uid-106": {
       "start": {
-        "line": 892,
-        "column": 12
+        "line": 896,
+        "column": 8
       },
       "end": {
-        "line": 892,
-        "column": 117
+        "line": 910,
+        "column": 14
       }
     },
     "uid-107": {
-      "start": {
-        "line": 893,
-        "column": 12
-      },
-      "end": {
-        "line": 893,
-        "column": 121
-      }
-    },
-    "uid-108": {
-      "start": {
-        "line": 894,
-        "column": 12
-      },
-      "end": {
-        "line": 894,
-        "column": 115
-      }
-    },
-    "uid-109": {
-      "start": {
-        "line": 896,
-        "column": 10
-      },
-      "end": {
-        "line": 896,
-        "column": 64
-      }
-    },
-    "uid-110": {
       "start": {
         "line": 897,
         "column": 10
       },
       "end": {
-        "line": 899,
-        "column": 19
+        "line": 903,
+        "column": 16
       }
     },
-    "uid-111": {
+    "uid-108": {
       "start": {
         "line": 898,
         "column": 12
       },
       "end": {
+        "line": 898,
+        "column": 120
+      }
+    },
+    "uid-109": {
+      "start": {
         "line": 899,
-        "column": 10
+        "column": 12
+      },
+      "end": {
+        "line": 899,
+        "column": 117
+      }
+    },
+    "uid-110": {
+      "start": {
+        "line": 900,
+        "column": 12
+      },
+      "end": {
+        "line": 900,
+        "column": 117
+      }
+    },
+    "uid-111": {
+      "start": {
+        "line": 901,
+        "column": 12
+      },
+      "end": {
+        "line": 901,
+        "column": 121
       }
     },
     "uid-112": {
       "start": {
-        "line": 901,
-        "column": 8
+        "line": 902,
+        "column": 12
       },
       "end": {
-        "line": 911,
-        "column": 14
+        "line": 902,
+        "column": 115
       }
     },
     "uid-113": {
       "start": {
-        "line": 902,
+        "line": 904,
         "column": 10
       },
       "end": {
-        "line": 902,
-        "column": 62
+        "line": 904,
+        "column": 64
       }
     },
     "uid-114": {
       "start": {
-        "line": 903,
+        "line": 905,
         "column": 10
       },
       "end": {
-        "line": 910,
+        "line": 909,
         "column": 16
       }
     },
     "uid-115": {
       "start": {
-        "line": 904,
+        "line": 906,
         "column": 12
       },
       "end": {
-        "line": 906,
-        "column": 21
+        "line": 908,
+        "column": 19
       }
     },
     "uid-116": {
-      "start": {
-        "line": 905,
-        "column": 14
-      },
-      "end": {
-        "line": 906,
-        "column": 12
-      }
-    },
-    "uid-117": {
       "start": {
         "line": 907,
         "column": 12
       },
       "end": {
-        "line": 909,
-        "column": 21
+        "line": 908,
+        "column": 10
+      }
+    },
+    "uid-117": {
+      "start": {
+        "line": 911,
+        "column": 8
+      },
+      "end": {
+        "line": 921,
+        "column": 14
       }
     },
     "uid-118": {
       "start": {
-        "line": 908,
-        "column": 14
+        "line": 912,
+        "column": 10
       },
       "end": {
-        "line": 909,
-        "column": 12
+        "line": 912,
+        "column": 62
       }
     },
     "uid-119": {
       "start": {
-        "line": 912,
-        "column": 8
+        "line": 913,
+        "column": 10
       },
       "end": {
-        "line": 912,
-        "column": 63
+        "line": 920,
+        "column": 16
       }
     },
     "uid-120": {
       "start": {
-        "line": 916,
-        "column": 6
+        "line": 914,
+        "column": 12
       },
       "end": {
-        "line": 942,
-        "column": 12
+        "line": 916,
+        "column": 21
       }
     },
     "uid-121": {
       "start": {
-        "line": 917,
-        "column": 8
+        "line": 915,
+        "column": 14
       },
       "end": {
-        "line": 929,
-        "column": 14
+        "line": 916,
+        "column": 12
       }
     },
     "uid-122": {
       "start": {
-        "line": 918,
-        "column": 10
+        "line": 917,
+        "column": 12
       },
       "end": {
-        "line": 924,
-        "column": 16
+        "line": 919,
+        "column": 21
       }
     },
     "uid-123": {
       "start": {
-        "line": 919,
-        "column": 12
+        "line": 918,
+        "column": 14
       },
       "end": {
         "line": 919,
-        "column": 120
+        "column": 12
       }
     },
     "uid-124": {
       "start": {
-        "line": 920,
-        "column": 12
+        "line": 922,
+        "column": 8
       },
       "end": {
-        "line": 920,
-        "column": 117
+        "line": 922,
+        "column": 63
       }
     },
     "uid-125": {
       "start": {
-        "line": 921,
-        "column": 12
+        "line": 926,
+        "column": 6
       },
       "end": {
-        "line": 921,
-        "column": 117
+        "line": 954,
+        "column": 12
       }
     },
     "uid-126": {
       "start": {
-        "line": 922,
-        "column": 12
+        "line": 927,
+        "column": 8
       },
       "end": {
-        "line": 922,
-        "column": 121
+        "line": 941,
+        "column": 14
       }
     },
     "uid-127": {
       "start": {
-        "line": 923,
-        "column": 12
+        "line": 928,
+        "column": 10
       },
       "end": {
-        "line": 923,
-        "column": 115
+        "line": 934,
+        "column": 16
       }
     },
     "uid-128": {
       "start": {
-        "line": 925,
-        "column": 10
+        "line": 929,
+        "column": 12
       },
       "end": {
-        "line": 925,
-        "column": 64
+        "line": 929,
+        "column": 120
       }
     },
     "uid-129": {
       "start": {
-        "line": 926,
-        "column": 10
+        "line": 930,
+        "column": 12
       },
       "end": {
-        "line": 928,
-        "column": 19
+        "line": 930,
+        "column": 117
       }
     },
     "uid-130": {
       "start": {
-        "line": 927,
+        "line": 931,
         "column": 12
       },
       "end": {
-        "line": 928,
-        "column": 10
+        "line": 931,
+        "column": 117
       }
     },
     "uid-131": {
       "start": {
-        "line": 930,
-        "column": 8
+        "line": 932,
+        "column": 12
       },
       "end": {
-        "line": 940,
-        "column": 14
+        "line": 932,
+        "column": 121
       }
     },
     "uid-132": {
-      "start": {
-        "line": 931,
-        "column": 10
-      },
-      "end": {
-        "line": 931,
-        "column": 62
-      }
-    },
-    "uid-133": {
-      "start": {
-        "line": 932,
-        "column": 10
-      },
-      "end": {
-        "line": 939,
-        "column": 16
-      }
-    },
-    "uid-134": {
       "start": {
         "line": 933,
         "column": 12
       },
       "end": {
+        "line": 933,
+        "column": 115
+      }
+    },
+    "uid-133": {
+      "start": {
         "line": 935,
-        "column": 21
+        "column": 10
+      },
+      "end": {
+        "line": 935,
+        "column": 64
+      }
+    },
+    "uid-134": {
+      "start": {
+        "line": 936,
+        "column": 10
+      },
+      "end": {
+        "line": 940,
+        "column": 16
       }
     },
     "uid-135": {
       "start": {
-        "line": 934,
-        "column": 14
+        "line": 937,
+        "column": 12
       },
       "end": {
-        "line": 935,
-        "column": 12
+        "line": 939,
+        "column": 19
       }
     },
     "uid-136": {
       "start": {
-        "line": 936,
+        "line": 938,
         "column": 12
       },
       "end": {
-        "line": 938,
-        "column": 21
+        "line": 939,
+        "column": 10
       }
     },
     "uid-137": {
       "start": {
-        "line": 937,
-        "column": 14
+        "line": 942,
+        "column": 8
       },
       "end": {
-        "line": 938,
-        "column": 12
+        "line": 952,
+        "column": 14
       }
     },
     "uid-138": {
       "start": {
-        "line": 941,
-        "column": 8
+        "line": 943,
+        "column": 10
       },
       "end": {
-        "line": 941,
-        "column": 63
+        "line": 943,
+        "column": 62
       }
     },
     "uid-139": {
       "start": {
-        "line": 945,
-        "column": 6
+        "line": 944,
+        "column": 10
       },
       "end": {
-        "line": 971,
-        "column": 12
+        "line": 951,
+        "column": 16
       }
     },
     "uid-140": {
       "start": {
-        "line": 946,
-        "column": 8
+        "line": 945,
+        "column": 12
       },
       "end": {
-        "line": 958,
-        "column": 14
+        "line": 947,
+        "column": 21
       }
     },
     "uid-141": {
       "start": {
-        "line": 947,
-        "column": 10
+        "line": 946,
+        "column": 14
       },
       "end": {
-        "line": 953,
-        "column": 16
+        "line": 947,
+        "column": 12
       }
     },
     "uid-142": {
@@ -5920,1347 +6088,1417 @@
         "column": 12
       },
       "end": {
-        "line": 948,
-        "column": 120
+        "line": 950,
+        "column": 21
       }
     },
     "uid-143": {
       "start": {
         "line": 949,
-        "column": 12
+        "column": 14
       },
       "end": {
-        "line": 949,
-        "column": 117
+        "line": 950,
+        "column": 12
       }
     },
     "uid-144": {
       "start": {
-        "line": 950,
-        "column": 12
+        "line": 953,
+        "column": 8
       },
       "end": {
-        "line": 950,
-        "column": 117
+        "line": 953,
+        "column": 63
       }
     },
     "uid-145": {
       "start": {
-        "line": 951,
-        "column": 12
+        "line": 957,
+        "column": 6
       },
       "end": {
-        "line": 951,
-        "column": 121
+        "line": 985,
+        "column": 12
       }
     },
     "uid-146": {
       "start": {
-        "line": 952,
-        "column": 12
+        "line": 958,
+        "column": 8
       },
       "end": {
-        "line": 952,
-        "column": 115
+        "line": 972,
+        "column": 14
       }
     },
     "uid-147": {
       "start": {
-        "line": 954,
+        "line": 959,
         "column": 10
       },
       "end": {
-        "line": 954,
-        "column": 64
+        "line": 965,
+        "column": 16
       }
     },
     "uid-148": {
       "start": {
-        "line": 955,
-        "column": 10
+        "line": 960,
+        "column": 12
       },
       "end": {
-        "line": 957,
-        "column": 19
+        "line": 960,
+        "column": 120
       }
     },
     "uid-149": {
       "start": {
-        "line": 956,
+        "line": 961,
         "column": 12
       },
       "end": {
-        "line": 957,
-        "column": 10
+        "line": 961,
+        "column": 117
       }
     },
     "uid-150": {
-      "start": {
-        "line": 959,
-        "column": 8
-      },
-      "end": {
-        "line": 969,
-        "column": 14
-      }
-    },
-    "uid-151": {
-      "start": {
-        "line": 960,
-        "column": 10
-      },
-      "end": {
-        "line": 960,
-        "column": 62
-      }
-    },
-    "uid-152": {
-      "start": {
-        "line": 961,
-        "column": 10
-      },
-      "end": {
-        "line": 968,
-        "column": 16
-      }
-    },
-    "uid-153": {
       "start": {
         "line": 962,
         "column": 12
       },
       "end": {
+        "line": 962,
+        "column": 117
+      }
+    },
+    "uid-151": {
+      "start": {
+        "line": 963,
+        "column": 12
+      },
+      "end": {
+        "line": 963,
+        "column": 121
+      }
+    },
+    "uid-152": {
+      "start": {
         "line": 964,
-        "column": 21
+        "column": 12
+      },
+      "end": {
+        "line": 964,
+        "column": 115
+      }
+    },
+    "uid-153": {
+      "start": {
+        "line": 966,
+        "column": 10
+      },
+      "end": {
+        "line": 966,
+        "column": 64
       }
     },
     "uid-154": {
       "start": {
-        "line": 963,
-        "column": 14
+        "line": 967,
+        "column": 10
       },
       "end": {
-        "line": 964,
-        "column": 12
+        "line": 971,
+        "column": 16
       }
     },
     "uid-155": {
       "start": {
-        "line": 965,
+        "line": 968,
         "column": 12
       },
       "end": {
-        "line": 967,
-        "column": 21
+        "line": 970,
+        "column": 19
       }
     },
     "uid-156": {
       "start": {
-        "line": 966,
-        "column": 14
+        "line": 969,
+        "column": 12
       },
       "end": {
-        "line": 967,
-        "column": 12
+        "line": 970,
+        "column": 10
       }
     },
     "uid-157": {
       "start": {
-        "line": 970,
+        "line": 973,
         "column": 8
       },
       "end": {
-        "line": 970,
-        "column": 63
+        "line": 983,
+        "column": 14
       }
     },
     "uid-158": {
       "start": {
-        "line": 975,
-        "column": 4
+        "line": 974,
+        "column": 10
       },
       "end": {
-        "line": 1001,
-        "column": 10
+        "line": 974,
+        "column": 62
       }
     },
     "uid-159": {
       "start": {
-        "line": 976,
-        "column": 6
+        "line": 975,
+        "column": 10
       },
       "end": {
-        "line": 1000,
-        "column": 12
+        "line": 982,
+        "column": 16
       }
     },
     "uid-160": {
       "start": {
-        "line": 977,
-        "column": 8
+        "line": 976,
+        "column": 12
       },
       "end": {
-        "line": 977,
-        "column": 50
+        "line": 978,
+        "column": 21
       }
     },
     "uid-161": {
       "start": {
-        "line": 978,
-        "column": 8
+        "line": 977,
+        "column": 14
       },
       "end": {
         "line": 978,
-        "column": 109
+        "column": 12
       }
     },
     "uid-162": {
       "start": {
         "line": 979,
-        "column": 8
+        "column": 12
       },
       "end": {
-        "line": 986,
-        "column": 14
+        "line": 981,
+        "column": 21
       }
     },
     "uid-163": {
       "start": {
         "line": 980,
-        "column": 10
+        "column": 14
       },
       "end": {
-        "line": 982,
-        "column": 19
+        "line": 981,
+        "column": 12
       }
     },
     "uid-164": {
       "start": {
-        "line": 981,
-        "column": 12
+        "line": 984,
+        "column": 8
       },
       "end": {
-        "line": 981,
-        "column": 52
+        "line": 984,
+        "column": 63
       }
     },
     "uid-165": {
       "start": {
-        "line": 983,
-        "column": 10
+        "line": 989,
+        "column": 4
       },
       "end": {
-        "line": 985,
-        "column": 19
+        "line": 1015,
+        "column": 10
       }
     },
     "uid-166": {
       "start": {
-        "line": 984,
-        "column": 12
+        "line": 990,
+        "column": 6
       },
       "end": {
-        "line": 984,
-        "column": 52
+        "line": 1014,
+        "column": 12
       }
     },
     "uid-167": {
       "start": {
-        "line": 987,
+        "line": 991,
         "column": 8
       },
       "end": {
-        "line": 990,
-        "column": 17
+        "line": 991,
+        "column": 50
       }
     },
     "uid-168": {
-      "start": {
-        "line": 988,
-        "column": 10
-      },
-      "end": {
-        "line": 990,
-        "column": 8
-      }
-    },
-    "uid-169": {
-      "start": {
-        "line": 989,
-        "column": 10
-      },
-      "end": {
-        "line": 989,
-        "column": 85
-      }
-    },
-    "uid-170": {
-      "start": {
-        "line": 991,
-        "column": 8
-      },
-      "end": {
-        "line": 991,
-        "column": 63
-      }
-    },
-    "uid-171": {
       "start": {
         "line": 992,
         "column": 8
       },
       "end": {
-        "line": 999,
+        "line": 992,
+        "column": 109
+      }
+    },
+    "uid-169": {
+      "start": {
+        "line": 993,
+        "column": 8
+      },
+      "end": {
+        "line": 1000,
         "column": 14
+      }
+    },
+    "uid-170": {
+      "start": {
+        "line": 994,
+        "column": 10
+      },
+      "end": {
+        "line": 996,
+        "column": 19
+      }
+    },
+    "uid-171": {
+      "start": {
+        "line": 995,
+        "column": 12
+      },
+      "end": {
+        "line": 995,
+        "column": 52
       }
     },
     "uid-172": {
       "start": {
-        "line": 993,
+        "line": 997,
         "column": 10
       },
       "end": {
-        "line": 995,
+        "line": 999,
         "column": 19
       }
     },
     "uid-173": {
       "start": {
-        "line": 994,
+        "line": 998,
         "column": 12
       },
       "end": {
-        "line": 994,
-        "column": 57
+        "line": 998,
+        "column": 52
       }
     },
     "uid-174": {
       "start": {
-        "line": 996,
-        "column": 10
+        "line": 1001,
+        "column": 8
       },
       "end": {
-        "line": 998,
-        "column": 19
+        "line": 1004,
+        "column": 17
       }
     },
     "uid-175": {
       "start": {
-        "line": 997,
-        "column": 12
+        "line": 1002,
+        "column": 10
       },
       "end": {
-        "line": 997,
-        "column": 53
+        "line": 1004,
+        "column": 8
       }
     },
     "uid-176": {
       "start": {
         "line": 1003,
-        "column": 4
+        "column": 10
       },
       "end": {
-        "line": 1020,
-        "column": 10
+        "line": 1003,
+        "column": 85
       }
     },
     "uid-177": {
       "start": {
-        "line": 1004,
-        "column": 6
+        "line": 1005,
+        "column": 8
       },
       "end": {
-        "line": 1019,
-        "column": 12
+        "line": 1005,
+        "column": 63
       }
     },
     "uid-178": {
       "start": {
-        "line": 1005,
+        "line": 1006,
         "column": 8
       },
       "end": {
-        "line": 1005,
-        "column": 54
+        "line": 1013,
+        "column": 14
       }
     },
     "uid-179": {
       "start": {
-        "line": 1006,
-        "column": 8
+        "line": 1007,
+        "column": 10
       },
       "end": {
-        "line": 1006,
-        "column": 70
+        "line": 1009,
+        "column": 19
       }
     },
     "uid-180": {
       "start": {
-        "line": 1007,
-        "column": 8
+        "line": 1008,
+        "column": 12
       },
       "end": {
-        "line": 1018,
-        "column": 14
+        "line": 1008,
+        "column": 57
       }
     },
     "uid-181": {
       "start": {
-        "line": 1008,
+        "line": 1010,
         "column": 10
       },
       "end": {
-        "line": 1008,
-        "column": 183
+        "line": 1012,
+        "column": 19
       }
     },
     "uid-182": {
       "start": {
-        "line": 1008,
-        "column": 59
+        "line": 1011,
+        "column": 12
       },
       "end": {
-        "line": 1008,
-        "column": 125
+        "line": 1011,
+        "column": 53
       }
     },
     "uid-183": {
       "start": {
-        "line": 1008,
-        "column": 131
+        "line": 1017,
+        "column": 4
       },
       "end": {
-        "line": 1008,
-        "column": 174
+        "line": 1034,
+        "column": 10
       }
     },
     "uid-184": {
       "start": {
-        "line": 1009,
-        "column": 10
+        "line": 1018,
+        "column": 6
       },
       "end": {
-        "line": 1009,
-        "column": 182
+        "line": 1033,
+        "column": 12
       }
     },
     "uid-185": {
       "start": {
-        "line": 1009,
-        "column": 60
+        "line": 1019,
+        "column": 8
       },
       "end": {
-        "line": 1009,
-        "column": 127
+        "line": 1019,
+        "column": 54
       }
     },
     "uid-186": {
       "start": {
-        "line": 1009,
-        "column": 133
+        "line": 1020,
+        "column": 8
       },
       "end": {
-        "line": 1009,
-        "column": 173
+        "line": 1020,
+        "column": 70
       }
     },
     "uid-187": {
       "start": {
-        "line": 1010,
-        "column": 10
+        "line": 1021,
+        "column": 8
       },
       "end": {
-        "line": 1010,
-        "column": 169
+        "line": 1032,
+        "column": 14
       }
     },
     "uid-188": {
       "start": {
-        "line": 1010,
-        "column": 53
+        "line": 1022,
+        "column": 10
       },
       "end": {
-        "line": 1010,
-        "column": 113
+        "line": 1022,
+        "column": 183
       }
     },
     "uid-189": {
       "start": {
-        "line": 1010,
-        "column": 119
+        "line": 1022,
+        "column": 59
       },
       "end": {
-        "line": 1010,
-        "column": 160
+        "line": 1022,
+        "column": 125
       }
     },
     "uid-190": {
       "start": {
-        "line": 1011,
-        "column": 10
+        "line": 1022,
+        "column": 131
       },
       "end": {
-        "line": 1011,
-        "column": 166
+        "line": 1022,
+        "column": 174
       }
     },
     "uid-191": {
       "start": {
-        "line": 1011,
-        "column": 52
+        "line": 1023,
+        "column": 10
       },
       "end": {
-        "line": 1011,
-        "column": 111
+        "line": 1023,
+        "column": 182
       }
     },
     "uid-192": {
       "start": {
-        "line": 1011,
-        "column": 117
+        "line": 1023,
+        "column": 60
       },
       "end": {
-        "line": 1011,
-        "column": 157
+        "line": 1023,
+        "column": 127
       }
     },
     "uid-193": {
       "start": {
-        "line": 1012,
-        "column": 10
+        "line": 1023,
+        "column": 133
       },
       "end": {
-        "line": 1012,
-        "column": 175
+        "line": 1023,
+        "column": 173
       }
     },
     "uid-194": {
       "start": {
-        "line": 1012,
-        "column": 55
+        "line": 1024,
+        "column": 10
       },
       "end": {
-        "line": 1012,
-        "column": 117
+        "line": 1024,
+        "column": 169
       }
     },
     "uid-195": {
       "start": {
-        "line": 1012,
-        "column": 123
+        "line": 1024,
+        "column": 53
       },
       "end": {
-        "line": 1012,
-        "column": 166
+        "line": 1024,
+        "column": 113
       }
     },
     "uid-196": {
       "start": {
-        "line": 1013,
-        "column": 10
+        "line": 1024,
+        "column": 119
       },
       "end": {
-        "line": 1013,
-        "column": 178
+        "line": 1024,
+        "column": 160
       }
     },
     "uid-197": {
       "start": {
-        "line": 1013,
-        "column": 56
+        "line": 1025,
+        "column": 10
       },
       "end": {
-        "line": 1013,
-        "column": 118
+        "line": 1025,
+        "column": 166
       }
     },
     "uid-198": {
       "start": {
-        "line": 1013,
-        "column": 124
+        "line": 1025,
+        "column": 52
       },
       "end": {
-        "line": 1013,
-        "column": 169
+        "line": 1025,
+        "column": 111
       }
     },
     "uid-199": {
       "start": {
-        "line": 1014,
-        "column": 10
+        "line": 1025,
+        "column": 117
       },
       "end": {
-        "line": 1014,
-        "column": 178
+        "line": 1025,
+        "column": 157
       }
     },
     "uid-200": {
       "start": {
-        "line": 1014,
-        "column": 56
+        "line": 1026,
+        "column": 10
       },
       "end": {
-        "line": 1014,
-        "column": 118
+        "line": 1026,
+        "column": 175
       }
     },
     "uid-201": {
       "start": {
-        "line": 1014,
-        "column": 124
+        "line": 1026,
+        "column": 55
       },
       "end": {
-        "line": 1014,
-        "column": 169
+        "line": 1026,
+        "column": 117
       }
     },
     "uid-202": {
       "start": {
-        "line": 1015,
-        "column": 10
+        "line": 1026,
+        "column": 123
       },
       "end": {
-        "line": 1015,
-        "column": 178
+        "line": 1026,
+        "column": 166
       }
     },
     "uid-203": {
       "start": {
-        "line": 1015,
-        "column": 56
+        "line": 1027,
+        "column": 10
       },
       "end": {
-        "line": 1015,
-        "column": 118
+        "line": 1027,
+        "column": 178
       }
     },
     "uid-204": {
       "start": {
-        "line": 1015,
-        "column": 124
+        "line": 1027,
+        "column": 56
       },
       "end": {
-        "line": 1015,
-        "column": 169
+        "line": 1027,
+        "column": 118
       }
     },
     "uid-205": {
       "start": {
-        "line": 1016,
-        "column": 10
+        "line": 1027,
+        "column": 124
       },
       "end": {
-        "line": 1016,
-        "column": 178
+        "line": 1027,
+        "column": 169
       }
     },
     "uid-206": {
       "start": {
-        "line": 1016,
-        "column": 56
+        "line": 1028,
+        "column": 10
       },
       "end": {
-        "line": 1016,
-        "column": 118
+        "line": 1028,
+        "column": 178
       }
     },
     "uid-207": {
       "start": {
-        "line": 1016,
-        "column": 124
+        "line": 1028,
+        "column": 56
       },
       "end": {
-        "line": 1016,
-        "column": 169
+        "line": 1028,
+        "column": 118
       }
     },
     "uid-208": {
       "start": {
-        "line": 1017,
-        "column": 10
+        "line": 1028,
+        "column": 124
       },
       "end": {
-        "line": 1017,
-        "column": 178
+        "line": 1028,
+        "column": 169
       }
     },
     "uid-209": {
       "start": {
-        "line": 1017,
-        "column": 56
+        "line": 1029,
+        "column": 10
       },
       "end": {
-        "line": 1017,
-        "column": 118
+        "line": 1029,
+        "column": 178
       }
     },
     "uid-210": {
       "start": {
-        "line": 1017,
-        "column": 124
+        "line": 1029,
+        "column": 56
       },
       "end": {
-        "line": 1017,
-        "column": 169
+        "line": 1029,
+        "column": 118
       }
     },
     "uid-211": {
       "start": {
-        "line": 1022,
-        "column": 4
+        "line": 1029,
+        "column": 124
       },
       "end": {
-        "line": 1037,
-        "column": 10
+        "line": 1029,
+        "column": 169
       }
     },
     "uid-212": {
       "start": {
-        "line": 1023,
-        "column": 6
+        "line": 1030,
+        "column": 10
       },
       "end": {
-        "line": 1036,
-        "column": 12
+        "line": 1030,
+        "column": 178
       }
     },
     "uid-213": {
       "start": {
-        "line": 1024,
-        "column": 8
+        "line": 1030,
+        "column": 56
       },
       "end": {
-        "line": 1024,
-        "column": 52
+        "line": 1030,
+        "column": 118
       }
     },
     "uid-214": {
       "start": {
-        "line": 1025,
-        "column": 8
+        "line": 1030,
+        "column": 124
       },
       "end": {
-        "line": 1025,
-        "column": 93
+        "line": 1030,
+        "column": 169
       }
     },
     "uid-215": {
       "start": {
-        "line": 1026,
-        "column": 8
+        "line": 1031,
+        "column": 10
       },
       "end": {
-        "line": 1035,
-        "column": 14
+        "line": 1031,
+        "column": 178
       }
     },
     "uid-216": {
       "start": {
-        "line": 1027,
-        "column": 10
+        "line": 1031,
+        "column": 56
       },
       "end": {
-        "line": 1027,
-        "column": 157
+        "line": 1031,
+        "column": 118
       }
     },
     "uid-217": {
       "start": {
-        "line": 1027,
-        "column": 66
+        "line": 1031,
+        "column": 124
       },
       "end": {
-        "line": 1027,
-        "column": 148
+        "line": 1031,
+        "column": 169
       }
     },
     "uid-218": {
       "start": {
-        "line": 1027,
-        "column": 104
+        "line": 1036,
+        "column": 4
       },
       "end": {
-        "line": 1027,
-        "column": 148
+        "line": 1051,
+        "column": 10
       }
     },
     "uid-219": {
       "start": {
-        "line": 1028,
-        "column": 10
+        "line": 1037,
+        "column": 6
       },
       "end": {
-        "line": 1028,
-        "column": 190
+        "line": 1050,
+        "column": 12
       }
     },
     "uid-220": {
       "start": {
-        "line": 1028,
-        "column": 65
+        "line": 1038,
+        "column": 8
       },
       "end": {
-        "line": 1028,
-        "column": 138
+        "line": 1038,
+        "column": 52
       }
     },
     "uid-221": {
       "start": {
-        "line": 1028,
-        "column": 138
+        "line": 1039,
+        "column": 8
       },
       "end": {
-        "line": 1028,
-        "column": 181
+        "line": 1039,
+        "column": 93
       }
     },
     "uid-222": {
       "start": {
-        "line": 1029,
-        "column": 10
+        "line": 1040,
+        "column": 8
       },
       "end": {
-        "line": 1029,
-        "column": 190
+        "line": 1049,
+        "column": 14
       }
     },
     "uid-223": {
       "start": {
-        "line": 1029,
-        "column": 65
+        "line": 1041,
+        "column": 10
       },
       "end": {
-        "line": 1029,
-        "column": 138
+        "line": 1041,
+        "column": 157
       }
     },
     "uid-224": {
       "start": {
-        "line": 1029,
-        "column": 138
+        "line": 1041,
+        "column": 66
       },
       "end": {
-        "line": 1029,
-        "column": 181
+        "line": 1041,
+        "column": 148
       }
     },
     "uid-225": {
       "start": {
-        "line": 1030,
-        "column": 10
+        "line": 1041,
+        "column": 104
       },
       "end": {
-        "line": 1030,
-        "column": 186
+        "line": 1041,
+        "column": 148
       }
     },
     "uid-226": {
       "start": {
-        "line": 1030,
-        "column": 63
+        "line": 1042,
+        "column": 10
       },
       "end": {
-        "line": 1030,
-        "column": 136
+        "line": 1042,
+        "column": 190
       }
     },
     "uid-227": {
       "start": {
-        "line": 1030,
-        "column": 136
+        "line": 1042,
+        "column": 65
       },
       "end": {
-        "line": 1030,
-        "column": 177
+        "line": 1042,
+        "column": 138
       }
     },
     "uid-228": {
       "start": {
-        "line": 1031,
-        "column": 10
+        "line": 1042,
+        "column": 138
       },
       "end": {
-        "line": 1031,
-        "column": 188
+        "line": 1042,
+        "column": 181
       }
     },
     "uid-229": {
       "start": {
-        "line": 1031,
-        "column": 64
+        "line": 1043,
+        "column": 10
       },
       "end": {
-        "line": 1031,
-        "column": 137
+        "line": 1043,
+        "column": 190
       }
     },
     "uid-230": {
       "start": {
-        "line": 1031,
-        "column": 137
+        "line": 1043,
+        "column": 65
       },
       "end": {
-        "line": 1031,
-        "column": 179
+        "line": 1043,
+        "column": 138
       }
     },
     "uid-231": {
       "start": {
-        "line": 1032,
-        "column": 10
+        "line": 1043,
+        "column": 138
       },
       "end": {
-        "line": 1032,
-        "column": 190
+        "line": 1043,
+        "column": 181
       }
     },
     "uid-232": {
       "start": {
-        "line": 1032,
-        "column": 65
+        "line": 1044,
+        "column": 10
       },
       "end": {
-        "line": 1032,
-        "column": 138
+        "line": 1044,
+        "column": 186
       }
     },
     "uid-233": {
       "start": {
-        "line": 1032,
-        "column": 138
+        "line": 1044,
+        "column": 63
       },
       "end": {
-        "line": 1032,
-        "column": 181
+        "line": 1044,
+        "column": 136
       }
     },
     "uid-234": {
       "start": {
-        "line": 1033,
-        "column": 10
+        "line": 1044,
+        "column": 136
       },
       "end": {
-        "line": 1033,
-        "column": 196
+        "line": 1044,
+        "column": 177
       }
     },
     "uid-235": {
       "start": {
-        "line": 1033,
-        "column": 68
+        "line": 1045,
+        "column": 10
       },
       "end": {
-        "line": 1033,
-        "column": 141
+        "line": 1045,
+        "column": 188
       }
     },
     "uid-236": {
       "start": {
-        "line": 1033,
-        "column": 141
+        "line": 1045,
+        "column": 64
       },
       "end": {
-        "line": 1033,
-        "column": 187
+        "line": 1045,
+        "column": 137
       }
     },
     "uid-237": {
       "start": {
-        "line": 1034,
-        "column": 10
+        "line": 1045,
+        "column": 137
       },
       "end": {
-        "line": 1034,
-        "column": 152
+        "line": 1045,
+        "column": 179
       }
     },
     "uid-238": {
       "start": {
-        "line": 1034,
-        "column": 60
+        "line": 1046,
+        "column": 10
       },
       "end": {
-        "line": 1034,
-        "column": 143
+        "line": 1046,
+        "column": 190
       }
     },
     "uid-239": {
       "start": {
-        "line": 1034,
-        "column": 99
+        "line": 1046,
+        "column": 65
       },
       "end": {
-        "line": 1034,
-        "column": 143
+        "line": 1046,
+        "column": 138
       }
     },
     "uid-240": {
       "start": {
-        "line": 1039,
-        "column": 4
+        "line": 1046,
+        "column": 138
       },
       "end": {
-        "line": 1054,
-        "column": 10
+        "line": 1046,
+        "column": 181
       }
     },
     "uid-241": {
       "start": {
-        "line": 1040,
-        "column": 6
+        "line": 1047,
+        "column": 10
       },
       "end": {
-        "line": 1053,
-        "column": 12
+        "line": 1047,
+        "column": 196
       }
     },
     "uid-242": {
       "start": {
-        "line": 1041,
-        "column": 8
+        "line": 1047,
+        "column": 68
       },
       "end": {
-        "line": 1041,
-        "column": 57
+        "line": 1047,
+        "column": 141
       }
     },
     "uid-243": {
       "start": {
-        "line": 1042,
-        "column": 8
+        "line": 1047,
+        "column": 141
       },
       "end": {
-        "line": 1042,
-        "column": 83
+        "line": 1047,
+        "column": 187
       }
     },
     "uid-244": {
       "start": {
-        "line": 1043,
-        "column": 8
+        "line": 1048,
+        "column": 10
       },
       "end": {
-        "line": 1052,
-        "column": 14
+        "line": 1048,
+        "column": 152
       }
     },
     "uid-245": {
       "start": {
-        "line": 1044,
-        "column": 10
+        "line": 1048,
+        "column": 60
       },
       "end": {
-        "line": 1044,
-        "column": 110
+        "line": 1048,
+        "column": 143
       }
     },
     "uid-246": {
       "start": {
-        "line": 1044,
-        "column": 56
+        "line": 1048,
+        "column": 99
       },
       "end": {
-        "line": 1044,
-        "column": 101
+        "line": 1048,
+        "column": 143
       }
     },
     "uid-247": {
       "start": {
-        "line": 1045,
-        "column": 10
+        "line": 1053,
+        "column": 4
       },
       "end": {
-        "line": 1045,
-        "column": 108
+        "line": 1068,
+        "column": 10
       }
     },
     "uid-248": {
       "start": {
-        "line": 1045,
-        "column": 57
+        "line": 1054,
+        "column": 6
       },
       "end": {
-        "line": 1045,
-        "column": 99
+        "line": 1067,
+        "column": 12
       }
     },
     "uid-249": {
       "start": {
-        "line": 1046,
-        "column": 10
+        "line": 1055,
+        "column": 8
       },
       "end": {
-        "line": 1046,
-        "column": 108
+        "line": 1055,
+        "column": 57
       }
     },
     "uid-250": {
       "start": {
-        "line": 1046,
-        "column": 57
+        "line": 1056,
+        "column": 8
       },
       "end": {
-        "line": 1046,
-        "column": 99
+        "line": 1056,
+        "column": 83
       }
     },
     "uid-251": {
       "start": {
-        "line": 1047,
-        "column": 10
+        "line": 1057,
+        "column": 8
       },
       "end": {
-        "line": 1047,
-        "column": 110
+        "line": 1066,
+        "column": 14
       }
     },
     "uid-252": {
       "start": {
-        "line": 1047,
-        "column": 58
+        "line": 1058,
+        "column": 10
       },
       "end": {
-        "line": 1047,
-        "column": 101
+        "line": 1058,
+        "column": 110
       }
     },
     "uid-253": {
       "start": {
-        "line": 1048,
-        "column": 10
+        "line": 1058,
+        "column": 56
       },
       "end": {
-        "line": 1048,
-        "column": 104
+        "line": 1058,
+        "column": 101
       }
     },
     "uid-254": {
       "start": {
-        "line": 1048,
-        "column": 55
+        "line": 1059,
+        "column": 10
       },
       "end": {
-        "line": 1048,
-        "column": 95
+        "line": 1059,
+        "column": 108
       }
     },
     "uid-255": {
       "start": {
-        "line": 1049,
-        "column": 10
+        "line": 1059,
+        "column": 57
       },
       "end": {
-        "line": 1049,
-        "column": 108
+        "line": 1059,
+        "column": 99
       }
     },
     "uid-256": {
       "start": {
-        "line": 1049,
-        "column": 57
+        "line": 1060,
+        "column": 10
       },
       "end": {
-        "line": 1049,
-        "column": 99
+        "line": 1060,
+        "column": 108
       }
     },
     "uid-257": {
       "start": {
-        "line": 1050,
-        "column": 10
-      },
-      "end": {
-        "line": 1050,
-        "column": 113
-      }
-    },
-    "uid-258": {
-      "start": {
-        "line": 1050,
-        "column": 56
-      },
-      "end": {
-        "line": 1050,
-        "column": 104
-      }
-    },
-    "uid-259": {
-      "start": {
-        "line": 1051,
-        "column": 10
-      },
-      "end": {
-        "line": 1051,
-        "column": 113
-      }
-    },
-    "uid-260": {
-      "start": {
-        "line": 1051,
+        "line": 1060,
         "column": 57
       },
       "end": {
-        "line": 1051,
-        "column": 104
-      }
-    },
-    "uid-261": {
-      "start": {
-        "line": 1057,
-        "column": 4
-      },
-      "end": {
-        "line": 1073,
-        "column": 10
-      }
-    },
-    "uid-262": {
-      "start": {
-        "line": 1058,
-        "column": 6
-      },
-      "end": {
-        "line": 1072,
-        "column": 12
-      }
-    },
-    "uid-263": {
-      "start": {
-        "line": 1059,
-        "column": 8
-      },
-      "end": {
-        "line": 1059,
-        "column": 64
-      }
-    },
-    "uid-264": {
-      "start": {
         "line": 1060,
-        "column": 8
-      },
-      "end": {
-        "line": 1067,
-        "column": 14
+        "column": 99
       }
     },
-    "uid-265": {
+    "uid-258": {
       "start": {
         "line": 1061,
         "column": 10
       },
       "end": {
-        "line": 1065,
-        "column": 16
+        "line": 1061,
+        "column": 110
+      }
+    },
+    "uid-259": {
+      "start": {
+        "line": 1061,
+        "column": 58
+      },
+      "end": {
+        "line": 1061,
+        "column": 101
+      }
+    },
+    "uid-260": {
+      "start": {
+        "line": 1062,
+        "column": 10
+      },
+      "end": {
+        "line": 1062,
+        "column": 104
+      }
+    },
+    "uid-261": {
+      "start": {
+        "line": 1062,
+        "column": 55
+      },
+      "end": {
+        "line": 1062,
+        "column": 95
+      }
+    },
+    "uid-262": {
+      "start": {
+        "line": 1063,
+        "column": 10
+      },
+      "end": {
+        "line": 1063,
+        "column": 108
+      }
+    },
+    "uid-263": {
+      "start": {
+        "line": 1063,
+        "column": 57
+      },
+      "end": {
+        "line": 1063,
+        "column": 99
+      }
+    },
+    "uid-264": {
+      "start": {
+        "line": 1064,
+        "column": 10
+      },
+      "end": {
+        "line": 1064,
+        "column": 113
+      }
+    },
+    "uid-265": {
+      "start": {
+        "line": 1064,
+        "column": 56
+      },
+      "end": {
+        "line": 1064,
+        "column": 104
       }
     },
     "uid-266": {
       "start": {
-        "line": 1062,
-        "column": 12
+        "line": 1065,
+        "column": 10
       },
       "end": {
-        "line": 1064,
-        "column": 21
+        "line": 1065,
+        "column": 113
       }
     },
     "uid-267": {
       "start": {
-        "line": 1063,
-        "column": 14
+        "line": 1065,
+        "column": 57
       },
       "end": {
-        "line": 1064,
-        "column": 12
+        "line": 1065,
+        "column": 104
       }
     },
     "uid-268": {
       "start": {
-        "line": 1066,
-        "column": 10
+        "line": 1071,
+        "column": 4
       },
       "end": {
-        "line": 1066,
-        "column": 66
+        "line": 1087,
+        "column": 10
       }
     },
     "uid-269": {
       "start": {
-        "line": 1068,
-        "column": 8
+        "line": 1072,
+        "column": 6
       },
       "end": {
-        "line": 1071,
-        "column": 14
+        "line": 1086,
+        "column": 12
       }
     },
     "uid-270": {
       "start": {
-        "line": 1069,
-        "column": 10
+        "line": 1073,
+        "column": 8
       },
       "end": {
-        "line": 1069,
-        "column": 68
+        "line": 1073,
+        "column": 64
       }
     },
     "uid-271": {
       "start": {
-        "line": 1070,
-        "column": 10
+        "line": 1074,
+        "column": 8
       },
       "end": {
-        "line": 1070,
-        "column": 79
+        "line": 1081,
+        "column": 14
       }
     },
     "uid-272": {
       "start": {
-        "line": 1077,
-        "column": 2
+        "line": 1075,
+        "column": 10
       },
       "end": {
-        "line": 1084,
-        "column": 8
+        "line": 1079,
+        "column": 16
       }
     },
     "uid-273": {
       "start": {
-        "line": 1078,
-        "column": 4
+        "line": 1076,
+        "column": 12
       },
       "end": {
-        "line": 1083,
-        "column": 10
+        "line": 1078,
+        "column": 21
       }
     },
     "uid-274": {
       "start": {
-        "line": 1079,
-        "column": 6
+        "line": 1077,
+        "column": 14
       },
       "end": {
-        "line": 1081,
+        "line": 1078,
         "column": 12
       }
     },
     "uid-275": {
       "start": {
         "line": 1080,
-        "column": 8
+        "column": 10
       },
       "end": {
         "line": 1080,
-        "column": 99
+        "column": 66
       }
     },
     "uid-276": {
       "start": {
         "line": 1082,
+        "column": 8
+      },
+      "end": {
+        "line": 1085,
+        "column": 14
+      }
+    },
+    "uid-277": {
+      "start": {
+        "line": 1083,
+        "column": 10
+      },
+      "end": {
+        "line": 1083,
+        "column": 68
+      }
+    },
+    "uid-278": {
+      "start": {
+        "line": 1084,
+        "column": 10
+      },
+      "end": {
+        "line": 1084,
+        "column": 79
+      }
+    },
+    "uid-279": {
+      "start": {
+        "line": 1091,
+        "column": 2
+      },
+      "end": {
+        "line": 1098,
+        "column": 8
+      }
+    },
+    "uid-280": {
+      "start": {
+        "line": 1092,
+        "column": 4
+      },
+      "end": {
+        "line": 1097,
+        "column": 10
+      }
+    },
+    "uid-281": {
+      "start": {
+        "line": 1093,
         "column": 6
       },
       "end": {
-        "line": 1082,
+        "line": 1095,
+        "column": 12
+      }
+    },
+    "uid-282": {
+      "start": {
+        "line": 1094,
+        "column": 8
+      },
+      "end": {
+        "line": 1094,
+        "column": 99
+      }
+    },
+    "uid-283": {
+      "start": {
+        "line": 1096,
+        "column": 6
+      },
+      "end": {
+        "line": 1096,
         "column": 118
       }
     }

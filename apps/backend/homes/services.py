@@ -4,10 +4,16 @@ from typing import Any, Dict, List, Optional
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
-
 from .llm_interfaces import CommandIntent, LLMProvider
 from .llm_providers import LLMFactory
-from .models import Device
+from .models import (
+    AirConditioner,
+    Device,
+    Fan,
+    Lightbulb,
+    SmartMeter,
+    Television,
+)
 from .scada import ScadaManager
 
 logger = logging.getLogger(__name__)
@@ -740,4 +746,187 @@ def update_all_solar_automations():
     )
     Automation.objects.filter(sunrise_sunset=True, solar_event="sunset").update(
         time=sunset
+    )
+
+
+def _automation_bool(value) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value in (1, "1", "true", "True"):
+        return True
+    if value in (0, "0", "false", "False"):
+        return False
+    return bool(value)
+
+
+def _concrete_device_for_update(device: Device) -> Device:
+    """
+    Load the device as its concrete subclass so one save() updates parent + child
+    rows. Saving the parent Device then the child can overwrite is_on on the parent.
+    """
+    for Model in (Lightbulb, Television, Fan, AirConditioner, SmartMeter):
+        try:
+            return Model.objects.get(pk=device.pk)
+        except Model.DoesNotExist:
+            continue
+    return device
+
+
+def normalize_automation_actions_for_device(
+    device: Device, actions: Optional[Dict[str, Any]]
+) -> Dict[str, Any]:
+    """
+    Drop action keys that do not apply to this device (e.g. brightness on a Fan).
+    """
+    if not actions:
+        return {}
+    d = _concrete_device_for_update(device)
+    if isinstance(d, Lightbulb):
+        allowed = {"is_on", "brightness", "color", "colour"}
+    elif isinstance(d, Fan):
+        allowed = {"is_on", "speed", "swing"}
+    elif isinstance(d, Television):
+        allowed = {"is_on", "volume", "channel", "is_mute"}
+    elif isinstance(d, AirConditioner):
+        allowed = {"is_on", "temp", "temperature"}
+    elif isinstance(d, SmartMeter):
+        allowed = {"is_on"}
+    else:
+        return dict(actions)
+
+    return {k: v for k, v in actions.items() if k in allowed}
+
+
+def _scada_power_onoff_suffix(device: Device) -> str:
+    """Align with HomeConsumer DEVICE_ACTIONS (TV/Fan use .on, AC uses .OnOff)."""
+    d = _concrete_device_for_update(device)
+    if isinstance(d, (Television, Fan)):
+        return ".on"
+    if isinstance(d, AirConditioner):
+        return ".OnOff"
+    return ".onoff"
+
+
+def persist_automation_actions_to_db(device: Device, actions: Dict[str, Any]) -> None:
+    """Apply automation JSON action to the device row (concrete subclass)."""
+    if not actions:
+        return
+
+    d = _concrete_device_for_update(device)
+
+    for key, raw in actions.items():
+        if key == "is_on":
+            d.is_on = _automation_bool(raw)
+        elif key == "brightness" and hasattr(d, "brightness"):
+            d.brightness = int(raw)
+        elif key in ("color", "colour") and hasattr(d, "colour"):
+            d.colour = str(raw)
+        elif key in ("temp", "temperature") and hasattr(d, "temperature"):
+            d.temperature = float(raw)
+        elif key == "speed" and hasattr(d, "speed"):
+            d.speed = int(raw)
+        elif key == "swing" and hasattr(d, "swing"):
+            d.swing = _automation_bool(raw) if not isinstance(raw, int) else bool(raw)
+        elif key == "volume" and hasattr(d, "volume"):
+            d.volume = int(raw)
+        elif key == "channel" and hasattr(d, "channel"):
+            d.channel = int(raw)
+        elif key == "is_mute" and hasattr(d, "is_mute"):
+            if isinstance(raw, int):
+                d.is_mute = raw == 1
+            else:
+                d.is_mute = _automation_bool(raw)
+
+    d.save()
+
+
+def broadcast_home_device_update(
+    *,
+    device_id,
+    device_name: str,
+    action: str = "device_update",
+    source: Optional[str] = None,
+    automation_title: Optional[str] = None,
+) -> None:
+    channel_layer = get_channel_layer()
+    if not channel_layer:
+        return
+    async_to_sync(channel_layer.group_send)(
+        "homes_group",
+        {
+            "type": "device_update",
+            "device_id": str(device_id),
+            "device_name": device_name,
+            "action": action,
+            "source": source,
+            "automation_title": automation_title,
+        },
+    )
+
+
+def execute_scheduled_automation(automation) -> None:
+    """
+    Run a single automation: persist desired state to the DB, send SCADA commands,
+    and notify WebSocket clients (same path as manual / voice updates).
+    """
+    device = automation.device
+    raw_actions = automation.action or {}
+    actions = normalize_automation_actions_for_device(device, raw_actions)
+
+    logger.info(
+        "Executing automation %s for device %s (%s)",
+        automation.title,
+        device.device_name,
+        actions,
+    )
+
+    persist_automation_actions_to_db(device, actions)
+
+    if device.tag:
+        scada = ScadaManager()
+        for key, value in actions.items():
+            tag_suffix = None
+            scada_val = value
+
+            if key == "is_on":
+                tag_suffix = _scada_power_onoff_suffix(device)
+                scada_val = 1 if _automation_bool(value) else 0
+            elif key == "color":
+                tag_suffix = ".Color"
+            elif key == "brightness":
+                tag_suffix = ".Brightness"
+            elif key in ("temp", "temperature"):
+                tag_suffix = ".set_temp"
+            elif key == "speed":
+                tag_suffix = ".speed"
+            elif key == "swing":
+                tag_suffix = ".shake"
+                scada_val = 1 if _automation_bool(value) else 0
+            elif key == "volume":
+                tag_suffix = ".volume"
+            elif key == "channel":
+                tag_suffix = ".channel"
+            elif key == "is_mute":
+                tag_suffix = ".mute"
+                scada_val = 1 if _automation_bool(value) else 0
+
+            if tag_suffix:
+                full_tag = f"{device.tag}{tag_suffix}"
+                logger.debug("SCADA %s = %s", full_tag, scada_val)
+                scada.send_command(full_tag, scada_val)
+            else:
+                logger.debug("Unknown automation action key for SCADA: %s", key)
+    else:
+        logger.debug(
+            "Automation %s: device %s has no SCADA tag — DB updated, SCADA skipped",
+            automation.title,
+            device.device_name,
+        )
+
+    broadcast_home_device_update(
+        device_id=device.id,
+        device_name=device.device_name,
+        action="automation",
+        source="automation",
+        automation_title=automation.title,
     )

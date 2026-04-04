@@ -129,12 +129,19 @@ class HomeConsumer(AsyncWebsocketConsumer):
 
     # 3. Receive device update from Voice Assistant (via Channel Layer)
     async def device_update(self, event):
-        await self.send(text_data=json.dumps({
-            "type": "device_update",
-            "device_id": event["device_id"],
-            "action": event["action"],
-            "value": event.get("value"),
-        }))
+        await self.send(
+            text_data=json.dumps(
+                {
+                    "type": "device_update",
+                    "device_id": event["device_id"],
+                    "action": event.get("action"),
+                    "value": event.get("value"),
+                    "device_name": event.get("device_name"),
+                    "source": event.get("source"),
+                    "automation_title": event.get("automation_title"),
+                }
+            )
+        )
 
     # 4. Receive smartmeter reading (via Channel Layer)
     async def smartmeter_update(self, event):

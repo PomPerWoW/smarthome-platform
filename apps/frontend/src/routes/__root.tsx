@@ -87,14 +87,26 @@ function RootLayout() {
           console.log("Device update received, refreshing data...");
           queryClient.invalidateQueries({ queryKey: ["home-devices"] });
           queryClient.invalidateQueries({ queryKey: ["devices"] });
+          const isAutomation = data.source === "automation";
+          const name = data.device_name as string | undefined;
+          const autoTitle = data.automation_title as string | undefined;
           useNotificationStore.getState().addNotification({
-            category: "system",
-            iconType: "device_update",
-            title: "Device state updated",
-            description: data.device_name
-              ? `'${data.device_name}' was changed externally`
-              : "A device was updated outside the app",
+            category: isAutomation ? "automation" : "system",
+            iconType: isAutomation ? "automation" : "device_update",
+            title: isAutomation
+              ? autoTitle
+                ? `Automation: ${autoTitle}`
+                : "Automation ran"
+              : "Device state updated",
+            description: isAutomation
+              ? name
+                ? `'${name}' was updated by a scheduled automation`
+                : "A device was updated by automation"
+              : name
+                ? `'${name}' was changed externally`
+                : "A device was updated outside the app",
             severity: "info",
+            deviceName: name,
           });
         }
       });

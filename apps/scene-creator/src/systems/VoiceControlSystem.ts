@@ -178,15 +178,19 @@ export class VoiceControlSystem {
     let accumulatedFinalTranscript = "";
     let lastInterimTranscript = "";
     let hasReceivedFinal = false;
+    /** Max interim length this recognition session — noise flicker changes text without growing length; timers must not reset on that. */
+    let maxInterimLenThisSession = 0;
+
+    this.recognition.onstart = () => {
+      maxInterimLenThisSession = 0;
+    };
 
     this.recognition.onresult = async (event: any) => {
       // Guard: ignore stale events that arrive after we've already stopped
       if (!this.isListening) return;
 
-      // Any result resets the "no activity at all" timer
-      this.resetNoActivityTimer();
-
       let interim = "";
+      let gotNewFinalChunk = false;
 
       // With continuous=false, event.results only contains results for the
       // current utterance — no cumulative history from previous sessions.
@@ -200,12 +204,26 @@ export class VoiceControlSystem {
             accumulatedFinalTranscript +=
               (accumulatedFinalTranscript ? " " : "") + bestTranscript;
             hasReceivedFinal = true;
+            gotNewFinalChunk = true;
             this.clearInterimOnlyTimer();
             console.log("[VoiceControl] Final transcript:", bestTranscript);
           }
         } else {
           interim += result[0]?.transcript || "";
         }
+      }
+
+      const interimTrimmed = interim.trim();
+      const interimLen = interimTrimmed.length;
+      const interimGrowing = interimLen > maxInterimLenThisSession;
+      if (interimLen > maxInterimLenThisSession) {
+        maxInterimLenThisSession = interimLen;
+      }
+
+      // Ambient noise often produces new interim strings without growing length;
+      // that must not refresh timers (otherwise recognition never idles).
+      if (interimGrowing || gotNewFinalChunk) {
+        this.resetNoActivityTimer();
       }
 
       // Show interim results for user feedback
@@ -240,12 +258,12 @@ export class VoiceControlSystem {
       }
 
       // No final yet — only interim results (e.g. browser is slow to finalize).
-      // Only reset the fallback timer when the transcript actually changes;
-      // repeated identical interim events (from ambient noise) must NOT
-      // prevent the timer from firing — that was causing the listening hang.
+      // Reset the interim-only timer only when the transcript grows (user adding words).
+      // Changing text at the same length (noise / ASR wavering) must not extend listening.
       if (interim && !hasReceivedFinal) {
-        const interimChanged = interim !== lastInterimTranscript;
-        if (interimChanged || !this.interimOnlyTimer) {
+        const shouldArmInterimTimer =
+          interimGrowing || !this.interimOnlyTimer;
+        if (shouldArmInterimTimer) {
           this.clearInterimOnlyTimer();
           this.interimOnlyTimer = setTimeout(async () => {
             this.interimOnlyTimer = null;
@@ -668,14 +686,22 @@ export class VoiceControlSystem {
         }
         const avgFrequency = freqSum / bufferLength;
 
-        const isSoundDetected =
+        const speechLikely =
           avgAmplitude > this.SOUND_THRESHOLD ||
           avgFrequency > this.FREQ_SOUND_THRESHOLD;
+        // After the user has spoken, freq-only flicker (AC/fans) often stays above
+        // threshold and prevents silence from accumulating — use time-domain for resets.
+        const loudEnoughToResetSilence =
+          avgAmplitude >
+          this.SOUND_THRESHOLD * (heardSpeechThisTake ? 1.45 : 1);
 
-        if (isSoundDetected) {
-          heardSpeechThisTake = true;
+        if (!heardSpeechThisTake) {
+          if (speechLikely) {
+            heardSpeechThisTake = true;
+          }
+        } else if (loudEnoughToResetSilence) {
           consecutiveSilenceChecks = 0;
-        } else if (heardSpeechThisTake) {
+        } else {
           consecutiveSilenceChecks++;
           if (consecutiveSilenceChecks >= REQUIRED_SILENCE_CHECKS) {
             console.log(

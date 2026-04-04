@@ -589,27 +589,43 @@ class SchedulerTests(APITestCase):
         self.home = Home.objects.create(user=self.user, home_name="Sched Home")
         self.room = Room.objects.create(home=self.home, room_name="Sched Room")
         
-    @patch('homes.scada.ScadaManager')
-    def test_execute_automation(self, mock_scada_class):
+    @patch("homes.services.get_channel_layer", return_value=None)
+    @patch("homes.services.ScadaManager")
+    def test_execute_automation(self, mock_scada_class, _mock_channel):
         mock_scada = mock_scada_class.return_value
-        
+
         # Test Lightbulb with brightness and color
         light = Lightbulb.objects.create(room=self.room, device_name="Sched Light", tag="L_001")
         auto_light = Automation.objects.create(
             device=light,
             title="Light Auto",
-            action={'is_on': 1, 'color': '#00ff00', 'brightness': 75}
+            action={"is_on": 1, "color": "#00ff00", "brightness": 75},
         )
         self.scheduler._execute_automation(auto_light)
         mock_scada.send_command.assert_any_call("L_001.onoff", 1)
-        mock_scada.send_command.assert_any_call("L_001.Color", '#00ff00')
+        mock_scada.send_command.assert_any_call("L_001.Color", "#00ff00")
         mock_scada.send_command.assert_any_call("L_001.Brightness", 75)
+        light.refresh_from_db()
+        self.assertTrue(light.is_on)
+        self.assertEqual(light.brightness, 75)
+        self.assertEqual(light.colour, "#00ff00")
 
         # Test AC with temp
         ac = AirConditioner.objects.create(room=self.room, device_name="Sched AC", tag="AC_001")
-        auto_ac = Automation.objects.create(device=ac, title="AC Auto", action={'temp': 24})
+        auto_ac = Automation.objects.create(device=ac, title="AC Auto", action={"temp": 24})
         self.scheduler._execute_automation(auto_ac)
         mock_scada.send_command.assert_any_call("AC_001.set_temp", 24)
+        ac.refresh_from_db()
+        self.assertEqual(ac.temperature, 24)
+
+        # Frontend sends "temperature" for AC automations
+        auto_ac2 = Automation.objects.create(
+            device=ac, title="AC Auto UI", action={"temperature": 22}
+        )
+        self.scheduler._execute_automation(auto_ac2)
+        mock_scada.send_command.assert_any_call("AC_001.set_temp", 22)
+        ac.refresh_from_db()
+        self.assertEqual(ac.temperature, 22)
 
         # Test TV with volume, channel, mute
         tv = Television.objects.create(room=self.room, device_name="Sched TV", tag="TV_001")
@@ -625,6 +641,17 @@ class SchedulerTests(APITestCase):
         self.scheduler._execute_automation(auto_fan)
         mock_scada.send_command.assert_any_call("FAN_001.speed", 2)
         mock_scada.send_command.assert_any_call("FAN_001.shake", 1)
+
+        # Fan power uses .on (not .onoff); strip stray lightbulb keys from payload
+        auto_fan_off = Automation.objects.create(
+            device=fan,
+            title="Fan Off",
+            action={"is_on": False, "brightness": 100},
+        )
+        self.scheduler._execute_automation(auto_fan_off)
+        mock_scada.send_command.assert_any_call("FAN_001.on", 0)
+        fan.refresh_from_db()
+        self.assertFalse(fan.is_on)
 
 class SmartMeterUpdateTests(APITestCase):
     def setUp(self):
