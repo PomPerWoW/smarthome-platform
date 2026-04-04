@@ -1,0 +1,102 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/backend/**"
+      - ".github/workflows/backend-ci.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "apps/backend/**"
+      - ".github/workflows/backend-ci.yml"
+
+jobs:
+  lint:
+      name: Code Quality (Lint)
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v4
+        - uses: actions/setup-python@v5
+          with: { python-version: "3.12" }
+        - name: Install Ruff
+          run: pip install ruff
+        - name: Run Ruff
+          run: ruff check apps/backend
+          
+  test:
+    name: Run Backend Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/backend
+
+    env:
+      SECRET_KEY: ci-secret-key-not-used-in-production
+      DEBUG: "True"
+      DATABASE_NAME: smarthome_db
+      DATABASE_USER: postgres
+      DATABASE_PASSWORD: postgres
+      DATABASE_HOST: localhost
+      DATABASE_PORT: "5432"
+      SCENE_CREATOR_URL: https://localhost:3003
+      # Explicitly point to system GDAL/GEOS so django.contrib.gis can load them
+      GDAL_LIBRARY_PATH: /usr/lib/x86_64-linux-gnu/libgdal.so
+      GEOS_LIBRARY_PATH: /usr/lib/x86_64-linux-gnu/libgeos_c.so
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Cache the Poetry virtualenv to speed up repeated runs
+      - name: Cache Poetry dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pypoetry
+          key: ${{ runner.os }}-poetry-${{ hashFiles('apps/backend/poetry.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-poetry-
+
+      - name: Install system dependencies (GDAL / GeoDjango)
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y --no-install-recommends \
+            gdal-bin \
+            libgdal-dev \
+            libgeos-dev \
+            libproj-dev \
+            proj-bin \
+            libpq-dev
+
+      - name: Install Poetry
+        run: pip install poetry
+
+      - name: Configure Poetry (no virtualenv in CI)
+        run: poetry config virtualenvs.create false
+
+      - name: Install dependencies (including dev)
+        run: poetry install --no-interaction --no-ansi
+
+      - name: Run tests with coverage
+        run: coverage run manage.py test homes accounts --verbosity=2
+
+      - name: Print coverage report
+        if: always()
+        run: coverage report
+
+      - name: Enforce coverage threshold (80%)
+        run: coverage report --fail-under=80
+
+      - name: Upload .coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: apps/backend/.coverage
+          retention-days: 7
