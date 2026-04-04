@@ -351,7 +351,7 @@ export class AirConditionerPanelSystem extends createSystem({
     const powerBtn = document.getElementById("power-btn") as UIKit.Container;
     if (powerBtn) {
       powerBtn.setProperties({
-        backgroundColor: device?.is_on ? "#22c55e" : "#27272a",
+        backgroundColor: device?.is_on ? "#22c55e" : "#64748b",
       });
     }
 
@@ -367,7 +367,7 @@ export class AirConditionerPanelSystem extends createSystem({
       ) as UIKit.Container;
       if (presetBtn && device) {
         presetBtn.setProperties({
-          backgroundColor: device.temperature === temp ? "#0ea5e9" : "#27272a",
+          backgroundColor: device.temperature === temp ? "#0ea5e9" : "#64748b",
         });
       }
     }

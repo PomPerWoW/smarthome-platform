@@ -3,8 +3,8 @@ export const COLORS = {
   successDark: "#16a34a",
   primary: "#3b82f6",
 
-  background: "#27272a",
-  backgroundDark: "#09090b",
+  background: "#64748b",
+  backgroundDark: "#334155",
   border: "#3f3f46",
 
   text: "#fafafa",

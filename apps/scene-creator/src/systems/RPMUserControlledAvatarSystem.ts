@@ -43,6 +43,25 @@ const DIRECTIONS = [KEY_FORWARD, KEY_BACK, KEY_LEFT, KEY_RIGHT];
 
 const _headYawEuler = new Euler(0, 0, 0, "YXZ");
 
+/**
+ * World Y of the soles (ground contact). Uses foot/ankle/toe bones when present so
+ * the avatar is not placed by AABB min.y alone — that can be the head if the rig
+ * pivot is at the head or the bounds are inverted relative to the floor.
+ */
+function getFootWorldY(model: Object3D, fallbackBox: Box3): number {
+  const ys: number[] = [];
+  model.traverse((child) => {
+    if (child.type !== "Bone" && !(child as { isBone?: boolean }).isBone) return;
+    const name = child.name;
+    if (!/foot|toe|ankle/i.test(name)) return;
+    if (/(upleg|leg|thigh|knee|calf|shin)/i.test(name) && !/foot/i.test(name)) return;
+    // matrixWorld.elements[13] is world Y; avoids Vector3 type clashes between three builds
+    ys.push(child.matrixWorld.elements[13]);
+  });
+  if (ys.length > 0) return Math.min(...ys);
+  return fallbackBox.min.y;
+}
+
 // ============================================================================
 // AVATAR RECORD
 // ============================================================================
@@ -67,7 +86,7 @@ interface RPMUserControlledAvatarRecord {
   previousActionBeforeSit: string;
   isSleeping: boolean;
   previousActionBeforeSleep: string;
-  /** World-space: model root Y minus lowest point of skinned bounds (feet on floor). */
+  /** World-space: model root Y minus foot sole Y (soles on floor at baseY). */
   rootAboveFootWorld: number;
 }
 
@@ -208,8 +227,10 @@ export class RPMUserControlledAvatarSystem extends createSystem({
 
       const bounds = getRoomBounds();
       const floorY = bounds?.floorY ?? position[1];
+      avatarModel.updateMatrixWorld(true);
       const box = new Box3().setFromObject(avatarModel as any);
-      const feetY = floorY - box.min.y + position[1];
+      const footWorldY = getFootWorldY(avatarModel, box);
+      const feetY = position[1] + (floorY - footWorldY);
       avatarModel.position.y = feetY;
 
       const clips: unknown[] = Array.isArray(gltf.animations) ? gltf.animations : [];
@@ -247,7 +268,8 @@ export class RPMUserControlledAvatarSystem extends createSystem({
 
       avatarModel.updateMatrixWorld(true);
       const worldBox = new Box3().setFromObject(avatarModel as any);
-      const rootAboveFootWorld = avatarModel.position.y - worldBox.min.y;
+      const soleWorldY = getFootWorldY(avatarModel, worldBox);
+      const rootAboveFootWorld = avatarModel.position.y - soleWorldY;
 
       const record: RPMUserControlledAvatarRecord = {
         entity,
@@ -419,7 +441,7 @@ export class RPMUserControlledAvatarSystem extends createSystem({
 
     // Collision: constrain XR movement the same way keyboard locomotion does.
     const fromPos = new Vector3(record.model.position.x, record.model.position.y, record.model.position.z);
-    const toPos   = new Vector3(cx, record.model.position.y, cz);
+    const toPos = new Vector3(cx, record.model.position.y, cz);
     const constrained = constrainMovement(fromPos, toPos, AVATAR_RADIUS, AVATAR_HEIGHTS);
     record.model.position.x = constrained.x;
     record.model.position.z = constrained.z;
@@ -572,6 +594,12 @@ export class RPMUserControlledAvatarSystem extends createSystem({
 
   getCurrentAvatarId(): string | null {
     return this.currentControlledAvatarId;
+  }
+
+  getCurrentAvatarModel(): Object3D | null {
+    if (!this.currentControlledAvatarId) return null;
+    const record = this.avatarRecords.get(this.currentControlledAvatarId);
+    return record ? record.model : null;
   }
 
   destroy(): void {

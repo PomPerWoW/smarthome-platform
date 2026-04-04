@@ -382,7 +382,7 @@ export class TelevisionPanelSystem extends createSystem({
     const powerBtn = document.getElementById("power-btn") as UIKit.Container;
     if (powerBtn) {
       powerBtn.setProperties({
-        backgroundColor: device?.is_on ? "#22c55e" : "#27272a",
+        backgroundColor: device?.is_on ? "#22c55e" : "#64748b",
       });
     }
 
@@ -409,7 +409,7 @@ export class TelevisionPanelSystem extends createSystem({
     const muteBtn = document.getElementById("mute-btn") as UIKit.Container;
     if (muteBtn && device) {
       muteBtn.setProperties({
-        backgroundColor: device.is_mute ? "#ef4444" : "#27272a",
+        backgroundColor: device.is_mute ? "#ef4444" : "#64748b",
       });
     }
   }

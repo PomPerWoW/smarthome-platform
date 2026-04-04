@@ -334,7 +334,7 @@ export class FanPanelSystem extends createSystem({
     const powerBtn = document.getElementById("power-btn") as UIKit.Container;
     if (powerBtn) {
       powerBtn.setProperties({
-        backgroundColor: device?.is_on ? "#22c55e" : "#27272a",
+        backgroundColor: device?.is_on ? "#22c55e" : "#64748b",
       });
     }
 
@@ -343,7 +343,7 @@ export class FanPanelSystem extends createSystem({
       const speedBtn = document.getElementById(`speed-${i}`) as UIKit.Container;
       if (speedBtn && device) {
         speedBtn.setProperties({
-          backgroundColor: device.speed === i ? "#06b6d4" : "#27272a",
+          backgroundColor: device.speed === i ? "#06b6d4" : "#64748b",
         });
       }
     }
@@ -351,7 +351,7 @@ export class FanPanelSystem extends createSystem({
     const swingBtn = document.getElementById("swing-btn") as UIKit.Container;
     if (swingBtn && device) {
       swingBtn.setProperties({
-        backgroundColor: device.swing ? "#06b6d4" : "#27272a",
+        backgroundColor: device.swing ? "#06b6d4" : "#64748b",
       });
     }
 

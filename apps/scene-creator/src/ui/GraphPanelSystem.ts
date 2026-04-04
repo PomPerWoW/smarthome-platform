@@ -336,9 +336,9 @@ export class GraphPanelSystem extends createSystem({
 
             // Update cell styling — use panel bg color to properly clear previous selection
             cellInfo.cell.setProperties({
-                backgroundColor: isSelected ? "#a855f7" : "#09090b",
+                backgroundColor: isSelected ? "#a855f7" : "#475569",
                 borderWidth: isToday && !isSelected ? 0.1 : 0,
-                borderColor: isToday && !isSelected ? "#a855f7" : "#09090b"
+                borderColor: isToday && !isSelected ? "#a855f7" : "#475569"
             });
         }
 

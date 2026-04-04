@@ -59,7 +59,7 @@ const FURNITURE_TYPES = new Set<string>([
 ]);
 
 const COLOR_ON = "#22c55e";
-const COLOR_OFF = "#27272a";
+const COLOR_OFF = "#64748b";
 const COLOR_RAIL_ACTIVE_BG = "rgba(37, 99, 235, 0.34)";
 const COLOR_RAIL_ACTIVE_BORDER = "rgba(37, 99, 235, 0.56)";
 const COLOR_RAIL_INACTIVE_BG = "rgba(255, 255, 255, 0.22)";

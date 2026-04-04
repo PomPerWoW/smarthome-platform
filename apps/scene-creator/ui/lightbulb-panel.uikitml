@@ -13,7 +13,9 @@
     border-color: rgba(255, 255, 255, 0.14);
     border-width: 0.15;
     border-radius: 2;
-    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  
+    pointer-events: auto;
   }
 
   .header-section {
@@ -98,7 +100,7 @@
     width: 5;
     height: 5;
     border-radius: 2.5;
-    background-color: rgba(255, 255, 255, 0.08);
+    background-color: rgba(203, 213, 225, 0.52);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -133,7 +135,7 @@
   .brightness-track {
     flex: 1;
     height: 1;
-    background-color: rgba(255, 255, 255, 0.08);
+    background-color: rgba(203, 213, 225, 0.52);
     border-radius: 0.5;
     overflow: hidden;
   }
@@ -160,7 +162,7 @@
     width: 3.5;
     height: 3.5;
     border-radius: 0.5;
-    background-color: rgba(255, 255, 255, 0.08);
+    background-color: rgba(203, 213, 225, 0.52);
     display: flex;
     align-items: center;
     justify-content: center;
