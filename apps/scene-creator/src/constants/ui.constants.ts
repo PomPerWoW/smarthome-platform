@@ -15,6 +15,8 @@ export const COLORS = {
 // Interaction constants
 export const DOUBLE_CLICK_THRESHOLD_MS = 300;
 export const POSITION_CHANGE_THRESHOLD = 0.01;
+/** Min local Y rotation change (radians) to treat furniture as rotated after a grab. */
+export const FURNITURE_ROTATION_CHANGE_THRESHOLD_RAD = 0.02;
 export const CLICK_TIMEOUT_MS = 1000;
 
 // Panel dimensions

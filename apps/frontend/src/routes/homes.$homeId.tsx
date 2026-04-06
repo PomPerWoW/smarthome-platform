@@ -84,7 +84,8 @@ function avatarApiName(entry: RoomPageAvatar): string {
 }
 
 const AVATAR_SCRIPT_JSON_EXAMPLE = `[
-  { "type": "walk", "target": [0.5, -0.5], "speed": 0.4 },
+  { "type": "walk" },
+  { "type": "walk", "distance": 1.5 },
   { "type": "wait", "duration": 2 },
   { "type": "wave" },
   { "type": "sit", "duration": 5 },
@@ -1088,8 +1089,11 @@ function HomeDetailPage() {
                   <>
                     <div className="rounded-lg border bg-muted/50 p-3">
                       <p className="text-[11px] text-muted-foreground mb-2 font-medium">
-                        Example script format (adjust walk targets to your
-                        room):
+                        Example script format: each{" "}
+                        <code className="text-[10px]">walk</code> patrols
+                        forward then returns to the start; optional{" "}
+                        <code className="text-[10px]">distance</code> is metres
+                        for one leg (omit for default):
                       </p>
                       <pre className="text-[11px] leading-relaxed overflow-x-auto text-foreground/90 font-mono">
                         {AVATAR_SCRIPT_JSON_EXAMPLE}

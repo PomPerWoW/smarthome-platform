@@ -44,6 +44,7 @@ import { XRInstructionSystem } from "./systems/XRInstructionSystem";
 import { WallpaperSystem } from "./systems/WallpaperSystem";
 import { WallpaperCutoutPanelSystem } from "./ui/WallpaperCutoutPanelSystem";
 import { DashboardPanelSystem } from "./ui/DashboardPanelSystem";
+import { loadAndApplyRoomAvatarScripts } from "./scripting/loadRoomAvatarScripts";
 import {
   initializeNavMesh,
   getRoomBounds,
@@ -732,6 +733,15 @@ async function main(): Promise<void> {
       [-3.0, 0, 2.0],
       Math.PI / 2,
     );
+
+    const scriptRoomId = urlRoomId ?? getStore().roomId;
+    if (scriptRoomId) {
+      await loadAndApplyRoomAvatarScripts(scriptRoomId, {
+        setNpcScript: (id, actions) => npcAvatarSystem.setBehaviorScript(id, actions),
+        setRobotScript: (actions) =>
+          robotAssistantSystem?.loadBehaviorScript(actions),
+      });
+    }
   }
 
   setupAvatarSwitcherPanel();

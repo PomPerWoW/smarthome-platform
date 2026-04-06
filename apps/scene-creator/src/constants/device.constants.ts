@@ -11,7 +11,7 @@ export const DEVICE_SCALES: Record<DeviceType, number> = {
   [DeviceType.Chair4]: 0.85,
   [DeviceType.Chair5]: 0.85,
   [DeviceType.Chair6]: 0.85,
-  [DeviceType.SmartMeter]: 0.0005,
+  [DeviceType.SmartMeter]: 0.02,
 };
 
 export const DEVICE_ICONS: Record<DeviceType, string> = {

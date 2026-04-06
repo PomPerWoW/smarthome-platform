@@ -195,12 +195,20 @@ export class DeviceRendererSystem extends createSystem({
       model.position.set(0, 0, 0);
     }
 
-    // Apply saved rotation (Y-axis only, in degrees)
-    if (data.rotation_y !== undefined && data.rotation_y !== 0) {
-      model.rotation.y = (data.rotation_y * Math.PI) / 180;
-      console.log(
-        `[DeviceRenderer] Applied rotation_y=${data.rotation_y}° to ${data.name}`,
-      );
+    // Apply saved rotation (Y-axis only, in degrees). Furniture always uses stored Y (including 0);
+    // smart devices keep the previous rule (skip explicit 0) to avoid touching unrelated defaults.
+    const rotY = data.rotation_y;
+    if (rotY !== undefined) {
+      const shouldApply =
+        isFurnitureType(data.type) || rotY !== 0;
+      if (shouldApply) {
+        model.rotation.y = (rotY * Math.PI) / 180;
+        if (rotY !== 0) {
+          console.log(
+            `[DeviceRenderer] Applied rotation_y=${rotY}° to ${data.name}`,
+          );
+        }
+      }
     }
 
     const labModel = (globalThis as any).__labRoomModel as Object3D | undefined;
@@ -210,7 +218,7 @@ export class DeviceRendererSystem extends createSystem({
     } else {
       this.world.scene.add(model);
     }
-    // For extremely small-scaled models (like SmartMeter at 0.0005), the mesh
+    // For small-scaled SmartMeter models, the mesh triangles can be too tiny for
     // triangles are too tiny for the raycaster's bounding-sphere broad phase.
     // We add an invisible interaction proxy box whose dimensions are inverse-
     // scaled so it ends up at ~0.3m in world space, giving the raycaster a
@@ -500,14 +508,27 @@ export class DeviceRendererSystem extends createSystem({
     record.chartEntity = chartEntity;
     record.activeChartType = chartType;
 
-    // Position the chart initially
+    // Position the chart initially (per-frame follow for SmartMeter gauge in update())
     if (record.entity.object3D && chartEntity.object3D) {
-      const devicePos = record.entity.object3D.position;
-      chartEntity.object3D.position.set(
-        devicePos.x + 1.5,
-        devicePos.y,
-        devicePos.z,
-      );
+      if (record.device.type === DeviceType.SmartMeter && chartType === "gauge") {
+        const wp = new Vector3();
+        (record.entity.object3D as any).getWorldPosition(wp);
+        const chartPos = this.findSafePanelPosition(wp, 0, 0.72);
+        chartEntity.object3D.position.set(
+          chartPos.x,
+          chartPos.y,
+          chartPos.z,
+        );
+        const cam = this.world.camera;
+        if (cam) chartEntity.object3D.lookAt(cam.position);
+      } else {
+        const devicePos = record.entity.object3D.position;
+        chartEntity.object3D.position.set(
+          devicePos.x + 1.5,
+          devicePos.y,
+          devicePos.z,
+        );
+      }
     }
 
     console.log(`[DeviceRenderer] Showing ${chartType} chart for ${deviceId}`);
@@ -765,6 +786,23 @@ export class DeviceRendererSystem extends createSystem({
           // Make graph panel face the camera
           if (camera) {
             record.graphPanelEntity.object3D.lookAt(camera.position);
+          }
+        }
+
+        // SmartMeter 3D gauge dashboard: stay near the smartmeter UI panel (tighter than graph)
+        if (
+          record.chartEntity?.object3D &&
+          record.activeChartType === "gauge" &&
+          record.device.type === DeviceType.SmartMeter
+        ) {
+          const gaugePos = this.findSafePanelPosition(safePanelPos, 0, 0.48);
+          record.chartEntity.object3D.position.set(
+            gaugePos.x,
+            gaugePos.y,
+            gaugePos.z,
+          );
+          if (camera) {
+            record.chartEntity.object3D.lookAt(camera.position);
           }
         }
       }

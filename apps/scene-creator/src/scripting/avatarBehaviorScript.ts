@@ -1,10 +1,12 @@
 /**
  * Normalized behavior script actions for NPCs and the robot assistant.
- * Coordinates in "walk" are room-local XZ (same space as navmesh clamp / room bounds).
+ *
+ * `walk` — patrol routine: forward by `distance` (or default), turn 180°, return to
+ * spawn, turn 180° again; then the script advances. All walks use the same fixed speed in-engine.
  */
 
 export type AvatarBehaviorAction =
-  | { type: "walk"; target: [number, number]; speed?: number }
+  | { type: "walk"; distance?: number }
   | { type: "wait"; duration: number }
   | { type: "idle"; duration?: number }
   | { type: "wave" }
@@ -31,20 +33,13 @@ export function normalizeAvatarBehaviorScript(raw: unknown): AvatarBehaviorActio
     if (!type || !ALLOWED.has(type)) return null;
     switch (type) {
       case "walk": {
-        const t = (item as { target?: unknown; speed?: unknown }).target;
-        if (
-          !Array.isArray(t) ||
-          t.length < 2 ||
-          typeof t[0] !== "number" ||
-          typeof t[1] !== "number"
-        ) {
-          return null;
+        const d = (item as { distance?: unknown }).distance;
+        if (d !== undefined) {
+          if (typeof d !== "number" || d < 0.25 || d > 8) return null;
         }
-        const speed = (item as { speed?: number }).speed;
         out.push({
           type: "walk",
-          target: [t[0], t[1]],
-          speed: typeof speed === "number" ? speed : undefined,
+          distance: typeof d === "number" ? d : undefined,
         });
         break;
       }

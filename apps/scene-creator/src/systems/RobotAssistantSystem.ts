@@ -57,6 +57,8 @@ const USER_PERSONAL_SPACE_RADIUS = 1.75;
 const USER_ARRIVAL_SLACK = 0.1;
 /** Looser stop radius for autonomous / instruction patrol (not walk-to-user ring target). */
 const PATROL_STYLE_REACH_DISTANCE = 1.8;
+/** Scripted `walk` patrol leg when JSON omits `distance` (room-local metres). */
+const SCRIPT_PATROL_DEFAULT_DISTANCE = 1.35;
 const WAYPOINT_INTERVAL = 8.0; // Pick new waypoint every 8-12 seconds
 /** Maximum time (seconds) the robot will try to walk to user before giving up. */
 const WALK_TO_USER_TIMEOUT_SEC = 30.0;
@@ -118,6 +120,16 @@ interface VoiceEmoteSequence {
   record: RobotAssistantRecord;
 }
 
+interface BehaviorScriptWalkRoutine {
+  anchorX: number;
+  anchorZ: number;
+  dirX: number;
+  dirZ: number;
+  startYaw: number;
+  leg: number;
+  phase: "out" | "in";
+}
+
 export class RobotAssistantSystem extends createSystem({
   robots: {
     required: [RobotAssistantComponent],
@@ -135,6 +147,8 @@ export class RobotAssistantSystem extends createSystem({
   private behaviorScriptIndex = 0;
   private behaviorScriptPhaseKey = "";
   private behaviorScriptTimer = 0;
+  /** Forward → turn → return → turn for scripted `walk` actions. */
+  private behaviorScriptWalkRoutine: BehaviorScriptWalkRoutine | null = null;
 
   // ── Repath / stuck recovery state ──
   /** Timestamp of the last repath action. */
@@ -994,6 +1008,7 @@ export class RobotAssistantSystem extends createSystem({
       this.behaviorScriptIndex = 0;
       this.behaviorScriptPhaseKey = "";
       this.behaviorScriptTimer = 0;
+      this.behaviorScriptWalkRoutine = null;
       console.log(
         `[RobotAssistant] 📜 Behavior script active (${actions.length} actions)`,
       );
@@ -1002,6 +1017,7 @@ export class RobotAssistantSystem extends createSystem({
       this.behaviorScriptIndex = 0;
       this.behaviorScriptPhaseKey = "";
       this.behaviorScriptTimer = 0;
+      this.behaviorScriptWalkRoutine = null;
       console.log("[RobotAssistant] 📜 Behavior script cleared");
     }
   }
@@ -1039,6 +1055,9 @@ export class RobotAssistantSystem extends createSystem({
     const pkey = `${this.behaviorScriptIndex}:${action.type}`;
     if (this.behaviorScriptPhaseKey !== pkey) {
       this.behaviorScriptPhaseKey = pkey;
+      if (action.type !== "walk") {
+        this.behaviorScriptWalkRoutine = null;
+      }
       switch (action.type) {
         case "wait":
           this.behaviorScriptTimer = action.duration;
@@ -1058,6 +1077,20 @@ export class RobotAssistantSystem extends createSystem({
           this.fadeToAction(record, "Idle", FADE_DURATION);
           entity.setValue(RobotAssistantComponent, "currentState", "Idle");
           break;
+        case "walk": {
+          const localYaw = record.model.rotation.y;
+          const leg = action.distance ?? SCRIPT_PATROL_DEFAULT_DISTANCE;
+          this.behaviorScriptWalkRoutine = {
+            anchorX: roomLocal.x,
+            anchorZ: roomLocal.z,
+            dirX: Math.sin(localYaw),
+            dirZ: Math.cos(localYaw),
+            startYaw: localYaw,
+            leg,
+            phase: "out",
+          };
+          break;
+        }
         default:
           this.behaviorScriptTimer = 0;
       }
@@ -1065,19 +1098,52 @@ export class RobotAssistantSystem extends createSystem({
 
     switch (action.type) {
       case "walk": {
-        const tx = action.target[0];
-        const tz = action.target[1];
-        entity.setValue(RobotAssistantComponent, "targetX", tx);
-        entity.setValue(RobotAssistantComponent, "targetZ", tz);
-        entity.setValue(RobotAssistantComponent, "hasReachedTarget", false);
-        const dx = tx - roomLocal.x;
-        const dz = tz - roomLocal.z;
-        const d = Math.sqrt(dx * dx + dz * dz);
-        if (d < PATROL_STYLE_REACH_DISTANCE) {
-          this.behaviorScriptIndex =
-            (this.behaviorScriptIndex + 1) % actions.length;
-          this.behaviorScriptPhaseKey = "";
-          entity.setValue(RobotAssistantComponent, "hasReachedTarget", true);
+        const w = this.behaviorScriptWalkRoutine;
+        if (!w) break;
+        const arrive = WAYPOINT_REACH_DISTANCE + 0.12;
+        const goalX = w.anchorX + w.dirX * w.leg;
+        const goalZ = w.anchorZ + w.dirZ * w.leg;
+
+        if (w.phase === "out") {
+          entity.setValue(RobotAssistantComponent, "targetX", goalX);
+          entity.setValue(RobotAssistantComponent, "targetZ", goalZ);
+          entity.setValue(RobotAssistantComponent, "hasReachedTarget", false);
+          const dx = goalX - roomLocal.x;
+          const dz = goalZ - roomLocal.z;
+          if (Math.sqrt(dx * dx + dz * dz) < arrive) {
+            record.model.position.set(goalX, roomLocal.y, goalZ);
+            // Snap 180° (euler + sync quaternion — movement uses quaternion.rotateTowards).
+            record.model.rotation.set(0, w.startYaw + Math.PI, 0);
+            record.model.updateMatrixWorld(true);
+            w.phase = "in";
+            entity.setValue(RobotAssistantComponent, "targetX", w.anchorX);
+            entity.setValue(RobotAssistantComponent, "targetZ", w.anchorZ);
+            entity.setValue(RobotAssistantComponent, "hasReachedTarget", false);
+            this.fadeToAction(record, "Walking", FADE_DURATION);
+            entity.setValue(RobotAssistantComponent, "currentState", "Walking");
+          }
+          break;
+        }
+
+        if (w.phase === "in") {
+          entity.setValue(RobotAssistantComponent, "targetX", w.anchorX);
+          entity.setValue(RobotAssistantComponent, "targetZ", w.anchorZ);
+          entity.setValue(RobotAssistantComponent, "hasReachedTarget", false);
+          const dx = w.anchorX - roomLocal.x;
+          const dz = w.anchorZ - roomLocal.z;
+          if (Math.sqrt(dx * dx + dz * dz) < arrive) {
+            record.model.position.set(w.anchorX, roomLocal.y, w.anchorZ);
+            record.model.rotation.set(0, w.startYaw, 0);
+            record.model.updateMatrixWorld(true);
+            this.behaviorScriptWalkRoutine = null;
+            this.behaviorScriptIndex =
+              (this.behaviorScriptIndex + 1) % actions.length;
+            this.behaviorScriptPhaseKey = "";
+            entity.setValue(RobotAssistantComponent, "hasReachedTarget", true);
+            this.fadeToAction(record, "Walking", FADE_DURATION);
+            entity.setValue(RobotAssistantComponent, "currentState", "Walking");
+          }
+          break;
         }
         break;
       }
@@ -2035,7 +2101,7 @@ export class RobotAssistantSystem extends createSystem({
                       collisionCooldown,
                     );
                   }
-                } else {
+                } else if (!this.behaviorScriptWalkRoutine) {
                   console.log(
                     `[RobotAssistant] 👁️ Forward scan detected obstacle - repathing early.`,
                   );
@@ -2148,7 +2214,7 @@ export class RobotAssistantSystem extends createSystem({
                   }
                 }
               }
-            } else {
+            } else if (!this.behaviorScriptWalkRoutine) {
               // For autonomous walking, track blocked direction for smart repathing
               if (movedDist < 0.003) {
                 // Fully blocked → remember this direction
@@ -2292,7 +2358,8 @@ export class RobotAssistantSystem extends createSystem({
         const canRepath =
           (stuckTime > STUCK_THRESHOLD_SEC || hardCollision) &&
           this.timeElapsed - this.lastRepathTime > REPATH_COOLDOWN_SEC &&
-          !this.walkingToUser;
+          !this.walkingToUser &&
+          !this.behaviorScriptWalkRoutine;
 
         if (canRepath) {
           this.consecutiveRepaths++;

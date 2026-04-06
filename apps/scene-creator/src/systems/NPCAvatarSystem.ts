@@ -9,7 +9,7 @@ import {
     LoopRepeat,
 } from "@iwsdk/core";
 
-import { Box3, MathUtils, SkinnedMesh, Vector3 } from "three";
+import { Box3, MathUtils, Quaternion, SkinnedMesh, Vector3 } from "three";
 import { SkeletonUtils } from "three-stdlib";
 import { NPCAvatarComponent } from "../components/NPCAvatarComponent";
 import { AVATAR_VISUAL_SCALE } from "../config/avatarScale";
@@ -31,8 +31,10 @@ import type { AvatarBehaviorAction } from "../scripting/avatarBehaviorScript";
 
 const FADE_DURATION = 0.25;
 
-/** Script default `speed` and reference for matching walk clip playback to displacement (m/s). */
-const SCRIPT_WALK_REFERENCE_SPEED = 0.4;
+/** Fixed scripted walk speed (m/s); walk clips are time-scaled to match. */
+const SCRIPT_WALK_SPEED = 0.4;
+/** Default one-way patrol leg when `walk` omits `distance`. */
+const SCRIPT_PATROL_DEFAULT_DISTANCE = 1.35;
 
 const LOOP_REPEAT_CLIP_NAMES = new Set([
     "Idle",
@@ -96,6 +98,17 @@ interface ProceduralLipSync {
 // NPC RECORD
 // ============================================================================
 
+/** Room-local patrol: forward → snap 180° → back to anchor → snap 180° → next script step. */
+interface NpcScriptWalkRoutine {
+    anchorX: number;
+    anchorZ: number;
+    dirX: number;
+    dirZ: number;
+    startYaw: number;
+    leg: number;
+    phase: "out" | "in";
+}
+
 interface NPCAvatarRecord {
     entity: Entity;
     model: Object3D;
@@ -117,6 +130,55 @@ interface NPCAvatarRecord {
     scriptIndex: number;
     scriptPhaseKey: string;
     scriptTimer: number;
+    scriptWalkRoutine: NpcScriptWalkRoutine | null;
+    /** mixamorigHips (or first root bone); post-mixer Y rotation applied here. */
+    skeletonHipsBone: Object3D | null;
+    /** Extra Y rotation (rad) on hips after mixer — e.g. π for patrol return leg. */
+    skeletonYawOffsetRad: number;
+}
+
+/** RPM / Mixamo style root; falls back to first skinned-mesh hip/root bone. */
+function findNpcSkeletonHips(root: Object3D): Object3D | null {
+    const byOrder = [
+        "mixamorigHips",
+        "Hips",
+        "mixamorig:Hips",
+        "pelvis",
+        "Pelvis",
+        "DEF-hips",
+    ];
+    let named: Object3D | null = null;
+    root.traverse((o) => {
+        if (named) return;
+        if (byOrder.includes(o.name)) named = o;
+    });
+    if (!named) {
+        root.traverse((o) => {
+            if (named) return;
+            const b = o as { isBone?: boolean; name?: string };
+            if (b.isBone && /hip|pelvis/i.test(b.name || "")) named = o;
+        });
+    }
+    if (!named) {
+        let foundBones: Object3D[] | undefined;
+        root.traverse((o) => {
+            if (foundBones) return;
+            const sk = o as {
+                isSkinnedMesh?: boolean;
+                skeleton?: { bones: Object3D[] };
+            };
+            if (sk.isSkinnedMesh && sk.skeleton?.bones?.length) {
+                foundBones = sk.skeleton.bones;
+            }
+        });
+        if (foundBones?.length) {
+            named =
+                foundBones.find((b) => /hip|pelvis|root|spine/i.test(b.name || "")) ??
+                foundBones[0] ??
+                null;
+        }
+    }
+    return named;
 }
 
 // NPC AVATAR SYSTEM
@@ -126,6 +188,10 @@ export class NPCAvatarSystem extends createSystem({
         required: [NPCAvatarComponent],
     },
 }) {
+    private readonly _hipsYawQuat = new Quaternion();
+    private readonly _hipsAnimQuat = new Quaternion();
+    private readonly _axisY = new Vector3(0, 1, 0);
+
     private npcRecords: Map<string, NPCAvatarRecord> = new Map();
     private timeElapsed = 0;
     private activeConversationNpcId: string | null = null;
@@ -713,6 +779,13 @@ export class NPCAvatarSystem extends createSystem({
                 console.log(`[NPCAvatar] 👄 ${npcName}: ${morphTargetMeshes.length} lip-sync meshes ready`);
             }
 
+            const skeletonHipsBone = findNpcSkeletonHips(npcModel);
+            if (skeletonHipsBone) {
+                console.log(`[NPCAvatar] 🦴 ${npcName} hips bone: ${skeletonHipsBone.name || "(unnamed)"}`);
+            } else {
+                console.warn(`[NPCAvatar] ⚠️ No hips/root bone found for ${npcName} — patrol facing may rely on root only`);
+            }
+
             const entity = this.world.createTransformEntity(npcModel);
             entity.addComponent(NPCAvatarComponent, {
                 npcId, npcName, baseY: feetY,
@@ -746,6 +819,9 @@ export class NPCAvatarSystem extends createSystem({
                 scriptIndex: 0,
                 scriptPhaseKey: "",
                 scriptTimer: 0,
+                scriptWalkRoutine: null,
+                skeletonHipsBone,
+                skeletonYawOffsetRad: 0,
             };
             this.npcRecords.set(npcId, record);
 
@@ -807,6 +883,8 @@ export class NPCAvatarSystem extends createSystem({
         record.scriptIndex = 0;
         record.scriptPhaseKey = "";
         record.scriptTimer = 0;
+        record.scriptWalkRoutine = null;
+        record.skeletonYawOffsetRad = 0;
         console.log(
             `[NPCAvatar] Script ${record.scriptActions ? `loaded (${record.scriptActions.length} actions)` : "cleared"} for ${npcId}`,
         );
@@ -886,13 +964,102 @@ export class NPCAvatarSystem extends createSystem({
         }
     }
 
-    /** Scale walk clip speed so foot cycle matches scripted `speed` (see SCRIPT_WALK_REFERENCE_SPEED). */
+    /**
+     * Clips write the hips/root quaternion each frame; parent Object3D.rotation often has no visible effect.
+     * Apply patrol facing as q_extra * q_clip on the hips bone after the mixer runs.
+     */
+    private applySkeletonYawAfterMixer(record: NPCAvatarRecord): void {
+        const bone = record.skeletonHipsBone;
+        if (!bone || Math.abs(record.skeletonYawOffsetRad) < 1e-6) return;
+        (this._hipsAnimQuat as { copy: (q: unknown) => unknown }).copy(bone.quaternion);
+        this._hipsYawQuat.setFromAxisAngle(this._axisY, record.skeletonYawOffsetRad);
+        (bone.quaternion as { multiplyQuaternions: (a: unknown, b: unknown) => void }).multiplyQuaternions(
+            this._hipsYawQuat,
+            this._hipsAnimQuat,
+        );
+    }
+
+    /** Scale walk clip speed so foot cycle matches scripted walk speed. */
     private applyScriptWalkTimeScale(record: NPCAvatarRecord, walkAnim: string, speed: number): void {
-        const scale = speed / SCRIPT_WALK_REFERENCE_SPEED;
+        const scale = speed / SCRIPT_WALK_SPEED;
         for (const name of ["Walk", "Walking"] as const) {
             const a = record.animationsMap.get(name);
             if (a) a.setEffectiveTimeScale(name === walkAnim ? scale : 1);
         }
+    }
+
+    /** Room-local step toward XZ goal; returns true if within `arriveRadius`. */
+    private npcPatrolStepToward(
+        npcId: string,
+        record: NPCAvatarRecord,
+        entity: Entity,
+        roomLocal: { x: number; y: number; z: number },
+        roomRotY: number,
+        dt: number,
+        goalX: number,
+        goalZ: number,
+        speed: number,
+        arriveRadius: number,
+    ): boolean {
+        const dx = goalX - roomLocal.x;
+        const dz = goalZ - roomLocal.z;
+        const dist = Math.sqrt(dx * dx + dz * dz);
+        if (dist < arriveRadius) {
+            record.model.position.set(goalX, roomLocal.y, goalZ);
+            record.lastRoomLocalPos = { x: goalX, y: roomLocal.y, z: goalZ };
+            return true;
+        }
+        const mx = (dx / dist) * speed * dt;
+        const mz = (dz / dist) * speed * dt;
+        let nx = roomLocal.x + mx;
+        let nz = roomLocal.z + mz;
+        [nx, nz] = clampToWalkableArea(nx, nz);
+        const oldW = this.roomLocalToWorld(roomLocal.x, roomLocal.y, roomLocal.z);
+        const newW = this.roomLocalToWorld(nx, roomLocal.y, nz);
+        const constrained = constrainMovement(
+            new Vector3(oldW.x, oldW.y, oldW.z),
+            new Vector3(newW.x, newW.y, newW.z),
+            AVATAR_RADIUS,
+            AVATAR_HEIGHTS,
+        );
+        let c = this.worldToRoomLocal(constrained.x, constrained.y, constrained.z);
+        [c.x, c.z] = clampToWalkableArea(c.x, c.z);
+        const budged = this.applyAgentAvoidanceRoomLocal(
+            npcId,
+            roomLocal.x,
+            roomLocal.z,
+            c.x,
+            c.z,
+        );
+        const walkAnim = this.chooseWalkAnimation(record);
+        if (walkAnim !== "Idle" && record.currentAction !== walkAnim) {
+            this.fadeToAction(record, walkAnim, FADE_DURATION);
+        } else if (walkAnim === "Idle" && record.currentAction !== "Idle") {
+            this.resetWalkClipTimeScales(record);
+            this.fadeToAction(record, "Idle", FADE_DURATION);
+        }
+        if (walkAnim !== "Idle") {
+            this.applyScriptWalkTimeScale(record, walkAnim, speed);
+        } else {
+            this.resetWalkClipTimeScales(record);
+        }
+        const rdx = budged.x - roomLocal.x;
+        const rdz = budged.z - roomLocal.z;
+        // Return leg uses skeletonYawOffsetRad (π) on hips; keep root yaw stable so we don't double-rotate.
+        if (
+            Math.abs(rdx) + Math.abs(rdz) > 1e-4 &&
+            Math.abs(record.skeletonYawOffsetRad) < 1e-6
+        ) {
+            record.model.rotation.set(0, Math.atan2(rdx, rdz) + roomRotY, 0);
+        }
+        record.model.position.set(budged.x, roomLocal.y, budged.z);
+        record.lastRoomLocalPos = { x: budged.x, y: roomLocal.y, z: budged.z };
+        entity.setValue(
+            NPCAvatarComponent,
+            "currentState",
+            walkAnim === "Idle" ? "Idle" : "Walking",
+        );
+        return false;
     }
 
     private processBehaviorScript(
@@ -909,6 +1076,9 @@ export class NPCAvatarSystem extends createSystem({
         const phaseKey = `${record.scriptIndex}:${action.type}`;
         if (record.scriptPhaseKey !== phaseKey) {
             record.scriptPhaseKey = phaseKey;
+            if (action.type !== "walk") {
+                record.scriptWalkRoutine = null;
+            }
             switch (action.type) {
                 case "wait":
                     record.scriptTimer = action.duration;
@@ -925,9 +1095,24 @@ export class NPCAvatarSystem extends createSystem({
                     const sitName = record.animationsMap.has("Sitting")
                         ? "Sitting"
                         : record.animationsMap.has("Sit")
-                          ? "Sit"
-                          : "Idle";
+                            ? "Sit"
+                            : "Idle";
                     if (sitName !== "Idle") this.fadeToAction(record, sitName, FADE_DURATION);
+                    break;
+                }
+                case "walk": {
+                    record.skeletonYawOffsetRad = 0;
+                    const localYaw = record.model.rotation.y - roomRotY;
+                    const leg = action.distance ?? SCRIPT_PATROL_DEFAULT_DISTANCE;
+                    record.scriptWalkRoutine = {
+                        anchorX: roomLocal.x,
+                        anchorZ: roomLocal.z,
+                        dirX: Math.sin(localYaw),
+                        dirZ: Math.cos(localYaw),
+                        startYaw: localYaw,
+                        leg,
+                        phase: "out",
+                    };
                     break;
                 }
                 default:
@@ -937,68 +1122,70 @@ export class NPCAvatarSystem extends createSystem({
 
         switch (action.type) {
             case "walk": {
-                const tx = action.target[0];
-                const tz = action.target[1];
-                const speed = action.speed ?? 0.4;
-                const dx = tx - roomLocal.x;
-                const dz = tz - roomLocal.z;
-                const dist = Math.sqrt(dx * dx + dz * dz);
-                if (dist < 0.18) {
-                    record.scriptIndex = (record.scriptIndex + 1) % actions.length;
-                    record.scriptPhaseKey = "";
-                    record.model.position.set(roomLocal.x, roomLocal.y, roomLocal.z);
-                    record.lastRoomLocalPos = { x: roomLocal.x, y: roomLocal.y, z: roomLocal.z };
-                    this.resetWalkClipTimeScales(record);
-                    this.fadeToAction(record, "Idle", FADE_DURATION);
-                    entity.setValue(NPCAvatarComponent, "currentState", "Idle");
+                const w = record.scriptWalkRoutine;
+                if (!w) break;
+                const speed = SCRIPT_WALK_SPEED;
+                const arrive = 0.32;
+
+                if (w.phase === "out") {
+                    const goalX = w.anchorX + w.dirX * w.leg;
+                    const goalZ = w.anchorZ + w.dirZ * w.leg;
+                    const reached = this.npcPatrolStepToward(
+                        npcId,
+                        record,
+                        entity,
+                        roomLocal,
+                        roomRotY,
+                        dt,
+                        goalX,
+                        goalZ,
+                        speed,
+                        arrive,
+                    );
+                    if (reached) {
+                        record.model.position.set(goalX, roomLocal.y, goalZ);
+                        record.lastRoomLocalPos = { x: goalX, y: roomLocal.y, z: goalZ };
+                        // 180° on skeleton hips (clips own root bone; parent rotation is ignored visually).
+                        record.skeletonYawOffsetRad = Math.PI;
+                        w.phase = "in";
+                        this.resetWalkClipTimeScales(record);
+                        this.fadeToAction(record, "Idle", FADE_DURATION);
+                        entity.setValue(NPCAvatarComponent, "currentState", "Idle");
+                    }
                     break;
                 }
-                const mx = (dx / dist) * speed * dt;
-                const mz = (dz / dist) * speed * dt;
-                let nx = roomLocal.x + mx;
-                let nz = roomLocal.z + mz;
-                [nx, nz] = clampToWalkableArea(nx, nz);
-                const oldW = this.roomLocalToWorld(roomLocal.x, roomLocal.y, roomLocal.z);
-                const newW = this.roomLocalToWorld(nx, roomLocal.y, nz);
-                const constrained = constrainMovement(
-                    new Vector3(oldW.x, oldW.y, oldW.z),
-                    new Vector3(newW.x, newW.y, newW.z),
-                    AVATAR_RADIUS,
-                    AVATAR_HEIGHTS,
-                );
-                let c = this.worldToRoomLocal(constrained.x, constrained.y, constrained.z);
-                [c.x, c.z] = clampToWalkableArea(c.x, c.z);
-                const budged = this.applyAgentAvoidanceRoomLocal(
-                    npcId,
-                    roomLocal.x,
-                    roomLocal.z,
-                    c.x,
-                    c.z,
-                );
-                const walkAnim = this.chooseWalkAnimation(record);
-                if (walkAnim !== "Idle" && record.currentAction !== walkAnim) {
-                    this.fadeToAction(record, walkAnim, FADE_DURATION);
-                } else if (walkAnim === "Idle" && record.currentAction !== "Idle") {
-                    this.resetWalkClipTimeScales(record);
-                    this.fadeToAction(record, "Idle", FADE_DURATION);
+
+                if (w.phase === "in") {
+                    const reached = this.npcPatrolStepToward(
+                        npcId,
+                        record,
+                        entity,
+                        roomLocal,
+                        roomRotY,
+                        dt,
+                        w.anchorX,
+                        w.anchorZ,
+                        speed,
+                        arrive,
+                    );
+                    if (reached) {
+                        record.model.position.set(w.anchorX, roomLocal.y, w.anchorZ);
+                        record.lastRoomLocalPos = {
+                            x: w.anchorX,
+                            y: roomLocal.y,
+                            z: w.anchorZ,
+                        };
+                        record.skeletonYawOffsetRad = 0;
+                        record.model.rotation.set(0, w.startYaw + roomRotY, 0);
+                        record.scriptWalkRoutine = null;
+                        record.scriptIndex = (record.scriptIndex + 1) % actions.length;
+                        record.scriptPhaseKey = "";
+                        this.resetWalkClipTimeScales(record);
+                        this.fadeToAction(record, "Idle", FADE_DURATION);
+                        entity.setValue(NPCAvatarComponent, "currentState", "Idle");
+                    }
+                    break;
                 }
-                if (walkAnim !== "Idle") {
-                    this.applyScriptWalkTimeScale(record, walkAnim, speed);
-                } else {
-                    this.resetWalkClipTimeScales(record);
-                }
-                const rdx = budged.x - roomLocal.x;
-                const rdz = budged.z - roomLocal.z;
-                if (Math.abs(rdx) + Math.abs(rdz) > 1e-4) {
-                    record.model.rotation.y = Math.atan2(rdx, rdz) + roomRotY;
-                }
-                record.model.position.set(budged.x, roomLocal.y, budged.z);
-                record.lastRoomLocalPos = { x: budged.x, y: roomLocal.y, z: budged.z };
-                entity.setValue(
-                    NPCAvatarComponent,
-                    "currentState",
-                    walkAnim === "Idle" ? "Idle" : "Walking",
-                );
                 break;
             }
             case "wait":
@@ -1124,6 +1311,7 @@ export class NPCAvatarSystem extends createSystem({
             record.model.rotation.y += roomRotY;
 
             record.mixer.update(dt);
+            this.applySkeletonYawAfterMixer(record);
             this.processProceduralLipSync(record, dt);
         }
     }
