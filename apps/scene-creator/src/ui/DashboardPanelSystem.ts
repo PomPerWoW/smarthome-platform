@@ -84,7 +84,7 @@ function getDeviceValueText(device: Device): string {
     case DeviceType.Fan:
       return `Speed ${(device as Fan).speed}`;
     case DeviceType.AirConditioner:
-      return `${(device as AirConditioner).temperature}°C`;
+      return `${(device as AirConditioner).temperature} C`;
     case DeviceType.SmartMeter:
       return device.is_on ? "Active" : "Idle";
     default:
@@ -165,24 +165,49 @@ function getDeviceIconWrapStyle(device: Device): {
   return offPalette[device.type] ?? fallback;
 }
 
+/**
+ * Apply icon layers with caching to avoid unnecessary setProperties calls
+ * that would trigger mesh geometry rebuilds and invalidate the BVH.
+ */
 function applyDeviceCardIconLayers(
   document: UIKitDocument,
   slotIndex: number,
   device: Device,
-): void {
+  cache: Map<string, any>,
+): boolean {
+  let changed = false;
   const active = deviceTypeToCardIconSuffix(device.type);
-  for (const v of DEVICE_CARD_ICON_SUFFIXES) {
-    const layer = document.getElementById(`card-icon-${slotIndex}-${v}`);
-    layer?.setProperties?.({
-      display: v === active ? "flex" : "none",
-    });
+  const cacheKeyType = `icon-type-${slotIndex}`;
+  if (cache.get(cacheKeyType) !== active) {
+    for (const v of DEVICE_CARD_ICON_SUFFIXES) {
+      const layer = document.getElementById(`card-icon-${slotIndex}-${v}`);
+      layer?.setProperties?.({
+        display: v === active ? "flex" : "none",
+        pointerEvents: "none"
+      });
+    }
+    cache.set(cacheKeyType, active);
+    changed = true;
   }
-  const wrap = document.getElementById(
-    `card-icon-wrap-${slotIndex}`,
-  ) as UIKit.Container | null;
-  if (wrap) {
-    wrap.setProperties(getDeviceIconWrapStyle(device));
+
+  const style = getDeviceIconWrapStyle(device);
+  const cacheKeyWrapBg = `icon-wrap-bg-${slotIndex}`;
+  const cacheKeyWrapBorder = `icon-wrap-border-${slotIndex}`;
+  if (
+    cache.get(cacheKeyWrapBg) !== style.backgroundColor ||
+    cache.get(cacheKeyWrapBorder) !== style.borderColor
+  ) {
+    const wrap = document.getElementById(
+      `card-icon-wrap-${slotIndex}`,
+    ) as UIKit.Container | null;
+    if (wrap) {
+      wrap.setProperties({...style, pointerEvents: "none"});
+    }
+    cache.set(cacheKeyWrapBg, style.backgroundColor);
+    cache.set(cacheKeyWrapBorder, style.borderColor);
+    // wrap background color change doesn't need layout rebuild, but we return true just in case the active changes too
   }
+  return changed;
 }
 
 // ── System ─────────────────────────────────────────────────────────────────────
@@ -204,6 +229,9 @@ export class DashboardPanelSystem extends createSystem({
   private roomNameById: Map<string, string> = new Map();
   private roomNameFetchInFlight: Set<string> = new Set();
   private voiceStatus: string = "Idle";
+  /** Avoid BVH refresh spam when voice hooks repeat the same status string. */
+  private lastVoiceStatusLabelApplied = "";
+  private lastVoiceStatusDotColorApplied = "";
   private homeWelcomeText = "Welcome, User";
   private unsubscribeVisibility?: () => void;
   private refreshDashboardXRSectionUI?: () => void;
@@ -598,6 +626,8 @@ export class DashboardPanelSystem extends createSystem({
               : COLOR_RAIL_INACTIVE_BORDER,
         });
       }
+      // Match welcome panel: style updates can rebuild UIKit meshes — refresh BVH so the XR hit dot stays valid.
+      this.scheduleDashboardBVHRefresh();
     };
 
     // Home
@@ -842,6 +872,7 @@ export class DashboardPanelSystem extends createSystem({
 
       updateModeChrome();
       updatePrimaryLabels();
+      this.scheduleDashboardBVHRefresh();
       console.log(`[DashboardPanel] XR mode preference: ${ar ? "AR" : "VR"}`);
     };
 
@@ -850,6 +881,7 @@ export class DashboardPanelSystem extends createSystem({
     }
     updateModeChrome();
     updatePrimaryLabels();
+    this.scheduleDashboardBVHRefresh();
 
     vrBtn?.addEventListener("click", () => applyMode(false));
     arBtn?.addEventListener("click", () => applyMode(true));
@@ -894,10 +926,12 @@ export class DashboardPanelSystem extends createSystem({
     this.refreshDashboardXRSectionUI = () => {
       updateModeChrome();
       updatePrimaryLabels();
+      this.scheduleDashboardBVHRefresh();
     };
 
     const sub = this.world.visibilityState.subscribe(() => {
       updatePrimaryLabels();
+      this.scheduleDashboardBVHRefresh();
     });
     if (typeof sub === "function") {
       this.unsubscribeVisibility = sub;
@@ -930,6 +964,7 @@ export class DashboardPanelSystem extends createSystem({
         backgroundColor: !slimevr ? activeBg : inactiveBg,
         borderColor: !slimevr ? activeBorder : inactiveBorder,
       });
+      this.scheduleDashboardBVHRefresh();
     };
 
     updateBodyTrackingChrome();
@@ -1089,6 +1124,7 @@ export class DashboardPanelSystem extends createSystem({
     statusEl.setProperties({
       text: `P: (${labModel.position.x.toFixed(2)}, ${labModel.position.y.toFixed(2)}, ${labModel.position.z.toFixed(2)}) R: ${rY}deg`,
     });
+    this.scheduleDashboardBVHRefresh();
   }
 
   private triggerVoiceAssistantFromDashboard(document: UIKitDocument): void {
@@ -1119,15 +1155,24 @@ export class DashboardPanelSystem extends createSystem({
     }
     // Update status dot color to give visual feedback
     const dot = document.getElementById("voice-status-dot") as UIKit.Container;
+    let dotColor = "";
     if (dot) {
       const lower = text.toLowerCase();
-      let dotColor = "#64748b"; // Idle — slate
+      dotColor = "#64748b"; // Idle — slate
       if (lower.includes("listen") || lower.includes("active")) {
         dotColor = "#7c3aed"; // Listening / Active — purple
       } else if (lower === "active") {
         dotColor = "#22c55e"; // Active — green
       }
       dot.setProperties({ backgroundColor: dotColor });
+    }
+    const labelChanged = text !== this.lastVoiceStatusLabelApplied;
+    const dotChanged =
+      dotColor !== "" && dotColor !== this.lastVoiceStatusDotColorApplied;
+    if (labelChanged || dotChanged) {
+      this.lastVoiceStatusLabelApplied = text;
+      if (dotColor !== "") this.lastVoiceStatusDotColorApplied = dotColor;
+      this.scheduleDashboardBVHRefresh();
     }
   }
 
@@ -1321,12 +1366,19 @@ export class DashboardPanelSystem extends createSystem({
 
     this.slotDeviceMap.clear();
 
+    // Track whether any UI property actually changed — only refresh BVH if so.
+    let anyPropertyChanged = false;
+    let anyLayoutPropertyChanged = false;
+
     // Slot 0: XR quick card (always visible when the grid is shown)
     const xrCard = document.getElementById("device-card-0") as UIKit.Container;
     if (xrCard) {
-      xrCard.setProperties({ display: "flex" });
+      if (this.uiPropertyCache.get("xr-card-display") !== "flex") {
+        xrCard.setProperties({ display: "flex" });
+        this.uiPropertyCache.set("xr-card-display", "flex");
+        anyLayoutPropertyChanged = true;
+      }
     }
-    this.refreshDashboardXRSectionUI?.();
 
     for (let i = FIRST_DEVICE_SLOT; i < CARD_SLOT_COUNT; i++) {
       const deviceIndex = i - FIRST_DEVICE_SLOT;
@@ -1348,30 +1400,38 @@ export class DashboardPanelSystem extends createSystem({
         this.slotDeviceMap.set(i, device.id);
 
         if (cardContainer) {
-          cardContainer.setProperties({ display: "flex" });
+          const displayKey = `container-display-${i}`;
+          if (this.uiPropertyCache.get(displayKey) !== "flex") {
+            cardContainer.setProperties({ display: "flex" });
+            this.uiPropertyCache.set(displayKey, "flex");
+            anyLayoutPropertyChanged = true;
+          }
         }
 
         if (cardName) {
           const val = device.name;
           if (this.uiPropertyCache.get(`name-${i}`) !== val) {
-            cardName.setProperties({ text: val });
+            cardName.setProperties({ text: val, pointerEvents: "none" });
             this.uiPropertyCache.set(`name-${i}`, val);
+            anyLayoutPropertyChanged = true;
           }
         }
 
         if (cardStatus) {
           const val = getDeviceStatusText(device);
           if (this.uiPropertyCache.get(`status-${i}`) !== val) {
-            cardStatus.setProperties({ text: val });
+            cardStatus.setProperties({ text: val, pointerEvents: "none" });
             this.uiPropertyCache.set(`status-${i}`, val);
+            anyLayoutPropertyChanged = true;
           }
         }
 
         if (cardValue) {
           const val = getDeviceValueText(device);
           if (this.uiPropertyCache.get(`value-${i}`) !== val) {
-            cardValue.setProperties({ text: val });
+            cardValue.setProperties({ text: val, pointerEvents: "none" });
             this.uiPropertyCache.set(`value-${i}`, val);
+            anyLayoutPropertyChanged = true;
           }
         }
 
@@ -1380,23 +1440,35 @@ export class DashboardPanelSystem extends createSystem({
           if (this.uiPropertyCache.get(`toggle-${i}`) !== val) {
             cardToggle.setProperties({ backgroundColor: val });
             this.uiPropertyCache.set(`toggle-${i}`, val);
+            anyPropertyChanged = true;
           }
         }
 
-        applyDeviceCardIconLayers(document, i, device);
+        if (applyDeviceCardIconLayers(document, i, device, this.uiPropertyCache)) {
+          anyLayoutPropertyChanged = true;
+        }
       } else {
         this.slotDeviceMap.delete(i);
         if (cardContainer) {
-          cardContainer.setProperties({ display: "none" });
+          const displayKey = `container-display-${i}`;
+          if (this.uiPropertyCache.get(displayKey) !== "none") {
+            cardContainer.setProperties({ display: "none" });
+            this.uiPropertyCache.set(displayKey, "none");
+            anyLayoutPropertyChanged = true;
+          }
         }
       }
     }
 
     console.log(
-      `[DashboardPanel] Rendered room "${roomMap[roomId]?.roomName ?? this.roomNameById.get(roomId) ?? roomId}" with ${devices.length} device(s) (max ${MAX_DEVICE_CARD_SLOTS} shown in grid)`,
+      `[DashboardPanel] Rendered room "${roomMap[roomId]?.roomName ?? this.roomNameById.get(roomId) ?? roomId}" with ${devices.length} device(s) (max ${MAX_DEVICE_CARD_SLOTS} shown in grid)${anyLayoutPropertyChanged ? " [Layout updated]" : anyPropertyChanged ? " [Props updated]" : " [no change]"}`,
     );
 
-    this.scheduleDashboardBVHRefresh();
+    // UIKit may rebuild glyph/mesh buffers on text *or* color updates. A stale
+    // three-mesh-bVH tree yields ray misses and hides the XR pointer dot.
+    if (anyLayoutPropertyChanged || anyPropertyChanged) {
+      this.scheduleDashboardBVHRefresh();
+    }
   }
 
   private hideAllCards(document: UIKitDocument): void {
@@ -1513,6 +1585,7 @@ export class DashboardPanelSystem extends createSystem({
         text: `${roomName} | ${devices.length} device(s)`,
       });
     }
+    this.scheduleDashboardBVHRefresh();
   }
 
   private async resolveRoomNameById(roomId: string): Promise<void> {

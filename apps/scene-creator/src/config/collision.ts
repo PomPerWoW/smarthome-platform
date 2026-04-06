@@ -302,7 +302,7 @@ export const ROBOT_HEIGHTS = [0.02, 0.05, 0.08, 0.12, 0.15, 0.18, 0.22, 0.25, 0.
 /** Robot collision radius (metres). */
 export const ROBOT_RADIUS = 0.15;
 
-/** Human-sized avatars at AVATAR_VISUAL_SCALE (0.8); heights scaled from former 0.5 baseline × (0.8/0.5). */
+/** Human-sized avatars at AVATAR_VISUAL_SCALE; heights scaled from former 0.5 baseline × (scale/0.5). */
 const _avatarScaleFactor = AVATAR_VISUAL_SCALE / 0.5;
 export const AVATAR_HEIGHTS = [0.1, 0.4, 0.7].map((h) => h * _avatarScaleFactor);
 /** Avatar collision radius (metres). */
@@ -406,13 +406,6 @@ export function initializeCollision(
     });
   }
 
-  const floorSource =
-    floorWalkModel && _floorWalkMeshes.length > 0 ? "cutout floor mesh" : "room meshes";
-  console.log(
-    `[Collision] ✅ Initialized with ${_collisionMeshes.length} horizontal mesh(es), ` +
-      `${_floorWalkMeshes.length} floor-walk mesh(es) (${floorSource}), ` +
-      `${_tableTopZones.length} unified desk-zone(s) from room model`,
-  );
 }
 
 /**

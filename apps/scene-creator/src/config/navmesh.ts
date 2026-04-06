@@ -58,18 +58,6 @@ export function initializeNavMesh(roomModel: any, padding: number = 0.5): NavMes
     floorY: min.y,
   };
 
-  console.log(`🗺️ [NavMesh] Calculated room bounds:`, {
-    minX: roomBounds.minX.toFixed(2),
-    maxX: roomBounds.maxX.toFixed(2),
-    minZ: roomBounds.minZ.toFixed(2),
-    maxZ: roomBounds.maxZ.toFixed(2),
-    floorY: roomBounds.floorY.toFixed(2),
-  });
-
-  const width = roomBounds.maxX - roomBounds.minX;
-  const depth = roomBounds.maxZ - roomBounds.minZ;
-  console.log(`🗺️ [NavMesh] Room size: ${width.toFixed(2)}m x ${depth.toFixed(2)}m`);
-
   navMesh = new NavMesh();
 
   const vertices = [
@@ -82,11 +70,6 @@ export function initializeNavMesh(roomModel: any, padding: number = 0.5): NavMes
   const polygon = new Polygon().fromContour(vertices);
 
   navMesh.regions.push(polygon);
-
-  console.log(`🗺️ [NavMesh] Created NavMesh with walkable area:`);
-  console.log(`   X: ${roomBounds.minX.toFixed(2)} to ${roomBounds.maxX.toFixed(2)}`);
-  console.log(`   Z: ${roomBounds.minZ.toFixed(2)} to ${roomBounds.maxZ.toFixed(2)}`);
-  console.log(`   Floor Y: ${roomBounds.floorY.toFixed(2)}`);
 
   return navMesh;
 }
@@ -144,7 +127,6 @@ export function getRandomWalkablePosition(): [number, number] {
 
 export function setRoomBounds(bounds: RoomBounds): void {
   roomBounds = bounds;
-  console.log(`🗺️ [NavMesh] Custom room bounds set:`, bounds);
 }
 
 // ============================================================================
@@ -168,9 +150,6 @@ export function setRoomTransform(
   _roomPosZ = posZ;
   _roomRotY = rotationY;
   _roomScale = Math.abs(scale) > 1e-6 ? scale : 1;
-  console.log(
-    `🗺️ [NavMesh] Room transform updated: pos=(${posX.toFixed(2)}, ${posY.toFixed(2)}, ${posZ.toFixed(2)}) rotY=${((rotationY * 180) / Math.PI).toFixed(1)}° scale=${_roomScale.toFixed(3)}`,
-  );
 }
 
 /** Convert a room-local XZ position to world XZ. */

@@ -60,7 +60,18 @@ export function refreshUIKitInteractableBVH(
   });
 }
 
-/** After UIKit `setProperties` / layout changes, run after DOM updates (double rAF). */
+/**
+ * After UIKit `setProperties` / layout changes, rebuild BVH.
+ *
+ * We do **two** passes:
+ *  1. Single rAF — catches most geometry updates immediately so the pointer
+ *     dot reappears within one frame.
+ *  2. Double rAF — safety net for deferred UIKit layout that may not be
+ *     committed until the second animation frame.
+ *
+ * This dual approach minimises the "dead zone" where the raycaster has no
+ * valid hit target and the XR pointer disappears.
+ */
 export function scheduleUIKitInteractableBVHRefresh(
   root: Object3D | null | undefined,
 ): void {
@@ -68,8 +79,12 @@ export function scheduleUIKitInteractableBVHRefresh(
   const state = getScheduleState(root);
   const myGen = ++state.gen;
   requestAnimationFrame(() => {
+    if (myGen !== state.gen) return;
+    // Early refresh — geometry may already be updated after one frame.
+    refreshUIKitInteractableBVH(root);
     requestAnimationFrame(() => {
       if (myGen !== state.gen) return;
+      // Safety-net refresh — catches any deferred layout commits.
       refreshUIKitInteractableBVH(root);
     });
   });

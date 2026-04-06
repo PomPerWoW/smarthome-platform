@@ -336,7 +336,6 @@
                           }
                         ],
                         "properties": {
-                          "class": "toggle-wrapper",
                           "id": "toggle-wrap-1",
                           "style": {
                             "pointerEvents": "auto",
@@ -558,7 +557,6 @@
                           }
                         ],
                         "properties": {
-                          "class": "toggle-wrapper",
                           "id": "toggle-wrap-2",
                           "style": {
                             "pointerEvents": "auto",
@@ -780,7 +778,6 @@
                           }
                         ],
                         "properties": {
-                          "class": "toggle-wrapper",
                           "id": "toggle-wrap-3",
                           "style": {
                             "pointerEvents": "auto",
@@ -809,7 +806,7 @@
                         "sourceTag": "span",
                         "type": "custom",
                         "children": [
-                          "24°C"
+                          "24 C"
                         ],
                         "properties": {
                           "class": "card-value",
@@ -1002,7 +999,6 @@
                           }
                         ],
                         "properties": {
-                          "class": "toggle-wrapper",
                           "id": "toggle-wrap-4",
                           "style": {
                             "pointerEvents": "auto",
@@ -1224,7 +1220,6 @@
                           }
                         ],
                         "properties": {
-                          "class": "toggle-wrapper",
                           "id": "toggle-wrap-5",
                           "style": {
                             "pointerEvents": "auto",
@@ -1446,7 +1441,6 @@
                           }
                         ],
                         "properties": {
-                          "class": "toggle-wrapper",
                           "id": "toggle-wrap-6",
                           "style": {
                             "pointerEvents": "auto",
@@ -1668,7 +1662,6 @@
                           }
                         ],
                         "properties": {
-                          "class": "toggle-wrapper",
                           "id": "toggle-wrap-7",
                           "style": {
                             "pointerEvents": "auto",
@@ -3098,7 +3091,7 @@
         "borderRadius": 2.5,
         "boxShadow": "0 20px 56px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.15)",
         "positionType": "relative",
-        "fontFamily": "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif",
+        "fontFamily": "inter",
         "pointerEvents": "auto"
       }
     },

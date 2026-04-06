@@ -38,13 +38,6 @@ export class VoiceControlSystem {
     status: "listening" | "processing" | "idle",
     payload?: VoiceIdlePayload,
   ): void {
-    if (status === "idle") {
-      console.log(
-        "[VoiceControl] 🔔 notifyStatus IDLE",
-        JSON.stringify(payload),
-        new Error().stack?.split("\n").slice(1, 4).join(" | "),
-      );
-    }
     this.onStatusListeners.forEach((cb) => cb(status, payload));
   }
 
@@ -82,7 +75,6 @@ export class VoiceControlSystem {
       window.SpeechRecognition || window.webkitSpeechRecognition;
 
     if (SpeechRecognition && !isQuest) {
-      console.log("[VoiceControl] Using native SpeechRecognition");
       this.recognition = new SpeechRecognition();
       if (this.recognition) {
         // continuous=false: Chrome auto-finalizes and stops after one utterance,
@@ -96,9 +88,6 @@ export class VoiceControlSystem {
         this.setupListeners();
       }
     } else {
-      console.log(
-        `[VoiceControl] Forcing MediaRecorder fallback (Unsupported or VR mode. isQuest: ${isQuest})`,
-      );
       this.useFallback = true;
     }
   }
@@ -149,9 +138,6 @@ export class VoiceControlSystem {
     this.clearNativeSafetyTimeout();
     this.nativeSafetyTimeout = setTimeout(() => {
       if (this.isListening && this.recognition) {
-        console.log(
-          `[VoiceControl] Native safety timeout (${this.NATIVE_MAX_LISTEN_MS / 1000}s) — forcing stop.`,
-        );
         this.recognition.stop();
       }
     }, this.NATIVE_MAX_LISTEN_MS);
@@ -162,11 +148,6 @@ export class VoiceControlSystem {
     this.clearNoActivityTimer();
     this.noActivityTimer = setTimeout(() => {
       if (this.isListening && this.recognition) {
-        console.log(
-          "[VoiceControl] No activity for",
-          this.NO_ACTIVITY_TIMEOUT,
-          "ms — stopping.",
-        );
         this.recognition.stop();
       }
     }, this.NO_ACTIVITY_TIMEOUT);
@@ -206,7 +187,6 @@ export class VoiceControlSystem {
             hasReceivedFinal = true;
             gotNewFinalChunk = true;
             this.clearInterimOnlyTimer();
-            console.log("[VoiceControl] Final transcript:", bestTranscript);
           }
         } else {
           interim += result[0]?.transcript || "";
@@ -240,11 +220,6 @@ export class VoiceControlSystem {
 
         if (this.onTranscript) this.onTranscript(accumulatedFinalTranscript.trim());
 
-        console.log(
-          "[VoiceControl] Final result — processing immediately:",
-          accumulatedFinalTranscript,
-        );
-
         this.isListening = false;
         this.retryCount = 0;
 
@@ -276,10 +251,6 @@ export class VoiceControlSystem {
             this.clearNativeSafetyTimeout();
 
             if (transcriptToProcess.length >= this.MIN_TRANSCRIPT_LENGTH) {
-              console.log(
-                "[VoiceControl] Interim-only timeout — processing:",
-                transcriptToProcess,
-              );
               this.recognition?.stop();
               this.isListening = false;
               this.retryCount = 0;
@@ -330,14 +301,12 @@ export class VoiceControlSystem {
           return;
         }
         console.warn("[VoiceControl] No speech after retries.");
-      } else if (event.error === "aborted") {
-        console.log("[VoiceControl] Speech recognition aborted.");
       } else if (event.error === "network") {
         console.error(
           "[VoiceControl] Network error — switching to MediaRecorder fallback.",
         );
         this.useFallback = true;
-      } else {
+      } else if (event.error !== "aborted") {
         console.error(
           `[VoiceControl] Speech Recognition Error (${event.error}):`,
           event,
@@ -361,10 +330,6 @@ export class VoiceControlSystem {
       if (this.isListening) {
         const fallback = accumulatedFinalTranscript.trim() || lastInterimTranscript.trim();
         if (fallback.length >= this.MIN_TRANSCRIPT_LENGTH) {
-          console.log(
-            "[VoiceControl] Recognition ended — processing via onend fallback:",
-            fallback,
-          );
           this.isListening = false;
           this.retryCount = 0;
           accumulatedFinalTranscript = "";
@@ -616,9 +581,6 @@ export class VoiceControlSystem {
 
       // Set explicit safety timeout
       this.safetyTimeout = setTimeout(() => {
-        console.log(
-          `[VoiceControl] Safety timeout reached (${this.MAX_RECORDING_DURATION / 1000}s), stopping.`,
-        );
         this.stopFallbackRecording();
       }, this.MAX_RECORDING_DURATION);
 
@@ -704,9 +666,6 @@ export class VoiceControlSystem {
         } else {
           consecutiveSilenceChecks++;
           if (consecutiveSilenceChecks >= REQUIRED_SILENCE_CHECKS) {
-            console.log(
-              "[VoiceControl] Consistent silence detected, stopping.",
-            );
             this.stopFallbackRecording();
           }
         }

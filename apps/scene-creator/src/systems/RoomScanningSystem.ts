@@ -56,6 +56,25 @@ function getMeshColor(label: string): number {
   return MESH_COLORS[label.toLowerCase()] ?? MESH_COLORS.other;
 }
 
+/** EliCS may reject `getValue` for vector/array fields — read safely for fallback bbox sizing. */
+function tryReadMeshDimensions(entity: Entity): [number, number, number] | undefined {
+  try {
+    const d = entity.getValue(XRMesh, "dimensions") as unknown;
+    if (
+      Array.isArray(d) &&
+      d.length >= 3 &&
+      typeof d[0] === "number" &&
+      typeof d[1] === "number" &&
+      typeof d[2] === "number"
+    ) {
+      return [d[0], d[1], d[2]];
+    }
+  } catch {
+    // Newer IWSDK: "Array/vector types must be read via getVectorView" — skip bbox sizing
+  }
+  return undefined;
+}
+
 /**
  * RoomScanningSystem — triggers Meta Quest room capture and visualizes
  * detected planes and meshes from the IWSDK SceneUnderstandingSystem.
@@ -248,9 +267,7 @@ export class RoomScanningSystem extends createSystem({
       const isBounded = entity.getValue(XRMesh, "isBounded3D") as boolean;
       const semanticLabel =
         (entity.getValue(XRMesh, "semanticLabel") as string) || "unknown";
-      const dimensions = entity.getValue(XRMesh, "dimensions") as
-        | [number, number, number]
-        | undefined;
+      const dimensions = tryReadMeshDimensions(entity);
       const pos = entity.object3D?.position;
 
       if (isBounded) {

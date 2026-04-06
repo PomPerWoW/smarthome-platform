@@ -234,7 +234,7 @@
                     "sourceTag": "span",
                     "type": "custom",
                     "children": [
-                      "°C"
+                      "C"
                     ],
                     "properties": {
                       "class": "temp-unit"
@@ -308,7 +308,7 @@
                         "sourceTag": "span",
                         "type": "custom",
                         "children": [
-                          "18°"
+                          "18"
                         ],
                         "properties": {
                           "class": "preset-text"
@@ -330,7 +330,7 @@
                         "sourceTag": "span",
                         "type": "custom",
                         "children": [
-                          "22°"
+                          "22"
                         ],
                         "properties": {
                           "class": "preset-text"
@@ -352,7 +352,7 @@
                         "sourceTag": "span",
                         "type": "custom",
                         "children": [
-                          "25°"
+                          "25"
                         ],
                         "properties": {
                           "class": "preset-text"
@@ -374,7 +374,7 @@
                         "sourceTag": "span",
                         "type": "custom",
                         "children": [
-                          "28°"
+                          "28"
                         ],
                         "properties": {
                           "class": "preset-text"
@@ -628,7 +628,7 @@
         "backgroundColor": "rgba(226, 232, 240, 0.34)",
         "backdropFilter": "blur(72px) saturate(160%)",
         "WebkitBackdropFilter": "blur(72px) saturate(160%)",
-        "fontFamily": "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif",
+        "fontFamily": "inter",
         "borderColor": "rgba(255, 255, 255, 0.14)",
         "borderWidth": "0.15",
         "borderRadius": 2,
@@ -1499,7 +1499,7 @@
       },
       "end": {
         "line": 274,
-        "column": 46
+        "column": 45
       }
     },
     "uid-36": {
@@ -1519,7 +1519,7 @@
       },
       "end": {
         "line": 277,
-        "column": 46
+        "column": 45
       }
     },
     "uid-38": {
@@ -1539,7 +1539,7 @@
       },
       "end": {
         "line": 280,
-        "column": 46
+        "column": 45
       }
     },
     "uid-40": {
@@ -1559,7 +1559,7 @@
       },
       "end": {
         "line": 283,
-        "column": 46
+        "column": 45
       }
     },
     "uid-42": {

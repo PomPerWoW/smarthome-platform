@@ -32,7 +32,6 @@ import { FanPanelSystem } from "./ui/FanPanelSystem";
 import { AirConditionerPanelSystem } from "./ui/AirConditionerPanelSystem";
 import { GraphPanelSystem } from "./ui/GraphPanelSystem";
 import { SmartMeterPanelSystem } from "./ui/SmartMeterPanelSystem";
-import { VoiceControlSystem } from "./systems/VoiceControlSystem";
 import { VoicePanelSystem } from "./ui/VoicePanelSystem";
 // import { VoicePanel } from "./ui/VoicePanel"; // Legacy DOM panel
 import { RoomScanningSystem } from "./systems/RoomScanningSystem";
@@ -45,13 +44,6 @@ import { XRInstructionSystem } from "./systems/XRInstructionSystem";
 import { WallpaperSystem } from "./systems/WallpaperSystem";
 import { WallpaperCutoutPanelSystem } from "./ui/WallpaperCutoutPanelSystem";
 import { DashboardPanelSystem } from "./ui/DashboardPanelSystem";
-import { BackendApiClient } from "./api/BackendApiClient";
-import { normalizeAvatarBehaviorScript } from "./scripting/avatarBehaviorScript";
-import {
-  buildDefaultNpcBehaviorScript,
-  DEFAULT_NPC_IDS,
-} from "./scripting/defaultNpcBehaviorScripts";
-
 import {
   initializeNavMesh,
   getRoomBounds,
@@ -67,7 +59,6 @@ import {
 import { config } from "./config/env";
 import {
   type ControllableAvatarSystem,
-  getAvatarCount,
   registerAvatar,
   setAvatarSwitcherCamera,
   setOnAvatarSwitch,
@@ -201,26 +192,13 @@ const assets: AssetManifest = {
 };
 
 async function main(): Promise<void> {
-  console.log("🏠 ==========================================");
-  console.log("🏠 SmartHome Platform Scene Creator starting...");
-  console.log("🏠 ==========================================");
-
-  let user: { email: string } | null = null;
-
-  console.log("\n📋 Step 1: Authentication");
-
   const auth = getAuth();
   const isAuthenticated = await auth.initialize();
-
-  console.log("[Main] Authentication result:", isAuthenticated);
 
   if (!isAuthenticated) {
     console.error("❌ Authentication failed");
     return;
   }
-
-  user = auth.getUser();
-  console.log(`✅ Authenticated as: ${user?.email}`);
 
   const world = await World.create(
     document.getElementById("scene-container") as HTMLDivElement,
@@ -250,8 +228,6 @@ async function main(): Promise<void> {
     },
   );
 
-  console.log("✅ World created");
-
   // --- Quest 3 WebXR Performance Optimizations ---
   try {
     const renderer = (world as any).renderer;
@@ -267,21 +243,18 @@ async function main(): Promise<void> {
       // 3. Enable maximum Fixed Foveated Rendering (FFR) for Quest
       if (renderer.xr) {
         // Only works for layers/VR on supported devices
-        if (typeof renderer.xr.setFoveation === 'function') {
+        if (typeof renderer.xr.setFoveation === "function") {
           renderer.xr.setFoveation(1.0);
-          console.log("✅ WebXR Foveation enabled (1.0)");
         }
 
         // 4. Target 72Hz specifically for Quest 3 to limit instant lag during heavy rendering
-        renderer.xr.addEventListener('sessionstart', () => {
+        renderer.xr.addEventListener("sessionstart", () => {
           const session = renderer.xr.getSession();
           if (session && session.supportedFrameRates) {
-            console.log("Supported frame rates:", session.supportedFrameRates);
             try {
               // If 72hz is supported (Quest 2/3), specifically request it to save 25% render budget
               if (Array.from(session.supportedFrameRates).includes(72)) {
                 session.updateRenderState({ targetFrameRate: 72 });
-                console.log("✅ WebXR targetFrameRate set to 72Hz for Quest stability");
               }
             } catch (e) {
               console.warn("Failed to set target frame rate", e);
@@ -376,13 +349,8 @@ async function main(): Promise<void> {
 
     // If a model file URL is provided, load it dynamically
     if (modelFileUrl) {
-      console.log(`📦 Loading room model from URL: ${modelFileUrl}`);
       try {
         const candidateUrls = buildRoomModelUrlCandidates(modelFileUrl);
-        console.log(
-          `🔍 Attempting ${candidateUrls.length} model URL(s):`,
-          candidateUrls,
-        );
 
         const loader = new GLTFLoader();
         loader.setCrossOrigin("anonymous");
@@ -404,10 +372,8 @@ async function main(): Promise<void> {
               );
             }
 
-            console.log(`🔍 Attempting to load model from: ${candidateUrl}`);
             const gltf = await loader.loadAsync(candidateUrl);
             roomModel = gltf.scene;
-            console.log(`✅ Room model loaded from URL: ${candidateUrl}`);
             break;
           } catch (candidateError) {
             lastError = candidateError;
@@ -443,7 +409,6 @@ async function main(): Promise<void> {
       if (roomGltf) {
         roomModel = roomGltf.scene.clone();
         loadedRoomFromManifest = true;
-        console.log(`✅ Room scene loaded from assets: ${modelName}`);
       } else {
         console.warn(`⚠️ Room scene not available for model: ${modelName}`);
         return;
@@ -461,7 +426,6 @@ async function main(): Promise<void> {
         floorWalkRoot.name = FLOOR_WALK_COLLISION_ROOT_NAME;
         floorWalkRoot.visible = false;
         roomModel.add(floorWalkRoot);
-        console.log("✅ Cutout floor mesh attached for walkability (hidden)");
       } else {
         console.warn(
           "⚠️ room_floor_walk asset missing — using LabPlan floor for walk tests",
@@ -482,15 +446,9 @@ async function main(): Promise<void> {
     world.scene.add(roomModel);
     currentRoomModel = roomModel;
 
-    console.log(
-      `✅ Room scene loaded: ${modelName} (1:1 scale, raycast disabled)`,
-    );
-
     initializeNavMesh(roomModel, 1.0);
-    console.log("✅ NavMesh initialized for room");
 
     initializeCollision(roomModel, floorWalkRoot);
-    console.log("✅ Collision initialized from room model meshes");
 
     (globalThis as any).__labRoomModel = roomModel;
     setRoomARVisualMode(roomModel, (globalThis as any).__sceneMode === "ar");
@@ -537,8 +495,6 @@ async function main(): Promise<void> {
     .registerSystem(WallpaperCutoutPanelSystem)
     .registerSystem(DashboardPanelSystem);
 
-  console.log("✅ Systems registered");
-
   // ── Dashboard Panel (new unified layout) ─────────────────────────────
   const dashboardPanel = world
     .createTransformEntity()
@@ -555,8 +511,6 @@ async function main(): Promise<void> {
   (globalThis as any).__dashboardPanelEntity = dashboardPanel;
   (globalThis as any).__welcomePanelEntity = dashboardPanel; // backward compat
 
-  console.log("✅ Dashboard panel created");
-
   // ── Legacy Welcome Panel (kept for backward compat, hidden) ──────────
   const welcomePanel = world
     .createTransformEntity()
@@ -569,8 +523,6 @@ async function main(): Promise<void> {
 
   welcomePanel.object3D!.position.set(0, 1.5, -0.8);
   welcomePanel.object3D!.visible = false; // hidden — dashboard is the primary UI now
-
-  console.log("✅ Legacy welcome panel created (hidden)");
 
   // Placement Panel (3D floating panel, starts hidden)
   // Position relative to welcome panel so it moves with it
@@ -594,7 +546,6 @@ async function main(): Promise<void> {
   }
   placementPanel.object3D!.visible = false; // Hidden until "Devices" button pressed
   (globalThis as any).__placementPanelEntity = placementPanel;
-  console.log("✅ Placement panel created (hidden, relative to welcome panel)");
 
   // Wallpaper Cutout Panel (hidden; shown optionally after wallpaper is applied in plane mode)
   const cutoutPanel = world
@@ -609,7 +560,6 @@ async function main(): Promise<void> {
   cutoutPanel.object3D!.position.set(0.65, 1.5, -0.8);
   cutoutPanel.object3D!.visible = false;
   (globalThis as any).__cutoutPanelEntity = cutoutPanel;
-  console.log("✅ Wallpaper cutout panel created (hidden)");
 
   // Voice assistant UI is embedded in welcome.json (VoicePanelSystem)
 
@@ -620,50 +570,25 @@ async function main(): Promise<void> {
   const urlRoomId = urlParams.get("roomId");
   const urlHomeId = urlParams.get("homeId");
 
-  console.log(" Fetching data from backend...");
   if (urlRoomId) {
-    console.log(
-      `📦 Loading room-specific data: roomId=${urlRoomId}, homeId=${urlHomeId}`,
-    );
     await store.loadRoomData(urlRoomId);
   } else {
-    console.log("📦 No room specified, loading all data...");
     await store.loadAllData();
   }
 
   // Get fresh state after loading (Zustand getState() returns current state)
   const currentState = getStore();
 
-  // Debug: Log the entire state to see what we have
-  console.log("[Debug] Current store state:", {
-    roomModel: currentState.roomModel,
-    roomModelFileUrl: currentState.roomModelFileUrl,
-    roomId: currentState.roomId,
-  });
-
   if (currentState.error) {
     console.error("❌ Failed to load data:", currentState.error);
   } else {
-    console.log(
-      `✅ Loaded ${currentState.getDeviceCount()} devices, room model: ${currentState.roomModel}`,
-    );
-    console.log(
-      `📋 Room model file URL: ${currentState.roomModelFileUrl || "none (using default)"}`,
-    );
-
     // Reload room scene with the correct model (uploaded file or default)
     if (currentState.roomModelFileUrl) {
-      console.log(
-        `🔄 Reloading room model from uploaded file: ${currentState.roomModelFileUrl}`,
-      );
       await loadRoomScene(
         currentState.roomModel,
         currentState.roomModelFileUrl,
       );
     } else {
-      console.log(
-        `🔄 Reloading room model from assets: ${currentState.roomModel}`,
-      );
       await loadRoomScene(currentState.roomModel);
     }
   }
@@ -671,7 +596,6 @@ async function main(): Promise<void> {
   const renderer = world.getSystem(DeviceRendererSystem);
   if (renderer) {
     await renderer.initializeDevices();
-    console.log("✅ Devices rendered in scene");
   }
 
   const wsClient = getWebSocketClient();
@@ -703,11 +627,8 @@ async function main(): Promise<void> {
     });
   });
 
-  console.log("\n👥 Initializing resident avatars...");
-
   wsClient.subscribe(async (data) => {
     if (data.type === "device_update" && data.device_id) {
-      console.log("[WebSocket] Device update notification:", data);
       // Backend sends device_id and action, so we need to refresh the device
       await store.refreshSingleDevice(data.device_id);
       // Show a subtle notification for externally-triggered device changes
@@ -724,10 +645,6 @@ async function main(): Promise<void> {
       });
     }
   });
-  console.log("✅ WebSocket connected for real-time updates");
-
-  // VoiceControlSystem is now a singleton managed by VoicePanelSystem
-  console.log("✅ Voice Control System initialized (Singleton)");
 
   setAvatarSwitcherCamera(camera);
 
@@ -744,9 +661,6 @@ async function main(): Promise<void> {
       rpmAvatarSystem as ControllableAvatarSystem,
       "player1",
       "RPM Avatar",
-    );
-    console.log(
-      "✅ RPM avatar (MediumRes12.glb) — SlimeVR bridge shows tracker markers only",
     );
   }
 
@@ -792,9 +706,6 @@ async function main(): Promise<void> {
       "Robot Assistant",
       "robot_assistant",
     );
-    console.log(
-      "✅ Robot Assistant (robot_3D_scene.glb) - autonomous behavior",
-    );
   }
 
   // 4) NPC RPM Avatars — stationary characters
@@ -806,63 +717,21 @@ async function main(): Promise<void> {
       "NPC Alice",
       "npc_1",
       [3.0, 0, -3.0],
-      -Math.PI / 4,
     );
     await npcAvatarSystem.createNPCAvatar(
       "npc2",
       "NPC Bob",
       "npc_2",
-      [4.0, 0, 4.5],
-      Math.PI,
+      [-4.0, 0, 4.5],
+      Math.PI / 2,
     );
     await npcAvatarSystem.createNPCAvatar(
       "npc3",
       "NPC Carol",
       "npc_3",
-      [-3.5, 0, 2.5],
+      [-3.0, 0, 2.0],
       Math.PI / 2,
     );
-    console.log("✅ 3 NPC RPM Avatars (npc/RPM_clip.glb) - stationary");
-  }
-
-  const roomForScripts = urlRoomId || getStore().roomId;
-  const npcIdsWithServerScript = new Set<string>();
-  if (roomForScripts) {
-    try {
-      const scriptRows =
-        await BackendApiClient.getInstance().getRoomAvatarScripts(
-          roomForScripts,
-        );
-      for (const row of scriptRows) {
-        const parsed = normalizeAvatarBehaviorScript(row.script_data);
-        if (!parsed) {
-          console.warn(
-            "[Scene] Skipping invalid avatar script for",
-            row.avatar_id,
-          );
-          continue;
-        }
-        if (row.avatar_type === "robot" && robotAssistantSystem) {
-          robotAssistantSystem.loadBehaviorScript(parsed);
-        } else if (row.avatar_type === "npc" && npcAvatarSystem) {
-          npcIdsWithServerScript.add(row.avatar_id);
-          npcAvatarSystem.setBehaviorScript(row.avatar_id, parsed);
-        }
-      }
-    } catch (err) {
-      console.warn("[Scene] Avatar scripts could not be loaded:", err);
-    }
-  }
-
-  if (npcAvatarSystem) {
-    for (const id of DEFAULT_NPC_IDS) {
-      if (npcIdsWithServerScript.has(id)) continue;
-      const def = buildDefaultNpcBehaviorScript(id);
-      if (def && def.length > 0) {
-        npcAvatarSystem.setBehaviorScript(id, def);
-        console.log(`[Scene] Default behavior script applied for ${id}`);
-      }
-    }
   }
 
   setupAvatarSwitcherPanel();
@@ -870,30 +739,6 @@ async function main(): Promise<void> {
   if (rpmAvatarSystem) {
     rpmAvatarSystem.alignFollowCameraToCurrentAvatar();
   }
-
-  console.log(
-    "🎮 Controls: I/K/J/L = Move, Shift = Run, SPACE = Jump. O = switch avatar (when 2+ avatars).",
-  );
-
-  console.log("\n🚀 SmartHome Platform Scene Creator ready!");
-
-  // Get fresh state for final summary
-  const finalState = getStore();
-  console.log("───────────────────────────────────");
-  console.log(`   👤 User: ${user?.email}`);
-  console.log(`   📱 Devices: ${finalState.getDeviceCount()}`);
-  console.log(`   🟢 Active: ${finalState.getActiveDevices().length}`);
-  console.log(`   🎮 Controlled Avatars: ${getAvatarCount()} (O = switch)`);
-  console.log("───────────────────────────────────");
-  console.log("💡 Click devices to control");
-  console.log("✋ Grab devices to move");
-  console.log(
-    "🎮 Use IJKL + SPACE to control avatar. O = switch avatar (when 2+).",
-  );
-  console.log('🥽 Press "Enter AR" to start');
-  console.log("───────────────────────────────────");
-  // console.log("🎤 Lip Sync: 1 = Speak, 2 = Stop, 3 = Mic mode");
-  // console.log("───────────────────────────────────");
 }
 
 main().catch((error) => {

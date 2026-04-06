@@ -668,8 +668,8 @@ export class NPCAvatarSystem extends createSystem({
             npcModel.visible = true;
             this.world.scene.add(npcModel);
 
-            const targetFloorY = roomBounds ? getWorldFloorY() : finalY;
-            const feetY = this.alignFeetToFloor(npcModel, targetFloorY);
+            // Feet at `finalY`: with room, world floor + position[1]; without room, position[1] is ground height.
+            const feetY = this.alignFeetToFloor(npcModel, finalY);
 
             // Animations
             const clips: unknown[] = Array.isArray(gltf.animations) ? gltf.animations : [];

@@ -578,15 +578,19 @@ export const deviceStore = createStore<DeviceState>()(
 
     updateDevicePosition: async (deviceId, x, y, z, rotationY) => {
       try {
+        const existing = get().getDeviceById(deviceId);
+        // Furniture uses `updateFurniturePosition` and persists Y. Smart devices only
+        // move on the floor plan here: keep the last stored Y (server / defaults), not scene Y.
+        const yPersist = existing ? existing.position[1] : y;
         console.log(`[Store] Updating position for device ${deviceId}:`, {
           x,
-          y,
+          y: yPersist,
           z,
           rotationY,
         });
         const updated = await api.setDevicePosition(deviceId, {
           x: x,
-          y: y,
+          y: yPersist,
           z: z,
           rotation_y: rotationY,
         });

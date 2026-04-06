@@ -9,7 +9,7 @@
     background-color: rgba(226, 232, 240, 0.34);
     backdrop-filter: blur(72px) saturate(160%);
     -webkit-backdrop-filter: blur(72px) saturate(160%);
-    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-family: inter;
     border-color: rgba(255, 255, 255, 0.14);
     border-width: 0.15;
     border-radius: 2;
@@ -258,7 +258,7 @@
           </div>
         </button>
         <span class="temp-value" id="temp-value">24</span>
-        <span class="temp-unit">°C</span>
+        <span class="temp-unit"> C</span>
         <button class="control-btn" id="temp-up">
           <div>
             <PlusIcon class="control-btn-icon" />
@@ -272,16 +272,16 @@
       <span class="preset-label">Quick Set</span>
       <div class="preset-grid">
         <button class="preset-btn" id="preset-18">
-          <span class="preset-text">18°</span>
+          <span class="preset-text">18</span>
         </button>
         <button class="preset-btn" id="preset-22">
-          <span class="preset-text">22°</span>
+          <span class="preset-text">22</span>
         </button>
         <button class="preset-btn preset-btn-cool" id="preset-25">
-          <span class="preset-text">25°</span>
+          <span class="preset-text">25</span>
         </button>
         <button class="preset-btn" id="preset-28">
-          <span class="preset-text">28°</span>
+          <span class="preset-text">28</span>
         </button>
       </div>
     </div>
