@@ -1,11 +1,11 @@
 Model Information:
-* title:	Alternating current electricity meter
-* source:	https://sketchfab.com/3d-models/alternating-current-electricity-meter-97691498576d4e42b400bbfcda403c61
-* author:	Museum of Engineering and Technology, Krakow (https://sketchfab.com/mitkrakow)
+* title:	SIEMENS - 西门子单相机械计能表
+* source:	https://sketchfab.com/3d-models/siemens-5feee0e4598c40e2b5d157a82c1cc267
+* author:	MrdT (https://sketchfab.com/mrdt.club)
 
 Model License:
-* license type:	CC-BY-NC-SA-4.0 (http://creativecommons.org/licenses/by-nc-sa/4.0/)
-* requirements:	Author must be credited. No commercial use. Modified versions must have the same license.
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
 
 If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
-This work is based on "Alternating current electricity meter" (https://sketchfab.com/3d-models/alternating-current-electricity-meter-97691498576d4e42b400bbfcda403c61) by Museum of Engineering and Technology, Krakow (https://sketchfab.com/mitkrakow) licensed under CC-BY-NC-SA-4.0 (http://creativecommons.org/licenses/by-nc-sa/4.0/)
+This work is based on "SIEMENS - 西门子单相机械计能表" (https://sketchfab.com/3d-models/siemens-5feee0e4598c40e2b5d157a82c1cc267) by MrdT (https://sketchfab.com/mrdt.club) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

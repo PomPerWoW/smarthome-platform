@@ -41,7 +41,7 @@ export function SmartMeterModel({ isOn }: SmartMeterModelProps) {
     }, [scene, isOn]);
 
     return (
-        <group ref={groupRef} scale={0.005} position={[-0.5, 1, 0]}>
+        <group ref={groupRef} scale={0.2} position={[0, 0, 0]} rotation={[Math.PI / 2, 0, 0]}>
             <primitive object={clonedScene} />
         </group>
     );
