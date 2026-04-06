@@ -41,20 +41,19 @@ function ActivityOverviewPage() {
     queryKey: ['allDeviceLogs', selectedDate, devices.map(d => d.id).join(',')],
     queryFn: async () => {
       const service = DeviceService.getInstance()
-      const typeSet = new Set(devices.map(d => d.type))
-      const logByType = new Map<string, Record<string, unknown>[]>()
+      const logByDeviceId = new Map<string, Record<string, unknown>[]>()
 
       await Promise.all(
-        Array.from(typeSet).map(async (type) => {
+        devices.map(async (device) => {
           try {
-            const res = await service.getDeviceLog(type as DeviceType, selectedDate)
-            logByType.set(type, res.data || [])
+            const res = await service.getDeviceLog(device.type as DeviceType, selectedDate, device.id)
+            logByDeviceId.set(device.id, res.data || [])
           } catch {
-            logByType.set(type, [])
+            logByDeviceId.set(device.id, [])
           }
         })
       )
-      return logByType
+      return logByDeviceId
     },
     enabled: devices.length > 0,
   })
@@ -62,8 +61,10 @@ function ActivityOverviewPage() {
   const ringsData: ActivityRingData[] = useMemo(() => {
     if (!allDeviceLogs || devices.length === 0) return []
 
-    const deviceOnHours = devices.map((device) => {
-      const logs = allDeviceLogs.get(device.type) || []
+    const deviceOnHours = devices
+      .filter((device) => device.type !== DeviceType.SmartMeter)
+      .map((device) => {
+      const logs = allDeviceLogs.get(device.id) || []
       const onCount = logs.filter((l: Record<string, unknown>) => l.onoff === true).length
       const onHours = (onCount * 5) / 60
 

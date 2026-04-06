@@ -1,10 +1,11 @@
+import hashlib
 import logging
 import os
 import random
 import shutil
 import tempfile
 import zipfile
-from datetime import datetime
+from datetime import datetime, date, timezone, timedelta
 
 from django.conf import settings
 from django.contrib.gis.geos import Point
@@ -24,6 +25,50 @@ from .serializers import *
 from .services import VoiceAssistantService
 
 logger = logging.getLogger(__name__)
+
+
+def _prepare_mock_log_context(request, type_prefix):
+    """
+    Shared helper for all mock device log endpoints.
+
+    Reads `date` and `device_id` from query params.
+    Seeds `random` with a deterministic hash of type_prefix + date + device_id.
+    Returns (date_str, max_intervals) where max_intervals is 288 for past dates
+    or truncated to the current 5-minute slot for today.
+
+    Raises ValueError on invalid/missing date (caller should catch and return 400).
+    """
+    date_str = request.query_params.get("date")
+    device_id = request.query_params.get("device_id", "")
+
+    if not date_str:
+        raise ValueError("date parameter is required (YYYY-MM-DD)")
+
+    try:
+        target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+    except Exception:
+        raise ValueError("Invalid date format. Use YYYY-MM-DD")
+
+    # Build a deterministic integer seed from type + date + device_id
+    seed_string = f"{type_prefix}-{date_str}-{device_id}"
+    seed_int = int(hashlib.sha256(seed_string.encode()).hexdigest(), 16) % (2**32)
+    random.seed(seed_int)
+
+    # Determine how many 5-minute intervals to generate
+    # Use GMT+7 to match frontend local time
+    gmt_plus_7 = timezone(timedelta(hours=7))
+    now = datetime.now(gmt_plus_7)
+    today = now.date()
+
+    if target_date == today:
+        # Current interval index: (hour * 60 + minute) // 5, capped at 288
+        max_intervals = min(((now.hour * 60 + now.minute) // 5) + 1, 288)
+    elif target_date > today:
+        max_intervals = 0  # Future date — no data
+    else:
+        max_intervals = 288  # Full day
+
+    return date_str, max_intervals, target_date == today, device_id
 
 
 # --- 1. Home ViewSet ---
@@ -798,54 +843,63 @@ class AirConditionerViewSet(BaseDeviceViewSet):
     @action(detail=False, methods=["get"], url_path="getACLog")
     def getACLog(self, request):
         """
-        Retrieves mock AC logs for a specific date.
+        Retrieves mock AC logs for a specific date and device.
 
-        URL: GET /api/homes/acs/getACLog/?date=YYYY-MM-DD
+        URL: GET /api/homes/acs/getACLog/?date=YYYY-MM-DD&device_id=<uuid>
         """
-        date_str = request.query_params.get("date")
-        if not date_str:
-            return Response(
-                {"error": "date parameter is required (YYYY-MM-DD)"}, status=400
-            )
-
         try:
-            target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
-        except ValueError:
-            return Response(
-                {"error": "Invalid date format. Use YYYY-MM-DD"}, status=400
-            )
+            date_str, max_intervals, is_today, device_id = _prepare_mock_log_context(request, "ac")
+        except ValueError as e:
+            return Response({"error": str(e)}, status=400)
 
-        # Seed random for deterministic results per date
-        random.seed(f"ac-{date_str}")
+        # Pre-generate realistic AC usage sessions
+        # Each session: (start_interval, end_interval, temperature)
+        sessions = []
+        # Possible session windows: morning brief, midday-afternoon, evening
+        windows = [
+            (random.randint(72, 84), random.randint(90, 108)),    # ~06:00-09:00 morning brief
+            (random.randint(120, 144), random.randint(180, 210)), # ~10:00-17:30 midday
+            (random.randint(216, 234), random.randint(258, 276)), # ~18:00-23:00 evening
+        ]
+        for start, end in windows:
+            if random.random() < 0.75:  # 75% chance each window has a session
+                temp = random.choice([23, 24, 24, 25, 25, 26, 26, 27])
+                sessions.append((start, end, temp))
+                # Small chance of a temp adjustment mid-session
+                if end - start > 18 and random.random() < 0.4:
+                    split = random.randint(start + 6, end - 6)
+                    new_temp = temp + random.choice([-1, 1])
+                    new_temp = max(22, min(28, new_temp))
+                    sessions[-1] = (start, split, temp)
+                    sessions.append((split, end, new_temp))
+
+        # Build a lookup: interval index → (onoff, temperature)
+        interval_map = {}
+        for s_start, s_end, s_temp in sessions:
+            for idx in range(s_start, s_end + 1):
+                interval_map[idx] = (True, s_temp)
 
         data = []
-        # Generate 288 entries (every 5 min for 24 hours)
-        for i in range(288):
-            hour = 23 - (i * 5) // 60
-            minute = 55 - (i * 5) % 60
-            if minute < 0:
-                minute += 60
-                hour -= 1
-            if hour < 0:
-                break
-            ts = f"{date_str} {hour:02d}:{minute:02d}:00"
+        for i in range(max_intervals):
+            hour = (i * 5) // 60
+            minute = (i * 5) % 60
+            ts = f"{date_str}T{hour:02d}:{minute:02d}:00+07:00"
 
-            # Realistic AC pattern:
-            # Off at night (00:00-06:59), on during hot afternoon (11:00-16:59) at lower temps,
-            # on in evening (19:00-22:59) at comfortable temp, off late night (23:00+)
-            if 11 <= hour <= 16:
-                onoff = True
-                temperature = random.choice([24, 25, 25, 26])
-            elif 19 <= hour <= 22:
-                onoff = True
-                temperature = random.choice([26, 27, 27, 28])
-            elif 7 <= hour <= 10:
-                # Morning — sometimes on briefly
-                onoff = random.random() < 0.2
-                temperature = 26 if onoff else None
+            if i in interval_map:
+                onoff, temperature = interval_map[i]
             else:
                 onoff = False
                 temperature = None
+
+            if is_today and i == max_intervals - 1 and device_id:
+                from .models import AirConditioner
+                try:
+                    real_device = AirConditioner.objects.get(id=device_id)
+                    onoff = real_device.is_on
+                    if onoff:
+                        temperature = real_device.temperature
+                except Exception:
+                    pass
 
             data.append({"timestamp": ts, "onoff": onoff, "temperature": temperature})
 
@@ -899,60 +953,75 @@ class FanViewSet(BaseDeviceViewSet):
     @action(detail=False, methods=["get"], url_path="getFanLog")
     def getFanLog(self, request):
         """
-        Retrieves mock Fan logs for a specific date.
+        Retrieves mock Fan logs for a specific date and device.
 
-        URL: GET /api/homes/fans/getFanLog/?date=YYYY-MM-DD
+        URL: GET /api/homes/fans/getFanLog/?date=YYYY-MM-DD&device_id=<uuid>
         """
-        date_str = request.query_params.get("date")
-        if not date_str:
-            return Response(
-                {"error": "date parameter is required (YYYY-MM-DD)"}, status=400
-            )
-
         try:
-            target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
-        except ValueError:
-            return Response(
-                {"error": "Invalid date format. Use YYYY-MM-DD"}, status=400
-            )
+            date_str, max_intervals, is_today, device_id = _prepare_mock_log_context(request, "fan")
+        except ValueError as e:
+            return Response({"error": str(e)}, status=400)
 
-        random.seed(f"fan-{date_str}")
+        # Pre-generate fan usage sessions
+        # Each session: (start, end, speed, swing)
+        sessions = []
+        # Sleep session (night): low speed, no swing
+        sleep_start = random.randint(246, 264)   # ~20:30-22:00
+        sleep_end = random.randint(72, 96)        # ~06:00-08:00 next morning
+        sleep_speed = random.choice([1, 1, 2])
+        # Split into two ranges: evening portion + early morning portion
+        sessions.append((sleep_start, 287, sleep_speed, False))  # evening to midnight
+        sessions.append((0, sleep_end, sleep_speed, False))       # midnight to morning
+
+        # Afternoon session: higher speed, swing likely
+        if random.random() < 0.8:
+            af_start = random.randint(132, 156)  # ~11:00-13:00
+            af_end = random.randint(192, 222)    # ~16:00-18:30
+            af_speed = random.choice([2, 2, 3, 3])
+            af_swing = random.random() < 0.65
+            sessions.append((af_start, af_end, af_speed, af_swing))
+            # Speed change mid-afternoon
+            if af_end - af_start > 12 and random.random() < 0.35:
+                split = random.randint(af_start + 6, af_end - 6)
+                new_speed = max(1, min(3, af_speed + random.choice([-1, 1])))
+                sessions[-1] = (af_start, split, af_speed, af_swing)
+                sessions.append((split, af_end, new_speed, af_swing))
+
+        # Short morning burst
+        if random.random() < 0.3:
+            m_start = random.randint(84, 96)   # ~07:00-08:00
+            m_end = random.randint(102, 120)   # ~08:30-10:00
+            sessions.append((m_start, m_end, 2, random.random() < 0.3))
+
+        # Build lookup
+        interval_map = {}
+        for s_start, s_end, s_speed, s_swing in sessions:
+            for idx in range(s_start, min(s_end + 1, 288)):
+                interval_map[idx] = (True, s_speed, s_swing)
 
         data = []
-        for i in range(288):
-            hour = 23 - (i * 5) // 60
-            minute = 55 - (i * 5) % 60
-            if minute < 0:
-                minute += 60
-                hour -= 1
-            if hour < 0:
-                break
-            ts = f"{date_str} {hour:02d}:{minute:02d}:00"
+        for i in range(max_intervals):
+            hour = (i * 5) // 60
+            minute = (i * 5) % 60
+            ts = f"{date_str}T{hour:02d}:{minute:02d}:00+07:00"
 
-            # Realistic fan pattern:
-            # On at night for sleeping (21:00-06:59) low speed, swing off
-            # On during hot afternoon (12:00-17:59) medium-high speed, swing on
-            # Off during morning/evening transitions
-            if 21 <= hour <= 23:
-                onoff = True
-                speed = random.choice([1, 1, 2])
-                swing = random.random() < 0.3
-            elif 0 <= hour <= 6:
-                onoff = True
-                speed = 1
-                swing = False
-            elif 12 <= hour <= 17:
-                onoff = True
-                speed = random.choice([2, 3, 3])
-                swing = random.random() < 0.7
-            elif 7 <= hour <= 8:
-                onoff = random.random() < 0.4
-                speed = 2 if onoff else None
-                swing = False
+            if i in interval_map:
+                onoff, speed, swing = interval_map[i]
             else:
                 onoff = False
                 speed = None
                 swing = False
+
+            if is_today and i == max_intervals - 1 and device_id:
+                from .models import Fan
+                try:
+                    real_device = Fan.objects.get(id=device_id)
+                    onoff = real_device.is_on
+                    if onoff:
+                        speed = real_device.speed
+                        swing = real_device.swing
+                except Exception:
+                    pass
 
             data.append(
                 {"timestamp": ts, "onoff": onoff, "speed": speed, "swing": swing}
@@ -1031,77 +1100,91 @@ class LightbulbViewSet(BaseDeviceViewSet):
     @action(detail=False, methods=["get"], url_path="getLightbulbLog")
     def getLightbulbLog(self, request):
         """
-        Retrieves mock lightbulb logs for a specific date.
+        Retrieves mock lightbulb logs for a specific date and device.
 
-        URL: GET /api/homes/lightbulbs/getLightbulbLog/?date=YYYY-MM-DD
+        URL: GET /api/homes/lightbulbs/getLightbulbLog/?date=YYYY-MM-DD&device_id=<uuid>
         """
-        date_str = request.query_params.get("date")
-        if not date_str:
-            return Response(
-                {"error": "date parameter is required (YYYY-MM-DD)"}, status=400
-            )
-
         try:
-            target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
-        except ValueError:
-            return Response(
-                {"error": "Invalid date format. Use YYYY-MM-DD"}, status=400
-            )
+            date_str, max_intervals, is_today, device_id = _prepare_mock_log_context(request, "light")
+        except ValueError as e:
+            return Response({"error": str(e)}, status=400)
 
-        random.seed(f"light-{date_str}")
-
-        # Color palette for realistic smart bulb usage
-        colors = [
-            "#FFFFFF",
-            "#FFD700",
-            "#FFA500",
-            "#FF6347",
-            "#00FF00",
-            "#49c0efff",
-            "#8A2BE2",
-            "#FF69B4",
-        ]
         warm_colors = ["#FFFFFF", "#FFD700", "#FFA500"]  # Warm tones for evening
         cool_colors = ["#FFFFFF", "#49c0efff"]  # Cool tones for daytime
+        accent_colors = ["#FFD700", "#FFA500", "#FF69B4", "#8A2BE2"]
+
+        # Pre-generate usage sessions with STABLE brightness & color per session
+        # Each session: (start, end, brightness, color)
+        sessions = []
+
+        # Morning routine: bright cool light
+        m_start = random.randint(72, 78)    # ~06:00-06:30
+        m_end = random.randint(90, 108)     # ~07:30-09:00
+        m_brightness = random.choice([75, 80, 85])
+        m_color = random.choice(cool_colors)
+        sessions.append((m_start, m_end, m_brightness, m_color))
+
+        # Coming home / late afternoon (sometimes)
+        if random.random() < 0.5:
+            h_start = random.randint(198, 210)  # ~16:30-17:30
+            h_end = random.randint(216, 222)    # ~18:00-18:30
+            h_brightness = random.choice([55, 60, 65])
+            sessions.append((h_start, h_end, h_brightness, "#FFFFFF"))
+
+        # Evening main session — typically 2-3 phases of brightness
+        ev_start = random.randint(213, 228)     # ~17:45-19:00
+        ev_mid1 = random.randint(ev_start + 12, ev_start + 24)  # change after 1-2 hours
+        ev_mid2 = random.randint(ev_mid1 + 6, min(ev_mid1 + 18, 280))
+        ev_end = random.randint(max(ev_mid2, 264), 280)  # ~22:00-23:20
+
+        ev_bright1 = random.choice([60, 65, 70])
+        ev_color1 = random.choice(warm_colors)
+        sessions.append((ev_start, ev_mid1, ev_bright1, ev_color1))
+
+        ev_bright2 = random.choice([40, 45, 50])
+        ev_color2 = random.choice(warm_colors)
+        sessions.append((ev_mid1, ev_mid2, ev_bright2, ev_color2))
+
+        # Wind-down: dim accent lighting before bed
+        ev_bright3 = random.choice([15, 20, 25, 30])
+        ev_color3 = random.choice(accent_colors)
+        sessions.append((ev_mid2, ev_end, ev_bright3, ev_color3))
+
+        # Brief midnight bathroom trip (rare)
+        if random.random() < 0.15:
+            bath_start = random.randint(0, 24)    # 00:00-02:00
+            bath_end = bath_start + random.randint(1, 3)
+            sessions.append((bath_start, bath_end, 30, "#FFFFFF"))
+
+        # Build lookup
+        interval_map = {}
+        for s_start, s_end, s_bright, s_color in sessions:
+            for idx in range(s_start, min(s_end + 1, 288)):
+                interval_map[idx] = (True, s_bright, s_color)
 
         data = []
-        for i in range(288):
-            hour = 23 - (i * 5) // 60
-            minute = 55 - (i * 5) % 60
-            if minute < 0:
-                minute += 60
-                hour -= 1
-            if hour < 0:
-                break
-            ts = f"{date_str} {hour:02d}:{minute:02d}:00"
+        for i in range(max_intervals):
+            hour = (i * 5) // 60
+            minute = (i * 5) % 60
+            ts = f"{date_str}T{hour:02d}:{minute:02d}:00+07:00"
 
-            # Realistic lightbulb pattern:
-            # Off late night/early morning (00:00-05:59)
-            # Brief on for morning routine (06:00-07:59) bright, cool white
-            # Off during daytime (08:00-17:59) — people are at work/school
-            # On for evening (18:00-22:59) — warm tones, varying brightness
-            # Off before bed (23:00+)
-            if 6 <= hour <= 7:
-                onoff = True
-                brightness = random.choice([70, 75, 80, 85])
-                color = random.choice(cool_colors)
-            elif 18 <= hour <= 20:
-                onoff = True
-                brightness = random.choice([50, 55, 60, 65, 70])
-                color = random.choice(warm_colors)
-            elif 21 <= hour <= 22:
-                onoff = True
-                brightness = random.choice([20, 25, 30, 35])
-                color = random.choice(["#FFD700", "#FFA500", "#FF69B4", "#8A2BE2"])
-            elif hour == 17:
-                # Coming home, light starts turning on
-                onoff = random.random() < 0.5
-                brightness = 60 if onoff else None
-                color = "#FFFFFF" if onoff else None
+            if i in interval_map:
+                onoff, brightness, color = interval_map[i]
             else:
                 onoff = False
                 brightness = None
                 color = None
+
+            if is_today and i == max_intervals - 1 and device_id:
+                from .models import Lightbulb
+                try:
+                    real_device = Lightbulb.objects.get(id=device_id)
+                    onoff = real_device.is_on
+                    if onoff:
+                        brightness = real_device.brightness
+                        color = real_device.colour
+                except Exception:
+                    pass
 
             data.append(
                 {
@@ -1221,74 +1304,89 @@ class TelevisionViewSet(BaseDeviceViewSet):
     @action(detail=False, methods=["get"], url_path="getTVLog")
     def getTVLog(self, request):
         """
-        Retrieves mock TV logs for a specific date.
+        Retrieves mock TV logs for a specific date and device.
 
-        URL: GET /api/homes/tvs/getTVLog/?date=YYYY-MM-DD
+        URL: GET /api/homes/tvs/getTVLog/?date=YYYY-MM-DD&device_id=<uuid>
         """
-        date_str = request.query_params.get("date")
-        if not date_str:
-            return Response(
-                {"error": "date parameter is required (YYYY-MM-DD)"}, status=400
-            )
-
         try:
-            target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
-        except ValueError:
-            return Response(
-                {"error": "Invalid date format. Use YYYY-MM-DD"}, status=400
-            )
+            date_str, max_intervals, is_today, device_id = _prepare_mock_log_context(request, "tv")
+        except ValueError as e:
+            return Response({"error": str(e)}, status=400)
 
-        random.seed(f"tv-{date_str}")
+        morning_channels = [3, 5, 7]
+        afternoon_channels = [12, 15, 20]
+        evening_channels = [1, 2, 5, 7, 8, 10, 139]
 
-        # Realistic channel list (news, sports, movies, kids, documentary)
-        morning_channels = [3, 5, 7]  # Morning news channels
-        afternoon_channels = [12, 15, 20]  # Daytime/kids channels
-        evening_channels = [1, 2, 5, 7, 8, 10, 139]  # Prime time channels
+        # Pre-generate viewing sessions
+        # Each session: (start, end, volume, channel, is_mute)
+        # Within a session, a person might change channel 1-3 times
+        sessions = []
+
+        # Morning news (maybe)
+        if random.random() < 0.6:
+            mn_start = random.randint(84, 96)   # ~07:00-08:00
+            mn_end = random.randint(100, 114)   # ~08:20-09:30
+            mn_vol = random.choice([18, 20, 22, 25])
+            mn_ch = random.choice(morning_channels)
+            sessions.append((mn_start, mn_end, mn_vol, mn_ch, False))
+
+        # Lunch break (maybe)
+        if random.random() < 0.45:
+            lu_start = random.randint(144, 150)  # ~12:00-12:30
+            lu_end = random.randint(156, 168)    # ~13:00-14:00
+            lu_vol = random.choice([25, 28, 30])
+            lu_ch = random.choice(afternoon_channels)
+            sessions.append((lu_start, lu_end, lu_vol, lu_ch, False))
+
+        # Evening prime time — the main viewing block
+        # Generate 2-4 "channel segments" with stable volume+channel
+        ev_cursor = random.randint(210, 228)  # ~17:30-19:00 start
+        ev_end_target = random.randint(270, 282)  # ~22:30-23:30 end
+        num_segments = random.randint(2, 4)
+        segment_len = max((ev_end_target - ev_cursor) // num_segments, 3)
+
+        for seg_i in range(num_segments):
+            seg_start = ev_cursor
+            seg_end = min(ev_cursor + segment_len + random.randint(-3, 3), ev_end_target)
+            if seg_start >= ev_end_target:
+                break
+            seg_vol = random.choice([30, 35, 38, 40, 42, 45])
+            seg_ch = random.choice(evening_channels)
+            seg_mute = False
+            sessions.append((seg_start, seg_end, seg_vol, seg_ch, seg_mute))
+            ev_cursor = seg_end
+
+        # Build lookup
+        interval_map = {}
+        for s_start, s_end, s_vol, s_ch, s_mute in sessions:
+            for idx in range(s_start, min(s_end + 1, 288)):
+                interval_map[idx] = (True, s_vol, s_ch, s_mute)
 
         data = []
-        for i in range(288):
-            hour = 23 - (i * 5) // 60
-            minute = 55 - (i * 5) % 60
-            if minute < 0:
-                minute += 60
-                hour -= 1
-            if hour < 0:
-                break
-            ts = f"{date_str} {hour:02d}:{minute:02d}:00"
+        for i in range(max_intervals):
+            hour = (i * 5) // 60
+            minute = (i * 5) % 60
+            ts = f"{date_str}T{hour:02d}:{minute:02d}:00+07:00"
 
-            # Realistic TV pattern:
-            # Off late night (00:00-06:59)
-            # Morning news (07:00-08:29) moderate volume
-            # Off during work hours (08:30-11:59)
-            # Afternoon casual viewing (12:00-13:29) — lunch break
-            # Off (13:30-17:59)
-            # Evening prime time (18:00-23:30) — most active period
-            if 7 <= hour <= 8 and (hour != 8 or minute < 30):
-                onoff = True
-                volume = random.choice([20, 25, 25, 30])
-                channel = random.choice(morning_channels)
-                is_mute = random.random() < 0.05
-            elif hour == 12 or (hour == 13 and minute < 30):
-                onoff = True
-                volume = random.choice([25, 30, 35])
-                channel = random.choice(afternoon_channels)
-                is_mute = random.random() < 0.1
-            elif 18 <= hour <= 23:
-                if hour == 23 and minute > 30:
-                    onoff = False
-                    volume = 0
-                    channel = random.choice(evening_channels)
-                    is_mute = False
-                else:
-                    onoff = True
-                    volume = random.choice([30, 35, 40, 45, 50, 55])
-                    channel = random.choice(evening_channels)
-                    is_mute = random.random() < 0.08
+            if i in interval_map:
+                onoff, volume, channel, is_mute = interval_map[i]
             else:
                 onoff = False
                 volume = 0
-                channel = random.choice(morning_channels)
+                channel = None
                 is_mute = False
+
+            if is_today and i == max_intervals - 1 and device_id:
+                from .models import Television
+                try:
+                    real_device = Television.objects.get(id=device_id)
+                    onoff = real_device.is_on
+                    if onoff:
+                        volume = real_device.volume
+                        channel = real_device.channel
+                        is_mute = real_device.is_mute
+                except Exception:
+                    pass
 
             data.append(
                 {
@@ -1386,6 +1484,72 @@ class SmartMeterViewSet(BaseDeviceViewSet):
 
     queryset = SmartMeter.objects.all()
     serializer_class = SmartMeterSerializer
+
+    @action(detail=False, methods=["get"], url_path="getSmartMeterLog")
+    def getSmartMeterLog(self, request):
+        """
+        Retrieves mock SmartMeter power logs for a specific date and device.
+
+        URL: GET /api/homes/smartmeters/getSmartMeterLog/?date=YYYY-MM-DD&device_id=<uuid>
+        """
+        try:
+            date_str, max_intervals, is_today, device_id = _prepare_mock_log_context(request, "meter")
+        except ValueError as e:
+            return Response({"error": str(e)}, status=400)
+
+        # SmartMeter uses smooth baseline + small jitter per interval
+        # Pre-generate baseline power for each time-of-day zone, then add per-interval noise
+        # This creates a smooth curve with realistic micro-fluctuations
+        zone_baselines = {
+            # (start_hour, end_hour): (base_power, jitter)
+            "night":     (random.randint(60, 120), 30),
+            "morning":   (random.randint(350, 600), 80),
+            "daytime":   (random.randint(180, 350), 60),
+            "lunch":     (random.randint(450, 750), 100),
+            "afternoon": (random.randint(200, 380), 55),
+            "evening":   (random.randint(600, 1200), 150),
+            "latenight": (random.randint(150, 300), 50),
+        }
+
+        def _get_baseline(hour):
+            if 0 <= hour <= 5:
+                return zone_baselines["night"]
+            elif 6 <= hour <= 8:
+                return zone_baselines["morning"]
+            elif 9 <= hour <= 11:
+                return zone_baselines["daytime"]
+            elif 12 <= hour <= 13:
+                return zone_baselines["lunch"]
+            elif 14 <= hour <= 16:
+                return zone_baselines["afternoon"]
+            elif 17 <= hour <= 21:
+                return zone_baselines["evening"]
+            else:
+                return zone_baselines["latenight"]
+
+        data = []
+        for i in range(max_intervals):
+            hour = (i * 5) // 60
+            minute = (i * 5) % 60
+            ts = f"{date_str}T{hour:02d}:{minute:02d}:00+07:00"
+
+            base, jitter = _get_baseline(hour)
+            power = max(20, base + random.randint(-jitter, jitter))
+            onoff = True
+
+            if is_today and i == max_intervals - 1 and device_id:
+                from .models import SmartMeter
+                try:
+                    real_device = SmartMeter.objects.get(id=device_id)
+                    onoff = real_device.is_on
+                    if not onoff:
+                        power = 0
+                except Exception:
+                    pass
+
+            data.append({"timestamp": ts, "onoff": onoff, "power": power})
+
+        return Response({"device_name": "SmartMeter01", "data": data})
 
     def perform_update(self, serializer):
         old_instance = self.get_object()

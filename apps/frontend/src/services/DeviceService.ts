@@ -222,7 +222,7 @@ export class DeviceService {
 
   // === Device Logs ===
 
-  async getDeviceLog(type: DeviceType, date: string): Promise<{ device_name: string; data: Record<string, unknown>[] }> {
+  async getDeviceLog(type: DeviceType, date: string, deviceId: string): Promise<{ device_name: string; data: Record<string, unknown>[] }> {
     const endpointMap: Record<string, string> = {
       [DeviceType.Lightbulb]: '/api/homes/lightbulbs/getLightbulbLog/',
       [DeviceType.Television]: '/api/homes/tvs/getTVLog/',
@@ -231,7 +231,7 @@ export class DeviceService {
       [DeviceType.SmartMeter]: '/api/homes/smartmeters/getSmartMeterLog/',
     };
     const url = endpointMap[type] || endpointMap[DeviceType.Lightbulb];
-    return this.api.get<{ device_name: string; data: Record<string, unknown>[] }>(`${url}?date=${date}`);
+    return this.api.get<{ device_name: string; data: Record<string, unknown>[] }>(`${url}?date=${date}&device_id=${deviceId}`);
   }
 
   // === Helpers ===

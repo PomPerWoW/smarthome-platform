@@ -154,20 +154,27 @@ function LineChartPlot({ data, color, yMax, yTicks, valueKey }: { data: DeviceLo
                             className="absolute -translate-x-1/2 -translate-y-8 bg-popover/90 text-[10px] font-semibold px-2 py-1 rounded shadow-xl border border-border/80"
                             style={{ left: `${activeX}%`, top: `${activeY}%` }}
                         >
-                            {Math.round(activeValue)}
+                            {`${String(Math.floor((activeIndex * 5) / 60)).padStart(2, '0')}:${String((activeIndex * 5) % 60).padStart(2, '0')}`}
                         </div>
                     </>
                 )}
             </div>
 
-            {/* X Axis Labels mock */}
-            <div className="absolute -bottom-6 left-8 right-0 flex justify-between text-xs text-muted-foreground font-medium">
-                <span>00:00</span>
-                <span>06:00</span>
-                <span>12:00</span>
-                <span>18:00</span>
-                <span>23:55</span>
-            </div>
+            {/* X Axis Labels — dynamic based on data count */}
+            {(() => {
+                const lastIdx = Math.max(data.length - 1, 0)
+                // Generate evenly-spaced labels
+                const labels = [0, 0.25, 0.5, 0.75, 1].map(pct => {
+                    const idx = Math.round(lastIdx * pct)
+                    const m = idx * 5
+                    return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
+                })
+                return (
+                    <div className="absolute -bottom-6 left-8 right-0 flex justify-between text-xs text-muted-foreground font-medium">
+                        {labels.map((lbl, i) => <span key={i}>{lbl}</span>)}
+                    </div>
+                )
+            })()}
         </div>
     )
 }
@@ -384,17 +391,18 @@ function DeviceActivityPage() {
 
     // Fetch device logs from API based on selected date
     const { data: logResponse, isLoading: isLoadingLogs } = useQuery({
-        queryKey: ['deviceLog', type, selectedDate],
-        queryFn: () => DeviceService.getInstance().getDeviceLog(type as DeviceType, selectedDate),
+        queryKey: ['deviceLog', deviceId, selectedDate],
+        queryFn: () => DeviceService.getInstance().getDeviceLog(type as DeviceType, selectedDate, deviceId),
         enabled: !!device,
     })
 
     // Parse the fetched log data
     const parsedData = useMemo(() => {
-        const logs: DeviceLog[] = (logResponse?.data as unknown) as DeviceLog[]
+        const logs: DeviceLog[] = ((logResponse?.data as unknown) as DeviceLog[]) || []
 
-        // Scene creator truncates to 288 records reversed.
-        const recentLogs = logs.slice(0, 288).reverse()
+        // Data is now in forward chronological order (00:00 → latest) from the backend.
+        // For today's date, backend already truncates to the current time.
+        const recentLogs = logs.slice(0, 288)
 
         // 1. Line Chart Data
         let lineTitle = ""
@@ -424,15 +432,15 @@ function DeviceActivityPage() {
 
             barTitle = "Hours On / Off"
             barColor = "#22c55e"
-            const onC = logs.filter(l => l.onoff).length
-            const offC = logs.filter(l => !l.onoff).length
+            const onC = recentLogs.filter(l => l.onoff).length
+            const offC = recentLogs.filter(l => !l.onoff).length
             barValues = [onC, offC]
             barLabels = ["On", "Off"]
             barMax = Math.max(onC, offC, 1)
 
             pieTitle = "Daily Color Usage"
             const cMap = new Map<string, number>()
-            logs.forEach(l => {
+            recentLogs.forEach(l => {
                 if (l.onoff && l.color) cMap.set(l.color, (cMap.get(l.color) || 0) + 1)
             })
             pieData = Array.from(cMap.entries()).map(([k, v]) => ({ label: k, value: v, color: k }))
@@ -447,8 +455,8 @@ function DeviceActivityPage() {
 
             barTitle = "Hours On / Off"
             barColor = "#22c55e"
-            const onC = logs.filter(l => l.onoff).length
-            const offC = logs.filter(l => !l.onoff).length
+            const onC = recentLogs.filter(l => l.onoff).length
+            const offC = recentLogs.filter(l => !l.onoff).length
             barValues = [onC, offC]
             barLabels = ["On", "Off"]
             barMax = Math.max(onC, offC, 1)
@@ -465,8 +473,8 @@ function DeviceActivityPage() {
 
             barTitle = "Swing Mode Usage"
             barColor = "#a855f7"
-            const swC = logs.filter(l => l.onoff && l.swing).length
-            const fixC = logs.filter(l => l.onoff && !l.swing).length
+            const swC = recentLogs.filter(l => l.onoff && l.swing).length
+            const fixC = recentLogs.filter(l => l.onoff && !l.swing).length
             barValues = [swC, fixC]
             barLabels = ["Swing", "Fixed"]
             barMax = Math.max(swC, fixC, 1)
@@ -484,7 +492,7 @@ function DeviceActivityPage() {
             barTitle = "Top Channels"
             barColor = "#3b82f6"
             const chMap = new Map<number, number>()
-            logs.forEach(l => {
+            recentLogs.forEach(l => {
                 if (l.onoff && l.channel) chMap.set(l.channel, (chMap.get(l.channel) || 0) + 1)
             })
             const top5Channels = Array.from(chMap.entries())
@@ -498,7 +506,7 @@ function DeviceActivityPage() {
 
             pieTitle = "Volume Levels"
             const vRanges = [0, 0, 0, 0]
-            logs.forEach(l => {
+            recentLogs.forEach(l => {
                 if (l.onoff && l.volume !== null && l.volume !== undefined) {
                     if (l.volume <= 25) vRanges[0]++
                     else if (l.volume <= 50) vRanges[1]++
@@ -514,7 +522,7 @@ function DeviceActivityPage() {
             let maxVolCount = -1;
             let topVol = 0;
             const volMap = new Map<number, number>();
-            logs.forEach(l => {
+            recentLogs.forEach(l => {
                 if (l.onoff && l.volume !== null && l.volume !== undefined) {
                     volMap.set(l.volume, (volMap.get(l.volume) || 0) + 1);
                 }
@@ -556,7 +564,7 @@ function DeviceActivityPage() {
         }
 
         return {
-            rawStatus: logs[0]?.onoff || false,
+            rawStatus: recentLogs.length > 0 ? recentLogs[recentLogs.length - 1]?.onoff || false : false,
             recentLogs,
             lineChart: { title: lineTitle, color: lineColor, yMax: lineYMax, yTicks: lineYTicks, valKey },
             barChart: { title: barTitle, color: barColor, values: barValues, labels: barLabels, max: barMax },
@@ -632,7 +640,7 @@ function DeviceActivityPage() {
                                 <Activity className="h-4 w-4 text-primary" />
                                 {P.lineChart.title}
                             </CardTitle>
-                            <CardDescription>Data for {selectedDate} (288 readings)</CardDescription>
+                            <CardDescription>Data for {selectedDate} ({P.recentLogs.length} readings)</CardDescription>
                         </CardHeader>
                         <CardContent className="h-[280px] pb-12 pt-2">
                             <LineChartPlot
