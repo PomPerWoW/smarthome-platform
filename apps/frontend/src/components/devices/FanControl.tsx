@@ -55,7 +55,7 @@ export function FanControl({ device, onUpdate }: FanControlProps) {
         deviceName: device.name,
       });
       onUpdate?.();
-    } catch (err) {
+    } catch {
       toast.error("Failed to toggle power");
       setIsOn(!newIsOn);
     } finally {
@@ -84,7 +84,7 @@ export function FanControl({ device, onUpdate }: FanControlProps) {
         unit: ` (${speedLabels[speed]})`,
       });
       onUpdate?.();
-    } catch (err) {
+    } catch {
       toast.error("Failed to update speed");
     } finally {
       setIsUpdating(false);
@@ -107,7 +107,7 @@ export function FanControl({ device, onUpdate }: FanControlProps) {
         deviceName: device.name,
       });
       onUpdate?.();
-    } catch (err) {
+    } catch {
       toast.error("Failed to update swing");
     } finally {
       setIsUpdating(false);

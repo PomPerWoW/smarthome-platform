@@ -57,7 +57,7 @@ export function LightbulbControl({ device, onUpdate }: LightbulbControlProps) {
         deviceName: device.name,
       });
       onUpdate?.();
-    } catch (err) {
+    } catch {
       toast.error("Failed to toggle power");
       setIsOn(!newIsOn); // Revert on failure
     } finally {
@@ -87,7 +87,7 @@ export function LightbulbControl({ device, onUpdate }: LightbulbControlProps) {
         unit: "%",
       });
       onUpdate?.();
-    } catch (err) {
+    } catch {
       toast.error("Failed to update brightness");
     } finally {
       setIsUpdating(false);
@@ -111,7 +111,7 @@ export function LightbulbControl({ device, onUpdate }: LightbulbControlProps) {
         colorValue: newColour,
       });
       onUpdate?.();
-    } catch (err) {
+    } catch {
       toast.error("Failed to update colour");
     } finally {
       setIsUpdating(false);

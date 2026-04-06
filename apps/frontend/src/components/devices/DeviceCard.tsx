@@ -45,7 +45,7 @@ const getPropertyIcon = (key: string) => {
   }
 };
 
-const formatPropertyValue = (key: string, value: any) => {
+const formatPropertyValue = (key: string, value: unknown) => {
   if (key === "brightness" || key === "volume") return `${value}%`;
   if (key === "temperature") return `${value}°C`;
   return String(value);

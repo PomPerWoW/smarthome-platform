@@ -12,10 +12,9 @@ export function LightbulbModel({ brightness, colour }: LightbulbModelProps) {
   const { scene } = useGLTF(`${import.meta.env.BASE_URL}models/devices/lightbulb/scene.gltf`);
 
   const glowIntensity = brightness / 100;
-  const glowColor = new THREE.Color(colour);
-
   const clonedScene = useMemo(() => {
     const cloned = scene.clone();
+    const gColor = new THREE.Color(colour);
 
     cloned.traverse((child) => {
       if (child instanceof THREE.Mesh && child.material) {
@@ -26,7 +25,7 @@ export function LightbulbModel({ brightness, colour }: LightbulbModelProps) {
           material.name?.toLowerCase().includes("bulb")
         ) {
           const newMaterial = material.clone();
-          newMaterial.emissive = glowColor;
+          newMaterial.emissive = gColor;
           newMaterial.emissiveIntensity = glowIntensity * 2;
           if (brightness > 0) {
             newMaterial.transparent = true;
@@ -38,7 +37,7 @@ export function LightbulbModel({ brightness, colour }: LightbulbModelProps) {
     });
 
     return cloned;
-  }, [scene, glowColor, glowIntensity, brightness]);
+  }, [scene, colour, glowIntensity, brightness]);
 
   return (
     <group ref={groupRef} scale={0.25} position={[0, 0, 0]}>

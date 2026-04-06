@@ -27,16 +27,16 @@ const deviceIcons = {
 
 // --- Chart Components --- //
 
-function LineChartPlot({ data, color, yMax, yTicks, valueKey }: { data: any[], color: string, yMax: number, yTicks?: number[], valueKey: (d: any) => number }) {
-    if (!data.length) return null;
-
+function LineChartPlot({ data, color, yMax, yTicks, valueKey }: { data: DeviceLog[], color: string, yMax: number, yTicks?: number[], valueKey: (d: DeviceLog) => number }) {
     const svgRef = useRef<SVGSVGElement | null>(null)
     const [hoverIndex, setHoverIndex] = useState<number | null>(null)
+
+    if (!data.length) return null;
 
     // We calculate perfectly even integer ticks to guarantee equal spacing
     let ticks = yTicks;
     if (!ticks) {
-        let step = Math.max(Math.ceil(yMax / 4), 1);
+        const step = Math.max(Math.ceil(yMax / 4), 1);
         ticks = [];
         let cur = 0;
         while (cur < yMax) {
@@ -58,7 +58,7 @@ function LineChartPlot({ data, color, yMax, yTicks, valueKey }: { data: any[], c
         return Math.max(0, Math.min(chartMax, v))
     })
 
-    const lineGenerator = d3.line<any>()
+    const lineGenerator = d3.line<DeviceLog>()
         .x((_, i) => xScale(i))
         .y((_, i) => yScale(clampedValues[i]))
         .curve(d3.curveMonotoneX)
@@ -351,6 +351,18 @@ function PieChartCustom({ data, centerValue, centerLabel }: { data: { label: str
     )
 }
 
+interface DeviceLog {
+    onoff: boolean;
+    brightness?: number;
+    color?: string;
+    temperature?: number;
+    speed?: number;
+    swing?: boolean;
+    volume?: number | null;
+    channel?: number | null;
+    power?: number;
+}
+
 // --- Main Page --- //
 
 function DeviceActivityPage() {
@@ -379,7 +391,7 @@ function DeviceActivityPage() {
 
     // Parse the fetched log data
     const parsedData = useMemo(() => {
-        const logs: any[] = logResponse?.data || []
+        const logs: DeviceLog[] = (logResponse?.data as unknown) as DeviceLog[]
 
         // Scene creator truncates to 288 records reversed.
         const recentLogs = logs.slice(0, 288).reverse()
@@ -389,7 +401,7 @@ function DeviceActivityPage() {
         let lineColor = "#3b82f6"
         let lineYMax = 100
         let lineYTicks: number[] | undefined = undefined
-        let valKey = (_: any) => 0
+        let valKey: (l: DeviceLog) => number = () => 0
 
         // 2. Bar Chart Data
         let barTitle = ""
@@ -485,7 +497,7 @@ function DeviceActivityPage() {
             barMax = Math.max(...barValues, 1)
 
             pieTitle = "Volume Levels"
-            let vRanges = [0, 0, 0, 0]
+            const vRanges = [0, 0, 0, 0]
             logs.forEach(l => {
                 if (l.onoff && l.volume !== null && l.volume !== undefined) {
                     if (l.volume <= 25) vRanges[0]++

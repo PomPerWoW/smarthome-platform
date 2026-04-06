@@ -157,6 +157,12 @@ function HomeDetailPage() {
     setModalOpen,
   ]);
 
+  const closeAvatarScriptModal = () => {
+    setAvatarScriptModalEntry(null);
+    setAvatarScriptPendingFile(null);
+    setAvatarScriptDropActive(false);
+  };
+
   const { data: home, isLoading: isLoadingHome } = useQuery({
     queryKey: ["home", homeId],
     queryFn: () => HomeService.getInstance().getHome(homeId),
@@ -448,12 +454,7 @@ function HomeDetailPage() {
     },
   });
 
-  useEffect(() => {
-    if (!avatarScriptModalEntry) {
-      setAvatarScriptPendingFile(null);
-      setAvatarScriptDropActive(false);
-    }
-  }, [avatarScriptModalEntry]);
+
 
   const handleDragStart = (
     e: React.DragEvent,
@@ -1023,9 +1024,7 @@ function HomeDetailPage() {
         open={!!avatarScriptModalEntry}
         onOpenChange={(open) => {
           if (!open) {
-            setAvatarScriptModalEntry(null);
-            setAvatarScriptPendingFile(null);
-            setAvatarScriptDropActive(false);
+            closeAvatarScriptModal();
           }
         }}
       >
@@ -1175,8 +1174,7 @@ function HomeDetailPage() {
                         onClick={() =>
                           deleteAvatarScriptMutation.mutate(existing.id, {
                             onSuccess: () => {
-                              setAvatarScriptModalEntry(null);
-                              setAvatarScriptPendingFile(null);
+                              closeAvatarScriptModal();
                             },
                           })
                         }
@@ -1194,8 +1192,7 @@ function HomeDetailPage() {
               variant="outline"
               className="sm:min-w-[100px]"
               onClick={() => {
-                setAvatarScriptModalEntry(null);
-                setAvatarScriptPendingFile(null);
+                closeAvatarScriptModal();
               }}
             >
               Cancel

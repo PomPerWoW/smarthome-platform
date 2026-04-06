@@ -1,6 +1,6 @@
 import { Canvas, useFrame } from "@react-three/fiber";
 import { useGLTF, useAnimations } from "@react-three/drei";
-import { useRef, Suspense, useEffect, useMemo } from "react";
+import { useRef, Suspense, useEffect, useMemo, useCallback } from "react";
 import * as THREE from "three";
 import { clone as cloneSkinned } from "three/addons/utils/SkeletonUtils.js";
 import { LoopOnce, LoopRepeat } from "three";
@@ -29,7 +29,7 @@ function RobotAssistantScene() {
 
   const currentActionNameRef = useRef<string>(DEFAULT_ANIMATION);
   const sequenceRef = useRef<{ names: string[]; index: number } | null>(null);
-  const finishedHandlerRef = useRef<((e: any) => void) | null>(null);
+  const finishedHandlerRef = useRef<((e: { action: { getClip?: () => { name: string }, _clip?: { name: string } } }) => void) | null>(null);
 
   const configureAction = (name: string, action: THREE.AnimationAction) => {
     // Base loops
@@ -42,7 +42,7 @@ function RobotAssistantScene() {
     action.clampWhenFinished = true;
   };
 
-  const fadeToAction = (name: string, duration = FADE_DURATION) => {
+  const fadeToAction = useCallback((name: string, duration = FADE_DURATION) => {
     const next = actions[name];
     if (!next) return;
 
@@ -63,17 +63,17 @@ function RobotAssistantScene() {
       .play();
 
     currentActionNameRef.current = name;
-  };
+  }, [actions]);
 
-  const cancelSequence = () => {
+  const cancelSequence = useCallback(() => {
     sequenceRef.current = null;
     if (finishedHandlerRef.current) {
       mixer.removeEventListener("finished", finishedHandlerRef.current);
       finishedHandlerRef.current = null;
     }
-  };
+  }, [mixer]);
 
-  const playEmoteSequence = (names: string[]) => {
+  const playEmoteSequence = useCallback((names: string[]) => {
     if (names.length === 0) return;
     cancelSequence();
     sequenceRef.current = { names, index: 0 };
@@ -97,7 +97,7 @@ function RobotAssistantScene() {
         finishedHandlerRef.current = null;
       }
 
-      const onFinished = (e: any) => {
+      const onFinished = (e: { action: { getClip?: () => { name: string }, _clip?: { name: string } } }) => {
         const finishedName =
           e?.action?.getClip?.()?.name ?? e?.action?._clip?.name ?? "";
         if (finishedName !== nextName) return;
@@ -121,7 +121,7 @@ function RobotAssistantScene() {
     };
 
     playNext();
-  };
+  }, [actions, cancelSequence, fadeToAction, mixer]);
 
   useEffect(() => {
     // Start in Idle by default
@@ -131,7 +131,7 @@ function RobotAssistantScene() {
       const first = Object.values(actions)[0];
       if (first) first.reset().fadeIn(0.3).play();
     }
-  }, [actions]);
+  }, [actions, fadeToAction]);
 
   useEffect(() => {
     // 1) Listening/Processing: Standing pose (hold)
@@ -161,7 +161,7 @@ function RobotAssistantScene() {
         clearVoicePayload();
       }
     }
-  }, [voiceStatus, voicePayload, actions]);
+  }, [voiceStatus, voicePayload, actions, cancelSequence, clearVoicePayload, fadeToAction, playEmoteSequence]);
 
   useFrame((state) => {
     if (!groupRef.current) return;

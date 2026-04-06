@@ -46,7 +46,7 @@ export function AirConditionerControl({
         deviceName: device.name,
       });
       onUpdate?.();
-    } catch (err) {
+    } catch {
       toast.error("Failed to toggle power");
       setIsOn(!newIsOn);
     } finally {
@@ -75,7 +75,7 @@ export function AirConditionerControl({
         unit: "°C",
       });
       onUpdate?.();
-    } catch (err) {
+    } catch {
       toast.error("Failed to update temperature");
     } finally {
       setIsUpdating(false);
@@ -101,7 +101,7 @@ export function AirConditionerControl({
         unit: "°C",
       });
       onUpdate?.();
-    } catch (err) {
+    } catch {
       toast.error("Failed to update temperature");
     } finally {
       setIsUpdating(false);

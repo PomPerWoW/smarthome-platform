@@ -1,4 +1,4 @@
-type MessageHandler = (data: any) => void;
+type MessageHandler = (data: unknown) => void;
 
 import { useAuthStore } from "@/stores/auth";
 import { useNotificationStore } from "@/stores/notification_store";
@@ -9,7 +9,7 @@ export class WebSocketService {
   private listeners: Set<MessageHandler> = new Set();
   private reconnectInterval: number = 3000;
   private shouldReconnect: boolean = true;
-  private pingInterval: any = null;
+  private pingInterval: ReturnType<typeof setInterval> | null = null;
 
   private constructor() {}
 
@@ -59,7 +59,7 @@ export class WebSocketService {
         const data = JSON.parse(event.data);
         console.log("[WebSocket] Message received:", data);
         this.notifyListeners(data);
-      } catch (e) {
+      } catch {
         console.error("[WebSocket] Failed to parse message:", event.data);
       }
     };
@@ -98,7 +98,7 @@ export class WebSocketService {
     return () => this.listeners.delete(handler);
   }
 
-  private notifyListeners(data: any) {
+  private notifyListeners(data: unknown): void {
     this.listeners.forEach((handler) => handler(data));
   }
 

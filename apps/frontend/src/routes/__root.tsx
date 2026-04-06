@@ -82,14 +82,20 @@ function RootLayout() {
       const ws = WebSocketService.getInstance();
       ws.connect();
 
-      const unsubscribe = ws.subscribe((data) => {
-        if (data.type === "device_update") {
+      const unsubscribe = ws.subscribe((data: unknown) => {
+        const msg = data as {
+          type: string;
+          source?: string;
+          device_name?: string;
+          automation_title?: string;
+        };
+        if (msg.type === "device_update") {
           console.log("Device update received, refreshing data...");
           queryClient.invalidateQueries({ queryKey: ["home-devices"] });
           queryClient.invalidateQueries({ queryKey: ["devices"] });
-          const isAutomation = data.source === "automation";
-          const name = data.device_name as string | undefined;
-          const autoTitle = data.automation_title as string | undefined;
+          const isAutomation = msg.source === "automation";
+          const name = msg.device_name as string | undefined;
+          const autoTitle = msg.automation_title as string | undefined;
           useNotificationStore.getState().addNotification({
             category: isAutomation ? "automation" : "system",
             iconType: isAutomation ? "automation" : "device_update",

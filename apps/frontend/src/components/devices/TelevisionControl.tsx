@@ -60,7 +60,7 @@ export function TelevisionControl({
         deviceName: device.name,
       });
       onUpdate?.();
-    } catch (err) {
+    } catch {
       toast.error("Failed to toggle power");
       setIsOn(!newIsOn);
     } finally {
@@ -89,7 +89,7 @@ export function TelevisionControl({
         unit: "%",
       });
       onUpdate?.();
-    } catch (err) {
+    } catch {
       toast.error("Failed to update volume");
     } finally {
       setIsUpdating(false);
@@ -115,7 +115,7 @@ export function TelevisionControl({
         unit: " ch",
       });
       onUpdate?.();
-    } catch (err) {
+    } catch {
       toast.error("Failed to update channel");
     } finally {
       setIsUpdating(false);
@@ -138,7 +138,7 @@ export function TelevisionControl({
         deviceName: device.name,
       });
       onUpdate?.();
-    } catch (err) {
+    } catch {
       toast.error("Failed to update mute");
     } finally {
       setIsUpdating(false);

@@ -19,6 +19,16 @@ class ScadaManager(BaseScadaManager):
                 "passion.HueLight03.onoff",
                 "passion.HueLight03.Color",
                 "passion.HueLight03.Brightness",
+                "passion.Dyson_Fan_Remote.on",
+                "passion.Dyson_Fan_Remote.shake",
+                "passion.Dyson_Fan_Remote.speed",
+                "passion.Lab_TV_Remote.on",
+                "passion.Lab_TV_Remote.mute",
+                "passion.Lab_TV_Remote.channel",
+                "passion.Lab_TV_Remote.volume",
+                "passion.Daikin_Main_Remote.OnOff",
+                "passion.Daikin_Main_Remote.set_temp",
+                "passion.Daikin_Main_Remote.fanlevel",
             ],
             "verify_tls": False
         }

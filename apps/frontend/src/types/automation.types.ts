@@ -27,7 +27,7 @@ export interface AutomationAction {
     volume?: number; // 0-100 (TV)
     channel?: number; // (TV)
     // Add other possible actions here as needed for different device types
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 export interface Automation {

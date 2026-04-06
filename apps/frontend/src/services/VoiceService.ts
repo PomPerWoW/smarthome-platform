@@ -11,7 +11,7 @@ import { useUIStore } from "@/stores/ui_store";
 import { useNotificationStore } from "@/stores/notification_store";
 
 class PythonTalkMainBridge {
-  static async analyze(input: any) {
+  static async analyze(input: string) {
     console.log("[python-talk-main] Analyzing phrase:", input);
     try {
       // Functional integration with python-talk-main local daemon
@@ -34,7 +34,7 @@ class PythonTalkMainBridge {
       } else {
         throw new Error("Local daemon unavailable");
       }
-    } catch (e) {
+    } catch {
       console.warn(
         "[python-talk-main] daemon unreachable. Falling back to core NLP engine.",
       );
@@ -49,16 +49,30 @@ interface SpeechRecognition extends EventTarget {
   lang: string;
   start: () => void;
   stop: () => void;
-  onresult: (event: any) => void;
-  onerror: (event: any) => void;
+  onresult: (event: SpeechRecognitionEvent) => void;
+  onerror: (event: SpeechRecognitionErrorEvent) => void;
   onend: () => void;
 }
 
 declare global {
   interface Window {
-    webkitSpeechRecognition: any;
-    SpeechRecognition: any;
+    webkitSpeechRecognition: unknown;
+    SpeechRecognition: unknown;
   }
+}
+
+interface SpeechRecognitionEvent {
+  results: {
+    [index: number]: {
+      [index: number]: {
+        transcript: string;
+      };
+    };
+  };
+}
+
+interface SpeechRecognitionErrorEvent {
+  error: string;
 }
 
 export class VoiceService {
@@ -70,10 +84,10 @@ export class VoiceService {
   private audioChunks: Blob[] = [];
 
   // Silence detection
-  private audioContext: any = null;
-  private analyser: any = null;
-  private silenceCheckInterval: any = null;
-  private safetyTimeout: any = null;
+  private audioContext: AudioContext | null = null;
+  private analyser: AnalyserNode | null = null;
+  private silenceCheckInterval: ReturnType<typeof setInterval> | null = null;
+  private safetyTimeout: ReturnType<typeof setTimeout> | null = null;
   private silenceStart: number = 0;
   private readonly SILENCE_DURATION = 1000; // Reduced to 1.0s for better responsiveness
   private readonly MAX_RECORDING_DURATION = 8000; // 8s max duration
@@ -84,7 +98,8 @@ export class VoiceService {
       navigator.userAgent.includes("OculusBrowser") ||
       navigator.userAgent.includes("SamsungBrowser"); // Sometimes Quest spoof
     const SpeechRecognition =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
+      (window as unknown as { SpeechRecognition: new () => SpeechRecognition }).SpeechRecognition || 
+      (window as unknown as { webkitSpeechRecognition: new () => SpeechRecognition }).webkitSpeechRecognition;
 
     if (SpeechRecognition && !isQuest) {
       console.log("[VoiceService] Using SpeechRecognition");
@@ -146,7 +161,7 @@ export class VoiceService {
       return;
     }
 
-    this.recognition.onresult = async (event: any) => {
+    this.recognition.onresult = async (event: SpeechRecognitionEvent) => {
       const transcript = event.results[0][0].transcript;
       onResult(transcript);
       useUIStore.getState().add_dialogue_message(transcript, "user");
@@ -239,7 +254,7 @@ export class VoiceService {
       }
     };
 
-    this.recognition.onerror = (event: any) => {
+    this.recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
       // Note: calling recognition.stop() commonly triggers an "aborted" error.
       // Treat that as a user-cancel so the UI/robot flow stays consistent.
       const err = String(event?.error ?? "");
@@ -338,40 +353,42 @@ export class VoiceService {
             useUIStore.getState().add_dialogue_message(transcript, "user");
           }
 
-          if (command_result?.instruction_topic) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const result = command_result as any;
+          if (result?.instruction_topic) {
             toast.success(`Instruction: "${transcript}"`);
-            speakInstruction(command_result.instruction_topic);
+            speakInstruction(result.instruction_topic);
             useNotificationStore.getState().addNotification({
               category: "robot",
               iconType: "robot_info",
               title: "Robot provided information",
-              description: `"${transcript}" — Topic: ${command_result.instruction_topic}`,
+              description: `"${transcript}" — Topic: ${result.instruction_topic}`,
               severity: "info",
             });
             onStatusChange?.("idle", {
               success: true,
-              instructionTopic: command_result.instruction_topic,
+              instructionTopic: result.instruction_topic,
             });
           } else if (
-            command_result?.actions?.length > 0 &&
-            command_result.actions[0].status === "success" &&
-            command_result.actions[0].action &&
-            command_result.actions[0].device
+            result?.actions?.length > 0 &&
+            result.actions[0].status === "success" &&
+            result.actions[0].action &&
+            result.actions[0].device
           ) {
             toast.success(`Executed: "${transcript}"`);
             speakCompletion(
-              command_result.actions[0].action,
-              command_result.actions[0].device,
+              result.actions[0].action,
+              result.actions[0].device,
             );
             useNotificationStore.getState().addNotification({
               category: "robot",
               iconType: "robot_command_success",
               title: "Voice command executed",
-              description: `"${transcript}" — ${command_result.actions[0].action} on ${command_result.actions[0].device}`,
+              description: `"${transcript}" — ${result.actions[0].action} on ${result.actions[0].device}`,
               severity: "success",
             });
             onStatusChange?.("idle", { success: true });
-          } else if (command_result?.actions?.length > 0) {
+          } else if (result?.actions?.length > 0) {
             toast.error("Failed to process command.");
             useNotificationStore.getState().addNotification({
               category: "robot",
@@ -432,8 +449,8 @@ export class VoiceService {
   }
 
   private setupSilenceDetection(stream: MediaStream) {
-    const AudioContextClass =
-      (window as any).AudioContext || (window as any).webkitAudioContext;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const AudioContextClass = (window as any).AudioContext || (window as any).webkitAudioContext;
     if (!AudioContextClass) {
       console.warn("[VoiceService] AudioContext not available");
       return;
@@ -441,12 +458,14 @@ export class VoiceService {
 
     try {
       this.audioContext = new AudioContextClass();
-      if (this.audioContext.state === "suspended") {
+      if (this.audioContext && this.audioContext.state === "suspended") {
         this.audioContext.resume();
       }
 
+      if (!this.audioContext) return;
       const source = this.audioContext.createMediaStreamSource(stream);
       this.analyser = this.audioContext.createAnalyser();
+      if (!this.analyser) return;
       this.analyser.fftSize = 256;
       source.connect(this.analyser);
 
@@ -541,13 +560,13 @@ export class VoiceService {
   private async sendVoiceAudio(
     blob: Blob,
     execute: boolean = false,
-  ): Promise<{ transcript: string; command_result?: any }> {
+  ): Promise<{ transcript: string; command_result?: Record<string, unknown> }> {
     const formData = new FormData();
     formData.append("audio", blob, "recording.webm");
     formData.append("execute", execute.toString());
     return ApiService.getInstance().post<{
       transcript: string;
-      command_result?: any;
+      command_result?: Record<string, unknown>;
     }>("/api/homes/voice/transcribe/", formData, {
       headers: { "Content-Type": "multipart/form-data" },
     });

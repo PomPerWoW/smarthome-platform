@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { type LucideIcon, Pencil, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,10 +30,13 @@ export function DeviceControlHeader({
 }: DeviceControlHeaderProps) {
   const [isEditingTag, setIsEditingTag] = useState(false);
   const [editingTag, setEditingTag] = useState(device.tag || "");
+  const [prevTag, setPrevTag] = useState(device.tag);
 
-  useEffect(() => {
+  // Sync editingTag when device.tag prop changes
+  if (device.tag !== prevTag) {
     setEditingTag(device.tag || "");
-  }, [device.tag]);
+    setPrevTag(device.tag);
+  }
 
   const handleSaveTag = async () => {
     try {
@@ -45,8 +48,8 @@ export function DeviceControlHeader({
       toast.success("Tag updated successfully");
       setIsEditingTag(false);
       onUpdate?.();
-    } catch (err) {
-      toast.error(`Failed to update tag: ${(err as Error).message}`);
+    } catch {
+      toast.error("Failed to update tag");
     }
   };
 
