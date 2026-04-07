@@ -116,7 +116,11 @@ class ScadaManager(BaseScadaManager):
                          device.fan.save()
 
                      elif command == 'volume' and hasattr(device, 'television'):
-                         device.television.volume = int(parse_float(value))
+                         dir_val = int(parse_float(value))
+                         if dir_val == 1:
+                             device.television.volume = min(device.television.volume + 1, 100)
+                         elif dir_val == 0:
+                             device.television.volume = max(device.television.volume - 1, 0)
                          device.television.save()
                     
                      elif command == 'channel' and hasattr(device, 'television'):

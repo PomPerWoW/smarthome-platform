@@ -178,7 +178,7 @@
   }
 
   .speed-btn {
-    flex: 1;
+    width: 4;
     height: 4;
     border-radius: 0.5;
     background-color: rgba(203, 213, 225, 0.52);
@@ -264,14 +264,11 @@
       </div>
       <span class="control-label">Speed</span>
       <div class="speed-grid">
-        <button class="speed-btn" id="speed-1">
-          <span class="speed-text">1</span>
+        <button class="speed-btn" id="speed-dec">
+          <span class="speed-text">-</span>
         </button>
-        <button class="speed-btn" id="speed-2">
-          <span class="speed-text">2</span>
-        </button>
-        <button class="speed-btn speed-btn-selected" id="speed-3">
-          <span class="speed-text">3</span>
+        <button class="speed-btn" id="speed-inc">
+          <span class="speed-text">+</span>
         </button>
       </div>
     </div>

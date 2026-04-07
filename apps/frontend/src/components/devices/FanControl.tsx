@@ -64,7 +64,7 @@ export function FanControl({ device, onUpdate }: FanControlProps) {
         value: direction
       });
       // We don't await because it's a websocket message, we just assume it's sent
-      
+
       toast.success(direction === 1 ? "Increased fan speed command sent" : "Decreased fan speed command sent");
       addNotification({
         category: "device",
@@ -137,10 +137,10 @@ export function FanControl({ device, onUpdate }: FanControlProps) {
             <div className="flex items-center justify-between">
               <Label className="flex items-center gap-2">
                 <Wind className="w-4 h-4" />
-                Adjust Fan Speed
+                Fan Speed
               </Label>
             </div>
-            
+
             <div className="flex gap-4">
               <Button
                 variant="outline"

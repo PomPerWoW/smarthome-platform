@@ -68,14 +68,14 @@ export class TelevisionPanelSystem extends createSystem({
     const volumeUp = document.getElementById("volume-up");
     if (volumeUp) {
       volumeUp.addEventListener("click", () =>
-        this.handleVolumeChange(deviceId, 5),
+        this.handleVolumeChange(deviceId, 1),
       );
     }
 
     const volumeDown = document.getElementById("volume-down");
     if (volumeDown) {
       volumeDown.addEventListener("click", () =>
-        this.handleVolumeChange(deviceId, -5),
+        this.handleVolumeChange(deviceId, 0),
       );
     }
 
@@ -134,15 +134,10 @@ export class TelevisionPanelSystem extends createSystem({
     store.toggleDevice(deviceId);
   }
 
-  private handleVolumeChange(deviceId: string, delta: number): void {
+  private handleVolumeChange(deviceId: string, direction: number): void {
     const store = getStore();
-    const device = store.getTelevision(deviceId);
-    if (!device) return;
-
-    const newVolume = Math.max(0, Math.min(100, device.volume + delta));
-    console.log(`[TelevisionPanel] Setting volume to ${newVolume}`);
-
-    store.updateTelevision(deviceId, { volume: newVolume });
+    console.log(`[TelevisionPanel] Sending volume direction ${direction}`);
+    store.updateTelevision(deviceId, { volume: direction });
   }
 
   private handleChannelChange(deviceId: string, delta: number): void {
@@ -387,10 +382,7 @@ export class TelevisionPanelSystem extends createSystem({
       });
     }
 
-    const volumeValue = document.getElementById("volume-value") as UIKit.Text;
-    if (volumeValue && device) {
-      volumeValue.setProperties({ text: `${device.volume}` });
-    }
+    // Volume display removed in uikitml since it's just relative inc/dec now
 
     const channelValue = document.getElementById("channel-value") as UIKit.Text;
     if (channelValue && device) {

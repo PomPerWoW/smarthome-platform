@@ -198,7 +198,7 @@
                         "sourceTag": "span",
                         "type": "custom",
                         "children": [
-                          "1"
+                          "-"
                         ],
                         "properties": {
                           "class": "speed-text"
@@ -208,7 +208,7 @@
                     ],
                     "properties": {
                       "class": "speed-btn",
-                      "id": "speed-1"
+                      "id": "speed-dec"
                     },
                     "dataUid": "uid-23"
                   },
@@ -220,7 +220,7 @@
                         "sourceTag": "span",
                         "type": "custom",
                         "children": [
-                          "2"
+                          "+"
                         ],
                         "properties": {
                           "class": "speed-text"
@@ -230,31 +230,9 @@
                     ],
                     "properties": {
                       "class": "speed-btn",
-                      "id": "speed-2"
+                      "id": "speed-inc"
                     },
                     "dataUid": "uid-25"
-                  },
-                  {
-                    "sourceTag": "button",
-                    "type": "custom",
-                    "children": [
-                      {
-                        "sourceTag": "span",
-                        "type": "custom",
-                        "children": [
-                          "3"
-                        ],
-                        "properties": {
-                          "class": "speed-text"
-                        },
-                        "dataUid": "uid-28"
-                      }
-                    ],
-                    "properties": {
-                      "class": "speed-btn speed-btn-selected",
-                      "id": "speed-3"
-                    },
-                    "dataUid": "uid-27"
                   }
                 ],
                 "properties": {
@@ -283,11 +261,11 @@
                     "properties": {
                       "class": "control-icon"
                     },
-                    "dataUid": "uid-31"
+                    "dataUid": "uid-29"
                   }
                 ],
                 "properties": {},
-                "dataUid": "uid-30"
+                "dataUid": "uid-28"
               },
               {
                 "sourceTag": "span",
@@ -298,7 +276,7 @@
                 "properties": {
                   "class": "control-label"
                 },
-                "dataUid": "uid-32"
+                "dataUid": "uid-30"
               },
               {
                 "sourceTag": "button",
@@ -311,20 +289,20 @@
                     "properties": {
                       "class": "toggle-knob"
                     },
-                    "dataUid": "uid-34"
+                    "dataUid": "uid-32"
                   }
                 ],
                 "properties": {
                   "class": "toggle-btn-on",
                   "id": "swing-btn"
                 },
-                "dataUid": "uid-33"
+                "dataUid": "uid-31"
               }
             ],
             "properties": {
               "class": "control-row"
             },
-            "dataUid": "uid-29"
+            "dataUid": "uid-27"
           },
           {
             "type": "container",
@@ -341,11 +319,11 @@
                     "properties": {
                       "class": "control-icon"
                     },
-                    "dataUid": "uid-37"
+                    "dataUid": "uid-35"
                   }
                 ],
                 "properties": {},
-                "dataUid": "uid-36"
+                "dataUid": "uid-34"
               },
               {
                 "sourceTag": "span",
@@ -356,7 +334,7 @@
                 "properties": {
                   "class": "control-label"
                 },
-                "dataUid": "uid-38"
+                "dataUid": "uid-36"
               },
               {
                 "type": "container",
@@ -378,7 +356,7 @@
                             "color": "#0f172a"
                           }
                         },
-                        "dataUid": "uid-41"
+                        "dataUid": "uid-39"
                       }
                     ],
                     "properties": {
@@ -389,7 +367,7 @@
                         "backgroundColor": "rgba(255, 255, 255, 0.18)"
                       }
                     },
-                    "dataUid": "uid-40"
+                    "dataUid": "uid-38"
                   },
                   {
                     "sourceTag": "button",
@@ -407,7 +385,7 @@
                             "color": "#0f172a"
                           }
                         },
-                        "dataUid": "uid-43"
+                        "dataUid": "uid-41"
                       }
                     ],
                     "properties": {
@@ -418,19 +396,19 @@
                         "backgroundColor": "rgba(255, 255, 255, 0.18)"
                       }
                     },
-                    "dataUid": "uid-42"
+                    "dataUid": "uid-40"
                   }
                 ],
                 "properties": {
                   "class": "value-container"
                 },
-                "dataUid": "uid-39"
+                "dataUid": "uid-37"
               }
             ],
             "properties": {
               "class": "control-row"
             },
-            "dataUid": "uid-35"
+            "dataUid": "uid-33"
           },
           {
             "type": "container",
@@ -447,11 +425,11 @@
                     "properties": {
                       "class": "control-icon"
                     },
-                    "dataUid": "uid-46"
+                    "dataUid": "uid-44"
                   }
                 ],
                 "properties": {},
-                "dataUid": "uid-45"
+                "dataUid": "uid-43"
               },
               {
                 "sourceTag": "span",
@@ -462,7 +440,7 @@
                 "properties": {
                   "class": "control-label"
                 },
-                "dataUid": "uid-47"
+                "dataUid": "uid-45"
               },
               {
                 "sourceTag": "button",
@@ -479,24 +457,24 @@
                         "properties": {
                           "class": "power-icon"
                         },
-                        "dataUid": "uid-50"
+                        "dataUid": "uid-48"
                       }
                     ],
                     "properties": {},
-                    "dataUid": "uid-49"
+                    "dataUid": "uid-47"
                   }
                 ],
                 "properties": {
                   "class": "power-btn",
                   "id": "show-graph-btn"
                 },
-                "dataUid": "uid-48"
+                "dataUid": "uid-46"
               }
             ],
             "properties": {
               "class": "control-row graph-row"
             },
-            "dataUid": "uid-44"
+            "dataUid": "uid-42"
           }
         ],
         "properties": {
@@ -516,7 +494,7 @@
               "class": "status-dot",
               "id": "status-dot"
             },
-            "dataUid": "uid-52"
+            "dataUid": "uid-50"
           },
           {
             "sourceTag": "span",
@@ -528,13 +506,13 @@
               "class": "status-text",
               "id": "status-text"
             },
-            "dataUid": "uid-53"
+            "dataUid": "uid-51"
           }
         ],
         "properties": {
           "class": "status-section"
         },
-        "dataUid": "uid-51"
+        "dataUid": "uid-49"
       }
     ],
     "properties": {
@@ -744,7 +722,7 @@
     },
     "speed-btn": {
       "content": {
-        "flex": "1",
+        "width": "4",
         "height": "4",
         "borderRadius": 0.5,
         "backgroundColor": "rgba(203, 213, 225, 0.52)",
@@ -1096,7 +1074,7 @@
         "column": 0
       },
       "end": {
-        "line": 323,
+        "line": 320,
         "column": 6
       }
     },
@@ -1186,7 +1164,7 @@
         "column": 2
       },
       "end": {
-        "line": 316,
+        "line": 313,
         "column": 8
       }
     },
@@ -1266,7 +1244,7 @@
         "column": 4
       },
       "end": {
-        "line": 276,
+        "line": 273,
         "column": 10
       }
     },
@@ -1306,7 +1284,7 @@
         "column": 6
       },
       "end": {
-        "line": 275,
+        "line": 272,
         "column": 12
       }
     },
@@ -1352,32 +1330,32 @@
     },
     "uid-27": {
       "start": {
-        "line": 272,
-        "column": 8
+        "line": 276,
+        "column": 4
       },
       "end": {
-        "line": 274,
-        "column": 17
+        "line": 284,
+        "column": 10
       }
     },
     "uid-28": {
       "start": {
-        "line": 273,
-        "column": 10
+        "line": 277,
+        "column": 6
       },
       "end": {
-        "line": 273,
-        "column": 43
+        "line": 279,
+        "column": 12
       }
     },
     "uid-29": {
       "start": {
-        "line": 279,
-        "column": 4
+        "line": 278,
+        "column": 8
       },
       "end": {
-        "line": 287,
-        "column": 10
+        "line": 279,
+        "column": 6
       }
     },
     "uid-30": {
@@ -1386,58 +1364,58 @@
         "column": 6
       },
       "end": {
-        "line": 282,
-        "column": 12
+        "line": 280,
+        "column": 46
       }
     },
     "uid-31": {
       "start": {
         "line": 281,
-        "column": 8
+        "column": 6
       },
       "end": {
-        "line": 282,
-        "column": 6
+        "line": 283,
+        "column": 15
       }
     },
     "uid-32": {
       "start": {
-        "line": 283,
-        "column": 6
+        "line": 282,
+        "column": 8
       },
       "end": {
-        "line": 283,
-        "column": 46
+        "line": 282,
+        "column": 39
       }
     },
     "uid-33": {
       "start": {
-        "line": 284,
-        "column": 6
+        "line": 286,
+        "column": 4
       },
       "end": {
-        "line": 286,
-        "column": 15
+        "line": 299,
+        "column": 10
       }
     },
     "uid-34": {
       "start": {
-        "line": 285,
-        "column": 8
+        "line": 287,
+        "column": 6
       },
       "end": {
-        "line": 285,
-        "column": 39
+        "line": 289,
+        "column": 12
       }
     },
     "uid-35": {
       "start": {
-        "line": 289,
-        "column": 4
+        "line": 288,
+        "column": 8
       },
       "end": {
-        "line": 302,
-        "column": 10
+        "line": 289,
+        "column": 6
       }
     },
     "uid-36": {
@@ -1446,38 +1424,38 @@
         "column": 6
       },
       "end": {
-        "line": 292,
-        "column": 12
+        "line": 290,
+        "column": 49
       }
     },
     "uid-37": {
       "start": {
         "line": 291,
-        "column": 8
+        "column": 6
       },
       "end": {
-        "line": 292,
-        "column": 6
+        "line": 298,
+        "column": 12
       }
     },
     "uid-38": {
       "start": {
-        "line": 293,
-        "column": 6
+        "line": 292,
+        "column": 8
       },
       "end": {
-        "line": 293,
-        "column": 49
+        "line": 294,
+        "column": 17
       }
     },
     "uid-39": {
       "start": {
-        "line": 294,
-        "column": 6
+        "line": 293,
+        "column": 10
       },
       "end": {
-        "line": 301,
-        "column": 12
+        "line": 293,
+        "column": 66
       }
     },
     "uid-40": {
@@ -1497,37 +1475,37 @@
       },
       "end": {
         "line": 296,
-        "column": 66
+        "column": 67
       }
     },
     "uid-42": {
       "start": {
-        "line": 298,
-        "column": 8
+        "line": 302,
+        "column": 4
       },
       "end": {
-        "line": 300,
-        "column": 17
+        "line": 312,
+        "column": 10
       }
     },
     "uid-43": {
       "start": {
-        "line": 299,
-        "column": 10
+        "line": 303,
+        "column": 6
       },
       "end": {
-        "line": 299,
-        "column": 67
+        "line": 305,
+        "column": 12
       }
     },
     "uid-44": {
       "start": {
-        "line": 305,
-        "column": 4
+        "line": 304,
+        "column": 8
       },
       "end": {
-        "line": 315,
-        "column": 10
+        "line": 305,
+        "column": 6
       }
     },
     "uid-45": {
@@ -1536,87 +1514,67 @@
         "column": 6
       },
       "end": {
-        "line": 308,
-        "column": 12
+        "line": 306,
+        "column": 46
       }
     },
     "uid-46": {
       "start": {
         "line": 307,
-        "column": 8
+        "column": 6
       },
       "end": {
-        "line": 308,
-        "column": 6
+        "line": 311,
+        "column": 15
       }
     },
     "uid-47": {
       "start": {
-        "line": 309,
-        "column": 6
+        "line": 308,
+        "column": 8
       },
       "end": {
-        "line": 309,
-        "column": 46
+        "line": 310,
+        "column": 14
       }
     },
     "uid-48": {
       "start": {
-        "line": 310,
-        "column": 6
+        "line": 309,
+        "column": 10
       },
       "end": {
-        "line": 314,
-        "column": 15
+        "line": 310,
+        "column": 8
       }
     },
     "uid-49": {
       "start": {
-        "line": 311,
-        "column": 8
+        "line": 316,
+        "column": 2
       },
       "end": {
-        "line": 313,
-        "column": 14
+        "line": 319,
+        "column": 8
       }
     },
     "uid-50": {
       "start": {
-        "line": 312,
-        "column": 10
+        "line": 317,
+        "column": 4
       },
       "end": {
-        "line": 313,
-        "column": 8
+        "line": 317,
+        "column": 50
       }
     },
     "uid-51": {
       "start": {
-        "line": 319,
-        "column": 2
-      },
-      "end": {
-        "line": 322,
-        "column": 8
-      }
-    },
-    "uid-52": {
-      "start": {
-        "line": 320,
+        "line": 318,
         "column": 4
       },
       "end": {
-        "line": 320,
-        "column": 50
-      }
-    },
-    "uid-53": {
-      "start": {
-        "line": 321,
-        "column": 4
-      },
-      "end": {
-        "line": 321,
+        "line": 318,
         "column": 56
       }
     }

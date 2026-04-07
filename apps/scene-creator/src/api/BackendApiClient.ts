@@ -271,8 +271,8 @@ export class BackendApiClient {
     let response: any;
 
     if (options.speed !== undefined) {
-      await api.post<any>(`/api/homes/fans/${deviceId}/set_speed/`, {
-        speed: options.speed,
+      await api.post<any>(`/api/homes/fans/${deviceId}/adjust_speed/`, {
+        direction: options.speed,
       });
     }
 
