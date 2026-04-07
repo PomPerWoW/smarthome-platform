@@ -20,7 +20,7 @@ export default defineConfig(({ mode }) => {
       }),
       injectIWER({
         device: "metaQuest3",
-        activation: "localhost",
+        activation: "always",
         verbose: true,
         sem: {
           defaultScene: "living_room",
