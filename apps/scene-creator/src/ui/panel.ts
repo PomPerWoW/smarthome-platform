@@ -649,19 +649,23 @@ export class PanelSystem extends createSystem({
           const gamepad = inputSource.gamepad;
           if (!gamepad) continue;
 
-          // Meta Quest 3: Button 0 is the primary trigger
-          // Button 1 is the grip button, so we only check button 0
-          const triggerButton = gamepad.buttons[0];
-          if (!triggerButton) continue;
+          // IMPORTANT:
+          // Do NOT use trigger (button 0) for summon hotkey. Trigger is used by
+          // ray-pointer click/select and can leave cursor visuals in a pressed/shrunk
+          // state when two systems consume it.
+          //
+          // Use grip (1) or thumbstick click (3) for summon instead.
+          const summonButton = gamepad.buttons[1] ?? gamepad.buttons[3];
+          if (!summonButton) continue;
 
-          const triggerPressed = triggerButton.pressed;
+          const triggerPressed = summonButton.pressed;
           const lastState = this.lastTriggerState.get(inputSource) || false;
 
           // Detect trigger press (transition from not pressed to pressed)
           // Only trigger if cooldown has expired
           if (triggerPressed && !lastState && this.triggerCooldown <= 0) {
             console.log(
-              `[Panel] 🎮 Trigger button pressed on ${inputSource.handedness || "unknown"} controller - summoning panel`,
+              `[Panel] 🎮 Summon button pressed on ${inputSource.handedness || "unknown"} controller - summoning panel`,
             );
             this.summonPanelInFront();
             this.triggerCooldown = this.TRIGGER_COOLDOWN_TIME;
@@ -683,7 +687,7 @@ export class PanelSystem extends createSystem({
     // Start the frame loop
     this.frameCallbackId = this.xrSession.requestAnimationFrame(onXRFrame);
     console.log(
-      "[Panel] ✅ Meta Quest 3 trigger detection active - press trigger to summon panel",
+      "[Panel] ✅ Meta Quest 3 summon hotkey active - press grip/thumbstick click to summon panel",
     );
   }
 

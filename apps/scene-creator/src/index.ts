@@ -79,6 +79,10 @@ console.warn = () => {};
 console.info = () => {};
 console.debug = () => {};
 
+// Keep mesh detection enabled by default because RoomScanningSystem depends on XRMesh data.
+// Toggle this to false for quick FPS A/B testing.
+const ENABLE_ROOM_MESH_DETECTION = false;
+
 const assets: AssetManifest = {
   chimeSound: {
     url: "./audio/chime.mp3",
@@ -216,11 +220,11 @@ async function main(): Promise<void> {
         offer: "always",
         features: {
           handTracking: true,
-          anchors: true,
-          hitTest: true,
+          // anchors: true, // disabled for performance test; enable if anchor flows are needed
+          // hitTest: true, // disabled for performance test; enable if hit-test placement is needed
           planeDetection: true,
-          meshDetection: true,
-          layers: true,
+          meshDetection: ENABLE_ROOM_MESH_DETECTION,
+          // layers: true, // disabled for performance test; enable if XR layer path is required
         },
       },
       features: {
@@ -239,24 +243,24 @@ async function main(): Promise<void> {
   try {
     const renderer = (world as any).renderer;
     if (renderer) {
-      // 1. Cap pixel ratio to save fill-rate on heavy mobile VR displays
-      renderer.setPixelRatio(1);
+      // 1. Keep pixel ratio balanced so panel text remains readable.
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25));
 
       // 2. Disable heavy shadow mapping
       if (renderer.shadowMap) {
         renderer.shadowMap.enabled = false;
       }
 
-      // 3. Enable maximum Fixed Foveated Rendering (FFR) for Quest
+      // 3. Use moderate FFR. Maximum foveation can look too blurry in center/periphery.
       if (renderer.xr) {
         // Only works for layers/VR on supported devices
         if (typeof renderer.xr.setFoveation === "function") {
-          renderer.xr.setFoveation(1.0);
+          renderer.xr.setFoveation(0.35);
         }
 
-        // 3.5. Plunge the Framebuffer Scale Factor! Quest 3 defaults are incredibly high causing huge battery drain and lag.
+        // 3.5. Keep framebuffer scale in a readable range.
         if (typeof renderer.xr.setFramebufferScaleFactor === "function") {
-          renderer.xr.setFramebufferScaleFactor(0.5); // Super aggressive optimization for many devices!
+          renderer.xr.setFramebufferScaleFactor(0.8);
         }
 
         // 4. Target 72Hz specifically for Quest 3 to limit instant lag during heavy rendering
@@ -477,9 +481,6 @@ async function main(): Promise<void> {
     updateCollisionTransform();
   };
 
-  // Load room scene with default model (LabPlan) — will be updated after store loads
-  await loadRoomScene("LabPlan");
-
   world
     .registerComponent(DeviceComponent)
     .registerComponent(UserControlledAvatarComponent)
@@ -597,7 +598,7 @@ async function main(): Promise<void> {
   if (currentState.error) {
     console.error("❌ Failed to load data:", currentState.error);
   } else {
-    // Reload room scene with the correct model (uploaded file or default)
+    // Load room scene once with the resolved model (avoid double-load on startup).
     if (currentState.roomModelFileUrl) {
       await loadRoomScene(
         currentState.roomModel,
@@ -663,22 +664,6 @@ async function main(): Promise<void> {
 
   setAvatarSwitcherCamera(camera);
 
-  // 1) RPM Avatar + lip sync; SlimeVR bridge optional — debug markers only (?slimevrWs=...)
-  const rpmAvatarSystem = world.getSystem(RPMUserControlledAvatarSystem);
-  if (rpmAvatarSystem) {
-    await rpmAvatarSystem.createRPMUserControlledAvatar(
-      "player1",
-      "RPM Avatar",
-      "rpmClip_model1",
-      [-0.2, 0, -1.0],
-    );
-    registerAvatar(
-      rpmAvatarSystem as ControllableAvatarSystem,
-      "player1",
-      "RPM Avatar",
-    );
-  }
-
   // 2) Skeleton-controlled (bone-only) — disabled
   // const skeletonAvatarSystem = world.getSystem(SkeletonControlledAvatarSystem);
   // if (skeletonAvatarSystem) {
@@ -713,50 +698,74 @@ async function main(): Promise<void> {
   //   console.log("✅ Soldier avatar (soldier_model)");
   // }
 
-  // 3) Robot Assistant
-  const robotAssistantSystem = world.getSystem(RobotAssistantSystem);
-  if (robotAssistantSystem) {
-    await robotAssistantSystem.createRobotAssistant(
-      "robot1",
-      "Robot Assistant",
-      "robot_assistant",
-    );
-  }
+  // Defer heavy character setup so first scene render becomes interactive sooner on Quest.
+  setTimeout(() => {
+    (async () => {
+      // 1) RPM Avatar + lip sync; SlimeVR bridge optional — debug markers only (?slimevrWs=...)
+      const rpmAvatarSystem = world.getSystem(RPMUserControlledAvatarSystem);
+      if (rpmAvatarSystem) {
+        await rpmAvatarSystem.createRPMUserControlledAvatar(
+          "player1",
+          "RPM Avatar",
+          "rpmClip_model1",
+          [-0.2, 0, -1.0],
+        );
+        registerAvatar(
+          rpmAvatarSystem as ControllableAvatarSystem,
+          "player1",
+          "RPM Avatar",
+        );
+      }
 
-  // 4) NPC RPM Avatars — stationary characters
-  const npcAvatarSystem = world.getSystem(NPCAvatarSystem);
-  if (npcAvatarSystem) {
-    // Math.PI = 180 degrees, Math.PI / 2 = 90 degrees, etc.
-    await npcAvatarSystem.createNPCAvatar(
-      "npc1",
-      "NPC Alice",
-      "npc_1",
-      [3.0, 0, -2.5],
-    );
-    // Removed NPC Bob as requested
-    await npcAvatarSystem.createNPCAvatar(
-      "npc3",
-      "NPC Carol",
-      "npc_3",
-      [-3.0, 0, 2.0],
-      Math.PI / 2,
-    );
+      // 2) Robot Assistant
+      const robotAssistantSystem = world.getSystem(RobotAssistantSystem);
+      if (robotAssistantSystem) {
+        await robotAssistantSystem.createRobotAssistant(
+          "robot1",
+          "Robot Assistant",
+          "robot_assistant",
+        );
+      }
 
-    const scriptRoomId = urlRoomId ?? getStore().roomId;
-    if (scriptRoomId) {
-      await loadAndApplyRoomAvatarScripts(scriptRoomId, {
-        setNpcScript: (id, actions) => npcAvatarSystem.setBehaviorScript(id, actions),
-        setRobotScript: (actions) =>
-          robotAssistantSystem?.loadBehaviorScript(actions),
-      });
-    }
-  }
+      // 3) NPC RPM Avatars — stationary characters
+      const npcAvatarSystem = world.getSystem(NPCAvatarSystem);
+      if (npcAvatarSystem) {
+        // Math.PI = 180 degrees, Math.PI / 2 = 90 degrees, etc.
+        await npcAvatarSystem.createNPCAvatar(
+          "npc1",
+          "NPC Alice",
+          "npc_1",
+          [3.0, 0, -2.5],
+        );
+        // Removed NPC Bob as requested
+        await npcAvatarSystem.createNPCAvatar(
+          "npc3",
+          "NPC Carol",
+          "npc_3",
+          [-3.0, 0, 2.0],
+          Math.PI / 2,
+        );
 
-  setupAvatarSwitcherPanel();
+        const scriptRoomId = urlRoomId ?? getStore().roomId;
+        if (scriptRoomId) {
+          await loadAndApplyRoomAvatarScripts(scriptRoomId, {
+            setNpcScript: (id, actions) =>
+              npcAvatarSystem.setBehaviorScript(id, actions),
+            setRobotScript: (actions) =>
+              robotAssistantSystem?.loadBehaviorScript(actions),
+          });
+        }
+      }
 
-  if (rpmAvatarSystem) {
-    rpmAvatarSystem.alignFollowCameraToCurrentAvatar();
-  }
+      setupAvatarSwitcherPanel();
+
+      if (rpmAvatarSystem) {
+        rpmAvatarSystem.alignFollowCameraToCurrentAvatar();
+      }
+    })().catch((error) => {
+      console.error("⚠️ Deferred character initialization failed:", error);
+    });
+  }, 0);
 }
 
 main().catch((error) => {

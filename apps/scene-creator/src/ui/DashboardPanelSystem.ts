@@ -717,10 +717,16 @@ export class DashboardPanelSystem extends createSystem({
       onStatus: (text: string) => {
         this.setVoiceStatus(document, text);
       },
-      // Dialogue hooks are no-ops — no dialogue box in new design
-      onUserMessage: (_text: string) => { },
-      onAssistantMessage: (_text: string) => { },
-      onSystemMessage: (_text: string) => { },
+      // Mirror voice dialogue into the 3D dashboard voice section.
+      onUserMessage: (text: string) => {
+        this.setVoiceDialogueLine(document, "You", text);
+      },
+      onAssistantMessage: (text: string) => {
+        this.setVoiceDialogueLine(document, "Assistant", text);
+      },
+      onSystemMessage: (text: string) => {
+        this.setVoiceDialogueLine(document, "System", text);
+      },
       onTyping: (text?: string) => {
         this.setVoiceStatus(document, text ?? "Listening...");
       },
@@ -1174,6 +1180,18 @@ export class DashboardPanelSystem extends createSystem({
       if (dotColor !== "") this.lastVoiceStatusDotColorApplied = dotColor;
       this.scheduleDashboardBVHRefresh();
     }
+  }
+
+  private setVoiceDialogueLine(
+    document: UIKitDocument,
+    speaker: "You" | "Assistant" | "System",
+    message: string,
+  ): void {
+    const clean = message.replace(/\s+/g, " ").trim();
+    if (!clean) return;
+    const short =
+      clean.length > 68 ? `${clean.slice(0, 65).trimEnd()}...` : clean;
+    this.setVoiceStatus(document, `${speaker}: ${short}`);
   }
 
   // ── Card Interactions ──────────────────────────────────────────────────────

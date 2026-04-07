@@ -87,6 +87,10 @@ const SPAWN_PROBE_DIST = 0.6; // Increased from 0.4 to 0.6 for better clearance
 /** Minimum safe distance from room geometry (metres). */
 const SPAWN_MIN_SAFE_DIST = ROBOT_RADIUS + 0.2; // Robot radius + extra buffer
 
+// Quest performance mode:
+// disable extra per-frame walk diagnostics that are expensive on large room meshes.
+const LIGHTWEIGHT_WALKING_MODE = true;
+
 const STATES = ["Idle", "Walking", "Standing"];
 const EMOTES = ["Jump", "Yes", "No", "Wave", "ThumbsUp"];
 
@@ -138,6 +142,11 @@ export class RobotAssistantSystem extends createSystem({
   private robotRecords: Map<string, RobotAssistantRecord> = new Map();
   /** Reused raycaster for "face the user" checks while walking. */
   private readonly lookRaycaster: Raycaster = new Raycaster();
+  /** Throttle expensive room LoS raycasts while walking to user. */
+  private lookRaycastCooldown = 0;
+  private cachedCanSeeUser = true;
+  /** Throttle forward obstacle scans (extra constrainMovement probe). */
+  private forwardScanCooldown = 0;
   private timeElapsed = 0;
   private voiceActive = false;
   private voiceEmoteSequence: VoiceEmoteSequence | null = null;
@@ -1475,6 +1484,8 @@ export class RobotAssistantSystem extends createSystem({
 
   update(dt: number): void {
     this.timeElapsed += dt;
+    this.lookRaycastCooldown = Math.max(0, this.lookRaycastCooldown - dt);
+    this.forwardScanCooldown = Math.max(0, this.forwardScanCooldown - dt);
 
     for (const [robotId, record] of this.robotRecords) {
       // Always update mixer
@@ -1929,47 +1940,56 @@ export class RobotAssistantSystem extends createSystem({
             if (distToUser > 1e-3) {
               const angleToUser = Math.atan2(dxUser, dzUser);
 
-              // Raycast to confirm the user direction isn't blocked by room geometry.
-              // (We can't raycast the camera itself, so we validate line-of-sight to the user ray.)
+              // Raycast to confirm user direction isn't blocked by room geometry.
+              // In lightweight mode, skip this expensive check to prevent walk-start spikes.
               let canSeeUser = true;
-              const roomModel = (globalThis as any).__labRoomModel as
-                | Object3D
-                | undefined;
+              if (!LIGHTWEIGHT_WALKING_MODE) {
+                canSeeUser = this.cachedCanSeeUser;
+                if (this.lookRaycastCooldown <= 0) {
+                  canSeeUser = true;
+                  const roomModel = (globalThis as any).__labRoomModel as
+                    | Object3D
+                    | undefined;
 
-              if (roomModel) {
-                const originW = this.roomLocalToWorld(
-                  record.model.position.x,
-                  record.model.position.y,
-                  record.model.position.z,
-                );
-                const userW = this.roomLocalToWorld(
-                  userLocal.x,
-                  record.model.position.y,
-                  userLocal.z,
-                );
-                const dirW = new Vector3(
-                  userW.x - originW.x,
-                  0,
-                  userW.z - originW.z,
-                );
-                const dirLen = dirW.length();
-                if (dirLen > 1e-6) {
-                  dirW.normalize();
-                  this.lookRaycaster.set(
-                    new Vector3(originW.x, originW.y + 0.2, originW.z),
-                    dirW,
-                  );
-                  this.lookRaycaster.near = 0;
-                  this.lookRaycaster.far = distToUser + 0.05;
-                  const hits = this.lookRaycaster.intersectObject(
-                    roomModel as any,
-                    true,
-                  );
-                  // If we hit room geometry significantly before reaching user distance,
-                  // consider the view blocked and keep waypoint-facing.
-                  if (hits.length > 0 && hits[0].distance < distToUser - 0.1) {
-                    canSeeUser = false;
+                  if (roomModel) {
+                    const originW = this.roomLocalToWorld(
+                      record.model.position.x,
+                      record.model.position.y,
+                      record.model.position.z,
+                    );
+                    const userW = this.roomLocalToWorld(
+                      userLocal.x,
+                      record.model.position.y,
+                      userLocal.z,
+                    );
+                    const dirW = new Vector3(
+                      userW.x - originW.x,
+                      0,
+                      userW.z - originW.z,
+                    );
+                    const dirLen = dirW.length();
+                    if (dirLen > 1e-6) {
+                      dirW.normalize();
+                      this.lookRaycaster.set(
+                        new Vector3(originW.x, originW.y + 0.2, originW.z),
+                        dirW,
+                      );
+                      this.lookRaycaster.near = 0;
+                      this.lookRaycaster.far = distToUser + 0.05;
+                      const hits = this.lookRaycaster.intersectObject(
+                        roomModel as any,
+                        true,
+                      );
+                      // If we hit room geometry significantly before reaching user distance,
+                      // consider the view blocked and keep waypoint-facing.
+                      if (hits.length > 0 && hits[0].distance < distToUser - 0.1) {
+                        canSeeUser = false;
+                      }
+                    }
                   }
+
+                  this.cachedCanSeeUser = canSeeUser;
+                  this.lookRaycastCooldown = 0.2;
                 }
               }
 
@@ -2053,7 +2073,12 @@ export class RobotAssistantSystem extends createSystem({
             record.model.position.z = cLocal.z;
 
             // ── Forward Scan for Early Avoidance ──
-            if (collisionCooldown <= 0 && currentDistanceToTarget > 0.01) {
+            if (
+              !LIGHTWEIGHT_WALKING_MODE &&
+              collisionCooldown <= 0 &&
+              currentDistanceToTarget > 0.01 &&
+              this.forwardScanCooldown <= 0
+            ) {
               const SCAN_DIST = Math.min(0.5, currentDistanceToTarget);
               const scanLocalX = cLocal.x + record.walkDirection.x * SCAN_DIST;
               const scanLocalZ = cLocal.z + record.walkDirection.z * SCAN_DIST;
@@ -2132,6 +2157,7 @@ export class RobotAssistantSystem extends createSystem({
                   );
                 }
               }
+              this.forwardScanCooldown = 0.15;
             }
             // ──────────────────────────────────────
 

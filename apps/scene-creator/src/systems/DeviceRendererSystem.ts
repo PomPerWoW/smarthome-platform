@@ -211,6 +211,9 @@ export class DeviceRendererSystem extends createSystem({
     }
 
     const model = result.model.clone();
+    if (data.type === DeviceType.SmartMeter) {
+      this.applySmartMeterLowPolyMode(model);
+    }
     model.scale.setScalar(device.getScale());
     let furnitureFloorOffsetY = 0;
 
@@ -359,6 +362,40 @@ export class DeviceRendererSystem extends createSystem({
       `[DeviceRenderer] Created entity for ${data.name} (${data.type})`,
     );
     return record;
+  }
+
+  /**
+   * Smart meter source mesh is heavy on Quest.
+   * Keep only largest visual parts and drop tiny high-detail fragments.
+   */
+  private applySmartMeterLowPolyMode(model: Object3D): void {
+    const meshEntries: Array<{
+      mesh: any;
+      triangles: number;
+    }> = [];
+
+    model.traverse((child: any) => {
+      if (!child?.isMesh || !child.geometry) return;
+      const geom = child.geometry as any;
+      const pos = geom.attributes?.position;
+      if (!pos) return;
+      const triangles = geom.index
+        ? Math.floor(geom.index.count / 3)
+        : Math.floor(pos.count / 3);
+      meshEntries.push({ mesh: child, triangles });
+    });
+
+    if (meshEntries.length <= 4) return;
+
+    meshEntries.sort((a, b) => b.triangles - a.triangles);
+    const keep = new Set(meshEntries.slice(0, 4).map((e) => e.mesh));
+
+    for (const { mesh } of meshEntries) {
+      if (keep.has(mesh)) continue;
+      if (mesh.parent) {
+        mesh.parent.remove(mesh);
+      }
+    }
   }
 
   private playAnimations(record: DeviceRecord, data?: Device): void {

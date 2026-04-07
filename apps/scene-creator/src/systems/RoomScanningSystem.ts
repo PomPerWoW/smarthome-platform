@@ -3,7 +3,6 @@ import { createSystem, XRPlane, XRMesh, Entity } from "@iwsdk/core";
 import {
   Mesh,
   MeshBasicMaterial,
-  MeshStandardMaterial,
   BufferGeometry,
   Float32BufferAttribute,
   Uint32BufferAttribute,
@@ -396,31 +395,26 @@ export class RoomScanningSystem extends createSystem({
     }
     geometry.computeVertexNormals();
 
-    // Solid semi-transparent fill
-    const fillMat = new MeshStandardMaterial({
+    // Performance mode: avoid transparent double-sided PBR in Quest.
+    // Keep a simple opaque unlit material to minimize fill-rate/shading cost.
+    const fillMat = new MeshBasicMaterial({
       color: new Color(color),
-      transparent: true,
-      opacity: isBounded ? 0.3 : 0.12,
-      side: DoubleSide,
-      depthWrite: false,
-      roughness: 0.8,
-      metalness: 0.1,
     });
     const fillMesh = new Mesh(geometry, fillMat);
     fillMesh.name = "mesh-fill";
     fillMesh.raycast = () => {}; // Prevent blocking grab rays
     group.add(fillMesh);
 
-    // Wireframe edge overlay
-    const wireGeom = new WireframeGeometry(geometry);
-    const wireMat = new LineBasicMaterial({
-      color: new Color(color),
-      transparent: true,
-      opacity: isBounded ? 0.5 : 0.2,
-    });
-    const wireframe = new LineSegments(wireGeom, wireMat);
-    wireframe.name = "mesh-wireframe";
-    group.add(wireframe);
+    // Wireframe overlay on top of fill mesh is intentionally disabled for Quest performance.
+    // const wireGeom = new WireframeGeometry(geometry);
+    // const wireMat = new LineBasicMaterial({
+    //   color: new Color(color),
+    //   transparent: true,
+    //   opacity: isBounded ? 0.5 : 0.2,
+    // });
+    // const wireframe = new LineSegments(wireGeom, wireMat);
+    // wireframe.name = "mesh-wireframe";
+    // group.add(wireframe);
 
     return true;
   }

@@ -578,10 +578,8 @@ export const deviceStore = createStore<DeviceState>()(
 
     updateDevicePosition: async (deviceId, x, y, z, rotationY) => {
       try {
-        const existing = get().getDeviceById(deviceId);
-        // Furniture uses `updateFurniturePosition` and persists Y. Smart devices only
-        // move on the floor plan here: keep the last stored Y (server / defaults), not scene Y.
-        const yPersist = existing ? existing.position[1] : y;
+        // Persist the actual transformed Y from the scene so vertical adjustments are not lost.
+        const yPersist = y;
         console.log(`[Store] Updating position for device ${deviceId}:`, {
           x,
           y: yPersist,

@@ -132,6 +132,15 @@ interface NPCAvatarRecord {
     skeletonYawOffsetRad: number;
 }
 
+type NpcVoiceDebugState = {
+    mic: "idle" | "requesting" | "ok" | "error";
+    recorder: "idle" | "ok" | "error";
+    transcribe: "idle" | "ok" | "error";
+    tts: "idle" | "ok" | "error";
+    viseme: "unknown" | "ok" | "missing";
+    note?: string;
+};
+
 /** RPM / Mixamo style root; falls back to first skinned-mesh hip/root bone. */
 function findNpcSkeletonHips(root: Object3D): Object3D | null {
     const byOrder = [
@@ -186,6 +195,13 @@ export class NPCAvatarSystem extends createSystem({
     private readonly _hipsYawQuat = new Quaternion();
     private readonly _hipsAnimQuat = new Quaternion();
     private readonly _axisY = new Vector3(0, 1, 0);
+    private voiceDebug: NpcVoiceDebugState = {
+        mic: "idle",
+        recorder: "idle",
+        transcribe: "idle",
+        tts: "idle",
+        viseme: "unknown",
+    };
 
     private npcRecords: Map<string, NPCAvatarRecord> = new Map();
     private timeElapsed = 0;
@@ -194,6 +210,7 @@ export class NPCAvatarSystem extends createSystem({
     init() {
         console.log("[NPCAvatar] System initialized (stationary NPCs with LLM chat + procedural lip-sync)");
         (globalThis as any).__npcAvatarSystem = this;
+        this.publishVoiceDebug("init");
 
         // List all available voices for the user
         if (typeof window !== "undefined" && window.speechSynthesis) {
@@ -210,6 +227,22 @@ export class NPCAvatarSystem extends createSystem({
             } else {
                 window.speechSynthesis.onvoiceschanged = listVoices;
             }
+        }
+    }
+
+    private publishVoiceDebug(note?: string): void {
+        this.voiceDebug = {
+            ...this.voiceDebug,
+            note,
+        };
+        (globalThis as any).__npcVoiceDebug = { ...this.voiceDebug };
+        const hooks = (globalThis as any).__dashboardVoiceHooks as
+            | { onSystemMessage?: (message: string) => void }
+            | undefined;
+        if (hooks?.onSystemMessage) {
+            hooks.onSystemMessage(
+                `NPC dbg mic:${this.voiceDebug.mic} rec:${this.voiceDebug.recorder} stt:${this.voiceDebug.transcribe} tts:${this.voiceDebug.tts} vis:${this.voiceDebug.viseme}${note ? ` (${note})` : ""}`,
+            );
         }
     }
 
@@ -301,6 +334,8 @@ export class NPCAvatarSystem extends createSystem({
         return new Promise((resolve) => {
             const record = this.npcRecords.get(npcId);
             if (!record || typeof window === "undefined" || !window.speechSynthesis) {
+                this.voiceDebug.tts = "error";
+                this.publishVoiceDebug("tts_unavailable");
                 resolve();
                 return;
             }
@@ -369,6 +404,8 @@ export class NPCAvatarSystem extends createSystem({
                     record.isSpeaking = false;
                     record.lipSync.isActive = false;
                     this.resetAllVisemes(record);
+                    this.voiceDebug.tts = "ok";
+                    this.publishVoiceDebug("tts_ok");
                     resolve();
                 };
 
@@ -376,6 +413,8 @@ export class NPCAvatarSystem extends createSystem({
                     record.isSpeaking = false;
                     record.lipSync.isActive = false;
                     this.resetAllVisemes(record);
+                    this.voiceDebug.tts = "error";
+                    this.publishVoiceDebug("tts_error");
                     resolve();
                 };
 
@@ -466,10 +505,14 @@ export class NPCAvatarSystem extends createSystem({
 
         record.entity.setValue(NPCAvatarComponent, "chatState", "listening");
         console.log(`[NPCAvatar] 🎤 ${npcId} listening for user speech...`);
+        this.voiceDebug.mic = "requesting";
+        this.publishVoiceDebug("mic_request");
 
         navigator.mediaDevices.getUserMedia({
             audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
         }).then((stream) => {
+            this.voiceDebug.mic = "ok";
+            this.publishVoiceDebug("mic_ok");
             if (this.activeConversationNpcId !== npcId) {
                 stream.getTracks().forEach(t => t.stop());
                 return;
@@ -480,6 +523,8 @@ export class NPCAvatarSystem extends createSystem({
                 ? "audio/webm;codecs=opus" : "audio/webm";
 
             record.mediaRecorder = new MediaRecorder(stream, { mimeType });
+            this.voiceDebug.recorder = "ok";
+            this.publishVoiceDebug("recorder_ok");
 
             record.mediaRecorder.ondataavailable = (event: BlobEvent) => {
                 if (event.data.size > 0) record.audioChunks.push(event.data);
@@ -511,6 +556,8 @@ export class NPCAvatarSystem extends createSystem({
                     );
 
                     const transcript = transcribeResponse.data.transcript?.trim();
+                    this.voiceDebug.transcribe = "ok";
+                    this.publishVoiceDebug("stt_ok");
                     if (!transcript || transcript.length < 2) {
                         this.startListeningForNPC(npcId);
                         return;
@@ -538,6 +585,8 @@ export class NPCAvatarSystem extends createSystem({
                     }
                 } catch (error) {
                     console.error(`[NPCAvatar] ${npcId} chat error:`, error);
+                    this.voiceDebug.transcribe = "error";
+                    this.publishVoiceDebug("stt_or_chat_error");
                     if (this.activeConversationNpcId === npcId) {
                         await this.speakWithLipsync(npcId, "Sorry, I spaced out for a second. What were you saying?");
                         setTimeout(() => {
@@ -551,6 +600,8 @@ export class NPCAvatarSystem extends createSystem({
 
             record.mediaRecorder.onerror = () => {
                 stream.getTracks().forEach(t => t.stop());
+                this.voiceDebug.recorder = "error";
+                this.publishVoiceDebug("recorder_error");
             };
 
             record.mediaRecorder.start();
@@ -563,6 +614,8 @@ export class NPCAvatarSystem extends createSystem({
             }, MAX_RECORDING_DURATION);
         }).catch((err) => {
             console.error(`[NPCAvatar] ${npcId} microphone access failed:`, err);
+            this.voiceDebug.mic = "error";
+            this.publishVoiceDebug("mic_error");
         });
     }
 
@@ -770,8 +823,12 @@ export class NPCAvatarSystem extends createSystem({
 
             if (morphTargetMeshes.length === 0) {
                 console.warn(`[NPCAvatar] ⚠️ No lip-sync blendshapes found for ${npcName}`);
+                this.voiceDebug.viseme = "missing";
+                this.publishVoiceDebug("viseme_missing");
             } else {
                 console.log(`[NPCAvatar] 👄 ${npcName}: ${morphTargetMeshes.length} lip-sync meshes ready`);
+                this.voiceDebug.viseme = "ok";
+                this.publishVoiceDebug("viseme_ok");
             }
 
             const skeletonHipsBone = findNpcSkeletonHips(npcModel);
