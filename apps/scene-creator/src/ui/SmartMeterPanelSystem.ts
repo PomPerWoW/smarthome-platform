@@ -100,7 +100,7 @@ export class SmartMeterPanelSystem extends createSystem({
                                 if (record && record.activeChartType === "gauge" && record.chartEntity) {
                                     const updateGauge = record.chartEntity.object3D?.userData?.updateGauge;
                                     if (typeof updateGauge === "function") {
-                                        updateGauge(suffix, data.value);
+                                        updateGauge(suffix, Number(data.value));
                                     }
                                 }
                             }
@@ -146,6 +146,19 @@ export class SmartMeterPanelSystem extends createSystem({
         const deviceRenderer = this.world.getSystem(DeviceRendererSystem);
         if (deviceRenderer) {
             deviceRenderer.showChart(deviceId, "gauge" as any);
+
+            // Push cached readings to the newly created gauge so it doesn't start at 0.00
+            const cached = this.readings[deviceId];
+            if (cached) {
+                const record = deviceRenderer.getRecord(deviceId);
+                const updateGauge = record?.chartEntity?.object3D?.userData?.updateGauge;
+                if (typeof updateGauge === "function") {
+                    for (const [key, value] of Object.entries(cached)) {
+                        updateGauge(key, Number(value));
+                    }
+                    console.log(`[SmartMeterPanel] Pushed ${Object.keys(cached).length} cached readings to gauge for ${deviceId}`);
+                }
+            }
         }
     }
 

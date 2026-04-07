@@ -379,8 +379,9 @@ export class Chart3D {
         const unitSprite = this.addLabelWithColor(group, unit, 0, -0.8, LABEL_SIZES.unit, COLORS.label);
 
         // --- 5. Update & Animation Logic ---
-        const updateFn = (value: number) => {
-            const clamped = Math.max(0, Math.min(value, maxVal));
+        const updateFn = (value: any) => {
+            const numValue = Number(value);
+            const clamped = Math.max(0, Math.min(numValue, maxVal));
             const t = clamped / maxVal;
             const targetTotalAngle = Math.max(0.001, t * totalAngleSweep);
             const targetNeedleAngle = needleStartRot - targetTotalAngle;
