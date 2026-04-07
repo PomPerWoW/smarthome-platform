@@ -4,8 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "dev:network": "vite --mode network",
+    "dev": "VITE_BACKEND_URL=https://turing.se.kmitl.ac.th:5500 vite",
+    "dev:network": "VITE_BACKEND_URL=https://turing.se.kmitl.ac.th:5500 vite --mode network",
+    "dev:backend-local": "vite",
+    "dev:backend-local:network": "vite --mode network",
     "build": "vite build",
     "preview": "vite preview",
     "slimevr-bridge": "npm run start --prefix ../../packages/slimevr-bridge"

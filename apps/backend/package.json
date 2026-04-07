@@ -3,11 +3,11 @@
   "private": true,
   "scripts": {
     "install": "poetry install",
-    "dev": "poetry run gunicorn app.asgi:application -k uvicorn.workers.UvicornWorker -b 0.0.0.0:5500 --reload --keyfile certs/key.pem --certfile certs/cert.pem",
-    "dev:network": "ENV_FILE=.env.network poetry run gunicorn app.asgi:application -k uvicorn.workers.UvicornWorker -b 0.0.0.0:5500 --reload --keyfile certs/key.pem --certfile certs/cert.pem",
-    "migrate": "poetry run python manage.py migrate",
-    "makemigrations": "poetry run python manage.py makemigrations",
-    "shell": "poetry run python manage.py shell",
+    "dev": "DATABASE_HOST=turing.se.kmitl.ac.th DATABASE_PORT=5502 poetry run gunicorn app.asgi:application -k uvicorn.workers.UvicornWorker -b 0.0.0.0:5500 --reload --keyfile certs/key.pem --certfile certs/cert.pem",
+    "dev:network": "DATABASE_HOST=turing.se.kmitl.ac.th DATABASE_PORT=5502 ENV_FILE=.env.network poetry run gunicorn app.asgi:application -k uvicorn.workers.UvicornWorker -b 0.0.0.0:5500 --reload --keyfile certs/key.pem --certfile certs/cert.pem",
+    "migrate": "DATABASE_HOST=turing.se.kmitl.ac.th DATABASE_PORT=5502 poetry run python manage.py migrate",
+    "makemigrations": "DATABASE_HOST=turing.se.kmitl.ac.th DATABASE_PORT=5502 poetry run python manage.py makemigrations",
+    "shell": "DATABASE_HOST=turing.se.kmitl.ac.th DATABASE_PORT=5502 poetry run python manage.py shell",
     "lint": "poetry run ruff check . || echo 'ruff not installed'",
     "test": "poetry run pytest || echo 'pytest not installed'"
   }

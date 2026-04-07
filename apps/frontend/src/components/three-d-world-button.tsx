@@ -22,6 +22,25 @@ import { useHomeStore } from "@/stores/home_store";
 import { useUIStore } from "@/stores/ui_store";
 import { HomeService } from "@/services/HomeService";
 
+/**
+ * Scene-creator URL for Enter 3D World.
+ * - API can stay on Turing; XR runs on your dev machine (`npm run dev:network` in scene-creator).
+ * - If `VITE_HOST_IP` is set (e.g. .env.network locally or frontend Docker build on Turing), always use
+ *   that host so both turing-hosted and local dashboards open the same LAN scene-creator.
+ * - Otherwise use the current page hostname (typical when scene-creator is served from the same host).
+ */
+function resolveSceneCreatorBase(): string {
+  const explicit = import.meta.env.VITE_HOST_SCENE_CREATOR_URL?.trim();
+  if (explicit) {
+    return explicit;
+  }
+  const hostIp = import.meta.env.VITE_HOST_IP?.trim();
+  if (hostIp) {
+    return `https://${hostIp}:3003/smarthome/xr/`;
+  }
+  return `https://${window.location.hostname}:3003/smarthome/xr/`;
+}
+
 export function ThreeDWorldButton() {
   const [open, setOpen] = useState(false);
   const [selectedHomeId, setSelectedHomeId] = useState<string>("");
@@ -54,14 +73,14 @@ export function ThreeDWorldButton() {
   const rooms = allRooms.filter((r) => r.homeId === selectedHomeId);
 
   const handleEnter = () => {
-    // Use the Scene Creator base URL from env.
-    const fallbackBase = `https://${window.location.hostname}:3003/smarthome/xr/`;
-    const fromEnv = import.meta.env.VITE_SCENE_CREATOR_URL?.trim();
+    const fallbackBase = resolveSceneCreatorBase();
     let url: URL;
     try {
-      url = new URL(fromEnv || fallbackBase);
-    } catch {
       url = new URL(fallbackBase);
+    } catch {
+      url = new URL(
+        `https://${window.location.hostname}:3003/smarthome/xr/`,
+      );
     }
 
     // Production serves Scene Creator under `/smarthome/xr/` (see nginx configs).
@@ -79,12 +98,11 @@ export function ThreeDWorldButton() {
       url.searchParams.set("roomId", selectedRoomId);
     }
 
-    // Inject dynamic SlimeVR WS URL based on the current hostname
     const slimeWsFromEnv = import.meta.env.VITE_SLIMEVR_WS?.trim();
     if (slimeWsFromEnv) {
       url.searchParams.set("slimevrWs", slimeWsFromEnv);
     } else {
-      url.searchParams.set("slimevrWs", `ws://${window.location.hostname}:8765`);
+      url.searchParams.set("slimevrWs", `ws://${url.hostname}:8765`);
     }
 
     window.open(url.toString(), "_blank", "noopener,noreferrer");

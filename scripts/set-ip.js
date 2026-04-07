@@ -45,7 +45,7 @@ targetFiles.forEach((filePath) => {
   // Replace URLs while preserving port, path, and protocol (avoid regex that only
   // matched up to the first ":" — that could leave a second ":port" and break new URL()).
   const urlKeys =
-    /^(VITE_BACKEND_URL|VITE_SCENE_CREATOR_URL|VITE_FRONTEND_URL|VITE_LANDING_PAGE_URL|VITE_DASHBOARD_URL)=(.*)$/gm;
+    /^(VITE_BACKEND_URL|VITE_SCENE_CREATOR_URL|VITE_HOST_SCENE_CREATOR_URL|VITE_FRONTEND_URL|VITE_LANDING_PAGE_URL|VITE_DASHBOARD_URL)=(.*)$/gm;
   content = content.replace(urlKeys, (line, key, value) => {
     const trimmed = String(value).trim();
     try {
