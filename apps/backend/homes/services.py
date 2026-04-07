@@ -536,21 +536,11 @@ class VoiceAssistantService:
             if device_child.tag:
                 scada = ScadaManager()
                 if action == "turn_on":
-                    suffix = (
-                        "on"
-                        if hasattr(device_child, "television")
-                        or hasattr(device_child, "fan")
-                        else "onoff"
-                    )
-                    scada.send_command(f"{device_child.tag}.{suffix}", 1)
+                    tag_suffix = _scada_power_onoff_suffix(device)
+                    scada.send_command(f"{device_child.tag}{tag_suffix}", 1)
                 elif action == "turn_off":
-                    suffix = (
-                        "on"
-                        if hasattr(device_child, "television")
-                        or hasattr(device_child, "fan")
-                        else "onoff"
-                    )
-                    scada.send_command(f"{device_child.tag}.{suffix}", 0)
+                    tag_suffix = _scada_power_onoff_suffix(device)
+                    scada.send_command(f"{device_child.tag}{tag_suffix}", 0)
                 elif action == "set_brightness":
                     scada.send_command(
                         f"{device_child.tag}.Brightness", device_child.brightness
