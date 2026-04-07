@@ -21,13 +21,13 @@ import { Label } from "@/components/ui/label";
 import { useHomeStore } from "@/stores/home_store";
 import { useUIStore } from "@/stores/ui_store";
 import { HomeService } from "@/services/HomeService";
+import { SCENE_CREATOR_DEV_NETWORK_HOST } from "@/constants/sceneCreatorDevHost";
 
 /**
- * Scene-creator URL for Enter 3D World.
- * - API can stay on Turing; XR runs on your dev machine (`npm run dev:network` in scene-creator).
- * - If `VITE_HOST_IP` is set (e.g. .env.network locally or frontend Docker build on Turing), always use
- *   that host so both turing-hosted and local dashboards open the same LAN scene-creator.
- * - Otherwise use the current page hostname (typical when scene-creator is served from the same host).
+ * Scene-creator base for Enter 3D World (never derived from window.location — avoids localhost).
+ * 1) VITE_HOST_SCENE_CREATOR_URL — full URL override (env)
+ * 2) VITE_HOST_IP — host only (env, e.g. Turing frontend image build)
+ * 3) SCENE_CREATOR_DEV_NETWORK_HOST — hardcoded in `constants/sceneCreatorDevHost.ts`
  */
 function resolveSceneCreatorBase(): string {
   const explicit = import.meta.env.VITE_HOST_SCENE_CREATOR_URL?.trim();
@@ -35,10 +35,8 @@ function resolveSceneCreatorBase(): string {
     return explicit;
   }
   const hostIp = import.meta.env.VITE_HOST_IP?.trim();
-  if (hostIp) {
-    return `https://${hostIp}:3003/smarthome/xr/`;
-  }
-  return `https://${window.location.hostname}:3003/smarthome/xr/`;
+  const host = hostIp || SCENE_CREATOR_DEV_NETWORK_HOST;
+  return `https://${host}:3003/smarthome/xr/`;
 }
 
 export function ThreeDWorldButton() {
@@ -79,7 +77,7 @@ export function ThreeDWorldButton() {
       url = new URL(fallbackBase);
     } catch {
       url = new URL(
-        `https://${window.location.hostname}:3003/smarthome/xr/`,
+        `https://${SCENE_CREATOR_DEV_NETWORK_HOST}:3003/smarthome/xr/`,
       );
     }
 

@@ -34,7 +34,33 @@ function findEnvFiles(dir, fileList = []) {
 
 const targetFiles = findEnvFiles(appsDir);
 
+const sceneCreatorDevHostPath = path.join(
+  __dirname,
+  "..",
+  "apps",
+  "frontend",
+  "src",
+  "constants",
+  "sceneCreatorDevHost.ts",
+);
+
 let updatedFilesCount = 0;
+
+if (fs.existsSync(sceneCreatorDevHostPath)) {
+  let tsContent = fs.readFileSync(sceneCreatorDevHostPath, "utf8");
+  const tsOriginal = tsContent;
+  tsContent = tsContent.replace(
+    /export const SCENE_CREATOR_DEV_NETWORK_HOST = "[^"]*";/,
+    `export const SCENE_CREATOR_DEV_NETWORK_HOST = "${newIp}";`,
+  );
+  if (tsContent !== tsOriginal) {
+    fs.writeFileSync(sceneCreatorDevHostPath, tsContent, "utf8");
+    console.log(
+      `✅ Updated: ${path.relative(path.join(__dirname, ".."), sceneCreatorDevHostPath)}`,
+    );
+    updatedFilesCount++;
+  }
+}
 
 targetFiles.forEach((filePath) => {
   let content = fs.readFileSync(filePath, 'utf8');
@@ -64,4 +90,6 @@ targetFiles.forEach((filePath) => {
   }
 });
 
-console.log(`\n🎉 Successfully updated ${updatedFilesCount} .env file(s) with new IP: ${newIp}`);
+console.log(
+  `\n🎉 Successfully updated ${updatedFilesCount} file(s) with new IP: ${newIp}`,
+);
