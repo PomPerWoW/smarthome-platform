@@ -102,6 +102,14 @@ export class WebSocketService {
     this.listeners.forEach((handler) => handler(data));
   }
 
+  sendMessage(message: Record<string, unknown>) {
+    if (this.socket?.readyState === WebSocket.OPEN) {
+      this.socket.send(JSON.stringify(message));
+    } else {
+      console.warn("[WebSocket] Cannot send message, socket is not open");
+    }
+  }
+
   private startHeartbeat() {
     this.stopHeartbeat();
     this.pingInterval = setInterval(() => {

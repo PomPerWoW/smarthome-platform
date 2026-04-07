@@ -104,7 +104,11 @@ class ScadaManager(BaseScadaManager):
                          device.airconditioner.save()
 
                      elif command == 'speed' and hasattr(device, 'fan'):
-                         device.fan.speed = int(parse_float(value))
+                         dir_val = int(parse_float(value))
+                         if dir_val == 1:
+                             device.fan.speed = min(device.fan.speed + 1, 5)
+                         elif dir_val == 0:
+                             device.fan.speed = max(device.fan.speed - 1, 1)
                          device.fan.save()
                      
                      elif command == 'shake' and hasattr(device, 'fan'):

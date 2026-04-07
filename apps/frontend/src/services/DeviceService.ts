@@ -169,8 +169,8 @@ export class DeviceService {
     await this.api.delete(`/api/homes/fans/${id}/`);
   }
 
-  async setSpeed(id: string, speed: number): Promise<void> {
-    await this.api.post(`/api/homes/fans/${id}/set_speed/`, { speed });
+  async adjustSpeed(id: string, direction: number): Promise<void> {
+    await this.api.post(`/api/homes/fans/${id}/adjust_speed/`, { direction });
   }
 
   async setSwing(id: string, swing: boolean): Promise<void> {
