@@ -9,12 +9,12 @@ import {
   Power,
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
-import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import type { Television } from "@/models";
 import { DeviceService } from "@/services/DeviceService";
+import { WebSocketService } from "@/services/WebSocketService";
 import { toast } from "sonner";
 import { useNotificationStore } from "@/stores/notification_store";
 import { DeviceControlHeader } from "./DeviceControlHeader";
@@ -29,7 +29,6 @@ export function TelevisionControl({
   onUpdate,
 }: TelevisionControlProps) {
   const [isOn, setIsOn] = useState(device.is_on);
-  const [volume, setVolume] = useState(device.volume);
   const [channel, setChannel] = useState(device.channel);
   const [isMute, setIsMute] = useState(device.isMute);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -38,7 +37,6 @@ export function TelevisionControl({
   // Sync state when device prop changes
   useEffect(() => {
     setIsOn(device.is_on);
-    setVolume(device.volume);
     setChannel(device.channel);
     setIsMute(device.isMute);
   }, [device]);
@@ -68,29 +66,27 @@ export function TelevisionControl({
     }
   };
 
-  const handleVolumeChange = (value: number[]) => {
-    setVolume(value[0]);
-  };
-
-  const handleVolumeCommit = async () => {
+  const handleVolumeAdjust = async (direction: number) => {
     setIsUpdating(true);
     try {
-      await DeviceService.getInstance().setVolume(device.id, volume);
-      toast.success("Volume updated");
+      WebSocketService.getInstance().sendMessage({
+        action: "tv_volume",
+        device_id: device.id,
+        value: direction
+      });
+      toast.success(direction === 1 ? "Volume up command sent" : "Volume down command sent");
       addNotification({
         category: "device",
         iconType: "volume",
         title: "Volume adjusted",
-        description: `'${device.name}' volume set to ${volume}%`,
+        description: `'${device.name}' volume was ${direction === 1 ? "increased" : "decreased"}`,
         severity: "info",
         deviceType: "Television",
         deviceName: device.name,
-        numericValue: volume,
-        unit: "%",
       });
       onUpdate?.();
     } catch {
-      toast.error("Failed to update volume");
+      toast.error("Failed to adjust volume");
     } finally {
       setIsUpdating(false);
     }
@@ -181,17 +177,26 @@ export function TelevisionControl({
                 )}
                 Volume
               </Label>
-              <span className="text-sm font-medium">{volume}%</span>
             </div>
-            <Slider
-              value={[volume]}
-              onValueChange={handleVolumeChange}
-              onValueCommit={handleVolumeCommit}
-              max={100}
-              step={1}
-              disabled={isUpdating || isMute}
-              className="w-full"
-            />
+
+            <div className="flex gap-4">
+              <Button
+                variant="outline"
+                className="flex-1 text-lg font-bold"
+                onClick={() => handleVolumeAdjust(0)}
+                disabled={isUpdating || isMute}
+              >
+                -
+              </Button>
+              <Button
+                variant="outline"
+                className="flex-1 text-lg font-bold"
+                onClick={() => handleVolumeAdjust(1)}
+                disabled={isUpdating || isMute}
+              >
+                +
+              </Button>
+            </div>
           </div>
 
           {/* Mute toggle */}
