@@ -30,16 +30,7 @@ import { SCENE_CREATOR_DEV_NETWORK_HOST } from "@/constants/sceneCreatorDevHost"
  * 3) SCENE_CREATOR_DEV_NETWORK_HOST — hardcoded in `constants/sceneCreatorDevHost.ts`
  */
 function resolveSceneCreatorBase(): string {
-  const explicit = import.meta.env.VITE_HOST_SCENE_CREATOR_URL?.trim();
-  if (explicit) {
-    return explicit;
-  }
-  const hostIp = import.meta.env.VITE_HOST_IP?.trim();
-  const isLoopbackHostIp =
-    hostIp === "localhost" || hostIp === "127.0.0.1" || hostIp === "[::1]";
-  const host =
-    hostIp && !isLoopbackHostIp ? hostIp : SCENE_CREATOR_DEV_NETWORK_HOST;
-  return `https://${host}:3003/smarthome/xr/`;
+  return `https://${SCENE_CREATOR_DEV_NETWORK_HOST}:3003/smarthome/xr/`;
 }
 
 export function ThreeDWorldButton() {
