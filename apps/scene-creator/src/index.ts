@@ -73,6 +73,12 @@ import {
 } from "./utils/VoiceTextToSpeech";
 import * as LucideIconsKit from "@pmndrs/uikit-lucide";
 
+// --- EXTREME OPTIMIZATION: Disable all console logging to save CPU on Quest ---
+console.log = () => {};
+console.warn = () => {};
+console.info = () => {};
+console.debug = () => {};
+
 const assets: AssetManifest = {
   chimeSound: {
     url: "./audio/chime.mp3",
@@ -246,6 +252,11 @@ async function main(): Promise<void> {
         // Only works for layers/VR on supported devices
         if (typeof renderer.xr.setFoveation === "function") {
           renderer.xr.setFoveation(1.0);
+        }
+
+        // 3.5. Plunge the Framebuffer Scale Factor! Quest 3 defaults are incredibly high causing huge battery drain and lag.
+        if (typeof renderer.xr.setFramebufferScaleFactor === "function") {
+          renderer.xr.setFramebufferScaleFactor(0.5); // Super aggressive optimization for many devices!
         }
 
         // 4. Target 72Hz specifically for Quest 3 to limit instant lag during heavy rendering
@@ -441,6 +452,9 @@ async function main(): Promise<void> {
     roomModel.traverse((child: any) => {
       if (child.isMesh) {
         child.raycast = () => { };
+        // Super optimization: lock world matrices for static room geometry
+        child.matrixAutoUpdate = false;
+        child.updateMatrix();
       }
     });
 
@@ -719,13 +733,7 @@ async function main(): Promise<void> {
       "npc_1",
       [3.0, 0, -2.5],
     );
-    await npcAvatarSystem.createNPCAvatar(
-      "npc2",
-      "NPC Bob",
-      "npc_2",
-      [-4.0, 0, 4.5],
-      Math.PI / 2,
-    );
+    // Removed NPC Bob as requested
     await npcAvatarSystem.createNPCAvatar(
       "npc3",
       "NPC Carol",

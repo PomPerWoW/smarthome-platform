@@ -17,11 +17,6 @@ import {
   getRoomBounds,
   getWorldFloorY,
 } from "../config/navmesh";
-import {
-  constrainMovement,
-  AVATAR_RADIUS,
-  AVATAR_HEIGHTS,
-} from "../config/collision";
 // ============================================================================
 // CONFIG (Ready Player Me: forwardOffset = Math.PI so I/K/J/L face movement)
 // ============================================================================
@@ -439,12 +434,8 @@ export class RPMUserControlledAvatarSystem extends createSystem({
 
     const [cx, cz] = clampToWalkableAreaWorld(cam.position.x, cam.position.z);
 
-    // Collision: constrain XR movement the same way keyboard locomotion does.
-    const fromPos = new Vector3(record.model.position.x, record.model.position.y, record.model.position.z);
-    const toPos = new Vector3(cx, record.model.position.y, cz);
-    const constrained = constrainMovement(fromPos, toPos, AVATAR_RADIUS, AVATAR_HEIGHTS);
-    record.model.position.x = constrained.x;
-    record.model.position.z = constrained.z;
+    record.model.position.x = cx;
+    record.model.position.z = cz;
 
     if (!record.isPlayingJump) {
       const standY = getWorldFloorY() + record.rootAboveFootWorld;
@@ -547,13 +538,6 @@ export class RPMUserControlledAvatarSystem extends createSystem({
       const oldZ = record.model.position.z;
       record.model.position.x += moveX;
       record.model.position.z += moveZ;
-
-      // Collision check against room geometry (world space)
-      const fromPos = new Vector3(oldX, record.model.position.y, oldZ);
-      const toPos = new Vector3(record.model.position.x, record.model.position.y, record.model.position.z);
-      const constrained = constrainMovement(fromPos, toPos, AVATAR_RADIUS, AVATAR_HEIGHTS);
-      record.model.position.x = constrained.x;
-      record.model.position.z = constrained.z;
 
       // Use world-space clamp (accounts for room alignment transform)
       const [clampedX, clampedZ] = clampToWalkableAreaWorld(

@@ -19,11 +19,6 @@ import {
     roomLocalToWorld,
     clampToWalkableArea,
 } from "../config/navmesh";
-import {
-    constrainMovement,
-    AVATAR_RADIUS,
-    AVATAR_HEIGHTS,
-} from "../config/collision";
 import { BackendApiClient } from "../api/BackendApiClient";
 import type { AvatarBehaviorAction } from "../scripting/avatarBehaviorScript";
 
@@ -1014,16 +1009,7 @@ export class NPCAvatarSystem extends createSystem({
         let nx = roomLocal.x + mx;
         let nz = roomLocal.z + mz;
         [nx, nz] = clampToWalkableArea(nx, nz);
-        const oldW = this.roomLocalToWorld(roomLocal.x, roomLocal.y, roomLocal.z);
-        const newW = this.roomLocalToWorld(nx, roomLocal.y, nz);
-        const constrained = constrainMovement(
-            new Vector3(oldW.x, oldW.y, oldW.z),
-            new Vector3(newW.x, newW.y, newW.z),
-            AVATAR_RADIUS,
-            AVATAR_HEIGHTS,
-        );
-        let c = this.worldToRoomLocal(constrained.x, constrained.y, constrained.z);
-        [c.x, c.z] = clampToWalkableArea(c.x, c.z);
+        let c = { x: nx, z: nz };
         const budged = this.applyAgentAvoidanceRoomLocal(
             npcId,
             roomLocal.x,
