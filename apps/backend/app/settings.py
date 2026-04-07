@@ -126,6 +126,8 @@ CORS_ALLOWED_ORIGINS = [
     "https://192.168.89.100:3003", # Change to your actual local IP
     "https://localhost:3000",
     "https://localhost:3003",
+    "https://10.66.4.224:5173",
+    "https://10.66.4.224:3003",
 ]
 
 if HOST_IP:
@@ -146,6 +148,11 @@ if _csrf_extra:
     CSRF_TRUSTED_ORIGINS = [
         o.strip() for o in _csrf_extra.split(",") if o.strip()
     ]
+
+# Hardcoded dev-network host for local frontend/scene-creator against Turing backend.
+for _origin in ["https://10.66.4.224:5173", "https://10.66.4.224:3003"]:
+    if _origin not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(_origin)
 
 CORS_ALLOW_CREDENTIALS = True
 

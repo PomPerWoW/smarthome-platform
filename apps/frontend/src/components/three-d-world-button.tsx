@@ -35,7 +35,10 @@ function resolveSceneCreatorBase(): string {
     return explicit;
   }
   const hostIp = import.meta.env.VITE_HOST_IP?.trim();
-  const host = hostIp || SCENE_CREATOR_DEV_NETWORK_HOST;
+  const isLoopbackHostIp =
+    hostIp === "localhost" || hostIp === "127.0.0.1" || hostIp === "[::1]";
+  const host =
+    hostIp && !isLoopbackHostIp ? hostIp : SCENE_CREATOR_DEV_NETWORK_HOST;
   return `https://${host}:3003/smarthome/xr/`;
 }
 
