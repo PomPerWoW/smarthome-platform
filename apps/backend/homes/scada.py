@@ -16,7 +16,7 @@ class ScadaManager(BaseScadaManager):
                 "passion.HueLight02.onoff",
                 "passion.HueLight02.Color",
                 "passion.HueLight02.Brightness",
-                "passion.HueLight03.onoff",
+                "passion.HueLight03.OnOff",
                 "passion.HueLight03.Color",
                 "passion.HueLight03.Brightness",
                 "passion.Dyson_Fan_Remote.on",
@@ -126,6 +126,18 @@ class ScadaManager(BaseScadaManager):
                      # Save parent if needed (for is_on)
                      if saved:
                          device.save()
-                          
+                     
+                     # Broadcast to frontend so UI refreshes and shows notification
+                     async_to_sync(channel_layer.group_send)(
+                         "homes_group",
+                         {
+                             "type": "device_update",
+                             "device_id": str(device.id),
+                             "action": command,
+                             "value": value,
+                             "device_name": device.device_name,
+                             "source": "scada"
+                         }
+                     )
         except Exception as e:
             print(f"[SCADA_MANAGER] Error syncing tag {tag}: {e}")
