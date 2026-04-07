@@ -717,7 +717,7 @@ async function main(): Promise<void> {
       "npc1",
       "NPC Alice",
       "npc_1",
-      [3.0, 0, -3.0],
+      [3.0, 0, -2.5],
     );
     await npcAvatarSystem.createNPCAvatar(
       "npc2",

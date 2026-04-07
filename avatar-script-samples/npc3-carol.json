@@ -1,9 +1,9 @@
 [
   { "type": "walk" },
+  { "type": "wait", "duration": 2.5 },
   { "type": "wave" },
+  { "type": "idle", "duration": 2 },
+  { "type": "walk", "distance": 1.5 },
   { "type": "wait", "duration": 2 },
-  { "type": "sit", "duration": 4 },
-  { "type": "walk", "distance": 1.4 },
-  { "type": "idle", "duration": 2.5 },
   { "type": "walk" }
 ]
