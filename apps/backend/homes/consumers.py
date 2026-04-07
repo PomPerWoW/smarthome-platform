@@ -37,6 +37,7 @@ class HomeConsumer(AsyncWebsocketConsumer):
         "ac_temperature": (".set_temp", "temperature"),
         "ac_fan": (".fanlevel", "fan_level"),
         "fan_shake": (".shake", "swing"),
+        "fan_speed": (".speed", "speed"),
     }
 
     # 1. Receive message from Frontend

@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
 import { Fan as FanIcon, Wind, RotateCw, Power } from "lucide-react";
 import { Label } from "@/components/ui/label";
-import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import type { Fan } from "@/models";
 import { DeviceService } from "@/services/DeviceService";
+import { WebSocketService } from "@/services/WebSocketService";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useNotificationStore } from "@/stores/notification_store";
@@ -16,25 +16,16 @@ interface FanControlProps {
   onUpdate?: () => void;
 }
 
-const speedLabels = [
-  "Off",
-  "Low",
-  "Medium-Low",
-  "Medium",
-  "Medium-High",
-  "High",
-];
+// Removed speedLabels as UI doesn't track absolute fan speed anymore
 
 export function FanControl({ device, onUpdate }: FanControlProps) {
   const [isOn, setIsOn] = useState(device.is_on);
-  const [speed, setSpeed] = useState(device.speed);
   const [swing, setSwing] = useState(device.swing);
   const [isUpdating, setIsUpdating] = useState(false);
   const addNotification = useNotificationStore((s) => s.addNotification);
 
   useEffect(() => {
     setIsOn(device.is_on);
-    setSpeed(device.speed);
     setSwing(device.swing);
   }, [device]);
 
@@ -63,29 +54,30 @@ export function FanControl({ device, onUpdate }: FanControlProps) {
     }
   };
 
-  const handleSpeedChange = (value: number[]) => {
-    setSpeed(value[0]);
-  };
-
-  const handleSpeedCommit = async () => {
+  const handleSpeedAdjust = async (direction: number) => {
     setIsUpdating(true);
+
     try {
-      await DeviceService.getInstance().setSpeed(device.id, speed);
-      toast.success("Speed updated");
+      WebSocketService.getInstance().sendMessage({
+        action: "fan_speed",
+        device_id: device.id,
+        value: direction
+      });
+      // We don't await because it's a websocket message, we just assume it's sent
+      
+      toast.success(direction === 1 ? "Increased fan speed command sent" : "Decreased fan speed command sent");
       addNotification({
         category: "device",
         iconType: "fan_speed",
-        title: "Fan speed changed",
-        description: `'${device.name}' speed set to ${speedLabels[speed]}`,
+        title: "Fan speed adjusted",
+        description: `'${device.name}' speed was ${direction === 1 ? "increased" : "decreased"}`,
         severity: "info",
         deviceType: "Fan",
         deviceName: device.name,
-        numericValue: speed,
-        unit: ` (${speedLabels[speed]})`,
       });
       onUpdate?.();
     } catch {
-      toast.error("Failed to update speed");
+      toast.error("Failed to adjust speed");
     } finally {
       setIsUpdating(false);
     }
@@ -123,7 +115,7 @@ export function FanControl({ device, onUpdate }: FanControlProps) {
         icon={FanIcon}
         iconColorClass="text-cyan-500"
         iconBgColorClass="bg-cyan-500/20"
-        iconStyle={{ animationDuration: `${2 - speed * 0.3}s` }}
+        iconStyle={{ animationDuration: `1s` }}
         onUpdate={onUpdate}
       >
         <Button
@@ -145,37 +137,27 @@ export function FanControl({ device, onUpdate }: FanControlProps) {
             <div className="flex items-center justify-between">
               <Label className="flex items-center gap-2">
                 <Wind className="w-4 h-4" />
-                Speed
+                Adjust Fan Speed
               </Label>
-              <span className="text-sm font-medium">{speedLabels[speed]}</span>
             </div>
-            <Slider
-              value={[speed]}
-              onValueChange={handleSpeedChange}
-              onValueCommit={handleSpeedCommit}
-              max={5}
-              step={1}
-              disabled={isUpdating}
-              className="w-full"
-            />
-
-            {/* Speed preset buttons */}
-            <div className="flex gap-2">
-              {speedLabels.map((_, index) => (
-                <Button
-                  key={index}
-                  variant={speed === index ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => {
-                    setSpeed(index);
-                    handleSpeedCommit();
-                  }}
-                  disabled={isUpdating}
-                  className="flex-1 text-xs"
-                >
-                  {index}
-                </Button>
-              ))}
+            
+            <div className="flex gap-4">
+              <Button
+                variant="outline"
+                className="flex-1 text-lg font-bold"
+                onClick={() => handleSpeedAdjust(0)}
+                disabled={isUpdating}
+              >
+                -
+              </Button>
+              <Button
+                variant="outline"
+                className="flex-1 text-lg font-bold"
+                onClick={() => handleSpeedAdjust(1)}
+                disabled={isUpdating}
+              >
+                +
+              </Button>
             </div>
           </div>
 
@@ -215,9 +197,9 @@ export function FanControl({ device, onUpdate }: FanControlProps) {
               <FanIcon
                 className={cn(
                   "w-8 h-8 text-cyan-500",
-                  isOn && speed > 0 && "animate-spin",
+                  isOn && "animate-spin",
                 )}
-                style={{ animationDuration: `${2 - speed * 0.3}s` }}
+                style={{ animationDuration: `1s` }}
               />
             </div>
           </div>

@@ -931,24 +931,30 @@ class FanViewSet(BaseDeviceViewSet):
     serializer_class = FanSerializer
 
     @action(detail=True, methods=["post"])
-    def set_speed(self, request, pk=None):
+    def adjust_speed(self, request, pk=None):
         """
-        Command: Set the fan speed.
+        Command: Adjust the fan speed.
 
-        Body: {"speed": int}
+        Body: {"direction": int} 0 to decrease, 1 to increase.
         """
         fan = self.get_object()
-        speed = request.data.get("speed")
+        direction = request.data.get("direction")
 
-        if speed is not None:
-            fan.speed = int(speed)
+        if direction is not None:
+            dir_int = int(direction)
+
+            # Update local fan speed (limit between 1 and 5)
+            if dir_int == 1:
+                fan.speed = min(fan.speed + 1, 5)
+            elif dir_int == 0:
+                fan.speed = max(fan.speed - 1, 1)
             fan.save()
 
             if fan.tag:
-                ScadaManager().send_command(f"{fan.tag}.speed", fan.speed)
+                ScadaManager().send_command(f"{fan.tag}.speed", dir_int)
 
-            return Response({"status": "speed set", "current_speed": fan.speed})
-        return Response({"error": "speed parameter missing"}, status=400)
+            return Response({"status": "speed adjusted", "current_speed": fan.speed})
+        return Response({"error": "direction parameter missing"}, status=400)
 
     @action(detail=False, methods=["get"], url_path="getFanLog")
     def getFanLog(self, request):
