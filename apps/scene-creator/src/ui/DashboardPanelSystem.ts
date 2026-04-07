@@ -80,9 +80,9 @@ function getDeviceValueText(device: Device): string {
     case DeviceType.Lightbulb:
       return `${(device as Lightbulb).brightness}%`;
     case DeviceType.Television:
-      return `Vol ${(device as Television).volume}`;
+      return `Vol`;
     case DeviceType.Fan:
-      return `Speed ${(device as Fan).speed}`;
+      return `Speed`;
     case DeviceType.AirConditioner:
       return `${(device as AirConditioner).temperature} C`;
     case DeviceType.SmartMeter:
@@ -201,7 +201,7 @@ function applyDeviceCardIconLayers(
       `card-icon-wrap-${slotIndex}`,
     ) as UIKit.Container | null;
     if (wrap) {
-      wrap.setProperties({...style, pointerEvents: "none"});
+      wrap.setProperties({ ...style, pointerEvents: "none" });
     }
     cache.set(cacheKeyWrapBg, style.backgroundColor);
     cache.set(cacheKeyWrapBorder, style.borderColor);
@@ -718,9 +718,9 @@ export class DashboardPanelSystem extends createSystem({
         this.setVoiceStatus(document, text);
       },
       // Dialogue hooks are no-ops — no dialogue box in new design
-      onUserMessage: (_text: string) => {},
-      onAssistantMessage: (_text: string) => {},
-      onSystemMessage: (_text: string) => {},
+      onUserMessage: (_text: string) => { },
+      onAssistantMessage: (_text: string) => { },
+      onSystemMessage: (_text: string) => { },
       onTyping: (text?: string) => {
         this.setVoiceStatus(document, text ?? "Listening...");
       },
