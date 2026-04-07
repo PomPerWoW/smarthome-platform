@@ -22,7 +22,7 @@ from .models import *
 from .permissions import IsHomeOwner
 from .scada import ScadaManager
 from .serializers import *
-from .services import VoiceAssistantService
+from .services import VoiceAssistantService, _scada_power_onoff_suffix
 
 logger = logging.getLogger(__name__)
 
@@ -615,14 +615,8 @@ class BaseDeviceViewSet(viewsets.ModelViewSet):
 
             elif instance.tag:
                 value = 1 if instance.is_on else 0
-
-                suffix = "onoff"  # Default for Lightbulb and AirConditioner
-                if hasattr(instance, "television"):
-                    suffix = "on"
-                elif hasattr(instance, "fan"):
-                    suffix = "on"
-
-                ScadaManager().send_command(f"{instance.tag}.{suffix}", value)
+                tag_suffix = _scada_power_onoff_suffix(instance)
+                ScadaManager().send_command(f"{instance.tag}{tag_suffix}", value)
 
     @action(detail=True, methods=["post"])
     def set_position(self, request, pk=None):
@@ -919,7 +913,8 @@ class AirConditionerViewSet(BaseDeviceViewSet):
         if instance.is_on != old_is_on:
             if instance.tag:
                 value = 1 if instance.is_on else 0
-                ScadaManager().send_command(f"{instance.tag}.onoff", value)
+                tag_suffix = _scada_power_onoff_suffix(instance)
+                ScadaManager().send_command(f"{instance.tag}{tag_suffix}", value)
 
 
 class FanViewSet(BaseDeviceViewSet):
@@ -1572,10 +1567,10 @@ class SmartMeterViewSet(BaseDeviceViewSet):
             else:
                 SmartmeterManager().close()
 
-            # 2. Forward the onoff command to SCADA hardware directly
             if instance.tag:
                 value = 1 if instance.is_on else 0
-                ScadaManager().send_command(f"{instance.tag}.onoff", value)
+                tag_suffix = _scada_power_onoff_suffix(instance)
+                ScadaManager().send_command(f"{instance.tag}{tag_suffix}", value)
 
 
 class VoiceCommandViewSet(viewsets.ViewSet):

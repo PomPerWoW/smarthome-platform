@@ -85,7 +85,7 @@ class ScadaManager(BaseScadaManager):
                      # Update logic based on command
                      saved = False
                      
-                     if command in ['onoff', 'on']:
+                     if command.lower() in ['onoff', 'on']:
                          device.is_on = parse_bool(value)
                          saved = True
                      
@@ -141,7 +141,7 @@ class ScadaManager(BaseScadaManager):
                          {
                              "type": "device_update",
                              "device_id": str(device.id),
-                             "action": command,
+                             "action": 'onoff' if command.lower() == 'onoff' else ('on' if command.lower() == 'on' else command),
                              "value": value,
                              "device_name": device.device_name,
                              "source": "scada"
