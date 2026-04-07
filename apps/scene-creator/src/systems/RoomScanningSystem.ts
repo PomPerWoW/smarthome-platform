@@ -119,6 +119,18 @@ export class RoomScanningSystem extends createSystem({
       this.cleanupAllVisuals();
     });
 
+    // If the system initializes after XR already entered, we won't receive
+    // the initial `sessionstart` event. Trigger capture immediately in that case.
+    const activeSession = this.renderer.xr.getSession();
+    if (activeSession) {
+      console.log(
+        "[RoomScanning] XR session already active at init — triggering room capture",
+      );
+      this.sessionStarted = true;
+      this.roomCaptureInitiated = false;
+      this.initiateRoomCapture();
+    }
+
     // ── React to detected planes ────────────────────────────────────
     this.queries.planes.subscribe("qualify", (entity: Entity) => {
       this.onPlaneDetected(entity);
