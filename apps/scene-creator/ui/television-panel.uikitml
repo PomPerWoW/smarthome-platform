@@ -260,15 +260,10 @@
       <span class="control-label">Volume</span>
       <div class="value-container">
         <button class="control-btn" id="volume-down">
-          <div>
-            <MinusIcon class="control-btn-icon" />
-          </div>
+          <span class="value-text">-</span>
         </button>
-        <span class="value-text" id="volume-value">50</span>
         <button class="control-btn" id="volume-up">
-          <div>
-            <PlusIcon class="control-btn-icon" />
-          </div>
+          <span class="value-text">+</span>
         </button>
       </div>
     </div>

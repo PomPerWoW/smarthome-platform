@@ -299,17 +299,13 @@
       <div class="brightness-container">
         <div class="brightness-controls">
           <button class="brightness-btn" id="brightness-down">
-            <div>
-              <MinusIcon class="brightness-btn-icon" />
-            </div>
+            <span style="font-size: 1.6; color: #0f172a;">-</span>
           </button>
         </div>
         <span class="brightness-value" id="brightness-value">80%</span>
         <div class="brightness-controls">
           <button class="brightness-btn" id="brightness-up">
-            <div>
-              <PlusIcon class="brightness-btn-icon" />
-            </div>
+            <span style="font-size: 1.6; color: #0f172a;">+</span>
           </button>
         </div>
       </div>

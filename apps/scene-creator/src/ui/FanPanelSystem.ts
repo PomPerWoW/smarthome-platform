@@ -62,13 +62,17 @@ export class FanPanelSystem extends createSystem({
     }
 
     // Speed buttons
-    for (let i = 1; i <= 3; i++) {
-      const speedBtn = document.getElementById(`speed-${i}`);
-      if (speedBtn) {
-        speedBtn.addEventListener("click", () =>
-          this.handleSpeedChange(deviceId, i),
-        );
-      }
+    const speedDecBtn = document.getElementById("speed-dec");
+    if (speedDecBtn) {
+      speedDecBtn.addEventListener("click", () =>
+        this.handleSpeedChange(deviceId, 0),
+      );
+    }
+    const speedIncBtn = document.getElementById("speed-inc");
+    if (speedIncBtn) {
+      speedIncBtn.addEventListener("click", () =>
+        this.handleSpeedChange(deviceId, 1),
+      );
     }
 
     const swingBtn = document.getElementById("swing-btn");
@@ -112,9 +116,9 @@ export class FanPanelSystem extends createSystem({
     store.toggleDevice(deviceId);
   }
 
-  private handleSpeedChange(deviceId: string, speed: number): void {
-    console.log(`[FanPanel] Setting speed to ${speed}`);
-    getStore().updateFan(deviceId, { speed });
+  private handleSpeedChange(deviceId: string, direction: number): void {
+    console.log(`[FanPanel] Sending speed direction ${direction}`);
+    getStore().updateFan(deviceId, { speed: direction });
   }
 
   private handleSwingToggle(deviceId: string): void {
@@ -339,15 +343,11 @@ export class FanPanelSystem extends createSystem({
       });
     }
 
-    // Update speed buttons
-    for (let i = 1; i <= 3; i++) {
-      const speedBtn = document.getElementById(`speed-${i}`) as UIKit.Container;
-      if (speedBtn && device) {
-        speedBtn.setProperties({
-          backgroundColor: device.speed === i ? "#06b6d4" : "#64748b",
-        });
-      }
-    }
+    // Update speed buttons highlight - remove absolute value highlight since it is now relative
+    const speedDecBtn = document.getElementById("speed-dec") as UIKit.Container;
+    if (speedDecBtn) speedDecBtn.setProperties({ backgroundColor: "rgba(203, 213, 225, 0.52)" });
+    const speedIncBtn = document.getElementById("speed-inc") as UIKit.Container;
+    if (speedIncBtn) speedIncBtn.setProperties({ backgroundColor: "rgba(203, 213, 225, 0.52)" });
 
     const swingBtn = document.getElementById("swing-btn") as UIKit.Container;
     if (swingBtn && device) {
