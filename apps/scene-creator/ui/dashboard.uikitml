@@ -786,7 +786,7 @@
           </div>
         </div>
         <div class="card-body">
-          <span class="card-value" id="card-value-1">Vol 40</span>
+          <span class="card-value" id="card-value-1">Vol</span>
           <div class="card-controls">
             <button class="card-ctrl-btn" id="card-up-1">
               <ChevronUpIcon class="ctrl-icon" />
@@ -817,7 +817,7 @@
           </div>
         </div>
         <div class="card-body">
-          <span class="card-value" id="card-value-2">Speed 3</span>
+          <span class="card-value" id="card-value-2">Speed</span>
           <div class="card-controls">
             <button class="card-ctrl-btn" id="card-up-2">
               <ChevronUpIcon class="ctrl-icon" />

@@ -364,7 +364,7 @@
                         "sourceTag": "span",
                         "type": "custom",
                         "children": [
-                          "Vol 40"
+                          "Vol"
                         ],
                         "properties": {
                           "class": "card-value",
@@ -585,7 +585,7 @@
                         "sourceTag": "span",
                         "type": "custom",
                         "children": [
-                          "Speed 3"
+                          "Speed"
                         ],
                         "properties": {
                           "class": "card-value",
@@ -5042,7 +5042,7 @@
       },
       "end": {
         "line": 788,
-        "column": 66
+        "column": 63
       }
     },
     "uid-39": {
@@ -5242,7 +5242,7 @@
       },
       "end": {
         "line": 819,
-        "column": 67
+        "column": 65
       }
     },
     "uid-59": {
