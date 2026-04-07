@@ -28,6 +28,10 @@ export class SmartMeterPanelSystem extends createSystem({
     // Track readings per deviceId
     private readings: Record<string, Record<string, number>> = {};
 
+    /** Rebuilding UIKit BVH twice per rAF is very heavy; telemetry can fire many times per second. */
+    private lastMetricBvhRefreshMs: Record<string, number> = {};
+    private static readonly METRIC_BVH_MIN_INTERVAL_MS = 750;
+
     init() {
         console.log("[SmartMeterPanel] System initialized");
 
@@ -70,8 +74,18 @@ export class SmartMeterPanelSystem extends createSystem({
                                     const document = PanelDocument.data.document[entity.index] as UIKitDocument;
                                     if (document) {
                                         this.updatePanelMetricsOnly(document, deviceId);
-                                        if (entity.object3D) {
-                                            scheduleUIKitInteractableBVHRefresh(entity.object3D);
+                                        const now = performance.now();
+                                        const last =
+                                            this.lastMetricBvhRefreshMs[deviceId] ?? 0;
+                                        if (
+                                            entity.object3D &&
+                                            now - last >=
+                                                SmartMeterPanelSystem.METRIC_BVH_MIN_INTERVAL_MS
+                                        ) {
+                                            this.lastMetricBvhRefreshMs[deviceId] = now;
+                                            scheduleUIKitInteractableBVHRefresh(
+                                                entity.object3D,
+                                            );
                                         }
                                     }
                                 }

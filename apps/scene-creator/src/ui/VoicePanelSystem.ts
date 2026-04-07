@@ -304,6 +304,7 @@ export class VoicePanelSystem extends createSystem({
           this.beginClosing({
             userInitiated: true,
             skipGoodbyeBubble: true,
+            skipGoodbyeTts: true,
           });
         } else {
           this.inActiveConversation = false;

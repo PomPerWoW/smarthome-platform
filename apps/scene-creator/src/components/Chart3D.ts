@@ -2,6 +2,7 @@ import * as d3 from "d3";
 import {
     Object3D,
     Mesh,
+    MeshBasicMaterial,
     MeshStandardMaterial,
     MeshPhysicalMaterial,
     BoxGeometry,
@@ -233,6 +234,26 @@ export class Chart3D {
                 handler(value);
             }
         };
+
+        // One invisible hit volume for grab/XR rays — eight detailed gauges were
+        // hundreds of raycast targets and tanked frame time.
+        const grabProxy = new Mesh(
+            new BoxGeometry(6, 6, 0.25),
+            new MeshBasicMaterial({
+                visible: false,
+                transparent: true,
+                opacity: 0,
+            }) as any,
+        );
+        grabProxy.name = "SmartMeterChartGrabProxy";
+        container.add(grabProxy);
+
+        container.traverse((child) => {
+            const m = child as Mesh;
+            if (m.isMesh === true && m !== grabProxy) {
+                m.raycast = () => { };
+            }
+        });
     }
 
     private createCardGauge(title: string, unit: string, maxVal: number, primaryColor: string) {
@@ -250,6 +271,10 @@ export class Chart3D {
         const totalAngleSweep = Math.PI + Math.PI / 3;
         const endAngle = startAngle - totalAngleSweep;
 
+        const backdropCurveSegs = 20;
+        const progressCurveSegs = 12;
+        const capRadialSegs = 12;
+
         const createThickArc = (startA: number, endA: number, depth: number, segments: number) => {
             const shape = new Shape();
             shape.absarc(0, 0, outerRadius, startA, endA, true);
@@ -262,48 +287,28 @@ export class Chart3D {
             return geo;
         };
 
-        const applyGradient = (geo: BufferGeometry, startA: number, endA: number, hexColor: string) => {
+        /** Solid fill — avoids O(vertices) gradient work on every reading update (critical for 8× gauges on WebXR). */
+        const applySolidGaugeColor = (geo: BufferGeometry, hexColor: string) => {
             const count = geo.attributes.position.count;
             const colors = new Float32Array(count * 3);
-            const targetColor = new Color(hexColor);
-            const baseColor = new Color(COLORS.gaugeBdrop).lerp(targetColor, 0.15);
-
-            const normalize = (a: number) => (a % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
-            const sA = normalize(startA);
-            const eA = normalize(endA);
-
-            let totalSweep = sA - eA;
-            if (totalSweep <= 0) totalSweep += 2 * Math.PI;
-
-            const pos = geo.attributes.position;
+            const c = new Color(hexColor);
             for (let i = 0; i < count; i++) {
-                const x = pos.getX(i);
-                const y = pos.getY(i);
-
-                let a = normalize(Math.atan2(y, x));
-                let swept = sA - a;
-                if (swept < 0) swept += 2 * Math.PI;
-
-                let u = totalSweep === 0 ? 1 : swept / totalSweep;
-                u = Math.max(0, Math.min(1, u));
-
-                const lerped = baseColor.clone().lerp(targetColor, u);
-                colors[i * 3] = lerped.r;
-                colors[i * 3 + 1] = lerped.g;
-                colors[i * 3 + 2] = lerped.b;
+                colors[i * 3] = c.r;
+                colors[i * 3 + 1] = c.g;
+                colors[i * 3 + 2] = c.b;
             }
-            geo.setAttribute('color', new BufferAttribute(colors, 3));
+            geo.setAttribute("color", new BufferAttribute(colors, 3));
         };
 
         // --- 1. Backdrop Track ---
-        const bdropGeo = createThickArc(startAngle, endAngle, backdropDepth, 64);
-        const bdropMat = new MeshStandardMaterial({ color: COLORS.gaugeBdrop, roughness: 0.6, metalness: 0.1 });
+        const bdropGeo = createThickArc(startAngle, endAngle, backdropDepth, backdropCurveSegs);
+        const bdropMat = new MeshBasicMaterial({ color: COLORS.gaugeBdrop });
 
         // Assert as 'any' to bypass missing SDK-specific BufferGeometry properties like 'computeBoundsTree'
         const backdropArc = new Mesh(bdropGeo as any, bdropMat);
         group.add(backdropArc);
 
-        const capGeoBdrop = new CylinderGeometry(trackThickness * 0.98, trackThickness * 0.98, backdropDepth, 32);
+        const capGeoBdrop = new CylinderGeometry(trackThickness * 0.98, trackThickness * 0.98, backdropDepth, capRadialSegs);
         capGeoBdrop.rotateX(Math.PI / 2);
 
         const bdropStartCap = new Mesh(capGeoBdrop, bdropMat);
@@ -315,25 +320,25 @@ export class Chart3D {
         group.add(bdropEndCap);
 
         // --- 2. Progress Track ---
-        const initialProgressGeo = createThickArc(startAngle, startAngle - 0.001, progressDepth, 32);
-        applyGradient(initialProgressGeo, startAngle, startAngle - 0.001, primaryColor);
-        const progressMat = new MeshStandardMaterial({ vertexColors: true, roughness: 0.4, metalness: 0.2 });
+        const initialProgressGeo = createThickArc(startAngle, startAngle - 0.001, progressDepth, progressCurveSegs);
+        applySolidGaugeColor(initialProgressGeo, primaryColor);
+        const progressMat = new MeshBasicMaterial({ vertexColors: true });
 
         // Assert as 'any' to bypass strict TS check
         const progressArc = new Mesh(initialProgressGeo as any, progressMat);
         progressArc.position.z = 0.01;
         group.add(progressArc);
 
-        const capGeoProg = new CylinderGeometry(trackThickness * 0.98, trackThickness * 0.98, progressDepth, 32);
+        const capGeoProg = new CylinderGeometry(trackThickness * 0.98, trackThickness * 0.98, progressDepth, capRadialSegs);
         capGeoProg.rotateX(Math.PI / 2);
 
         const baseColor = new Color(COLORS.gaugeBdrop).lerp(new Color(primaryColor), 0.15);
-        const baseCapMat = new MeshStandardMaterial({ color: baseColor, roughness: 0.4, metalness: 0.2 });
+        const baseCapMat = new MeshBasicMaterial({ color: baseColor });
         const baseCap = new Mesh(capGeoProg, baseCapMat);
         baseCap.position.set(Math.cos(startAngle) * midRadius, Math.sin(startAngle) * midRadius, 0.01);
         group.add(baseCap);
 
-        const tipCapMat = new MeshStandardMaterial({ color: primaryColor, roughness: 0.4, metalness: 0.2 });
+        const tipCapMat = new MeshBasicMaterial({ color: primaryColor });
         const tipCap = new Mesh(capGeoProg, tipCapMat);
         tipCap.position.set(Math.cos(startAngle) * midRadius, Math.sin(startAngle) * midRadius, 0.01);
         group.add(tipCap);
@@ -342,8 +347,8 @@ export class Chart3D {
         const pivotGroup = new Group();
         pivotGroup.position.set(0, 0, 0.08);
 
-        const dotGeo = new CylinderGeometry(0.12, 0.12, 0.06, 32).rotateX(Math.PI / 2);
-        const dot = new Mesh(dotGeo, new MeshStandardMaterial({ color: primaryColor, roughness: 0.4 }));
+        const dotGeo = new CylinderGeometry(0.12, 0.12, 0.06, capRadialSegs).rotateX(Math.PI / 2);
+        const dot = new Mesh(dotGeo, new MeshBasicMaterial({ color: primaryColor }));
         pivotGroup.add(dot);
 
         const needleShape = new Shape();
@@ -358,7 +363,7 @@ export class Chart3D {
         needleGeo.translate(0, 0, -0.02);
 
         // Assert as 'any' to bypass strict TS check
-        const needleMesh = new Mesh(needleGeo as any, new MeshStandardMaterial({ color: primaryColor, roughness: 0.4 }));
+        const needleMesh = new Mesh(needleGeo as any, new MeshBasicMaterial({ color: primaryColor }));
         pivotGroup.add(needleMesh);
 
         group.add(pivotGroup);
@@ -379,43 +384,30 @@ export class Chart3D {
             const t = clamped / maxVal;
             const targetTotalAngle = Math.max(0.001, t * totalAngleSweep);
             const targetNeedleAngle = needleStartRot - targetTotalAngle;
+            const finalEndAngle = startAngle - targetTotalAngle;
 
-            const animateElements = () => {
-                const angleDiff = targetNeedleAngle - pivotGroup.rotation.z;
+            pivotGroup.rotation.z = targetNeedleAngle;
 
-                if (Math.abs(angleDiff) > 0.005) {
-                    pivotGroup.rotation.z += angleDiff * 0.1;
+            progressArc.geometry.dispose();
+            progressArc.geometry = createThickArc(
+                startAngle,
+                finalEndAngle,
+                progressDepth,
+                progressCurveSegs,
+            ) as any;
+            applySolidGaugeColor(progressArc.geometry as any, primaryColor);
 
-                    const currentArcLen = Math.max(0.001, needleStartRot - pivotGroup.rotation.z);
-                    const currentEndAngle = startAngle - currentArcLen;
-
-                    progressArc.geometry.dispose();
-                    progressArc.geometry = createThickArc(startAngle, currentEndAngle, progressDepth, 32) as any;
-                    applyGradient(progressArc.geometry as any, startAngle, currentEndAngle, primaryColor);
-
-                    tipCap.position.x = Math.cos(currentEndAngle) * midRadius;
-                    tipCap.position.y = Math.sin(currentEndAngle) * midRadius;
-
-                    requestAnimationFrame(animateElements);
-                } else {
-                    pivotGroup.rotation.z = targetNeedleAngle;
-                    const finalEndAngle = startAngle - targetTotalAngle;
-
-                    progressArc.geometry.dispose();
-                    progressArc.geometry = createThickArc(startAngle, finalEndAngle, progressDepth, 32) as any;
-                    applyGradient(progressArc.geometry as any, startAngle, finalEndAngle, primaryColor);
-
-                    tipCap.position.x = Math.cos(finalEndAngle) * midRadius;
-                    tipCap.position.y = Math.sin(finalEndAngle) * midRadius;
-                }
-            };
-            animateElements();
+            tipCap.position.x = Math.cos(finalEndAngle) * midRadius;
+            tipCap.position.y = Math.sin(finalEndAngle) * midRadius;
 
             const text = value.toFixed(2);
+            const mat = valueSprite.material as SpriteMaterial;
+            if (mat.map) {
+                mat.map.dispose();
+            }
             const texture = this.createLabelTexture(text, true, COLORS.value);
-            (valueSprite.material as SpriteMaterial).map = texture;
+            mat.map = texture;
             const aspect = texture.image.width / texture.image.height;
-
             valueSprite.scale.set(LABEL_SIZES.value * aspect, LABEL_SIZES.value, 1);
         };
 
@@ -671,7 +663,7 @@ export class Chart3D {
         const ctx = canvas.getContext("2d");
         if (!ctx) return new CanvasTexture(canvas);
 
-        const resolutionMultiplier = 4;
+        const resolutionMultiplier = 2;
         const baseFontSize = (isValueText ? 64 : 48) * fontSizeMult;
         const fontSize = baseFontSize * resolutionMultiplier;
 
@@ -695,7 +687,7 @@ export class Chart3D {
         ctx.fillText(text, width / 2, height / 2);
 
         const texture = new CanvasTexture(canvas);
-        texture.anisotropy = 16;
+        texture.anisotropy = 4;
         return texture;
     }
 }

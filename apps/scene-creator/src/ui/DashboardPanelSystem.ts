@@ -1321,16 +1321,18 @@ export class DashboardPanelSystem extends createSystem({
     } else {
       this.currentRoomId = null;
     }
-    console.log("[DashboardPanel][Home] renderCurrentRoom state:", {
-      storeRoomId,
-      roomIds,
-      fallbackRoomId: fallbackRoom?.id ?? null,
-      fallbackRoomName: fallbackRoom?.name ?? null,
-      resolvedCurrentRoomId: this.currentRoomId,
-      resolvedRoomName,
-      homesCount: store.homes.length,
-      loading: store.loading,
-    });
+    if (import.meta.env.DEV) {
+      console.log("[DashboardPanel][Home] renderCurrentRoom state:", {
+        storeRoomId,
+        roomIds,
+        fallbackRoomId: fallbackRoom?.id ?? null,
+        fallbackRoomName: fallbackRoom?.name ?? null,
+        resolvedCurrentRoomId: this.currentRoomId,
+        resolvedRoomName,
+        homesCount: store.homes.length,
+        loading: store.loading,
+      });
+    }
 
     const currentRoomText = document.getElementById(
       "current-room-text",
@@ -1460,9 +1462,11 @@ export class DashboardPanelSystem extends createSystem({
       }
     }
 
-    console.log(
-      `[DashboardPanel] Rendered room "${roomMap[roomId]?.roomName ?? this.roomNameById.get(roomId) ?? roomId}" with ${devices.length} device(s) (max ${MAX_DEVICE_CARD_SLOTS} shown in grid)${anyLayoutPropertyChanged ? " [Layout updated]" : anyPropertyChanged ? " [Props updated]" : " [no change]"}`,
-    );
+    if (import.meta.env.DEV) {
+      console.log(
+        `[DashboardPanel] Rendered room "${roomMap[roomId]?.roomName ?? this.roomNameById.get(roomId) ?? roomId}" with ${devices.length} device(s) (max ${MAX_DEVICE_CARD_SLOTS} shown in grid)${anyLayoutPropertyChanged ? " [Layout updated]" : anyPropertyChanged ? " [Props updated]" : " [no change]"}`,
+      );
+    }
 
     // UIKit may rebuild glyph/mesh buffers on text *or* color updates. A stale
     // three-mesh-bVH tree yields ray misses and hides the XR pointer dot.
@@ -1505,29 +1509,38 @@ export class DashboardPanelSystem extends createSystem({
 
   private getCurrentRoomDevices(): Device[] {
     if (!this.currentRoomId) {
-      console.log(
-        "[DashboardPanel][Home] getCurrentRoomDevices: currentRoomId is null",
-      );
+      if (import.meta.env.DEV) {
+        console.log(
+          "[DashboardPanel][Home] getCurrentRoomDevices: currentRoomId is null",
+        );
+      }
       return [];
     }
     const store = getStore();
     const roomData = store.getDevicesByRoom()[this.currentRoomId];
     const devicesFromRoom = this.getDevicesForRoomContext(this.currentRoomId);
     if (devicesFromRoom.length === 0) {
-      console.log("[DashboardPanel][Home] getCurrentRoomDevices: no roomData", {
-        currentRoomId: this.currentRoomId,
-        groupedRooms: Object.keys(store.getDevicesByRoom()),
-        storeDevices: store.devices.length,
-      });
+      if (import.meta.env.DEV) {
+        console.log(
+          "[DashboardPanel][Home] getCurrentRoomDevices: no roomData",
+          {
+            currentRoomId: this.currentRoomId,
+            groupedRooms: Object.keys(store.getDevicesByRoom()),
+            storeDevices: store.devices.length,
+          },
+        );
+      }
       return devicesFromRoom;
     }
-    console.log("[DashboardPanel][Home] getCurrentRoomDevices resolved:", {
-      currentRoomId: this.currentRoomId,
-      roomName: roomData?.roomName ?? this.roomNameById.get(this.currentRoomId),
-      allDevices: devicesFromRoom.length,
-      filteredDevices: devicesFromRoom.length,
-      filteredDeviceIds: devicesFromRoom.map((d) => d.id),
-    });
+    if (import.meta.env.DEV) {
+      console.log("[DashboardPanel][Home] getCurrentRoomDevices resolved:", {
+        currentRoomId: this.currentRoomId,
+        roomName: roomData?.roomName ?? this.roomNameById.get(this.currentRoomId),
+        allDevices: devicesFromRoom.length,
+        filteredDevices: devicesFromRoom.length,
+        filteredDeviceIds: devicesFromRoom.map((d) => d.id),
+      });
+    }
     return devicesFromRoom;
   }
 
@@ -1569,16 +1582,18 @@ export class DashboardPanelSystem extends createSystem({
         this.roomNameById.get(this.currentRoomId) ??
         "Current Room")
       : "No Room";
-    console.log("[DashboardPanel][Home] showHomeInformation payload:", {
-      currentRoomId: this.currentRoomId,
-      roomName,
-      devicesCount: devices.length,
-      onlineCount,
-      welcomeTextExists: !!welcomeText,
-      currentRoomTextExists: !!currentRoomText,
-      welcomeTextValue: `${this.homeWelcomeText} | Devices: ${devices.length} (${onlineCount} on)`,
-      roomTextValue: `${roomName} | ${devices.length} device(s)`,
-    });
+    if (import.meta.env.DEV) {
+      console.log("[DashboardPanel][Home] showHomeInformation payload:", {
+        currentRoomId: this.currentRoomId,
+        roomName,
+        devicesCount: devices.length,
+        onlineCount,
+        welcomeTextExists: !!welcomeText,
+        currentRoomTextExists: !!currentRoomText,
+        welcomeTextValue: `${this.homeWelcomeText} | Devices: ${devices.length} (${onlineCount} on)`,
+        roomTextValue: `${roomName} | ${devices.length} device(s)`,
+      });
+    }
 
     if (currentRoomText) {
       currentRoomText.setProperties({

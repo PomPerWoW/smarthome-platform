@@ -79,6 +79,9 @@ export class DeviceInteractionSystem extends createSystem({
   private readonly MOVEMENT_THRESHOLD = 0.001; // 1 mm
   private readonly ROTATION_THRESHOLD_RAD = FURNITURE_ROTATION_CHANGE_THRESHOLD_RAD;
 
+  private readonly _pollPosScratch = new Vector3();
+  private readonly _legacyGrabPosScratch = new Vector3();
+
   init() {
     this.deviceRenderer = this.world.getSystem(DeviceRendererSystem)!;
 
@@ -251,13 +254,14 @@ export class DeviceInteractionSystem extends createSystem({
         continue;
       }
 
-      const curPosVec = new Vector3(pos.x, pos.y, pos.z);
-      const posChanged = curPosVec.distanceTo(snap.lastPosition) > this.MOVEMENT_THRESHOLD;
+      this._pollPosScratch.set(pos.x, pos.y, pos.z);
+      const posChanged =
+        this._pollPosScratch.distanceTo(snap.lastPosition) > this.MOVEMENT_THRESHOLD;
       const rotChanged = this.yRotationDelta(rotY, snap.lastRotationY) > this.ROTATION_THRESHOLD_RAD;
 
       if (posChanged || rotChanged) {
         // Device is actively moving / rotating — update snapshot
-        snap.lastPosition.copy(curPosVec);
+        snap.lastPosition.copy(this._pollPosScratch);
         snap.lastRotationY = rotY;
         snap.lastChangedTime = now;
         snap.savePending = true; // flag that a save will be needed when motion stops
@@ -307,11 +311,13 @@ export class DeviceInteractionSystem extends createSystem({
         const grabData = this.grabbedDeviceData.get(deviceId);
         if (grabData && entity.object3D) {
           const currentPos = entity.object3D.position;
-          const currentPosVec = new Vector3(currentPos.x, currentPos.y, currentPos.z);
-          const movedDistance = currentPosVec.distanceTo(grabData.lastPosition);
+          this._legacyGrabPosScratch.set(currentPos.x, currentPos.y, currentPos.z);
+          const movedDistance = this._legacyGrabPosScratch.distanceTo(
+            grabData.lastPosition,
+          );
 
           if (movedDistance > this.MOVEMENT_THRESHOLD) {
-            grabData.lastPosition.copy(currentPosVec);
+            grabData.lastPosition.copy(this._legacyGrabPosScratch);
             grabData.lastMovedTime = Date.now();
             grabData.isMoving = true;
           }

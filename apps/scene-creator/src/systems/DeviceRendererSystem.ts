@@ -17,7 +17,8 @@ import {
   Mesh,
 } from "@iwsdk/core";
 
-import { Vector3 as TV3, Mesh, Intersection } from "three";
+import { Vector3 as TV3, Mesh as ThreeMesh, Intersection } from "three";
+import { shallow } from "zustand/shallow";
 import {
   deviceStore,
   getStore,
@@ -29,8 +30,12 @@ import { DeviceComponent } from "../components/DeviceComponent";
 import { BaseDevice, DeviceFactory } from "../entities";
 import { DEVICE_ASSET_KEYS } from "../constants";
 import { chart3D, ChartType } from "../components/Chart3D";
-import { constrainDeviceMovement, DEVICE_RADIUS } from "../config/collision";
-import { Vector3 as ThreeVector3, Raycaster, Intersection } from "three";
+import {
+  constrainDeviceMovement,
+  DEVICE_RADIUS,
+  getRoomCollisionMeshes,
+} from "../config/collision";
+import { Vector3 as ThreeVector3, Raycaster } from "three";
 
 export class DeviceRendererSystem extends createSystem({
   devices: {
@@ -46,18 +51,57 @@ export class DeviceRendererSystem extends createSystem({
   /** Track each device's last valid world-space position for collision. */
   private lastValidWorldPos: Map<string, TV3> = new Map();
 
+  /** Reused for panel placement — avoids allocating raycast state every frame. */
+  private readonly _panelRaycaster = new Raycaster();
+  private readonly _panelRayHits: Intersection[] = [];
+  private readonly _panelRayDirs: ThreeVector3[] = [
+    new ThreeVector3(1, 0, 0),
+    new ThreeVector3(-1, 0, 0),
+    new ThreeVector3(0, 0, 1),
+    new ThreeVector3(0, 0, -1),
+    new ThreeVector3(0, 1, 0),
+    new ThreeVector3(0, -1, 0),
+  ];
+  private readonly _panelCandidatePos = new ThreeVector3();
+  private readonly _panelTestOrigin = new ThreeVector3();
+  private readonly _panelDeviceScratch = new TV3();
+
+  /**
+   * Full panel collision search is expensive (many rays × every room mesh).
+   * Recompute only when the device or camera moves meaningfully or after a short TTL.
+   */
+  private readonly _panelPlacementCache = new Map<
+    string,
+    {
+      main: Vector3;
+      graph: Vector3;
+      gauge: Vector3;
+      deviceRef: TV3;
+      cameraRef: TV3;
+      atMs: number;
+      graphVisible: boolean;
+      hadGauge: boolean;
+    }
+  >();
+
+  private static readonly _PANEL_DEVICE_MOVE_EPS2 = 0.02 * 0.02;
+  private static readonly _PANEL_CAM_MOVE_EPS2 = 0.12 * 0.12;
+  private static readonly _PANEL_CACHE_MAX_MS = 400;
+
   init() {
     console.log("[DeviceRenderer] System initialized");
 
+    // Selector must not allocate a fresh tuple/object without shallow compare — otherwise
+    // *every* store mutation (loading flag, selection, etc.) re-runs full scene sync.
     this.unsubscribe = deviceStore.subscribe(
-      (state) => [state.devices, state.furniture] as const,
-      ([devices, furniture]) => {
+      (state) => ({ devices: state.devices, furniture: state.furniture }),
+      ({ devices, furniture }) => {
         if (this.initialized) {
-          // Merge furniture into device format for rendering
           const furnitureAsDevices = furniture.map(this.furnitureToDevice);
           this.syncDevicesWithScene([...devices, ...furnitureAsDevices]);
         }
       },
+      { equalityFn: shallow },
     );
   }
 
@@ -574,6 +618,7 @@ export class DeviceRendererSystem extends createSystem({
         record.entity.destroy();
         this.deviceRecords.delete(id);
         this.lastValidWorldPos.delete(id);
+        this._panelPlacementCache.delete(id);
       }
     }
 
@@ -755,54 +800,104 @@ export class DeviceRendererSystem extends createSystem({
         const worldPos = new Vector3();
         record.entity.object3D.getWorldPosition(worldPos);
 
-        // Find a safe position for the panel (collision-aware)
-        const safePanelPos = this.findSafePanelPosition(worldPos, yOffset);
+        const camera = this.world.camera;
+        const camPos = camera?.position;
+        const now = performance.now();
+        const wantGraph =
+          !!(record.graphPanelEntity?.object3D && record.graphPanelVisible);
+        const wantGauge =
+          !!(
+            record.chartEntity?.object3D &&
+            record.activeChartType === "gauge" &&
+            record.device.type === DeviceType.SmartMeter
+          );
+
+        let safePanelPos: Vector3;
+        let graphPanelPos: Vector3 | null = null;
+        let gaugePos: Vector3 | null = null;
+
+        const cache = this._panelPlacementCache.get(deviceId);
+        this._panelDeviceScratch.set(worldPos.x, worldPos.y, worldPos.z);
+        let needPlacementRefresh =
+          !cache ||
+          now - cache.atMs > DeviceRendererSystem._PANEL_CACHE_MAX_MS ||
+          cache.graphVisible !== wantGraph ||
+          cache.hadGauge !== wantGauge ||
+          this._panelDeviceScratch.distanceToSquared(cache.deviceRef) >
+            DeviceRendererSystem._PANEL_DEVICE_MOVE_EPS2;
+
+        if (cache && !needPlacementRefresh && camPos) {
+          needPlacementRefresh =
+            camPos.distanceToSquared(cache.cameraRef) >
+            DeviceRendererSystem._PANEL_CAM_MOVE_EPS2;
+        }
+
+        if (needPlacementRefresh) {
+          safePanelPos = this.findSafePanelPosition(worldPos, yOffset);
+          if (wantGraph) {
+            graphPanelPos = this.findSafePanelPosition(safePanelPos, 0, 0.5);
+          }
+          if (wantGauge) {
+            gaugePos = this.findSafePanelPosition(safePanelPos, 0, 0.48);
+          }
+          const deviceRef = this._panelDeviceScratch.clone();
+          const cameraRef = new TV3();
+          if (camPos) cameraRef.set(camPos.x, camPos.y, camPos.z);
+          this._panelPlacementCache.set(deviceId, {
+            main: safePanelPos.clone(),
+            graph: graphPanelPos
+              ? graphPanelPos.clone()
+              : new Vector3(),
+            gauge: gaugePos ? gaugePos.clone() : new Vector3(),
+            deviceRef,
+            cameraRef,
+            atMs: now,
+            graphVisible: wantGraph,
+            hadGauge: wantGauge,
+          });
+        } else {
+          safePanelPos = cache!.main;
+          if (wantGraph) graphPanelPos = cache!.graph;
+          if (wantGauge) gaugePos = cache!.gauge;
+        }
+
         record.panelEntity.object3D.position.set(
           safePanelPos.x,
           safePanelPos.y,
           safePanelPos.z,
         );
 
-        // Make panel face the camera
-        const camera = this.world.camera;
         if (camera) {
           record.panelEntity.object3D.lookAt(camera.position);
         }
 
-        // Position graph panel relative to the control panel
         if (record.graphPanelEntity?.object3D && record.graphPanelVisible) {
-          // Try to position graph panel to the right of control panel, or find safe position
-          const graphPanelPos = this.findSafePanelPosition(
-            safePanelPos,
-            0,
-            0.5, // Offset from control panel
-          );
-          record.graphPanelEntity.object3D.position.set(
-            graphPanelPos.x,
-            graphPanelPos.y,
-            graphPanelPos.z,
-          );
-
-          // Make graph panel face the camera
-          if (camera) {
-            record.graphPanelEntity.object3D.lookAt(camera.position);
+          if (graphPanelPos) {
+            record.graphPanelEntity.object3D.position.set(
+              graphPanelPos.x,
+              graphPanelPos.y,
+              graphPanelPos.z,
+            );
+            if (camera) {
+              record.graphPanelEntity.object3D.lookAt(camera.position);
+            }
           }
         }
 
-        // SmartMeter 3D gauge dashboard: stay near the smartmeter UI panel (tighter than graph)
         if (
           record.chartEntity?.object3D &&
           record.activeChartType === "gauge" &&
           record.device.type === DeviceType.SmartMeter
         ) {
-          const gaugePos = this.findSafePanelPosition(safePanelPos, 0, 0.48);
-          record.chartEntity.object3D.position.set(
-            gaugePos.x,
-            gaugePos.y,
-            gaugePos.z,
-          );
-          if (camera) {
-            record.chartEntity.object3D.lookAt(camera.position);
+          if (gaugePos) {
+            record.chartEntity.object3D.position.set(
+              gaugePos.x,
+              gaugePos.y,
+              gaugePos.z,
+            );
+            if (camera) {
+              record.chartEntity.object3D.lookAt(camera.position);
+            }
           }
         }
       }
@@ -824,8 +919,9 @@ export class DeviceRendererSystem extends createSystem({
     baseOffset: number = 0.5,
   ): Vector3 {
     const roomModel = (globalThis as any).__labRoomModel as Object3D | undefined;
-    if (!roomModel) {
-      // No room model - use default position
+    const collisionMeshes = getRoomCollisionMeshes();
+
+    if (!roomModel || collisionMeshes.length === 0) {
       return new Vector3(
         deviceWorldPos.x + baseOffset,
         deviceWorldPos.y + yOffset,
@@ -862,30 +958,13 @@ export class DeviceRendererSystem extends createSystem({
       { x: -baseOffset * 1.2, z: 0 },
     ];
 
-    // Get collision meshes from room model (same approach as collision system)
-    const collisionMeshes: any[] = [];
-    roomModel.traverse((child: any) => {
-      if (child.isMesh && child.geometry) {
-        collisionMeshes.push(child);
-      }
-    });
-
-    // Use original raycast method (bypass any overrides, same as collision system)
-    const originalRaycast = (Mesh.prototype as any).raycast;
-
-    const raycaster = new Raycaster();
-    const testDirections = [
-      new ThreeVector3(1, 0, 0),   // Right
-      new ThreeVector3(-1, 0, 0),  // Left
-      new ThreeVector3(0, 0, 1),   // Forward
-      new ThreeVector3(0, 0, -1),  // Back
-      new ThreeVector3(0, 1, 0),   // Up
-      new ThreeVector3(0, -1, 0),  // Down
-    ];
+    const originalRaycast = ThreeMesh.prototype.raycast;
+    const raycaster = this._panelRaycaster;
+    const hits = this._panelRayHits;
 
     // Try each candidate position
     for (const offset of candidateOffsets) {
-      const candidatePos = new ThreeVector3(
+      const candidatePos = this._panelCandidatePos.set(
         deviceWorldPos.x + offset.x,
         deviceWorldPos.y + yOffset,
         deviceWorldPos.z + offset.z,
@@ -894,19 +973,18 @@ export class DeviceRendererSystem extends createSystem({
       // Check if this position is safe by casting rays in multiple directions
       let isSafe = true;
       for (const height of PANEL_HEIGHTS) {
-        const testOrigin = new ThreeVector3(
+        const testOrigin = this._panelTestOrigin.set(
           candidatePos.x,
           candidatePos.y + height,
           candidatePos.z,
         );
 
-        for (const dir of testDirections) {
+        for (const dir of this._panelRayDirs) {
           raycaster.set(testOrigin, dir);
           raycaster.far = PANEL_RADIUS;
           raycaster.near = 0;
 
-          // Use original raycast to check collisions (same as collision system)
-          const hits: Intersection[] = [];
+          hits.length = 0;
           for (const mesh of collisionMeshes) {
             originalRaycast.call(mesh, raycaster, hits);
           }
@@ -914,7 +992,6 @@ export class DeviceRendererSystem extends createSystem({
           if (hits.length > 0) {
             hits.sort((a, b) => a.distance - b.distance);
             if (hits[0].distance < PANEL_RADIUS) {
-              // Position is too close to room geometry
               isSafe = false;
               break;
             }
@@ -925,12 +1002,9 @@ export class DeviceRendererSystem extends createSystem({
       }
 
       if (isSafe) {
-        // Found a safe position
         return new Vector3(candidatePos.x, candidatePos.y, candidatePos.z);
       }
     }
-
-    // If no safe position found, use default position anyway (better than nothing)
     console.warn(
       `[DeviceRenderer] Could not find collision-free position for panel, using default`,
     );
@@ -957,6 +1031,7 @@ export class DeviceRendererSystem extends createSystem({
     this.modelCache.clear();
     this.animationCache.clear();
     this.lastValidWorldPos.clear();
+    this._panelPlacementCache.clear();
     console.log("[DeviceRenderer] System destroyed");
   }
 }

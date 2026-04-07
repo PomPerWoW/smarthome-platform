@@ -412,6 +412,14 @@ export function initializeCollision(
  * Force-update collision mesh world matrices.
  * Call whenever the room model's transform changes (room alignment, manual panel).
  */
+/**
+ * Meshes used for horizontal room collision (same set as movement sliding).
+ * Panel placement uses this instead of traversing the room every frame.
+ */
+export function getRoomCollisionMeshes(): Mesh[] {
+  return _collisionMeshes;
+}
+
 export function updateCollisionTransform(): void {
   if (_roomModel) {
     _roomModel.updateMatrixWorld(true);
