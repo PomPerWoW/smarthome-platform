@@ -70,11 +70,10 @@ export class VoiceControlSystem {
   private readonly NATIVE_MAX_LISTEN_MS = 15000; // 15s max for native recognition session
 
   private constructor() {
-    const isQuest = /Quest|Oculus/i.test(navigator.userAgent);
     const SpeechRecognition =
       window.SpeechRecognition || window.webkitSpeechRecognition;
 
-    if (SpeechRecognition && !isQuest) {
+    if (SpeechRecognition) {
       this.recognition = new SpeechRecognition();
       if (this.recognition) {
         // continuous=false: Chrome auto-finalizes and stops after one utterance,

@@ -94,14 +94,11 @@ export class VoiceService {
   private readonly SOUND_THRESHOLD = 10; // Amplitude threshold
 
   constructor() {
-    const isQuest =
-      navigator.userAgent.includes("OculusBrowser") ||
-      navigator.userAgent.includes("SamsungBrowser"); // Sometimes Quest spoof
     const SpeechRecognition =
       (window as unknown as { SpeechRecognition: new () => SpeechRecognition }).SpeechRecognition || 
       (window as unknown as { webkitSpeechRecognition: new () => SpeechRecognition }).webkitSpeechRecognition;
 
-    if (SpeechRecognition && !isQuest) {
+    if (SpeechRecognition) {
       console.log("[VoiceService] Using SpeechRecognition");
       this.recognition = new SpeechRecognition();
       if (this.recognition) {
