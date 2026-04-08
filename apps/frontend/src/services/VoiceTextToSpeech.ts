@@ -8,16 +8,22 @@ const NO_MATCH =
 
 let isUnlocked = false;
 function unlockAudio() {
-  if (isUnlocked || typeof window === "undefined" || !window.speechSynthesis) return;
+  if (isUnlocked || typeof window === "undefined") return;
   try {
-    window.speechSynthesis.resume();
-    const u = new SpeechSynthesisUtterance("");
-    u.volume = 0;
-    window.speechSynthesis.speak(u);
-    isUnlocked = true;
+    if (window.speechSynthesis) {
+      window.speechSynthesis.resume();
+      const u = new SpeechSynthesisUtterance("");
+      u.volume = 0;
+      window.speechSynthesis.speak(u);
+    }
   } catch (e) {
     console.warn("Could not unlock speech synthesis", e);
   }
+  try {
+    const silentAudio = new Audio("data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA");
+    silentAudio.play().catch(() => {});
+  } catch (e) {}
+  isUnlocked = true;
 }
 
 if (typeof window !== "undefined") {
