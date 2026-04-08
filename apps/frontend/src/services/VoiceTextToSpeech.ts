@@ -6,37 +6,53 @@ const GOODBYE = "See you again.";
 const NO_MATCH =
   "I'm sorry, I didn't quite understand that. You can control devices with phrases like \"turn on the fan\" or \"set the temperature to twenty-four\", or ask for help with \"how do I use the panel\" or \"how do I use the fan\". What would you like to try?";
 
-let globalFallbackAudio: HTMLAudioElement | null = null;
-if (typeof window !== "undefined") {
-  globalFallbackAudio = new Audio();
-}
+/** Minimal valid WAV — primes HTMLMediaElement (Quest TTS uses Google Audio, not speechSynthesis unlock). */
+const SILENT_WAV_DATA_URI =
+  "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAAABkYXRhAAAAAA==";
 
-let isUnlocked = false;
-function unlockAudio() {
-  if (isUnlocked || typeof window === "undefined") return;
+let didUnlockFromFirstGesture = false;
+
+function unlockSpeechSynthesisIfAvailable(): void {
+  if (typeof window === "undefined" || !window.speechSynthesis) return;
   try {
-    if (window.speechSynthesis) {
-      window.speechSynthesis.resume();
-      const u = new SpeechSynthesisUtterance("");
-      u.volume = 0;
-      window.speechSynthesis.speak(u);
-    }
+    window.speechSynthesis.resume();
+    const u = new SpeechSynthesisUtterance("");
+    u.volume = 0;
+    window.speechSynthesis.speak(u);
   } catch (e) {
     console.warn("Could not unlock speech synthesis", e);
   }
+}
+
+function unlockSilentHtmlAudio(): void {
+  if (typeof window === "undefined") return;
   try {
-    if (globalFallbackAudio) {
-      globalFallbackAudio.src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA";
-      globalFallbackAudio.play().catch(() => {});
-    }
-  } catch (e) {}
-  isUnlocked = true;
+    const a = new Audio(SILENT_WAV_DATA_URI);
+    a.volume = 0.001;
+    a.setAttribute("playsinline", "");
+    void a.play().catch(() => {});
+  } catch {
+    // no-op
+  }
+}
+
+/** Synchronous hook from mic / voice UX so Google TTS `HTMLAudioElement` is allowed (Quest / strict autoplay). */
+export function primeTtsPlaybackFromUserGesture(): void {
+  if (typeof window === "undefined") return;
+  unlockSpeechSynthesisIfAvailable();
+  unlockSilentHtmlAudio();
+}
+
+function unlockAudioFromFirstUserGesture(): void {
+  if (didUnlockFromFirstGesture || typeof window === "undefined") return;
+  didUnlockFromFirstGesture = true;
+  primeTtsPlaybackFromUserGesture();
 }
 
 if (typeof window !== "undefined") {
-  const events = ["pointerdown", "touchstart", "click", "keydown"];
+  const events = ["pointerdown", "touchstart", "click", "keydown", "select"];
   const doUnlock = () => {
-    unlockAudio();
+    unlockAudioFromFirstUserGesture();
     events.forEach((e) => window.removeEventListener(e, doUnlock));
   };
   events.forEach((e) => window.addEventListener(e, doUnlock, { once: true, capture: true }));
@@ -79,6 +95,16 @@ function chunkText(text: string, maxLength: number = 150): string[] {
   return chunks;
 }
 
+let googleTtsPlayer: HTMLAudioElement | null = null;
+
+function getGoogleTtsPlayer(): HTMLAudioElement {
+  if (!googleTtsPlayer && typeof window !== "undefined") {
+    googleTtsPlayer = new Audio();
+    googleTtsPlayer.setAttribute("playsinline", "");
+  }
+  return googleTtsPlayer!;
+}
+
 function speakText(text: string): Promise<void> {
   return new Promise((resolve) => {
     if (typeof window === "undefined") {
@@ -99,6 +125,7 @@ function speakText(text: string): Promise<void> {
         resolve();
         return;
       }
+      const audio = getGoogleTtsPlayer();
       let currentChunk = 0;
       const playNext = () => {
         if (currentChunk >= chunks.length) {
@@ -106,8 +133,6 @@ function speakText(text: string): Promise<void> {
           return;
         }
         const url = `https://translate.googleapis.com/translate_tts?ie=UTF-8&client=tw-ob&tl=en&q=${encodeURIComponent(chunks[currentChunk])}`;
-        const audio = globalFallbackAudio || new Audio();
-        audio.src = url;
         audio.onended = () => {
           currentChunk++;
           playNext();
@@ -117,7 +142,8 @@ function speakText(text: string): Promise<void> {
           currentChunk++;
           playNext();
         };
-        audio.play().catch((e) => {
+        audio.src = url;
+        void audio.play().catch((e) => {
           console.warn("[Voice] Audio play blocked", e);
           resolve();
         });

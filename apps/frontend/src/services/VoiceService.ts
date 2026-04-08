@@ -1,6 +1,7 @@
 import { ApiService } from "./ApiService";
 import {
   speakGreeting,
+  primeTtsPlaybackFromUserGesture,
   speakSeeYouAgain,
   speakCompletion,
   speakNoMatch,
@@ -134,6 +135,8 @@ export class VoiceService {
     this.isListening = true;
     this.stopRequested = false;
     onStatusChange?.("listening");
+
+    primeTtsPlaybackFromUserGesture();
 
     // Wait for the robot greeting to finish speaking so we don't record it
     await speakGreeting();

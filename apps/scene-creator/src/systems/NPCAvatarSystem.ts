@@ -21,6 +21,7 @@ import {
 } from "../config/navmesh";
 import { BackendApiClient } from "../api/BackendApiClient";
 import type { AvatarBehaviorAction } from "../scripting/avatarBehaviorScript";
+import { primeTtsPlaybackFromUserGesture } from "../utils/VoiceTextToSpeech";
 
 // CONFIG
 
@@ -53,37 +54,20 @@ const NPC_VOICE_CONFIG: Record<string, { pitch: number; rate: number; voiceIndex
     npc3: { pitch: 1.0, rate: 1.0, voiceIndex: 181 }, // Carol - Google US English
 };
 
-let globalFallbackAudio: HTMLAudioElement | null = null;
-if (typeof window !== "undefined") {
-    globalFallbackAudio = new Audio();
-}
+let npcGoogleTtsPlayer: HTMLAudioElement | null = null;
 
-let isSpeechUnlocked = false;
-function unlockSpeechSynthesis() {
-    if (isSpeechUnlocked || typeof window === "undefined") return;
-    try {
-        if (window.speechSynthesis) {
-            window.speechSynthesis.resume();
-            const u = new SpeechSynthesisUtterance("");
-            u.volume = 0;
-            window.speechSynthesis.speak(u);
-        }
-    } catch (e) {
-        console.warn("[NPCAvatar] Could not unlock speech synthesis", e);
+function getNpcGoogleTtsPlayer(): HTMLAudioElement {
+    if (!npcGoogleTtsPlayer && typeof window !== "undefined") {
+        npcGoogleTtsPlayer = new Audio();
+        npcGoogleTtsPlayer.setAttribute("playsinline", "");
     }
-    try {
-        if (globalFallbackAudio) {
-            globalFallbackAudio.src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA";
-            globalFallbackAudio.play().catch(() => {});
-        }
-    } catch (e) {}
-    isSpeechUnlocked = true;
+    return npcGoogleTtsPlayer!;
 }
 
 if (typeof window !== "undefined") {
     const unlockEvents = ["pointerdown", "touchstart", "click", "keydown"];
     const doUnlock = () => {
-        unlockSpeechSynthesis();
+        primeTtsPlaybackFromUserGesture();
         unlockEvents.forEach(e => window.removeEventListener(e, doUnlock));
     };
     unlockEvents.forEach(e => window.addEventListener(e, doUnlock, { once: true, capture: true }));
@@ -442,16 +426,14 @@ export class NPCAvatarSystem extends createSystem({
                 if (currentChunk) chunks.push(currentChunk);
 
                 let chunkIndex = 0;
+                const audio = getNpcGoogleTtsPlayer();
                 const playNextChunk = () => {
                     if (chunkIndex >= chunks.length) {
                         finishSpeaking();
                         return;
                     }
                     const url = `https://translate.googleapis.com/translate_tts?ie=UTF-8&client=tw-ob&tl=en&q=${encodeURIComponent(chunks[chunkIndex])}`;
-                    const audio = globalFallbackAudio || new Audio();
-                    audio.src = url;
                     audio.playbackRate = voiceConfig.rate;
-                    
                     audio.onended = () => {
                         chunkIndex++;
                         playNextChunk();
@@ -461,7 +443,8 @@ export class NPCAvatarSystem extends createSystem({
                         chunkIndex++;
                         playNextChunk();
                     };
-                    audio.play().catch(e => {
+                    audio.src = url;
+                    void audio.play().catch(e => {
                         console.warn("[NPCAvatar] audio play blocked", e);
                         finishSpeaking();
                     });

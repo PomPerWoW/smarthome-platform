@@ -1,5 +1,9 @@
 import { BackendApiClient } from "../api/BackendApiClient";
-import { speakGreeting, speakSeeYouAgain } from "../utils/VoiceTextToSpeech";
+import {
+  speakGreeting,
+  speakSeeYouAgain,
+  primeTtsPlaybackFromUserGesture,
+} from "../utils/VoiceTextToSpeech";
 
 export type VoiceIdlePayload = {
   success?: boolean;
@@ -768,6 +772,8 @@ export class VoiceControlSystem {
 
     this.isListening = true;
     this.notifyStatus("listening");
+
+    primeTtsPlaybackFromUserGesture();
 
     // Await greeting so the mic doesn't capture the robot's voice
     await speakGreeting();
