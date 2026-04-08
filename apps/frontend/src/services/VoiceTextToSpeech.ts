@@ -50,16 +50,79 @@ function getSamanthaOrFirst(): SpeechSynthesisVoice | null {
 
 const SPEECH_RESET_DELAY_MS = 60;
 
+function chunkText(text: string, maxLength: number = 150): string[] {
+  const words = text.split(" ");
+  const chunks: string[] = [];
+  let currentChunk = "";
+  for (const word of words) {
+    if ((currentChunk + " " + word).length <= maxLength) {
+      currentChunk += (currentChunk ? " " : "") + word;
+    } else {
+      if (currentChunk) chunks.push(currentChunk);
+      currentChunk = word;
+    }
+  }
+  if (currentChunk) chunks.push(currentChunk);
+  return chunks;
+}
+
 function speakText(text: string): Promise<void> {
   return new Promise((resolve) => {
-    if (typeof window === "undefined" || !window.speechSynthesis) {
+    if (typeof window === "undefined") {
       resolve();
       return;
     }
+
+    const isQuest = navigator.userAgent.includes("OculusBrowser") || 
+                    navigator.userAgent.includes("SamsungBrowser") || 
+                    navigator.userAgent.includes("VR");
+
     const synth = window.speechSynthesis;
+    // On Quest, or if speech synthesis is broken/unavailable, use Google TTS via Audio API
+    if (isQuest || !synth || (synth.getVoices().length === 0 && isQuest)) {
+      console.log("[Voice] Using Google TTS fallback");
+      const chunks = chunkText(text);
+      if (chunks.length === 0) {
+        resolve();
+        return;
+      }
+      let currentChunk = 0;
+      const playNext = () => {
+        if (currentChunk >= chunks.length) {
+          resolve();
+          return;
+        }
+        const url = `https://translate.googleapis.com/translate_tts?ie=UTF-8&client=tw-ob&tl=en&q=${encodeURIComponent(chunks[currentChunk])}`;
+        const audio = new Audio(url);
+        audio.onended = () => {
+          currentChunk++;
+          playNext();
+        };
+        audio.onerror = () => {
+          console.warn("[Voice] Audio fallback TTS failed for chunk", currentChunk);
+          currentChunk++;
+          playNext();
+        };
+        audio.play().catch((e) => {
+          console.warn("[Voice] Audio play blocked", e);
+          resolve();
+        });
+      };
+      playNext();
+      return;
+    }
+
+    let spoke = false;
+    let voiceReadyTimer: ReturnType<typeof setTimeout> | null = null;
     const doSpeak = (): void => {
+      if (spoke) return;
+      spoke = true;
+      if (voiceReadyTimer) {
+        clearTimeout(voiceReadyTimer);
+      }
       const voice = getSamanthaOrFirst();
       synth.cancel();
+      try { synth.resume(); } catch {}
       const u = new SpeechSynthesisUtterance(text);
       u.lang = "en-US";
       if (voice) u.voice = voice;
@@ -70,10 +133,12 @@ function speakText(text: string): Promise<void> {
       u.onerror = () => resolve();
       setTimeout(() => synth.speak(u), SPEECH_RESET_DELAY_MS);
     };
+
     if (synth.getVoices().length > 0) {
       doSpeak();
     } else {
       synth.addEventListener("voiceschanged", doSpeak, { once: true });
+      voiceReadyTimer = setTimeout(doSpeak, 600); // Fail-safe if voiceschanged never fires
     }
   });
 }

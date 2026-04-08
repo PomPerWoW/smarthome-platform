@@ -352,23 +352,115 @@ export class NPCAvatarSystem extends createSystem({
         return visemes;
     }
 
-    // Speak text with procedural lip-sync driven by SpeechSynthesis boundary events.
+    // Speak text with procedural lip-sync driven by SpeechSynthesis boundary events (or time-based for fallback).
     private speakForNPC(npcId: string, text: string): Promise<void> {
         return new Promise((resolve) => {
             const record = this.npcRecords.get(npcId);
-            if (!record || typeof window === "undefined" || !window.speechSynthesis) {
+            if (!record || typeof window === "undefined") {
                 this.voiceDebug.tts = "error";
                 this.publishVoiceDebug("tts_unavailable");
                 resolve();
                 return;
             }
 
+            const isQuest = navigator.userAgent.includes("OculusBrowser") || 
+                            navigator.userAgent.includes("SamsungBrowser") || 
+                            navigator.userAgent.includes("VR");
+
             const synth = window.speechSynthesis;
             const voiceConfig = NPC_VOICE_CONFIG[npcId] || { pitch: 1, rate: 1 };
             let spoke = false;
             let voiceReadyTimer: ReturnType<typeof setTimeout> | null = null;
 
+            // Mark as speaking to activate base lip-sync loops
+            record.isSpeaking = true;
+            record.lipSync.isActive = true;
+
+            // Generate initial viseme sequence from the full text
+            const words = text.split(/\s+/);
+            const allVisemes: string[] = [];
+            for (const word of words) {
+                allVisemes.push(...this.wordToVisemes(word));
+            }
+            record.lipSync.wordVisemes = allVisemes;
+            record.lipSync.currentIndex = 0;
+            record.lipSync.timeAccumulator = 0;
+
+            // Estimate duration per viseme based on text length and speech rate
+            const estimatedSeconds = (words.length / (2.5 * voiceConfig.rate));
+            record.lipSync.visemeDuration = Math.max(0.04, estimatedSeconds / Math.max(1, allVisemes.length));
+
+            console.log(`[NPCAvatar] 👄 ${npcId} lip-sync: ${allVisemes.length} visemes, ${record.lipSync.visemeDuration.toFixed(3)}s each`);
+
+            const finishSpeaking = () => {
+                record.isSpeaking = false;
+                record.lipSync.isActive = false;
+                this.resetAllVisemes(record);
+                this.voiceDebug.tts = "ok";
+                this.publishVoiceDebug("tts_ok");
+                resolve();
+            };
+
+            const failSpeaking = () => {
+                record.isSpeaking = false;
+                record.lipSync.isActive = false;
+                this.resetAllVisemes(record);
+                this.voiceDebug.tts = "error";
+                this.publishVoiceDebug("tts_error");
+                resolve();
+            };
+
+            // Audio Fallback for Quest Browser (SpeechSynthesis is notoriously broken on Oculus/Samsung browsers)
+            if (isQuest || !synth || (synth.getVoices().length === 0 && isQuest)) {
+                console.log(`[NPCAvatar] 🗣️ ${npcId} using Google TTS Audio fallback`);
+                
+                // Chunk text strictly because Google TTS has a size limit
+                const chunkWords = text.split(" ");
+                const chunks: string[] = [];
+                let currentChunk = "";
+                for (const word of chunkWords) {
+                    if ((currentChunk + " " + word).length < 150) {
+                        currentChunk += (currentChunk ? " " : "") + word;
+                    } else {
+                        if (currentChunk) chunks.push(currentChunk);
+                        currentChunk = word;
+                    }
+                }
+                if (currentChunk) chunks.push(currentChunk);
+
+                let chunkIndex = 0;
+                const playNextChunk = () => {
+                    if (chunkIndex >= chunks.length) {
+                        finishSpeaking();
+                        return;
+                    }
+                    const url = `https://translate.googleapis.com/translate_tts?ie=UTF-8&client=tw-ob&tl=en&q=${encodeURIComponent(chunks[chunkIndex])}`;
+                    const audio = new Audio(url);
+                    audio.playbackRate = voiceConfig.rate;
+                    
+                    audio.onended = () => {
+                        chunkIndex++;
+                        playNextChunk();
+                    };
+                    audio.onerror = () => {
+                        console.warn(`[NPCAvatar] fallback audio error on chunk ${chunkIndex}`);
+                        chunkIndex++;
+                        playNextChunk();
+                    };
+                    audio.play().catch(e => {
+                        console.warn("[NPCAvatar] audio play blocked", e);
+                        finishSpeaking();
+                    });
+                };
+                playNextChunk();
+                return;
+            }
+
             const doSpeak = () => {
+                if (spoke) return;
+                spoke = true;
+                if (voiceReadyTimer) clearTimeout(voiceReadyTimer);
+
                 const voice = this.getVoice(npcId);
                 synth.cancel();
                 try {
@@ -387,33 +479,11 @@ export class NPCAvatarSystem extends createSystem({
                 u.rate = voiceConfig.rate;
                 u.pitch = voiceConfig.pitch;
 
-                // Mark as speaking
-                record.isSpeaking = true;
-                record.lipSync.isActive = true;
-
-                // Generate initial viseme sequence from the full text
-                const words = text.split(/\s+/);
-                const allVisemes: string[] = [];
-                for (const word of words) {
-                    allVisemes.push(...this.wordToVisemes(word));
-                }
-                record.lipSync.wordVisemes = allVisemes;
-                record.lipSync.currentIndex = 0;
-                record.lipSync.timeAccumulator = 0;
-
-                // Estimate duration per viseme based on text length and speech rate
-                // Average speaking rate ~150 words/min = ~2.5 words/sec
-                const estimatedSeconds = (words.length / (2.5 * voiceConfig.rate));
-                record.lipSync.visemeDuration = Math.max(0.04, estimatedSeconds / Math.max(1, allVisemes.length));
-
-                console.log(`[NPCAvatar] 👄 ${npcId} lip-sync: ${allVisemes.length} visemes, ${record.lipSync.visemeDuration.toFixed(3)}s each`);
-
                 // Word boundary events for better sync
                 u.onboundary = (event: SpeechSynthesisEvent) => {
                     if (event.name === "word") {
                         const spokenSoFar = text.substring(0, event.charIndex);
                         const wordsSoFar = spokenSoFar.split(/\s+/).filter(w => w.length > 0);
-                        // Jump to the viseme index for this word
                         let visemeIndex = 0;
                         for (let i = 0; i < wordsSoFar.length && i < words.length; i++) {
                             visemeIndex += this.wordToVisemes(words[i]).length;
@@ -423,23 +493,8 @@ export class NPCAvatarSystem extends createSystem({
                     }
                 };
 
-                u.onend = () => {
-                    record.isSpeaking = false;
-                    record.lipSync.isActive = false;
-                    this.resetAllVisemes(record);
-                    this.voiceDebug.tts = "ok";
-                    this.publishVoiceDebug("tts_ok");
-                    resolve();
-                };
-
-                u.onerror = () => {
-                    record.isSpeaking = false;
-                    record.lipSync.isActive = false;
-                    this.resetAllVisemes(record);
-                    this.voiceDebug.tts = "error";
-                    this.publishVoiceDebug("tts_error");
-                    resolve();
-                };
+                u.onend = finishSpeaking;
+                u.onerror = failSpeaking;
 
                 setTimeout(() => synth.speak(u), 60);
             };
@@ -448,9 +503,7 @@ export class NPCAvatarSystem extends createSystem({
                 doSpeak();
             } else {
                 synth.addEventListener("voiceschanged", doSpeak, { once: true });
-                voiceReadyTimer = setTimeout(() => {
-                    doSpeak();
-                }, 600);
+                voiceReadyTimer = setTimeout(doSpeak, 600);
             }
         });
     }
