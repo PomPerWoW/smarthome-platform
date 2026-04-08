@@ -4,8 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "VITE_BACKEND_URL=https://turing.se.kmitl.ac.th:5500 vite",
-    "dev:network": "VITE_BACKEND_URL=https://turing.se.kmitl.ac.th:5500 vite --host --mode network",
+    "dev": "vite",
+    "dev:network": "vite --host --mode network",
+    "dev:turing": "VITE_BACKEND_URL=https://turing.se.kmitl.ac.th:5500 vite",
+    "dev:turing:network": "VITE_BACKEND_URL=https://turing.se.kmitl.ac.th:5500 vite --host --mode network",
     "dev:backend-local": "vite",
     "dev:backend-local:network": "vite --host --mode network",
     "build": "tsc -b && vite build",

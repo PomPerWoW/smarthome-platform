@@ -810,7 +810,7 @@ class NPCChatLogicTests(APITestCase):
         
         # Test 4: Goodbye interaction
         mock_completion.choices[0].message.content = "See ya! [GOODBYE]"
-        res = chat_with_npc('npc2', 'bye')
+        res = chat_with_npc('npc3', 'bye')
         self.assertEqual(res['response'], "See ya!")
         self.assertTrue(res['goodbye'])
         

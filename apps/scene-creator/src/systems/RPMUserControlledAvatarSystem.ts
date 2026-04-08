@@ -25,6 +25,7 @@ const FADE_DURATION = 0.2;
 const RUN_VELOCITY = 2.5;
 const WALK_VELOCITY = 1.0;
 const ROTATE_SPEED = 0.2;
+const XR_AVATAR_BACK_OFFSET = 0.12;
 
 // Ready Player Me / test.glb: model forward is opposite; add 180° so avatar faces movement direction
 const RPM_FORWARD_OFFSET = Math.PI;
@@ -432,7 +433,13 @@ export class RPMUserControlledAvatarSystem extends createSystem({
       .camera;
     if (!cam?.position || !cam.quaternion) return;
 
-    const [cx, cz] = clampToWalkableAreaWorld(cam.position.x, cam.position.z);
+    const camForward = new Vector3(0, 0, -1).applyQuaternion(cam.quaternion);
+    camForward.y = 0;
+    if (camForward.lengthSq() > 1e-8) camForward.normalize();
+
+    const targetX = cam.position.x - camForward.x * XR_AVATAR_BACK_OFFSET;
+    const targetZ = cam.position.z - camForward.z * XR_AVATAR_BACK_OFFSET;
+    const [cx, cz] = clampToWalkableAreaWorld(targetX, targetZ);
 
     record.model.position.x = cx;
     record.model.position.z = cz;

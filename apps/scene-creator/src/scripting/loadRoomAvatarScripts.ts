@@ -41,7 +41,7 @@ export interface ApplyRoomAvatarScriptsDeps {
   setRobotScript: (actions: AvatarBehaviorAction[] | null) => void;
 }
 
-const NPC_IDS = new Set(["npc1", "npc2", "npc3"]);
+const NPC_IDS = new Set(["npc1", "npc3"]);
 
 /**
  * Fetches `/api/homes/avatar-scripts/?room=…` (same source as the web app upload)

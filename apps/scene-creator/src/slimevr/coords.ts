@@ -42,7 +42,7 @@ export function slimeVRRotationToThreeQuaternion(
   eulerSlime.set(
     MathUtils.degToRad(rxDeg),
     MathUtils.degToRad(-ryDeg),
-    MathUtils.degToRad(-rzDeg),
+    MathUtils.degToRad(rzDeg),
     "ZXY",
   );
   out.setFromEuler(eulerSlime);

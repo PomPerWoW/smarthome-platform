@@ -25,6 +25,7 @@ import type { AvatarBehaviorAction } from "../scripting/avatarBehaviorScript";
 // CONFIG
 
 const FADE_DURATION = 0.25;
+const NPC_VISUAL_SCALE_MULTIPLIER = 1.1;
 
 /** Fixed scripted walk speed (m/s); walk clips are time-scaled to match. */
 const SCRIPT_WALK_SPEED = 0.4;
@@ -49,7 +50,6 @@ const SILENCE_DURATION = 1200;
 // Update this once you see the voice list in console
 const NPC_VOICE_CONFIG: Record<string, { pitch: number; rate: number; voiceIndex?: number }> = {
     npc1: { pitch: 1.0, rate: 1.0, voiceIndex: 182 }, // Alice - Google UK English Female
-    npc2: { pitch: 1.0, rate: 1.0, voiceIndex: 183 }, // Bob - Google UK English Male
     npc3: { pitch: 1.0, rate: 1.0, voiceIndex: 181 }, // Carol - Google US English
 };
 
@@ -776,7 +776,9 @@ export class NPCAvatarSystem extends createSystem({
             }
 
             const npcModel = SkeletonUtils.clone(gltf.scene) as Object3D;
-            npcModel.scale.setScalar(AVATAR_VISUAL_SCALE);
+            npcModel.scale.setScalar(
+                AVATAR_VISUAL_SCALE * NPC_VISUAL_SCALE_MULTIPLIER,
+            );
             npcModel.position.set(finalX, finalY, finalZ);
             npcModel.rotation.set(0, initialRotation, 0);
             npcModel.visible = true;

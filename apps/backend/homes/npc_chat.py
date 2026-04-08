@@ -20,18 +20,6 @@ NPC_PERSONALITIES: Dict[str, Dict[str, str]] = {
             "If someone says goodbye, wish them well naturally."
         ),
     },
-    "npc2": {
-        "name": "Bob",
-        "system_prompt": (
-            "You are Bob, a laid-back tech enthusiast and gamer who lives in this smart home. "
-            "You're always talking about the latest gadgets, games, and tech news. "
-            "You love mechanical keyboards, VR gaming, and building PCs. "
-            "You speak in a chill, bro-like manner — relaxed but knowledgeable about tech. "
-            "Keep your responses SHORT (1-3 sentences max). Be enthusiastic about tech but never pushy. "
-            "When someone approaches you, greet them casually like a roommate. "
-            "If someone says goodbye, give a casual farewell."
-        ),
-    },
     "npc3": {
         "name": "Carol",
         "system_prompt": (
@@ -177,7 +165,6 @@ def get_greeting(npc_id: str) -> str:
     """Get a personality-appropriate greeting for an NPC (no LLM call, instant)."""
     greetings = {
         "npc1": "Hey! Oh my gosh, I haven't seen you today! How's it going?",
-        "npc2": "Yo, what's up! Good to see you around.",
         "npc3": "Hey there! Great energy today! How are you feeling?",
     }
     return greetings.get(npc_id, "Hello!")
@@ -187,7 +174,6 @@ def get_farewell(npc_id: str) -> str:
     """Get a personality-appropriate farewell for an NPC (no LLM call, instant)."""
     farewells = {
         "npc1": "Okay, see you later! Don't forget to take breaks!",
-        "npc2": "Later, dude! Catch you around.",
         "npc3": "Take care! Remember to stay hydrated!",
     }
     return farewells.get(npc_id, "See you!")

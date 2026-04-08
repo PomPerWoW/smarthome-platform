@@ -28,6 +28,7 @@ export class ApiService {
   private constructor() {
     this.client = axios.create({
       baseURL: import.meta.env.VITE_BACKEND_URL || "https://localhost:5500",
+      timeout: 10000,
       withCredentials: true,
       headers: {
         "Content-Type": "application/json",

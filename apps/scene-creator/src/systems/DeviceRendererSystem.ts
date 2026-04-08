@@ -385,10 +385,10 @@ export class DeviceRendererSystem extends createSystem({
       meshEntries.push({ mesh: child, triangles });
     });
 
-    if (meshEntries.length <= 4) return;
+    if (meshEntries.length <= 2) return;
 
     meshEntries.sort((a, b) => b.triangles - a.triangles);
-    const keep = new Set(meshEntries.slice(0, 4).map((e) => e.mesh));
+    const keep = new Set(meshEntries.slice(0, 2).map((e) => e.mesh));
 
     for (const { mesh } of meshEntries) {
       if (keep.has(mesh)) continue;

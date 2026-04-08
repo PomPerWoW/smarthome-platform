@@ -243,24 +243,24 @@ async function main(): Promise<void> {
   try {
     const renderer = (world as any).renderer;
     if (renderer) {
-      // 1. Keep pixel ratio balanced so panel text remains readable.
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25));
+      // 1. Higher overall clarity (Quest + desktop) with a safe cap.
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
 
       // 2. Disable heavy shadow mapping
       if (renderer.shadowMap) {
         renderer.shadowMap.enabled = false;
       }
 
-      // 3. Use moderate FFR. Maximum foveation can look too blurry in center/periphery.
+      // 3. Lower foveation for sharper overall image quality.
       if (renderer.xr) {
         // Only works for layers/VR on supported devices
         if (typeof renderer.xr.setFoveation === "function") {
-          renderer.xr.setFoveation(0.35);
+          renderer.xr.setFoveation(0.15);
         }
 
-        // 3.5. Keep framebuffer scale in a readable range.
+        // 3.5. Full-ish framebuffer resolution for clearer UI and models.
         if (typeof renderer.xr.setFramebufferScaleFactor === "function") {
-          renderer.xr.setFramebufferScaleFactor(0.8);
+          renderer.xr.setFramebufferScaleFactor(1.0);
         }
 
         // 4. Target 72Hz specifically for Quest 3 to limit instant lag during heavy rendering

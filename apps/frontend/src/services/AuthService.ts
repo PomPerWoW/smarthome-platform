@@ -46,7 +46,7 @@ export class AuthService {
         user: UserType;
         authenticated: boolean;
         token: string;
-      }>("/api/auth/whoami/");
+      }>("/api/auth/whoami/", { timeout: 3000 });
       return { user: User.fromApi(response.user), token: response.token };
     } catch {
       return null;

@@ -72,7 +72,6 @@ const ROOM_MODELS = [
 /** Avatars spawned in 3D for this room (ids must match scene-creator). */
 const ROOM_PAGE_AVATARS = [
   { id: "npc1", label: "Alice", type: "npc" as const },
-  { id: "npc2", label: "Bob", type: "npc" as const },
   { id: "npc3", label: "Carol", type: "npc" as const },
   { id: "robot1", label: "Robot", type: "robot" as const },
 ] as const;

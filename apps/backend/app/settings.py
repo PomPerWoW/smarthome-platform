@@ -122,8 +122,6 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5174",
     "https://127.0.0.1:5174",
     "https://127.0.0.1:3003",
-    "https://192.168.89.100:5173", # Change to your actual local IP
-    "https://192.168.89.100:3003", # Change to your actual local IP
     "https://localhost:3000",
     "https://localhost:3003",
     "https://10.66.4.224:5173",
