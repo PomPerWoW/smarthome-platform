@@ -53,6 +53,29 @@ const NPC_VOICE_CONFIG: Record<string, { pitch: number; rate: number; voiceIndex
     npc3: { pitch: 1.0, rate: 1.0, voiceIndex: 181 }, // Carol - Google US English
 };
 
+let isSpeechUnlocked = false;
+function unlockSpeechSynthesis() {
+    if (isSpeechUnlocked || typeof window === "undefined" || !window.speechSynthesis) return;
+    try {
+        window.speechSynthesis.resume();
+        const u = new SpeechSynthesisUtterance("");
+        u.volume = 0;
+        window.speechSynthesis.speak(u);
+        isSpeechUnlocked = true;
+    } catch (e) {
+        console.warn("[NPCAvatar] Could not unlock speech synthesis", e);
+    }
+}
+
+if (typeof window !== "undefined") {
+    const unlockEvents = ["pointerdown", "touchstart", "click", "keydown"];
+    const doUnlock = () => {
+        unlockSpeechSynthesis();
+        unlockEvents.forEach(e => window.removeEventListener(e, doUnlock));
+    };
+    unlockEvents.forEach(e => window.addEventListener(e, doUnlock, { once: true, capture: true }));
+}
+
 // PROCEDURAL VISEME SYSTEM
 
 /** Map a character to the best RPM viseme. */

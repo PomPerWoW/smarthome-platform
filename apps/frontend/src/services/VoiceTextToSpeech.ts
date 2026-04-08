@@ -6,6 +6,30 @@ const GOODBYE = "See you again.";
 const NO_MATCH =
   "I'm sorry, I didn't quite understand that. You can control devices with phrases like \"turn on the fan\" or \"set the temperature to twenty-four\", or ask for help with \"how do I use the panel\" or \"how do I use the fan\". What would you like to try?";
 
+let isUnlocked = false;
+function unlockAudio() {
+  if (isUnlocked || typeof window === "undefined" || !window.speechSynthesis) return;
+  try {
+    window.speechSynthesis.resume();
+    const u = new SpeechSynthesisUtterance("");
+    u.volume = 0;
+    window.speechSynthesis.speak(u);
+    isUnlocked = true;
+  } catch (e) {
+    console.warn("Could not unlock speech synthesis", e);
+  }
+}
+
+if (typeof window !== "undefined") {
+  const events = ["pointerdown", "touchstart", "click", "keydown"];
+  const doUnlock = () => {
+    unlockAudio();
+    events.forEach((e) => window.removeEventListener(e, doUnlock));
+  };
+  events.forEach((e) => window.addEventListener(e, doUnlock, { once: true, capture: true }));
+}
+
+
 function getEnUsLocalVoices(): SpeechSynthesisVoice[] {
   if (typeof window === "undefined" || !window.speechSynthesis) return [];
   return window.speechSynthesis
