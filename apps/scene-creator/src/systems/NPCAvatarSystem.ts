@@ -53,6 +53,11 @@ const NPC_VOICE_CONFIG: Record<string, { pitch: number; rate: number; voiceIndex
     npc3: { pitch: 1.0, rate: 1.0, voiceIndex: 181 }, // Carol - Google US English
 };
 
+let globalFallbackAudio: HTMLAudioElement | null = null;
+if (typeof window !== "undefined") {
+    globalFallbackAudio = new Audio();
+}
+
 let isSpeechUnlocked = false;
 function unlockSpeechSynthesis() {
     if (isSpeechUnlocked || typeof window === "undefined") return;
@@ -67,8 +72,10 @@ function unlockSpeechSynthesis() {
         console.warn("[NPCAvatar] Could not unlock speech synthesis", e);
     }
     try {
-        const silentAudio = new Audio("data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA");
-        silentAudio.play().catch(() => {});
+        if (globalFallbackAudio) {
+            globalFallbackAudio.src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA";
+            globalFallbackAudio.play().catch(() => {});
+        }
     } catch (e) {}
     isSpeechUnlocked = true;
 }
@@ -441,7 +448,8 @@ export class NPCAvatarSystem extends createSystem({
                         return;
                     }
                     const url = `https://translate.googleapis.com/translate_tts?ie=UTF-8&client=tw-ob&tl=en&q=${encodeURIComponent(chunks[chunkIndex])}`;
-                    const audio = new Audio(url);
+                    const audio = globalFallbackAudio || new Audio();
+                    audio.src = url;
                     audio.playbackRate = voiceConfig.rate;
                     
                     audio.onended = () => {

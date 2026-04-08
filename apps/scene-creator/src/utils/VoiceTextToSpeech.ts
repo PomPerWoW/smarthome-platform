@@ -9,6 +9,11 @@ export const NO_MATCH_SPOKEN_TEXT =
 // Instruction flow (3D): robot walking to user
 const INSTRUCTION_WAIT_ME = "Ok, I will explain that for you. Wait for me.";
 
+let globalFallbackAudio: HTMLAudioElement | null = null;
+if (typeof window !== "undefined") {
+  globalFallbackAudio = new Audio();
+}
+
 let isUnlocked = false;
 function unlockAudio() {
   if (isUnlocked || typeof window === "undefined") return;
@@ -23,8 +28,10 @@ function unlockAudio() {
     console.warn("Could not unlock speech synthesis", e);
   }
   try {
-    const silentAudio = new Audio("data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA");
-    silentAudio.play().catch(() => {});
+    if (globalFallbackAudio) {
+      globalFallbackAudio.src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA";
+      globalFallbackAudio.play().catch(() => {});
+    }
   } catch (e) {}
   isUnlocked = true;
 }
@@ -105,7 +112,8 @@ export function speakText(text: string): Promise<void> {
           return;
         }
         const url = `https://translate.googleapis.com/translate_tts?ie=UTF-8&client=tw-ob&tl=en&q=${encodeURIComponent(chunks[currentChunk])}`;
-        const audio = new Audio(url);
+        const audio = globalFallbackAudio || new Audio();
+        audio.src = url;
         audio.onended = () => {
           currentChunk++;
           playNext();
