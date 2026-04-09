@@ -2,7 +2,6 @@ import os
 import json
 import logging
 from typing import List, Dict, Any
-from django.conf import settings
 from .llm_interfaces import LLMProvider, CommandIntent
 
 logger = logging.getLogger(__name__)
@@ -111,5 +110,4 @@ class GroqProvider(BaseLLMProvider):
 class LLMFactory:
     @staticmethod
     def get_provider() -> LLMProvider:
-        provider_name = os.getenv("LLM_PROVIDER", "openai").lower()
         return GroqProvider()

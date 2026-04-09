@@ -27,7 +27,7 @@ def create_initial_device_history(sender, instance, created, **kwargs):
 @receiver(post_save, sender=SmartMeter)
 def broadcast_device_update(sender, instance, created, **kwargs):
     # Prevent duplicate broadcasts for multi-table inheritance
-    if type(instance) != sender:
+    if type(instance) is not sender:
         return
         
     channel_layer = get_channel_layer()
@@ -39,5 +39,6 @@ def broadcast_device_update(sender, instance, created, **kwargs):
                 "device_id": str(instance.id),
                 "action": "update",
                 "status": "success",
+                "value": getattr(instance, "is_on", None),
             }
         )

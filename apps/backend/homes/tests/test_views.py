@@ -1,9 +1,8 @@
-from unittest.mock import patch
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 from django.contrib.auth.models import User
-from homes.models import Home, Room, SmartMeter, Automation, Device, Lightbulb
+from homes.models import Home, Room, SmartMeter, Lightbulb
 
 class HomesExtraViewsTests(APITestCase):
     def setUp(self):

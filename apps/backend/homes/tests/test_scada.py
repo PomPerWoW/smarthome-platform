@@ -1,7 +1,7 @@
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from django.test import TestCase
 from homes.scada import ScadaManager
-from homes.models import Device, Home, Room, Lightbulb, AirConditioner, Fan, Television
+from homes.models import Home, Room, Lightbulb, AirConditioner, Fan, Television
 from django.contrib.auth.models import User
 
 class ScadaManagerTests(TestCase):
@@ -50,9 +50,10 @@ class ScadaManagerTests(TestCase):
     def test_handle_tag_update_fan(self, mock_a, mock_g):
         fan = Fan.objects.create(room=self.room, device_name="Test Fan", tag="TEST.Fan1")
         
-        self.manager.handle_tag_update("TEST.Fan1.speed", "3", "12:00")
+        # Send pulse to increment (1 means +1)
+        self.manager.handle_tag_update("TEST.Fan1.speed", "1", "12:00")
         fan.refresh_from_db()
-        self.assertEqual(fan.speed, 3)
+        self.assertEqual(fan.speed, 2)
 
         self.manager.handle_tag_update("TEST.Fan1.shake", "on", "12:00")
         fan.refresh_from_db()
@@ -63,9 +64,10 @@ class ScadaManagerTests(TestCase):
     def test_handle_tag_update_tv(self, mock_a, mock_g):
         tv = Television.objects.create(room=self.room, device_name="Test TV", tag="TEST.TV1")
         
-        self.manager.handle_tag_update("TEST.TV1.volume", "40", "12:00")
+        # Send pulse to increment (1 means +1)
+        self.manager.handle_tag_update("TEST.TV1.volume", "1", "12:00")
         tv.refresh_from_db()
-        self.assertEqual(tv.volume, 40)
+        self.assertEqual(tv.volume, 21)
 
         self.manager.handle_tag_update("TEST.TV1.channel", "5", "12:00")
         tv.refresh_from_db()

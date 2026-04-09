@@ -114,7 +114,8 @@ class Scheduler:
 
                 # Sleep logic
                 sleep_seconds = 60 - timezone.now().second
-                if sleep_seconds < 0: sleep_seconds = 0
+                if sleep_seconds < 0:
+                    sleep_seconds = 0
                 time.sleep(sleep_seconds)
 
             except Exception as e:

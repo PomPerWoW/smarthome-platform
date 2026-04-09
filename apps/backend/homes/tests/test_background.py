@@ -1,12 +1,8 @@
 import json
-import threading
-import os
-import sys
-import time
-from unittest.mock import patch, MagicMock, PropertyMock
+from unittest.mock import patch, MagicMock
 from django.test import TestCase
 from django.contrib.auth.models import User
-from homes.models import Automation, Home, Room, Lightbulb, Device
+from homes.models import Automation, Home, Room, Lightbulb
 from homes.scheduler import Scheduler
 from homes.scada_ws import WebSocket2Scada
 

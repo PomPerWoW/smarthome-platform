@@ -1,9 +1,6 @@
-import os
-import json
 from unittest.mock import patch, MagicMock
 from django.test import TestCase
 from homes.llm_providers import BaseLLMProvider, GroqProvider, LLMFactory
-from homes.llm_interfaces import CommandIntent
 
 class ConcreteLLMProvider(BaseLLMProvider):
     def parse_command(self, command_text: str, devices_context: list) -> list:

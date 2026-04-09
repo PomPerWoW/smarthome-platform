@@ -5,7 +5,7 @@ import random
 import shutil
 import tempfile
 import zipfile
-from datetime import datetime, date, timezone, timedelta
+from datetime import datetime, timezone, timedelta
 
 from django.conf import settings
 from django.contrib.gis.geos import Point
@@ -18,10 +18,18 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 
-from .models import *
+from .models import (
+    Automation, AvatarScript, Device, Fan, Furniture, Home, Lightbulb, 
+    PositionHistory, Room, SmartMeter, Television, AirConditioner
+)
 from .permissions import IsHomeOwner
 from .scada import ScadaManager
-from .serializers import *
+from .serializers import (
+    AutomationSerializer, AvatarScriptSerializer, DeviceSerializer, 
+    FanSerializer, FurnitureSerializer, HomeSerializer, LightbulbSerializer, 
+    PositionHistorySerializer, RoomSerializer, SmartMeterSerializer, 
+    TelevisionSerializer, AirConditionerSerializer
+)
 from .services import VoiceAssistantService, _scada_power_onoff_suffix
 
 logger = logging.getLogger(__name__)
@@ -281,7 +289,7 @@ class RoomViewSet(viewsets.ModelViewSet):
                     f"[Upload Model] Deleting old room model directory: {room_model_dir}"
                 )
                 shutil.rmtree(room_model_dir)
-                logger.info(f"[Upload Model] Old directory deleted successfully")
+                logger.info("[Upload Model] Old directory deleted successfully")
             except Exception as e:
                 logger.warning(
                     f"[Upload Model] Could not delete old room model directory: {e}"
@@ -501,7 +509,7 @@ class RoomViewSet(viewsets.ModelViewSet):
             logger.info(f"[Upload Model] Creating reference file: {reference_file}")
             with open(reference_file, "w") as f:
                 f.write(relative_path)
-            logger.info(f"[Upload Model] Reference file created")
+            logger.info("[Upload Model] Reference file created")
 
             # Save a dummy file to the FileField for compatibility
             logger.info("[Upload Model] Saving dummy file to FileField")
@@ -1029,6 +1037,26 @@ class FanViewSet(BaseDeviceViewSet):
             )
 
         return Response({"device_name": "SmartFan01", "data": data})
+
+    @action(detail=True, methods=["post"])
+    def set_speed(self, request, pk=None):
+        """
+        Command: Set the fan speed to an absolute value (1-5).
+
+        Body: {"speed": int}
+        """
+        fan = self.get_object()
+        speed = request.data.get("speed")
+
+        if speed is not None:
+            fan.speed = max(1, min(int(speed), 5))
+            fan.save()
+
+            if fan.tag:
+                ScadaManager().send_command(f"{fan.tag}.speed_abs", fan.speed)
+
+            return Response({"status": "speed set", "current_speed": fan.speed})
+        return Response({"error": "speed parameter missing"}, status=400)
 
     @action(detail=True, methods=["post"])
     def set_swing(self, request, pk=None):
@@ -1750,10 +1778,10 @@ def _normalize_avatar_script_data(script_data):
         script_data = script_data["actions"]
     if not isinstance(script_data, list):
         return None, "Script must be a JSON array of actions (or an object with an 'actions' array)."
-    for i, action in enumerate(script_data):
-        if not isinstance(action, dict):
+    for i, script_action in enumerate(script_data):
+        if not isinstance(script_action, dict):
             return None, f"Action at index {i} must be an object."
-        t = action.get("type")
+        t = script_action.get("type")
         if t not in ALLOWED_SCRIPT_ACTION_TYPES:
             return (
                 None,

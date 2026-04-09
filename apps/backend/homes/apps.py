@@ -6,7 +6,7 @@ class HomesConfig(AppConfig):
     name = 'homes'
 
     def ready(self):
-        import homes.signals
+        import homes.signals  # noqa: F401
 
         # Check if we are running as a server (runserver, gunicorn, uvicorn)
         # sys.argv for gunicorn usually looks like ['/usr/local/bin/gunicorn', ...]

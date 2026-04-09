@@ -3,15 +3,12 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 from django.contrib.auth.models import User
-from django.contrib.gis.geos import Point
 import io
 import zipfile
-import os
 import json
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.conf import settings
-from homes.models import Home, Room, Device, AirConditioner, PositionHistory, Lightbulb, Automation, Television, Fan, SmartMeter, Furniture
-from homes.services import VoiceAssistantService, update_automation_solar_time, update_all_solar_automations
+from homes.models import Home, Room, AirConditioner, PositionHistory, Lightbulb, Automation, Television, Fan, SmartMeter, Furniture
+from homes.services import VoiceAssistantService, update_automation_solar_time
 from homes.llm_interfaces import CommandIntent
 
 class HomesTests(APITestCase):
@@ -101,7 +98,7 @@ class HomesTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         # Verify ScadaManager.send_command was called with correct arguments
-        mock_scada.send_command.assert_called_once_with("AC_001.onoff", 1)
+        mock_scada.send_command.assert_called_once_with("AC_001.OnOff", 1)
 
     def test_tag_management_actions(self):
         """Test tag management actions (GET, POST, DELETE)"""

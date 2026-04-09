@@ -1,5 +1,8 @@
 from rest_framework import serializers
-from .models import *
+from .models import (
+    Automation, AvatarScript, Device, Fan, Furniture, Home, Lightbulb, 
+    PositionHistory, Room, SmartMeter, Television, AirConditioner
+)
 
 # --- 1. Base Logic (Shared by all) ---
 class DeviceBaseSerializer(serializers.ModelSerializer):

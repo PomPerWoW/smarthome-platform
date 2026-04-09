@@ -68,19 +68,27 @@ class ScadaManager(BaseScadaManager):
                  if device:
                      # Helper for boolean parsing
                      def parse_bool(v):
-                         if v is None: return False
+                         if v is None:
+                             return False
                          if isinstance(v, str):
-                             if v.lower() in ('true', 'on', '1', '1.0'): return True
-                             if v.lower() in ('false', 'off', '0', '0.0'): return False
-                             try: return float(v) > 0
-                             except: return False
+                             if v.lower() in ('true', 'on', '1', '1.0'):
+                                 return True
+                             if v.lower() in ('false', 'off', '0', '0.0'):
+                                 return False
+                             try:
+                                 return float(v) > 0
+                             except ValueError:
+                                 return False
                          return bool(v)
 
                      # Helper for float/int parsing 
                      def parse_float(v):
-                         if v is None: return 0.0
-                         try: return float(v)
-                         except: return 0.0
+                         if v is None:
+                             return 0.0
+                         try:
+                             return float(v)
+                         except ValueError:
+                             return 0.0
 
                      # Update logic based on command
                      saved = False
