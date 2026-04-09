@@ -1,8 +1,9 @@
+from datetime import datetime, timedelta
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 from django.contrib.auth.models import User
-from homes.models import Home, Room, SmartMeter, Lightbulb
+from homes.models import Home, Room, SmartMeter, Lightbulb, AirConditioner, Fan, Television, AvatarScript
 
 class HomesExtraViewsTests(APITestCase):
     def setUp(self):
@@ -96,3 +97,72 @@ class HomesExtraViewsTests(APITestCase):
         # Test regular retrieval
         resp = self.client.get(url_detail)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
+
+    # --- 1. Helper Function: _prepare_mock_log_context ---
+    def test_mock_log_helper_errors(self):
+        # Missing date
+        url = reverse('smartmeter-getSmartMeterLog')
+        resp = self.client.get(url) 
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # Invalid date format
+        resp = self.client.get(f"{url}?date=invalid-date")
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # Future date
+        future_date = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
+        resp = self.client.get(f"{url}?date={future_date}")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(resp.data['data']), 0)
+
+    # --- 2. Specialized Device Log Endpoints ---
+    def test_all_device_logs(self):
+        past_date = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+        
+        # SmartMeter
+        sm = SmartMeter.objects.create(room=self.room, device_name="SM")
+        url = reverse('smartmeter-getSmartMeterLog')
+        resp = self.client.get(f"{url}?date={past_date}&device_id={sm.id}")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(resp.data['data']), 288)
+        
+        # AC
+        AirConditioner.objects.create(room=self.room, device_name="AC")
+        url = reverse('airconditioner-getACLog')
+        resp = self.client.get(f"{url}?date={past_date}")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertTrue(len(resp.data) > 0)
+        
+        # Fan
+        Fan.objects.create(room=self.room, device_name="Fan")
+        url = reverse('fan-getFanLog')
+        resp = self.client.get(f"{url}?date={past_date}")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertTrue(len(resp.data) > 0)
+        
+        # TV
+        Television.objects.create(room=self.room, device_name="TV")
+        url = reverse('television-getTVLog')
+        resp = self.client.get(f"{url}?date={past_date}")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertTrue(len(resp.data) > 0)
+
+    # --- 3. AvatarScript Paths ---
+    def test_avatar_script_filtering_and_upload(self):
+        AvatarScript.objects.create(
+            room=self.room, 
+            avatar_id="NPC1", 
+            avatar_name="Npc One", 
+            avatar_type="npc", 
+            script_data=[]
+        )
+        
+        # List filtering
+        url = reverse('avatar-script-list')
+        resp = self.client.get(f"{url}?room={self.room.id}")
+        self.assertEqual(len(resp.data), 1)
+        
+        # Invalid JSON upload
+        url_upload = reverse('avatar-script-list')
+        resp = self.client.post(url_upload, {"room": self.room.id, "avatar_id": "NPC2", "script_data": "not-json"}, format='json')
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)

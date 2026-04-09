@@ -1,3 +1,5 @@
+import os
+from datetime import timedelta
 from unittest.mock import patch, MagicMock
 from django.urls import reverse
 from rest_framework import status
@@ -223,6 +225,79 @@ class HomesTests(APITestCase):
         mock_file2 = SimpleUploadedFile("empty.zip", zip_buffer.read(), content_type="application/zip")
         response2 = self.client.post(url, {'file': mock_file2}, format='multipart')
         self.assertEqual(response2.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_room_upload_missing_file(self):
+        url = reverse('room-upload-model', kwargs={'pk': str(self.room_a.id)})
+        self.client.force_authenticate(user=self.user_a)
+        resp = self.client.post(url, {}, format='multipart')
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("No file provided", resp.data['error'])
+
+    def test_room_upload_invalid_extension(self):
+        url = reverse('room-upload-model', kwargs={'pk': str(self.room_a.id)})
+        self.client.force_authenticate(user=self.user_a)
+        file = SimpleUploadedFile("test.txt", b"invalid content", content_type="text/plain")
+        resp = self.client.post(url, {'file': file}, format='multipart')
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("Invalid file type", resp.data['error'])
+
+    @patch('homes.views.shutil.rmtree')
+    def test_room_upload_rmtree_exception(self, mock_rmtree):
+        mock_rmtree.side_effect = Exception("Delete failed")
+        url = reverse('room-upload-model', kwargs={'pk': str(self.room_a.id)})
+        self.client.force_authenticate(user=self.user_a)
+        file = SimpleUploadedFile("test.glb", b"glb content", content_type="model/gltf-binary")
+        resp = self.client.post(url, {'file': file}, format='multipart')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+
+    @patch('homes.views.os.makedirs')
+    def test_room_upload_makedirs_exception(self, mock_makedirs):
+        mock_makedirs.side_effect = Exception("CANT CREATE DIR")
+        url = reverse('room-upload-model', kwargs={'pk': str(self.room_a.id)})
+        self.client.force_authenticate(user=self.user_a)
+        file = SimpleUploadedFile("test.glb", b"glb content", content_type="model/gltf-binary")
+        resp = self.client.post(url, {'file': file}, format='multipart')
+        self.assertEqual(resp.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @patch('homes.smartmeter.SmartmeterManager')
+    def test_smartmeter_power_toggles_manager(self, mock_sm_manager_class):
+        sm = SmartMeter.objects.create(room=self.room_a, device_name="Power Meter", tag="SM_001")
+        url = reverse('smartmeter-detail', kwargs={'pk': str(sm.id)})
+        self.client.force_authenticate(user=self.user_a)
+        
+        # Turn ON
+        self.client.patch(url, {'is_on': True}, format='json')
+        mock_sm_manager_class.return_value.start.assert_called()
+        
+        # Turn OFF
+        self.client.patch(url, {'is_on': False}, format='json')
+        mock_sm_manager_class.return_value.close.assert_called()
+
+    @patch('homes.views.ScadaManager')
+    def test_device_update_scada_suffix(self, mock_scada_class):
+        mock_scada = mock_scada_class.return_value
+        light = Lightbulb.objects.create(room=self.room_a, device_name="Main Light", tag="L_001")
+        url = reverse('lightbulb-detail', kwargs={'pk': str(light.id)})
+        self.client.force_authenticate(user=self.user_a)
+        
+        # Lightbulb uses .onoff
+        self.client.patch(url, {'is_on': True}, format='json')
+        mock_scada.send_command.assert_called_with("L_001.onoff", 1)
+
+    def test_automation_permission_denied(self):
+        # Create a lightbulb in user_b's room
+        light = Lightbulb.objects.create(room=self.room_b, device_name="Stolen Light")
+        
+        # Try to create automation for user_b's light as user_a
+        url = reverse('automation-list')
+        self.client.force_authenticate(user=self.user_a)
+        data = {
+            'device': light.id,
+            'title': 'Stolen Automation',
+            'action': {'is_on': 1}
+        }
+        resp = self.client.post(url, data, format='json')
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     @patch('homes.views.ScadaManager')
     def test_television_actions(self, mock_scada_class):
