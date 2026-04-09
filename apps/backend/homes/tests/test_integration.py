@@ -1,5 +1,3 @@
-import os
-from datetime import timedelta
 from unittest.mock import patch, MagicMock
 from django.urls import reverse
 from rest_framework import status
