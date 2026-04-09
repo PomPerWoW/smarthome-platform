@@ -1,4 +1,4 @@
-import { Object3D, Mesh, MeshStandardMaterial } from "@iwsdk/core";
+import { Mesh, MeshStandardMaterial, Object3D } from "three";
 import { DeviceType, DeviceBase } from "../types";
 import { DEVICE_SCALES } from "../constants";
 
@@ -44,7 +44,7 @@ export abstract class BaseDevice {
   abstract updateFromData(data: unknown): void;
 
   protected applyBaseVisualState(object3D: Object3D): void {
-    object3D.traverse((child) => {
+    object3D.traverse((child: any) => {
       if (child instanceof Mesh) {
         const material = child.material;
         if (material instanceof MeshStandardMaterial) {

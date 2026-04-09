@@ -1,14 +1,20 @@
 import {
   createSystem,
   Entity,
-  Object3D,
   AssetManager,
-  AnimationMixer,
-  AnimationAction,
-  LoopOnce,
 } from "@iwsdk/core";
 
-import { Box3, Euler, MathUtils, Quaternion, Vector3 } from "three";
+import {
+  AnimationAction,
+  AnimationMixer,
+  Box3,
+  Euler,
+  LoopOnce,
+  MathUtils,
+  Object3D,
+  Quaternion,
+  Vector3,
+} from "three";
 import { SkeletonUtils } from "three-stdlib";
 import { UserControlledAvatarComponent } from "../components/UserControlledAvatarComponent";
 import { AVATAR_VISUAL_SCALE } from "../config/avatarScale";
@@ -46,7 +52,7 @@ const _headYawEuler = new Euler(0, 0, 0, "YXZ");
  */
 function getFootWorldY(model: Object3D, fallbackBox: Box3): number {
   const ys: number[] = [];
-  model.traverse((child) => {
+  model.traverse((child: any) => {
     if (child.type !== "Bone" && !(child as { isBone?: boolean }).isBone) return;
     const name = child.name;
     if (!/foot|toe|ankle/i.test(name)) return;

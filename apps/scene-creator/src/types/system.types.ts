@@ -1,4 +1,5 @@
-import { Entity, AnimationMixer, AnimationAction } from "@iwsdk/core";
+import { Entity } from "@iwsdk/core";
+import { AnimationMixer, AnimationAction } from "three";
 import { BaseDevice } from "../entities";
 
 export interface DeviceRecord {

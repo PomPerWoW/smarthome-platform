@@ -2,22 +2,25 @@ import {
   createSystem,
   Entity,
   Interactable,
-  Object3D,
-  Box3,
-  Vector3,
   AssetManager,
   DistanceGrabbable,
   MovementMode,
   PanelUI,
-  AnimationMixer,
-  AnimationClip,
-  LoopRepeat,
-  BoxGeometry,
-  MeshBasicMaterial,
-  Mesh,
 } from "@iwsdk/core";
 
-import { Vector3 as TV3, Mesh as ThreeMesh, Intersection } from "three";
+import {
+  AnimationClip,
+  AnimationMixer,
+  Box3,
+  BoxGeometry,
+  Intersection,
+  LoopRepeat,
+  Mesh,
+  MeshBasicMaterial,
+  Object3D,
+  Raycaster,
+  Vector3,
+} from "three";
 import { shallow } from "zustand/shallow";
 import {
   deviceStore,
@@ -35,7 +38,7 @@ import {
   DEVICE_RADIUS,
   getRoomCollisionMeshes,
 } from "../config/collision";
-import { Vector3 as ThreeVector3, Raycaster } from "three";
+
 
 export class DeviceRendererSystem extends createSystem({
   devices: {
@@ -49,22 +52,22 @@ export class DeviceRendererSystem extends createSystem({
   private unsubscribe?: () => void;
 
   /** Track each device's last valid world-space position for collision. */
-  private lastValidWorldPos: Map<string, TV3> = new Map();
+  private lastValidWorldPos: Map<string, Vector3> = new Map();
 
   /** Reused for panel placement — avoids allocating raycast state every frame. */
   private readonly _panelRaycaster = new Raycaster();
   private readonly _panelRayHits: Intersection[] = [];
-  private readonly _panelRayDirs: ThreeVector3[] = [
-    new ThreeVector3(1, 0, 0),
-    new ThreeVector3(-1, 0, 0),
-    new ThreeVector3(0, 0, 1),
-    new ThreeVector3(0, 0, -1),
-    new ThreeVector3(0, 1, 0),
-    new ThreeVector3(0, -1, 0),
+  private readonly _panelRayDirs: Vector3[] = [
+    new Vector3(1, 0, 0),
+    new Vector3(-1, 0, 0),
+    new Vector3(0, 0, 1),
+    new Vector3(0, 0, -1),
+    new Vector3(0, 1, 0),
+    new Vector3(0, -1, 0),
   ];
-  private readonly _panelCandidatePos = new ThreeVector3();
-  private readonly _panelTestOrigin = new ThreeVector3();
-  private readonly _panelDeviceScratch = new TV3();
+  private readonly _panelCandidatePos = new Vector3();
+  private readonly _panelTestOrigin = new Vector3();
+  private readonly _panelDeviceScratch = new Vector3();
 
   /**
    * Full panel collision search is expensive (many rays × every room mesh).
@@ -76,8 +79,8 @@ export class DeviceRendererSystem extends createSystem({
       main: Vector3;
       graph: Vector3;
       gauge: Vector3;
-      deviceRef: TV3;
-      cameraRef: TV3;
+      deviceRef: Vector3;
+      cameraRef: Vector3;
       atMs: number;
       graphVisible: boolean;
       hadGauge: boolean;
@@ -817,7 +820,7 @@ export class DeviceRendererSystem extends createSystem({
       // ── Collision constraint for grabbed / moved devices ────────────
       if (record.entity.object3D) {
         const obj = record.entity.object3D;
-        const worldPos = new TV3();
+        const worldPos = new Vector3();
         (obj as any).getWorldPosition(worldPos);
 
         let lastPos = this.lastValidWorldPos.get(deviceId);
@@ -900,7 +903,7 @@ export class DeviceRendererSystem extends createSystem({
             gaugePos = this.findSafePanelPosition(safePanelPos, 0, 0.48);
           }
           const deviceRef = this._panelDeviceScratch.clone();
-          const cameraRef = new TV3();
+          const cameraRef = new Vector3();
           if (camPos) cameraRef.set(camPos.x, camPos.y, camPos.z);
           this._panelPlacementCache.set(deviceId, {
             main: safePanelPos.clone(),

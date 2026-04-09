@@ -455,3 +455,13 @@ export async function applyColorWallpaper(
   const dataUrl = solidColorDataUrl(cssColor);
   await applyWallpaperToAllWalls(dataUrl, name);
 }
+/**
+ * Placeholder for per-wall confirmation, used by WallSelectionPanelSystem.
+ */
+export function confirmWallSelection(wallId: string): void {
+  console.log(`[WallpaperSystem] Confirming selection for wall: ${wallId}`);
+  // In the current single-step flow, this is largely a no-op as 
+  // wallpaper is already applied to all walls.
+  wallpaperStore.getState().setApplied("","", "plane"); // dummy to satisfy if needed
+  (wallpaperStore.getState() as any).isSelectingWall = false;
+}

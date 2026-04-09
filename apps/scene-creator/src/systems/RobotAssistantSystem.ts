@@ -1,14 +1,20 @@
 import {
   createSystem,
   Entity,
-  Object3D,
   AssetManager,
-  AnimationMixer,
-  AnimationAction,
-  LoopOnce,
 } from "@iwsdk/core";
 
-import { Box3, Quaternion, Raycaster, SkinnedMesh, Vector3 } from "three";
+import {
+  AnimationAction,
+  AnimationMixer,
+  Box3,
+  LoopOnce,
+  Object3D,
+  Quaternion,
+  Raycaster,
+  SkinnedMesh,
+  Vector3,
+} from "three";
 import { SkeletonUtils } from "three-stdlib";
 import { RobotAssistantComponent } from "../components/RobotAssistantComponent";
 import { getRobotInitialSpawnWorldPosition } from "../config/robotSpawn";
@@ -495,8 +501,8 @@ export class RobotAssistantSystem extends createSystem({
     const record = this.robotRecords.values().next().value as
       | RobotAssistantRecord
       | undefined;
-    if (!record || !this.world.camera) return;
-    const cam = this.world.camera as { position: { x: number; z: number } };
+    if (!record || !(this.world as any).camera) return;
+    const cam = (this.world as any).camera as { position: { x: number; z: number } };
     const userLocal = this.worldToRoomLocal(cam.position.x, 0, cam.position.z);
     const dx = userLocal.x - record.model.position.x;
     const dz = userLocal.z - record.model.position.z;
@@ -510,8 +516,8 @@ export class RobotAssistantSystem extends createSystem({
     const record = this.robotRecords.values().next().value as
       | RobotAssistantRecord
       | undefined;
-    if (!record || !this.world.camera) return;
-    const cam = this.world.camera as {
+    if (!record || !(this.world as any).camera) return;
+    const cam = (this.world as any).camera as {
       position: { x: number; y: number; z: number };
     };
     const userLocal = this.worldToRoomLocal(
@@ -850,7 +856,7 @@ export class RobotAssistantSystem extends createSystem({
 
       // Find head mesh for expressions (morph targets)
       let headMesh: SkinnedMesh | null = null;
-      robotModel.traverse((child) => {
+      robotModel.traverse((child: any) => {
         if (child.name === "Head_4" && (child as any).morphTargetDictionary) {
           headMesh = child as unknown as SkinnedMesh;
         }
@@ -1618,8 +1624,8 @@ export class RobotAssistantSystem extends createSystem({
       if (this.walkingToUser) {
         // Fallback: if walkingToUser is set but neither topic nor callback exist,
         // stop walking once we are close enough so the robot doesn't oscillate.
-        if (!this.pendingInstructionTopic && !this.onReachedUserCallback && this.world.camera) {
-          const cam = this.world.camera as {
+        if (!this.pendingInstructionTopic && !this.onReachedUserCallback && (this.world as any).camera) {
+          const cam = (this.world as any).camera as {
             position: { x: number; y: number; z: number };
           };
           const userLocal = this.worldToRoomLocal(
@@ -1693,8 +1699,8 @@ export class RobotAssistantSystem extends createSystem({
           }
 
           // Retarget the ring point around the user (personal space), not the camera origin.
-          if (!this.stepAsideTarget && this.trackUserWhileWalking && this.world.camera) {
-            const cam = this.world.camera as {
+          if (!this.stepAsideTarget && this.trackUserWhileWalking && (this.world as any).camera) {
+            const cam = (this.world as any).camera as {
               position: { x: number; y: number; z: number };
             };
             const currentUserLocal = this.worldToRoomLocal(
@@ -1755,8 +1761,8 @@ export class RobotAssistantSystem extends createSystem({
           } else {
             // Voice approach: stop when inside personal space around the user.
             // Device walk: stop when close to the fixed device standoff target.
-            if (this.world.camera) {
-              const cam = this.world.camera as {
+            if ((this.world as any).camera) {
+              const cam = (this.world as any).camera as {
                 position: { x: number; y: number; z: number };
               };
               const userLocal = this.worldToRoomLocal(
@@ -1864,7 +1870,7 @@ export class RobotAssistantSystem extends createSystem({
                   continue;
                 }
               }
-            } // end if (this.world.camera)
+            } // end if ((this.world as any).camera)
           }
         }
       } // end if (this.walkingToUser)
@@ -1924,8 +1930,8 @@ export class RobotAssistantSystem extends createSystem({
           // While walking to the user, prefer rotating to face the user
           // (so the user doesn't see the robot's back).
           let targetAngle = Math.atan2(dx, dz);
-          if (this.walkingToUser && this.world.camera) {
-            const cam = this.world.camera as {
+          if (this.walkingToUser && (this.world as any).camera) {
+            const cam = (this.world as any).camera as {
               position: { x: number; y: number; z: number };
             };
             const userLocal = this.worldToRoomLocal(
@@ -2051,9 +2057,9 @@ export class RobotAssistantSystem extends createSystem({
             if (
               this.walkingToUser &&
               this.trackUserWhileWalking &&
-              this.world.camera
+              (this.world as any).camera
             ) {
-              const cam = this.world.camera as {
+              const cam = (this.world as any).camera as {
                 position: { x: number; y: number; z: number };
               };
               const uLoc = this.worldToRoomLocal(
@@ -2201,8 +2207,8 @@ export class RobotAssistantSystem extends createSystem({
                   this.stepAsideAttempts = 0;
                   this.stepAsideTarget = null;
                   // Update target to current user position (might have moved)
-                  if (this.world.camera) {
-                    const cam = this.world.camera as {
+                  if ((this.world as any).camera) {
+                    const cam = (this.world as any).camera as {
                       position: { x: number; y: number; z: number };
                     };
                     const userLocal = this.worldToRoomLocal(
@@ -2468,8 +2474,8 @@ export class RobotAssistantSystem extends createSystem({
             );
             this.stepAsideAttempts = 0;
             this.stepAsideTarget = null;
-            if (this.world.camera) {
-              const cam = this.world.camera as {
+            if ((this.world as any).camera) {
+              const cam = (this.world as any).camera as {
                 position: { x: number; y: number; z: number };
               };
               const userLocal = this.worldToRoomLocal(
@@ -2584,8 +2590,8 @@ export class RobotAssistantSystem extends createSystem({
     // Get current user position for better pathfinding (use latest camera position)
     let userTargetX = targetX;
     let userTargetZ = targetZ;
-    if (this.world.camera) {
-      const cam = this.world.camera as {
+    if ((this.world as any).camera) {
+      const cam = (this.world as any).camera as {
         position: { x: number; y: number; z: number };
       };
       const userLocal = this.worldToRoomLocal(

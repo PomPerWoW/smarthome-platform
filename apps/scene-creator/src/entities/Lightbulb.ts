@@ -1,10 +1,10 @@
 import {
-  Object3D,
+  Color,
   Mesh,
   MeshStandardMaterial,
-  Color,
+  Object3D,
   PointLight,
-} from "@iwsdk/core";
+} from "three";
 import { DeviceType, Lightbulb as LightbulbData } from "../types";
 import { BaseDevice } from "./BaseDevice";
 
@@ -37,7 +37,7 @@ export class Lightbulb extends BaseDevice {
     // We don't call applyBaseVisualState here because we want the lamp to remain solid/visible
     // even when off. We only want to control the emissive part (the bulb).
 
-    object3D.traverse((child) => {
+    object3D.traverse((child: any) => {
       if (child instanceof Mesh) {
         // Target the specific bulb mesh for glow
         if (child.name === "Circle_Light_0") {

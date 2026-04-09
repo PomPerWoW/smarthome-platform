@@ -6,11 +6,9 @@ import {
   UIKitDocument,
   UIKit,
   Entity,
-  Quaternion,
-  Euler,
 } from "@iwsdk/core";
 
-import { Vector3 } from "three";
+import { Vector3, Quaternion, Euler } from "three";
 
 import { DeviceComponent } from "../components/DeviceComponent";
 import { deviceStore, getStore } from "../store/DeviceStore";
@@ -57,68 +55,76 @@ export class TelevisionPanelSystem extends createSystem({
     console.log(`[TelevisionPanel] Setting up panel for device ${deviceId}`);
 
     // Power button
-    const powerBtn = document.getElementById("power-btn");
+    const powerBtn = document.getElementById("power-btn") as UIKit.Container | null;
     if (powerBtn) {
-      powerBtn.addEventListener("click", () =>
-        this.handlePowerToggle(deviceId),
-      );
+      powerBtn.setProperties({
+        onClick: () => this.handlePowerToggle(deviceId),
+      });
     }
 
     // Volume controls
-    const volumeUp = document.getElementById("volume-up");
+    const volumeUp = document.getElementById("volume-up") as UIKit.Container | null;
     if (volumeUp) {
-      volumeUp.addEventListener("click", () =>
-        this.handleVolumeChange(deviceId, 1),
-      );
+      volumeUp.setProperties({
+        onClick: () => this.handleVolumeChange(deviceId, 1),
+      });
     }
 
-    const volumeDown = document.getElementById("volume-down");
+    const volumeDown = document.getElementById("volume-down") as UIKit.Container | null;
     if (volumeDown) {
-      volumeDown.addEventListener("click", () =>
-        this.handleVolumeChange(deviceId, 0),
-      );
+      volumeDown.setProperties({
+        onClick: () => this.handleVolumeChange(deviceId, 0),
+      });
     }
 
     // Channel controls
-    const channelUp = document.getElementById("channel-up");
+    const channelUp = document.getElementById("channel-up") as UIKit.Container | null;
     if (channelUp) {
-      channelUp.addEventListener("click", () =>
-        this.handleChannelChange(deviceId, 1),
-      );
+      channelUp.setProperties({
+        onClick: () => this.handleChannelChange(deviceId, 1),
+      });
     }
 
-    const channelDown = document.getElementById("channel-down");
+    const channelDown = document.getElementById("channel-down") as UIKit.Container | null;
     if (channelDown) {
-      channelDown.addEventListener("click", () =>
-        this.handleChannelChange(deviceId, -1),
-      );
+      channelDown.setProperties({
+        onClick: () => this.handleChannelChange(deviceId, -1),
+      });
     }
 
     // Mute button
-    const muteBtn = document.getElementById("mute-btn");
+    const muteBtn = document.getElementById("mute-btn") as UIKit.Container | null;
     if (muteBtn) {
-      muteBtn.addEventListener("click", () => this.handleMuteToggle(deviceId));
+      muteBtn.setProperties({
+        onClick: () => this.handleMuteToggle(deviceId),
+      });
     }
 
     // Position buttons
-    const getPositionBtn = document.getElementById("get-position-btn");
+    const getPositionBtn = document.getElementById("get-position-btn") as UIKit.Container | null;
     if (getPositionBtn) {
-      getPositionBtn.addEventListener("click", () => {
-        this.handleGetPosition(entity, deviceId);
+      getPositionBtn.setProperties({
+        onClick: () => {
+          this.handleGetPosition(entity, deviceId);
+        }
       });
     }
 
-    const savePositionBtn = document.getElementById("save-position-btn");
+    const savePositionBtn = document.getElementById("save-position-btn") as UIKit.Container | null;
     if (savePositionBtn) {
-      savePositionBtn.addEventListener("click", () => {
-        this.handleSavePosition(entity, deviceId);
+      savePositionBtn.setProperties({
+        onClick: () => {
+          this.handleSavePosition(entity, deviceId);
+        }
       });
     }
 
-    const showGraphBtn = document.getElementById("show-graph-btn");
+    const showGraphBtn = document.getElementById("show-graph-btn") as UIKit.Container | null;
     if (showGraphBtn) {
-      showGraphBtn.addEventListener("click", () => {
-        this.handleShowGraph(deviceId);
+      showGraphBtn.setProperties({
+        onClick: () => {
+          this.handleShowGraph(deviceId);
+        }
       });
     }
 

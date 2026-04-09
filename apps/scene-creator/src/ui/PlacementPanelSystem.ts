@@ -45,7 +45,7 @@ export class PlacementPanelSystem extends createSystem({
       ];
 
       for (const { id, type } of deviceButtons) {
-        const btn = document.getElementById(id);
+        const btn = document.getElementById(id) as any;
         if (btn) {
           btn.addEventListener("click", () => {
             console.log(`[PlacementPanel] Device selected: ${type}`);
@@ -56,7 +56,7 @@ export class PlacementPanelSystem extends createSystem({
       }
 
       // ── Wallpaper: upload custom image ─────────────────────────────────────
-      const uploadBtn = document.getElementById("place-wallpaper-upload");
+      const uploadBtn = document.getElementById("place-wallpaper-upload") as any;
       if (uploadBtn) {
         uploadBtn.addEventListener("click", async () => {
           console.log("[PlacementPanel] Wallpaper: open image picker");
@@ -81,7 +81,7 @@ export class PlacementPanelSystem extends createSystem({
         const preset = WALLPAPER_PRESETS.find((p) => p.id === presetId);
         if (!preset) continue;
 
-        const btn = document.getElementById(btnId);
+        const btn = document.getElementById(btnId) as any;
         if (btn) {
           btn.addEventListener("click", () => {
             console.log(
@@ -96,7 +96,7 @@ export class PlacementPanelSystem extends createSystem({
       }
 
       // ── Wallpaper: remove / clear ──────────────────────────────────────────
-      const removeBtn = document.getElementById("remove-wallpaper");
+      const removeBtn = document.getElementById("remove-wallpaper") as any;
       if (removeBtn) {
         removeBtn.addEventListener("click", () => {
           console.log("[PlacementPanel] Wallpaper: remove all");
@@ -106,7 +106,7 @@ export class PlacementPanelSystem extends createSystem({
       }
 
       // ── Close button ───────────────────────────────────────────────────────
-      const closeBtn = document.getElementById("close-placement");
+      const closeBtn = document.getElementById("close-placement") as any;
       if (closeBtn) {
         closeBtn.addEventListener("click", () => {
           console.log("[PlacementPanel] Closed");

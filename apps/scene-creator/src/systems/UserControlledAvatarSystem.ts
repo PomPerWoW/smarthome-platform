@@ -1,13 +1,10 @@
 import {
   createSystem,
   Entity,
-  Object3D,
   AssetManager,
-  AnimationMixer,
-  AnimationAction,
 } from "@iwsdk/core";
 
-import { Box3, Euler, Quaternion, Vector3 } from "three";
+import { AnimationAction, AnimationMixer, Box3, Euler, Quaternion, Vector3, Object3D } from "three";
 import { SkeletonUtils } from "three-stdlib";
 import { UserControlledAvatarComponent } from "../components/UserControlledAvatarComponent";
 import { clampToWalkableAreaWorld, getRoomBounds, getWorldFloorY } from "../config/navmesh";
@@ -243,8 +240,7 @@ export class UserControlledAvatarSystem extends createSystem({
   private syncAvatarToXRUser(record: UserControlledAvatarRecord): void {
     if (!this.isXRPresenting()) return;
 
-    const cam = (this.world as { camera?: { position: Vector3; quaternion: Quaternion } })
-      .camera;
+    const cam = (this.world as any).camera;
     if (!cam?.position || !cam.quaternion) return;
 
     const [cx, cz] = clampToWalkableAreaWorld(cam.position.x, cam.position.z);

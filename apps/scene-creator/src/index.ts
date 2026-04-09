@@ -90,38 +90,38 @@ const assets: AssetManifest = {
     priority: "background",
   },
   room_scene: {
-    url: `${import.meta.env.BASE_URL}models/scenes/lab_plan/LabPlan.gltf`,
+    url: `${(import.meta as any).env.BASE_URL}models/scenes/lab_plan/LabPlan.gltf`,
     type: AssetType.GLTF,
     priority: "critical",
   },
   /** Cutout floor only — invisible child under LabPlan; used for walk / hasFloorBelow. */
   room_floor_walk: {
-    url: `${import.meta.env.BASE_URL}models/floor_cutout/FloorMesh.glb`,
+    url: `${(import.meta as any).env.BASE_URL}models/floor_cutout/FloorMesh.glb`,
     type: AssetType.GLTF,
     priority: "critical",
   },
   lightbulb: {
-    url: `${import.meta.env.BASE_URL}models/devices/ceiling_lamp/scene.gltf`,
+    url: `${(import.meta as any).env.BASE_URL}models/devices/ceiling_lamp/scene.gltf`,
     type: AssetType.GLTF,
     priority: "critical",
   },
   television: {
-    url: `${import.meta.env.BASE_URL}models/devices/television/scene.gltf`,
+    url: `${(import.meta as any).env.BASE_URL}models/devices/television/scene.gltf`,
     type: AssetType.GLTF,
     priority: "critical",
   },
   fan: {
-    url: `${import.meta.env.BASE_URL}models/devices/fan/scene.gltf`,
+    url: `${(import.meta as any).env.BASE_URL}models/devices/fan/scene.gltf`,
     type: AssetType.GLTF,
     priority: "critical",
   },
   air_conditioner: {
-    url: `${import.meta.env.BASE_URL}models/devices/air_conditioner/scene.gltf`,
+    url: `${(import.meta as any).env.BASE_URL}models/devices/air_conditioner/scene.gltf`,
     type: AssetType.GLTF,
     priority: "critical",
   },
   smartmeter: {
-    url: `${import.meta.env.BASE_URL}models/devices/smartmeter/scene.gltf`,
+    url: `${(import.meta as any).env.BASE_URL}models/devices/smart_meter/scene.gltf`,
     type: AssetType.GLTF,
     priority: "critical",
   },
@@ -355,7 +355,7 @@ async function main(): Promise<void> {
   ) => {
     // Remove existing room model if any
     if (currentRoomModel) {
-      world.scene.remove(currentRoomModel);
+      (world as any).scene.remove(currentRoomModel);
       currentRoomModel = null;
     }
 
@@ -462,7 +462,7 @@ async function main(): Promise<void> {
       }
     });
 
-    world.scene.add(roomModel);
+    (world as any).scene.add(roomModel);
     currentRoomModel = roomModel;
 
     initializeNavMesh(roomModel, 1.0);
@@ -481,7 +481,7 @@ async function main(): Promise<void> {
     updateCollisionTransform();
   };
 
-  world
+  (world as any)
     .registerComponent(DeviceComponent)
     .registerComponent(UserControlledAvatarComponent)
     .registerComponent(RobotAssistantComponent)

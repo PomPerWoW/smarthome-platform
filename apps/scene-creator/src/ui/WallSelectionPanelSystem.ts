@@ -97,7 +97,7 @@ export class WallSelectionPanelSystem extends createSystem({
   private _wireButtons(doc: UIKitDocument) {
     // Wall selection buttons
     for (const wallId of WallSelectionPanelSystem.WALL_IDS) {
-      const btn = doc.getElementById(`wall-${wallId}`);
+      const btn = doc.getElementById(`wall-${wallId}`) as any;
       if (btn) {
         btn.addEventListener("click", () => {
           console.log(`[WallSelectionPanel] Wall selected: ${wallId}`);
@@ -108,7 +108,7 @@ export class WallSelectionPanelSystem extends createSystem({
     }
 
     // Cancel button
-    const cancelBtn = doc.getElementById("wall-cancel");
+    const cancelBtn = doc.getElementById("wall-cancel") as any;
     if (cancelBtn) {
       cancelBtn.addEventListener("click", () => {
         console.log("[WallSelectionPanel] Cancelled");

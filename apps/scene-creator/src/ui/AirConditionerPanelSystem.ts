@@ -6,11 +6,9 @@ import {
   UIKitDocument,
   UIKit,
   Entity,
-  Quaternion,
-  Euler,
 } from "@iwsdk/core";
 
-import { Vector3 } from "three";
+import { Vector3, Quaternion, Euler } from "three";
 
 import { DeviceComponent } from "../components/DeviceComponent";
 import { deviceStore, getStore } from "../store/DeviceStore";
@@ -58,56 +56,62 @@ export class AirConditionerPanelSystem extends createSystem({
 
     console.log(`[ACPanel] Setting up panel for device ${deviceId}`);
 
-    const powerBtn = document.getElementById("power-btn");
+    const powerBtn = document.getElementById("power-btn") as UIKit.Container | null;
     if (powerBtn) {
-      powerBtn.addEventListener("click", () =>
-        this.handlePowerToggle(deviceId),
-      );
+      powerBtn.setProperties({
+        onClick: () => this.handlePowerToggle(deviceId)
+      });
     }
 
-    const tempUp = document.getElementById("temp-up");
+    const tempUp = document.getElementById("temp-up") as UIKit.Container | null;
     if (tempUp) {
-      tempUp.addEventListener("click", () =>
-        this.handleTempChange(deviceId, 1),
-      );
+      tempUp.setProperties({
+        onClick: () => this.handleTempChange(deviceId, 1)
+      });
     }
 
-    const tempDown = document.getElementById("temp-down");
+    const tempDown = document.getElementById("temp-down") as UIKit.Container | null;
     if (tempDown) {
-      tempDown.addEventListener("click", () =>
-        this.handleTempChange(deviceId, -1),
-      );
+      tempDown.setProperties({
+        onClick: () => this.handleTempChange(deviceId, -1)
+      });
     }
 
     // Preset temperature buttons
     for (const temp of PRESET_TEMPS) {
-      const presetBtn = document.getElementById(`preset-${temp}`);
+      const presetBtn = document.getElementById(`preset-${temp}`) as UIKit.Container | null;
       if (presetBtn) {
-        presetBtn.addEventListener("click", () =>
-          this.handleSetTemp(deviceId, temp),
-        );
+        presetBtn.setProperties({
+          onClick: () => this.handleSetTemp(deviceId, temp)
+        });
       }
     }
 
     // Position buttons
-    const getPositionBtn = document.getElementById("get-position-btn");
+    const getPositionBtn = document.getElementById("get-position-btn") as UIKit.Container | null;
     if (getPositionBtn) {
-      getPositionBtn.addEventListener("click", () => {
-        this.handleGetPosition(entity, deviceId);
+      getPositionBtn.setProperties({
+        onClick: () => {
+          this.handleGetPosition(entity, deviceId);
+        }
       });
     }
-
-    const savePositionBtn = document.getElementById("save-position-btn");
+  
+    const savePositionBtn = document.getElementById("save-position-btn") as UIKit.Container | null;
     if (savePositionBtn) {
-      savePositionBtn.addEventListener("click", () => {
-        this.handleSavePosition(entity, deviceId);
+      savePositionBtn.setProperties({
+        onClick: () => {
+          this.handleSavePosition(entity, deviceId);
+        }
       });
     }
-
-    const showGraphBtn = document.getElementById("show-graph-btn");
+  
+    const showGraphBtn = document.getElementById("show-graph-btn") as UIKit.Container | null;
     if (showGraphBtn) {
-      showGraphBtn.addEventListener("click", () => {
-        this.handleShowGraph(deviceId);
+      showGraphBtn.setProperties({
+        onClick: () => {
+          this.handleShowGraph(deviceId);
+        }
       });
     }
 

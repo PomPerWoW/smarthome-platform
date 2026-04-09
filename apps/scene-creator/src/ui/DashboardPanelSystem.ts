@@ -8,7 +8,7 @@ import {
   Entity,
   VisibilityState,
 } from "@iwsdk/core";
-import { Vector3 } from "three";
+import { Vector3, Object3D } from "three";
 
 import { deviceStore, getStore } from "../store/DeviceStore";
 import { getAuth } from "../api/auth";
@@ -388,12 +388,14 @@ export class DashboardPanelSystem extends createSystem({
     this.setupWallpaperSection(document);
 
     // ── Close button ─────────────────────────────────────────────────────────
-    const closeBtn = document.getElementById("close-dashboard-btn");
+    const closeBtn = document.getElementById("close-dashboard-btn") as UIKit.Container | null;
     if (closeBtn) {
-      closeBtn.addEventListener("click", () => {
-        if (entity.object3D) {
-          entity.object3D.visible = false;
-          console.log("[DashboardPanel] Panel closed");
+      closeBtn.setProperties({
+        onClick: () => {
+          if (entity.object3D) {
+            entity.object3D.visible = false;
+            console.log("[DashboardPanel] Panel closed");
+          }
         }
       });
     }
@@ -631,67 +633,77 @@ export class DashboardPanelSystem extends createSystem({
     };
 
     // Home
-    const railHomeBtn = document.getElementById("rail-home-btn");
+    const railHomeBtn = document.getElementById("rail-home-btn") as UIKit.Container | null;
     if (railHomeBtn) {
-      railHomeBtn.addEventListener("click", () => {
-        console.log("[DashboardPanel][Home] Home button clicked");
-        setActiveRail("rail-home-btn");
-        this.showDashboardHomeSection(document);
-        const placementEntity = (globalThis as any).__placementPanelEntity;
-        if (placementEntity?.object3D) placementEntity.object3D.visible = false;
-        // Show dashboard
-        if (this.activeEntity?.object3D) {
-          this.activeEntity.object3D.visible = true;
+      railHomeBtn.setProperties({
+        onClick: () => {
+          console.log("[DashboardPanel][Home] Home button clicked");
+          setActiveRail("rail-home-btn");
+          this.showDashboardHomeSection(document);
+          const placementEntity = (globalThis as any).__placementPanelEntity;
+          if (placementEntity?.object3D) placementEntity.object3D.visible = false;
+          // Show dashboard
+          if (this.activeEntity?.object3D) {
+            this.activeEntity.object3D.visible = true;
+          }
+          this.renderCurrentRoom(document);
+          this.showHomeInformation(document);
+          console.log("[DashboardPanel][Home] Home info render completed");
         }
-        this.renderCurrentRoom(document);
-        this.showHomeInformation(document);
-        console.log("[DashboardPanel][Home] Home info render completed");
       });
     }
 
     // Devices → toggle placement panel
-    const railDevicesBtn = document.getElementById("rail-devices-btn");
+    const railDevicesBtn = document.getElementById("rail-devices-btn") as UIKit.Container | null;
     if (railDevicesBtn) {
-      railDevicesBtn.addEventListener("click", () => {
-        setActiveRail("rail-devices-btn");
-        this.showDashboardHomeSection(document);
-        this.showDashboardPlacementSection(document);
-        const placementEntity = (globalThis as any).__placementPanelEntity;
-        if (placementEntity?.object3D) placementEntity.object3D.visible = false;
+      railDevicesBtn.setProperties({
+        onClick: () => {
+          setActiveRail("rail-devices-btn");
+          this.showDashboardHomeSection(document);
+          this.showDashboardPlacementSection(document);
+          const placementEntity = (globalThis as any).__placementPanelEntity;
+          if (placementEntity?.object3D) placementEntity.object3D.visible = false;
+        }
       });
     }
 
     // Room alignment is unplugged from current workflow.
-    const railAlignBtn = document.getElementById("rail-align-room-btn");
+    const railAlignBtn = document.getElementById("rail-align-room-btn") as any;
     if (railAlignBtn) {
       (railAlignBtn as any).setProperties?.({ display: "none" });
     }
 
-    const railWallpaperBtn = document.getElementById("rail-wallpaper-btn");
+    const railWallpaperBtn = document.getElementById("rail-wallpaper-btn") as UIKit.Container | null;
     if (railWallpaperBtn) {
-      railWallpaperBtn.addEventListener("click", () => {
-        setActiveRail("rail-wallpaper-btn");
-        this.showDashboardWallpaperSection(document);
-        const placementEntity = (globalThis as any).__placementPanelEntity;
-        if (placementEntity?.object3D) placementEntity.object3D.visible = false;
+      railWallpaperBtn.setProperties({
+        onClick: () => {
+          setActiveRail("rail-wallpaper-btn");
+          this.showDashboardWallpaperSection(document);
+          const placementEntity = (globalThis as any).__placementPanelEntity;
+          if (placementEntity?.object3D) placementEntity.object3D.visible = false;
+        }
       });
     }
 
     // Mic → voice assistant
-    const railMicBtn = document.getElementById("rail-mic-btn");
+    const railMicBtn = document.getElementById("rail-mic-btn") as UIKit.Container| null;
     if (railMicBtn) {
-      railMicBtn.addEventListener("click", () => {
-        setActiveRail("rail-mic-btn");
-        this.showVoiceAssistantPanel(document);
+      railMicBtn.setProperties({
+        onClick: () => {
+          setActiveRail("rail-mic-btn");
+          this.showVoiceAssistantPanel(document);
+        }
       });
     }
 
     // AR / VR → open XR controls (mode + enter / exit immersive)
-    const railXrBtn = document.getElementById("rail-xr-btn");
+    const railXrBtn = document.getElementById("rail-xr-btn") as UIKit.Container | null;
     if (railXrBtn) {
-      railXrBtn.addEventListener("click", () => {
-        setActiveRail("rail-xr-btn");
-        this.showDashboardXRSection(document);
+      railXrBtn.setProperties({
+        onClick: () => {
+          setActiveRail("rail-xr-btn");
+          this.showDashboardXRSection(document);
+        }
       });
     }
 
@@ -700,10 +712,12 @@ export class DashboardPanelSystem extends createSystem({
   }
 
   private setupVoiceAssistantPanel(document: UIKitDocument): void {
-    const commandBtn = document.getElementById("voice-command-btn");
+    const commandBtn = document.getElementById("voice-command-btn") as UIKit.Container | null;
     if (commandBtn) {
-      commandBtn.addEventListener("click", () => {
-        this.triggerVoiceAssistantFromDashboard(document);
+      commandBtn.setProperties({
+        onClick: () => {
+          this.triggerVoiceAssistantFromDashboard(document);
+        }
       });
     }
 
@@ -816,11 +830,11 @@ export class DashboardPanelSystem extends createSystem({
   private setupXRSection(document: UIKitDocument): void {
     const vrBtn = document.getElementById("dash-vr-mode-btn") as UIKit.Container;
     const arBtn = document.getElementById("dash-ar-mode-btn") as UIKit.Container;
-    const primaryBtn = document.getElementById("dash-xr-primary-btn");
+    const primaryBtn = document.getElementById("dash-xr-primary-btn") as any;
     const primaryText = document.getElementById(
       "dash-xr-primary-text",
     ) as UIKit.Text;
-    const xrCardPrimaryBtn = document.getElementById("xr-card-primary-btn");
+    const xrCardPrimaryBtn = document.getElementById("xr-card-primary-btn") as any;
     const xrCardPrimaryText = document.getElementById(
       "xr-card-primary-text",
     ) as UIKit.Text;
@@ -889,8 +903,8 @@ export class DashboardPanelSystem extends createSystem({
     updatePrimaryLabels();
     this.scheduleDashboardBVHRefresh();
 
-    vrBtn?.addEventListener("click", () => applyMode(false));
-    arBtn?.addEventListener("click", () => applyMode(true));
+    if (vrBtn) (vrBtn as UIKit.Container).setProperties({ onClick: () => applyMode(false) });
+    if (arBtn) (arBtn as UIKit.Container).setProperties({ onClick: () => applyMode(true) });
 
     const handleXrClick = async () => {
       if (this.world.visibilityState.value === VisibilityState.NonImmersive) {
@@ -922,12 +936,20 @@ export class DashboardPanelSystem extends createSystem({
       }
     };
 
-    primaryBtn?.addEventListener("click", () => {
-      void handleXrClick();
-    });
-    xrCardPrimaryBtn?.addEventListener("click", () => {
-      void handleXrClick();
-    });
+    if (primaryBtn) {
+      (primaryBtn as UIKit.Container).setProperties({
+        onClick: () => {
+          void handleXrClick();
+        }
+      });
+    }
+    if (xrCardPrimaryBtn) {
+      (xrCardPrimaryBtn as UIKit.Container).setProperties({
+        onClick: () => {
+          void handleXrClick();
+        }
+      });
+    }
 
     this.refreshDashboardXRSectionUI = () => {
       updateModeChrome();
@@ -975,16 +997,24 @@ export class DashboardPanelSystem extends createSystem({
 
     updateBodyTrackingChrome();
 
-    slimevrBtn?.addEventListener("click", () => {
-      setBodyTrackingMode("slimevr");
-      updateBodyTrackingChrome();
-      console.log("[DashboardPanel] Body tracking: SlimeVR");
-    });
-    offBtn?.addEventListener("click", () => {
-      setBodyTrackingMode("off");
-      updateBodyTrackingChrome();
-      console.log("[DashboardPanel] Body tracking: off (animated legs only)");
-    });
+    if (slimevrBtn) {
+      (slimevrBtn as UIKit.Container).setProperties({
+        onClick: () => {
+          setBodyTrackingMode("slimevr");
+          updateBodyTrackingChrome();
+          console.log("[DashboardPanel] Body tracking: SlimeVR");
+        }
+      });
+    }
+    if (offBtn) {
+      (offBtn as UIKit.Container).setProperties({
+        onClick: () => {
+          setBodyTrackingMode("off");
+          updateBodyTrackingChrome();
+          console.log("[DashboardPanel] Body tracking: off (animated legs only)");
+        }
+      });
+    }
   }
 
   private setupPlacementSection(document: UIKitDocument): void {
@@ -1003,19 +1033,27 @@ export class DashboardPanelSystem extends createSystem({
     ];
 
     for (const { id, type } of deviceButtons) {
-      document.getElementById(id)?.addEventListener("click", () => {
-        store.setPlacementMode(type);
-        this.showDashboardHomeSection(document);
-      });
+      const btn = document.getElementById(id) as UIKit.Container | null;
+      if (btn) {
+        btn.setProperties({
+          onClick: () => {
+            store.setPlacementMode(type);
+            this.showDashboardHomeSection(document);
+          }
+        });
+      }
     }
   }
 
   private setupWallpaperSection(document: UIKitDocument): void {
-    document
-      .getElementById("place-wallpaper-upload")
-      ?.addEventListener("click", async () => {
-        await pickAndApplyWallpaper();
+    const uploadBtn = document.getElementById("place-wallpaper-upload") as UIKit.Container | null;
+    if (uploadBtn) {
+      uploadBtn.setProperties({
+        onClick: async () => {
+          await pickAndApplyWallpaper();
+        }
       });
+    }
 
     const presetButtonMap: Array<{ btnId: string; presetId: string }> = [
       { btnId: "place-wallpaper-white", presetId: "preset-white" },
@@ -1029,14 +1067,24 @@ export class DashboardPanelSystem extends createSystem({
     for (const { btnId, presetId } of presetButtonMap) {
       const preset = WALLPAPER_PRESETS.find((p) => p.id === presetId);
       if (!preset) continue;
-      document.getElementById(btnId)?.addEventListener("click", () => {
-        applyColorWallpaper(preset.color, preset.label);
-      });
+      const btn = document.getElementById(btnId) as UIKit.Container | null;
+      if (btn) {
+        btn.setProperties({
+          onClick: () => {
+            applyColorWallpaper(preset.color, preset.label);
+          }
+        });
+      }
     }
 
-    document.getElementById("remove-wallpaper")?.addEventListener("click", () => {
-      removeAllWallpaper();
-    });
+    const removeWpBtn = document.getElementById("remove-wallpaper") as UIKit.Container | null;
+    if (removeWpBtn) {
+      removeWpBtn.setProperties({
+        onClick: () => {
+          removeAllWallpaper();
+        }
+      });
+    }
   }
 
   private setupAlignmentSection(document: UIKitDocument): void {
@@ -1094,30 +1142,14 @@ export class DashboardPanelSystem extends createSystem({
       });
     };
 
-    document
-      .getElementById("btn-move-fwd")
-      ?.addEventListener("click", () => translateRoom(0, 0, -MOVE_STEP));
-    document
-      .getElementById("btn-move-back")
-      ?.addEventListener("click", () => translateRoom(0, 0, MOVE_STEP));
-    document
-      .getElementById("btn-move-left")
-      ?.addEventListener("click", () => translateRoom(-MOVE_STEP, 0, 0));
-    document
-      .getElementById("btn-move-right")
-      ?.addEventListener("click", () => translateRoom(MOVE_STEP, 0, 0));
-    document
-      .getElementById("btn-move-up")
-      ?.addEventListener("click", () => translateRoom(0, MOVE_STEP, 0));
-    document
-      .getElementById("btn-move-down")
-      ?.addEventListener("click", () => translateRoom(0, -MOVE_STEP, 0));
-    document
-      .getElementById("btn-rot-left")
-      ?.addEventListener("click", () => rotateRoom(ROT_STEP));
-    document
-      .getElementById("btn-rot-right")
-      ?.addEventListener("click", () => rotateRoom(-ROT_STEP));
+    (document.getElementById("btn-move-fwd") as UIKit.Container | null)?.setProperties({ onClick: () => translateRoom(0, 0, -MOVE_STEP) });
+    (document.getElementById("btn-move-back") as UIKit.Container | null)?.setProperties({ onClick: () => translateRoom(0, 0, MOVE_STEP) });
+    (document.getElementById("btn-move-left") as UIKit.Container | null)?.setProperties({ onClick: () => translateRoom(-MOVE_STEP, 0, 0) });
+    (document.getElementById("btn-move-right") as UIKit.Container | null)?.setProperties({ onClick: () => translateRoom(MOVE_STEP, 0, 0) });
+    (document.getElementById("btn-move-up") as UIKit.Container | null)?.setProperties({ onClick: () => translateRoom(0, MOVE_STEP, 0) });
+    (document.getElementById("btn-move-down") as UIKit.Container | null)?.setProperties({ onClick: () => translateRoom(0, -MOVE_STEP, 0) });
+    (document.getElementById("btn-rot-left") as UIKit.Container | null)?.setProperties({ onClick: () => rotateRoom(ROT_STEP) });
+    (document.getElementById("btn-rot-right") as UIKit.Container | null)?.setProperties({ onClick: () => rotateRoom(-ROT_STEP) });
 
     const labModel = (globalThis as any).__labRoomModel;
     if (labModel) this.updateAlignmentStatus(document, labModel);
@@ -1201,35 +1233,41 @@ export class DashboardPanelSystem extends createSystem({
       const slotIndex = i;
 
       // Power toggle
-      const toggleBtn = document.getElementById(`toggle-wrap-${i}`) || document.getElementById(`card-toggle-${i}`);
+      const toggleBtn = (document.getElementById(`toggle-wrap-${i}`) || document.getElementById(`card-toggle-${i}`)) as UIKit.Container | null;
       if (toggleBtn) {
-        toggleBtn.addEventListener("click", () => {
-          const deviceId = this.slotDeviceMap.get(slotIndex);
-          if (!deviceId) return;
-          console.log(
-            `[DashboardPanel] Toggling device ${deviceId} from card ${slotIndex}`,
-          );
-          getStore().toggleDevice(deviceId);
+        toggleBtn.setProperties({
+          onClick: () => {
+            const deviceId = this.slotDeviceMap.get(slotIndex);
+            if (!deviceId) return;
+            console.log(
+              `[DashboardPanel] Toggling device ${deviceId} from card ${slotIndex}`,
+            );
+            getStore().toggleDevice(deviceId);
+          }
         });
       }
 
       // Increment
-      const upBtn = document.getElementById(`card-up-${i}`);
+      const upBtn = document.getElementById(`card-up-${i}`) as UIKit.Container | null;
       if (upBtn) {
-        upBtn.addEventListener("click", () => {
-          const deviceId = this.slotDeviceMap.get(slotIndex);
-          if (!deviceId) return;
-          this.handleDeviceIncrement(deviceId, 1);
+        upBtn.setProperties({
+          onClick: () => {
+            const deviceId = this.slotDeviceMap.get(slotIndex);
+            if (!deviceId) return;
+            this.handleDeviceIncrement(deviceId, 1);
+          }
         });
       }
 
       // Decrement
-      const downBtn = document.getElementById(`card-down-${i}`);
+      const downBtn = document.getElementById(`card-down-${i}`) as UIKit.Container | null;
       if (downBtn) {
-        downBtn.addEventListener("click", () => {
-          const deviceId = this.slotDeviceMap.get(slotIndex);
-          if (!deviceId) return;
-          this.handleDeviceIncrement(deviceId, -1);
+        downBtn.setProperties({
+          onClick: () => {
+            const deviceId = this.slotDeviceMap.get(slotIndex);
+            if (!deviceId) return;
+            this.handleDeviceIncrement(deviceId, -1);
+          }
         });
       }
     }
@@ -1566,7 +1604,9 @@ export class DashboardPanelSystem extends createSystem({
     const store = getStore();
     const roomMap = store.getDevicesByRoom();
     const direct = roomMap[roomId]?.devices ?? store.getDevicesForRoom(roomId);
-    const directFiltered = direct.filter((d) => !isFurniture(d));
+    const directFiltered = direct.filter((d) => {
+      return !isFurniture(d);
+    });
     if (directFiltered.length > 0) return directFiltered;
 
     const roomNameHint = this.roomNameById.get(roomId)?.trim().toLowerCase();

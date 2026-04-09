@@ -17,13 +17,10 @@ import {
     CurvePath,
     LineCurve3,
     Color,
-} from "@iwsdk/core";
-import {
     CanvasTexture,
     SpriteMaterial,
     Sprite,
     BufferGeometry,
-    Vector3 as ThreeVector3,
     CircleGeometry,
     BufferAttribute,
     Shape,
@@ -248,7 +245,7 @@ export class Chart3D {
         grabProxy.name = "SmartMeterChartGrabProxy";
         container.add(grabProxy);
 
-        container.traverse((child) => {
+        container.traverse((child: any) => {
             const m = child as Mesh;
             if (m.isMesh === true && m !== grabProxy) {
                 m.raycast = () => { };
@@ -305,7 +302,7 @@ export class Chart3D {
         const bdropMat = new MeshBasicMaterial({ color: COLORS.gaugeBdrop });
 
         // Assert as 'any' to bypass missing SDK-specific BufferGeometry properties like 'computeBoundsTree'
-        const backdropArc = new Mesh(bdropGeo as any, bdropMat);
+        const backdropArc = new Mesh(bdropGeo as any, bdropMat as any);
         group.add(backdropArc);
 
         const capGeoBdrop = new CylinderGeometry(trackThickness * 0.98, trackThickness * 0.98, backdropDepth, capRadialSegs);
@@ -325,7 +322,7 @@ export class Chart3D {
         const progressMat = new MeshBasicMaterial({ vertexColors: true });
 
         // Assert as 'any' to bypass strict TS check
-        const progressArc = new Mesh(initialProgressGeo as any, progressMat);
+        const progressArc = new Mesh(initialProgressGeo as any, progressMat as any);
         progressArc.position.z = 0.01;
         group.add(progressArc);
 
@@ -334,7 +331,7 @@ export class Chart3D {
 
         const baseColor = new Color(COLORS.gaugeBdrop).lerp(new Color(primaryColor), 0.15);
         const baseCapMat = new MeshBasicMaterial({ color: baseColor });
-        const baseCap = new Mesh(capGeoProg, baseCapMat);
+        const baseCap = new Mesh(capGeoProg, baseCapMat as any);
         baseCap.position.set(Math.cos(startAngle) * midRadius, Math.sin(startAngle) * midRadius, 0.01);
         group.add(baseCap);
 
@@ -363,7 +360,7 @@ export class Chart3D {
         needleGeo.translate(0, 0, -0.02);
 
         // Assert as 'any' to bypass strict TS check
-        const needleMesh = new Mesh(needleGeo as any, new MeshBasicMaterial({ color: primaryColor }));
+        const needleMesh = new Mesh(needleGeo as any, new MeshBasicMaterial({ color: primaryColor }) as any);
         pivotGroup.add(needleMesh);
 
         group.add(pivotGroup);
@@ -389,14 +386,17 @@ export class Chart3D {
 
             pivotGroup.rotation.z = targetNeedleAngle;
 
-            progressArc.geometry.dispose();
-            progressArc.geometry = createThickArc(
-                startAngle,
-                finalEndAngle,
-                progressDepth,
-                progressCurveSegs,
-            ) as any;
-            applySolidGaugeColor(progressArc.geometry as any, primaryColor);
+            const progressArcAny = progressArc as any;
+            if (progressArcAny.geometry) {
+                progressArcAny.geometry.dispose();
+                progressArcAny.geometry = createThickArc(
+                    startAngle,
+                    finalEndAngle,
+                    progressDepth,
+                    progressCurveSegs,
+                ) as any;
+                applySolidGaugeColor(progressArcAny.geometry as any, primaryColor);
+            }
 
             tipCap.position.x = Math.cos(finalEndAngle) * midRadius;
             tipCap.position.y = Math.sin(finalEndAngle) * midRadius;
@@ -460,7 +460,7 @@ export class Chart3D {
             transparent: true,
             opacity: 0.9,
         });
-        container.add(new Mesh(tubeGeo, tubeMat));
+        container.add(new Mesh(tubeGeo as any, tubeMat as any));
 
         if (showPoints) {
             values.forEach((v, i) => {
@@ -536,7 +536,7 @@ export class Chart3D {
                 transparent: true,
                 opacity: 0.9,
             });
-            const mesh = new Mesh(geo, mat);
+            const mesh = new Mesh(geo as any, mat as any);
 
             const x = (xScale(i.toString()) || 0) + barWidth / 2;
 
@@ -599,7 +599,7 @@ export class Chart3D {
                 transparent: true,
                 opacity: 0.9,
             });
-            const mesh = new Mesh(geo, mat);
+            const mesh = new Mesh(geo as any, mat as any);
             mesh.position.y = height / 2;
             container.add(mesh);
 
@@ -618,14 +618,14 @@ export class Chart3D {
     }
 
     private addAxes(container: Group, width: number, height: number, title: string, maxValue?: number, labelFormatter?: (v: number) => string) {
-        const points = [new ThreeVector3(-width / 2, 0, 0), new ThreeVector3(width / 2, 0, 0)];
+        const points = [new Vector3(-width / 2, 0, 0), new Vector3(width / 2, 0, 0)];
         const geo = new BufferGeometry().setFromPoints(points as any);
-        const xGeo = new Line(geo as any, new LineBasicMaterial({ color: COLORS.grid }));
+        const xGeo = new Line(geo as any, new LineBasicMaterial({ color: COLORS.grid }) as any);
         container.add(xGeo);
 
-        const yPoints = [new ThreeVector3(-width / 2, 0, 0), new ThreeVector3(-width / 2, height, 0)];
+        const yPoints = [new Vector3(-width / 2, 0, 0), new Vector3(-width / 2, height, 0)];
         const yGeo = new BufferGeometry().setFromPoints(yPoints as any);
-        const yLine = new Line(yGeo as any, new LineBasicMaterial({ color: COLORS.grid }));
+        const yLine = new Line(yGeo as any, new LineBasicMaterial({ color: COLORS.grid }) as any);
         container.add(yLine);
 
         if (maxValue !== undefined) {

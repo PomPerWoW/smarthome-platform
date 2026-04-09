@@ -123,7 +123,7 @@ export class SmartMeterPanelSystem extends createSystem({
         if (!deviceId) return;
 
         // Power button
-        const powerBtn = document.getElementById("power-btn");
+        const powerBtn = document.getElementById("power-btn") as any;
         if (powerBtn) {
             powerBtn.addEventListener("click", () => {
                 this.handlePowerToggle(deviceId);
@@ -131,7 +131,7 @@ export class SmartMeterPanelSystem extends createSystem({
         }
 
         // 3D Gauge button
-        const showGaugeBtn = document.getElementById("show-gauge-btn");
+        const showGaugeBtn = document.getElementById("show-gauge-btn") as any;
         if (showGaugeBtn) {
             showGaugeBtn.addEventListener("click", () => {
                 this.handleShowGauge(deviceId);
