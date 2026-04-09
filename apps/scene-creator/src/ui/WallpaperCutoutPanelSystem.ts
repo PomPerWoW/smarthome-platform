@@ -112,7 +112,7 @@ export class WallpaperCutoutPanelSystem extends createSystem({
   private _wireButtons(doc: UIKitDocument) {
     // ── Prompt step buttons ────────────────────────────────────────────────
 
-    const yesBtn = doc.getElementById("cutout-yes");
+    const yesBtn = doc.getElementById("cutout-yes") as any;
     if (yesBtn) {
       yesBtn.addEventListener("click", () => {
         console.log("[WallpaperCutoutPanel] User chose: cut out areas");
@@ -122,7 +122,7 @@ export class WallpaperCutoutPanelSystem extends createSystem({
       console.warn("[WallpaperCutoutPanel] #cutout-yes not found");
     }
 
-    const noBtn = doc.getElementById("cutout-no");
+    const noBtn = doc.getElementById("cutout-no") as any;
     if (noBtn) {
       noBtn.addEventListener("click", () => {
         console.log("[WallpaperCutoutPanel] User chose: skip cutouts");
@@ -135,7 +135,7 @@ export class WallpaperCutoutPanelSystem extends createSystem({
 
     // ── Drawing step buttons ───────────────────────────────────────────────
 
-    const undoBtn = doc.getElementById("cutout-undo");
+    const undoBtn = doc.getElementById("cutout-undo") as any;
     if (undoBtn) {
       undoBtn.addEventListener("click", () => {
         console.log("[WallpaperCutoutPanel] Undo last region");
@@ -145,7 +145,7 @@ export class WallpaperCutoutPanelSystem extends createSystem({
       console.warn("[WallpaperCutoutPanel] #cutout-undo not found");
     }
 
-    const confirmBtn = doc.getElementById("cutout-confirm");
+    const confirmBtn = doc.getElementById("cutout-confirm") as any;
     if (confirmBtn) {
       confirmBtn.addEventListener("click", () => {
         console.log("[WallpaperCutoutPanel] Confirm cutouts");

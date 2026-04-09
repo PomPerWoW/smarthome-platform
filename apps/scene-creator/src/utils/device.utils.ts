@@ -52,5 +52,7 @@ export function getDeviceProperties(device: Device): Record<string, unknown> {
     case DeviceType.Chair5:
     case DeviceType.Chair6:
       return {};
+    default:
+      return {};
   }
 }

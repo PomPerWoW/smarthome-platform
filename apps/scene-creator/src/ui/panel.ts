@@ -50,7 +50,7 @@ export class PanelSystem extends createSystem({
 
         const placementObj = placementEntity?.object3D;
         const targetObj = target === "placement" ? placementObj : undefined;
-        const otherObj = undefined;
+        const otherObj: any = undefined;
 
         if (!targetObj) return;
 
@@ -121,8 +121,8 @@ export class PanelSystem extends createSystem({
       let isARMode = false; // Default: VR mode (room model visible)
       (globalThis as any).__sceneMode = "vr";
 
-      const vrModeBtn = document.getElementById("vr-mode-btn");
-      const arModeBtn = document.getElementById("ar-mode-btn");
+      const vrModeBtn = document.getElementById("vr-mode-btn") as any;
+      const arModeBtn = document.getElementById("ar-mode-btn") as any;
 
       const applyMode = (ar: boolean) => {
         isARMode = ar;
@@ -226,7 +226,7 @@ export class PanelSystem extends createSystem({
         }
       };
 
-      const xrButton = document.getElementById("xr-button") as UIKit.Text;
+      const xrButton = document.getElementById("xr-button") as any;
       if (xrButton) {
         xrButton.addEventListener("click", handleXrClick);
 
@@ -256,7 +256,7 @@ export class PanelSystem extends createSystem({
           updateButtonText();
         });
       }
-      const railXrButton = document.getElementById("rail-xr-btn") as UIKit.Text;
+      const railXrButton = document.getElementById("rail-xr-btn") as any;
       if (railXrButton) {
         railXrButton.addEventListener("click", () => {
           setActiveRail("rail-xr-btn");
@@ -264,7 +264,7 @@ export class PanelSystem extends createSystem({
         });
       }
 
-      const railMicButton = document.getElementById("rail-mic-btn") as UIKit.Text;
+      const railMicButton = document.getElementById("rail-mic-btn") as any;
       if (railMicButton) {
         railMicButton.addEventListener("click", () => {
           setActiveRail("rail-mic-btn");
@@ -278,7 +278,7 @@ export class PanelSystem extends createSystem({
       // Refresh Button
       const refreshButton = document.getElementById(
         "refresh-button",
-      ) as UIKit.Text;
+      ) as any;
       if (refreshButton) {
         refreshButton.addEventListener("click", async () => {
           console.log("[Panel] Refreshing devices...");
@@ -287,7 +287,7 @@ export class PanelSystem extends createSystem({
       }
       const railRefreshButton = document.getElementById(
         "rail-refresh-btn",
-      ) as UIKit.Text;
+      ) as any;
       if (railRefreshButton) {
         railRefreshButton.addEventListener("click", async () => {
           setActiveRail("rail-refresh-btn");
@@ -299,7 +299,7 @@ export class PanelSystem extends createSystem({
       // Devices Button → toggle placement panel
       const devicesButton = document.getElementById(
         "devices-button",
-      ) as UIKit.Text;
+      ) as any;
       if (devicesButton) {
         devicesButton.addEventListener("click", () => {
           console.log("[Panel] Toggling placement panel");
@@ -308,7 +308,7 @@ export class PanelSystem extends createSystem({
       }
       const railDevicesButton = document.getElementById(
         "rail-devices-btn",
-      ) as UIKit.Text;
+      ) as any;
       if (railDevicesButton) {
         railDevicesButton.addEventListener("click", () => {
           setActiveRail("rail-devices-btn");
@@ -335,7 +335,7 @@ export class PanelSystem extends createSystem({
 
       const railHomeButton = document.getElementById(
         "rail-home-btn",
-      ) as UIKit.Text;
+      ) as any;
       if (railHomeButton) {
         railHomeButton.addEventListener("click", () => {
           setActiveRail("rail-home-btn");
@@ -397,7 +397,7 @@ export class PanelSystem extends createSystem({
         this.summonPanelInFront();
 
       // ── Close Button in Welcome Panel ──────────────────────────────────────
-      const closeButton = document.getElementById("close-welcome-panel");
+      const closeButton = document.getElementById("close-welcome-panel") as any;
       if (closeButton) {
         closeButton.addEventListener("click", () => {
           toggleWelcomePanel();
@@ -443,7 +443,7 @@ export class PanelSystem extends createSystem({
         el.style.outline = "none";
         el.style.border = "1px solid rgba(255, 255, 255, 0.14)";
         el.style.backdropFilter = "blur(40px)";
-        el.style.webkitBackdropFilter = "blur(40px)";
+        (el.style as any).webkitBackdropFilter = "blur(40px)";
         el.style.backgroundColor = "rgba(15, 23, 42, 0.88)";
       };
 
@@ -451,9 +451,9 @@ export class PanelSystem extends createSystem({
         const existing = document.getElementById(
           "welcome-panel-toggle-container",
         );
-        if (existing) existing.remove();
+        if (existing) (existing as any).remove();
 
-        const container = document.createElement("div");
+        const container = window.document.createElement("div");
         container.id = "welcome-panel-toggle-container";
         container.style.position = "fixed";
         container.style.top = "20px";
@@ -465,7 +465,7 @@ export class PanelSystem extends createSystem({
         container.style.alignItems = "flex-start";
         container.style.gap = "12px";
 
-        const voiceBtn = document.createElement("button");
+        const voiceBtn = window.document.createElement("button");
         voiceBtn.id = "voice-assistant-float-btn";
         voiceBtn.title = "Voice assistant";
         voiceBtn.setAttribute("aria-label", "Voice assistant");
@@ -477,7 +477,7 @@ export class PanelSystem extends createSystem({
             <line x1="12" y1="19" x2="12" y2="23"/>
             <line x1="8" y1="23" x2="16" y2="23"/>
           </svg>`;
-        voiceBtn.addEventListener("click", (e) => {
+        voiceBtn.addEventListener("click", (e: any) => {
           e.preventDefault();
           e.stopPropagation();
           const fn = (globalThis as any).__triggerVoiceAssistant as
@@ -494,7 +494,7 @@ export class PanelSystem extends createSystem({
           voiceBtn.style.transform = "scale(1)";
         });
 
-        const button = document.createElement("button");
+        const button = window.document.createElement("button");
         button.id = "welcome-panel-toggle-btn";
         button.title = "Main portal";
         glassButtonBase(button);
@@ -521,7 +521,7 @@ export class PanelSystem extends createSystem({
           button.style.transform = "scale(1.04)";
         });
 
-        button.addEventListener("click", (e) => {
+        button.addEventListener("click", (e: any) => {
           e.preventDefault();
           e.stopPropagation();
           toggleWelcomePanel();
@@ -534,20 +534,20 @@ export class PanelSystem extends createSystem({
           </svg>
         `;
 
-        const labelsCol = document.createElement("div");
+        const labelsCol = window.document.createElement("div");
         labelsCol.style.display = "flex";
         labelsCol.style.flexDirection = "column";
         labelsCol.style.alignItems = "flex-end";
         labelsCol.style.gap = "6px";
 
-        const row = document.createElement("div");
+        const row = window.document.createElement("div");
         row.style.display = "flex";
         row.style.flexDirection = "row";
         row.style.gap = "10px";
         row.appendChild(voiceBtn);
         row.appendChild(button);
 
-        const label = document.createElement("div");
+        const label = window.document.createElement("div");
         label.style.color = "#e2e8f0";
         label.style.fontSize = "11px";
         label.style.fontWeight = "600";
@@ -562,7 +562,7 @@ export class PanelSystem extends createSystem({
         labelsCol.appendChild(row);
         labelsCol.appendChild(label);
         container.appendChild(labelsCol);
-        document.body.appendChild(container);
+        window.document.body.appendChild(container);
 
         console.log(
           "[Panel] ✅ Floating voice + portal controls created (always accessible)",
@@ -589,7 +589,7 @@ export class PanelSystem extends createSystem({
           createFloatingButton();
         }
       });
-      observer.observe(document.body, { childList: true, subtree: true });
+      observer.observe(window.document.body, { childList: true, subtree: true });
 
       // ── XR Controller Input Detection (Meta Quest 3 Trigger) ────────────────
       this.setupXRControllerInput();
@@ -634,7 +634,7 @@ export class PanelSystem extends createSystem({
 
       // Update cooldown timer
       if (this.triggerCooldown > 0) {
-        this.triggerCooldown -= frame.session.predictedFrameTime || 0.016; // ~60fps default
+        this.triggerCooldown -= (frame.session as any).predictedFrameTime || 0.016; // ~60fps default
         if (this.triggerCooldown < 0) this.triggerCooldown = 0;
       }
 

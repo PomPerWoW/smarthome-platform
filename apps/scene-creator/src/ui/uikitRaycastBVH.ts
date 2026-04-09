@@ -39,7 +39,7 @@ export function refreshUIKitInteractableBVH(
 ): void {
   if (!root) return;
   const seen = new WeakSet<BufferGeometry>();
-  root.traverse((child) => {
+  root.traverse((child: any) => {
     const o = child as Object3D & { isMesh?: boolean; geometry?: BufferGeometry };
     if (o.isMesh !== true || !o.geometry) return;
     const geom = o.geometry as RaycastBVHGeometry;

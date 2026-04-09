@@ -1,4 +1,4 @@
-import { Object3D, Mesh, MeshStandardMaterial } from "@iwsdk/core";
+import { Mesh, MeshStandardMaterial, Object3D } from "three";
 import { DeviceType, SmartMeter as SmartMeterData } from "../types";
 import { BaseDevice } from "./BaseDevice";
 
@@ -22,7 +22,7 @@ export class SmartMeter extends BaseDevice {
 
     // Override the base visual state to prevent the "off" state from making it semi-transparent
     protected applyBaseVisualState(object3D: Object3D): void {
-        object3D.traverse((child) => {
+        object3D.traverse((child: any) => {
             if (child instanceof Mesh) {
                 const material = child.material;
                 if (material instanceof MeshStandardMaterial) {

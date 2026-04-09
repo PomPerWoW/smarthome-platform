@@ -1,4 +1,4 @@
-import { Object3D } from "@iwsdk/core";
+import { Object3D } from "three";
 import { DeviceType, AirConditioner as AirConditionerData } from "../types";
 import { BaseDevice } from "./BaseDevice";
 

@@ -103,9 +103,9 @@ export class GraphPanelSystem extends createSystem({
         deviceId: string,
         deviceType: DeviceType
     ): void {
-        const barBtn = document.getElementById("graph-bar-btn");
-        const lineBtn = document.getElementById("graph-line-btn");
-        const pieBtn = document.getElementById("graph-pie-btn");
+        const barBtn = document.getElementById("graph-bar-btn") as any;
+        const lineBtn = document.getElementById("graph-line-btn") as any;
+        const pieBtn = document.getElementById("graph-pie-btn") as any;
 
         console.log(`[GraphPanel] setupChartButtons: barBtn=${!!barBtn}, lineBtn=${!!lineBtn}, pieBtn=${!!pieBtn}`);
 
@@ -177,12 +177,12 @@ export class GraphPanelSystem extends createSystem({
         this.datePickerStates.set(deviceId, state);
 
         // Get elements
-        const calendarBtn = document.getElementById("calendar-btn");
+        const calendarBtn = document.getElementById("calendar-btn") as any;
         const datePickerOverlay = document.getElementById("date-picker-overlay") as UIKit.Container;
         const currentDateText = document.getElementById("current-date-text") as UIKit.Text;
         const monthYearText = document.getElementById("month-year-text") as UIKit.Text;
-        const prevMonthBtn = document.getElementById("prev-month-btn");
-        const nextMonthBtn = document.getElementById("next-month-btn");
+        const prevMonthBtn = document.getElementById("prev-month-btn") as any;
+        const nextMonthBtn = document.getElementById("next-month-btn") as any;
 
         console.log(`[GraphPanel] setupDatePicker: calendarBtn=${!!calendarBtn}, overlay=${!!datePickerOverlay}`);
 
@@ -199,7 +199,7 @@ export class GraphPanelSystem extends createSystem({
         // Collect all day cells (42 cells = 6 weeks x 7 days)
         const cells: DayCellInfo[] = [];
         for (let i = 0; i < 42; i++) {
-            const cell = document.getElementById(`day-${i}`) as UIKit.Container;
+            const cell = document.getElementById(`day-${i}`) as any;
             const text = document.getElementById(`day-text-${i}`) as UIKit.Text;
             if (cell && text) {
                 cells.push({ cell, text, dayNumber: 0, isCurrentMonth: false });
@@ -359,16 +359,16 @@ export class GraphPanelSystem extends createSystem({
 
         // Hide or show the 5th row based on if it contains current month days
         const cell28 = cells[28];
-        if (cell28 && cell28.cell.parent) {
-            (cell28.cell.parent as UIKit.Container).setProperties({
+        if (cell28 && (cell28.cell as any).parent) {
+            ((cell28.cell as any).parent as UIKit.Container).setProperties({
                 display: hasCurrentMonthInFifthRow ? "flex" : "none"
             });
         }
 
         // Hide or show the 6th row based on if it contains current month days
         const cell35 = cells[35];
-        if (cell35 && cell35.cell.parent) {
-            (cell35.cell.parent as UIKit.Container).setProperties({
+        if (cell35 && (cell35.cell as any).parent) {
+            ((cell35.cell as any).parent as UIKit.Container).setProperties({
                 display: hasCurrentMonthInSixthRow ? "flex" : "none"
             });
         }

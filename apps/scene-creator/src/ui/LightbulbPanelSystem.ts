@@ -6,11 +6,9 @@ import {
   UIKitDocument,
   UIKit,
   Entity,
-  Quaternion,
-  Euler,
 } from "@iwsdk/core";
 
-import { Vector3 } from "three";
+import { Vector3, Quaternion, Euler } from "three";
 
 import { DeviceComponent } from "../components/DeviceComponent";
 import { deviceStore, getStore } from "../store/DeviceStore";
@@ -76,58 +74,72 @@ export class LightbulbPanelSystem extends createSystem({
     console.log(`[LightbulbPanel] Setting up panel for device ${deviceId}`);
 
     // Power button
-    const powerBtn = document.getElementById("power-btn");
+    const powerBtn = document.getElementById("power-btn") as UIKit.Container | null;
     if (powerBtn) {
-      powerBtn.addEventListener("click", () => {
-        this.handlePowerToggle(deviceId);
+      powerBtn.setProperties({
+        onClick: () => {
+          this.handlePowerToggle(deviceId);
+        }
       });
     }
 
     // Brightness controls
-    const brightnessUp = document.getElementById("brightness-up");
+    const brightnessUp = document.getElementById("brightness-up") as UIKit.Container | null;
     if (brightnessUp) {
-      brightnessUp.addEventListener("click", () => {
-        this.handleBrightnessChange(deviceId, 1);
+      brightnessUp.setProperties({
+        onClick: () => {
+          this.handleBrightnessChange(deviceId, 1);
+        }
       });
     }
 
-    const brightnessDown = document.getElementById("brightness-down");
+    const brightnessDown = document.getElementById("brightness-down") as UIKit.Container | null;
     if (brightnessDown) {
-      brightnessDown.addEventListener("click", () => {
-        this.handleBrightnessChange(deviceId, -1);
+      brightnessDown.setProperties({
+        onClick: () => {
+          this.handleBrightnessChange(deviceId, -1);
+        }
       });
     }
 
     // Color buttons
     for (const colorHex of COLOR_OPTIONS) {
       const colorId = `color-${colorHex.replace("#", "")}`;
-      const colorBtn = document.getElementById(colorId);
+      const colorBtn = document.getElementById(colorId) as UIKit.Container | null;
       if (colorBtn) {
-        colorBtn.addEventListener("click", () => {
-          this.handleColorChange(deviceId, colorHex);
+        colorBtn.setProperties({
+          onClick: () => {
+            this.handleColorChange(deviceId, colorHex);
+          }
         });
       }
     }
 
     // Position buttons
-    const getPositionBtn = document.getElementById("get-position-btn");
+    const getPositionBtn = document.getElementById("get-position-btn") as UIKit.Container | null;
     if (getPositionBtn) {
-      getPositionBtn.addEventListener("click", () => {
-        this.handleGetPosition(entity, deviceId);
+      getPositionBtn.setProperties({
+        onClick: () => {
+          this.handleGetPosition(entity, deviceId);
+        }
       });
     }
 
-    const savePositionBtn = document.getElementById("save-position-btn");
+    const savePositionBtn = document.getElementById("save-position-btn") as UIKit.Container | null;
     if (savePositionBtn) {
-      savePositionBtn.addEventListener("click", () => {
-        this.handleSavePosition(entity, deviceId);
+      savePositionBtn.setProperties({
+        onClick: () => {
+          this.handleSavePosition(entity, deviceId);
+        }
       });
     }
 
-    const showGraphBtn = document.getElementById("show-graph-btn");
+    const showGraphBtn = document.getElementById("show-graph-btn") as UIKit.Container | null;
     if (showGraphBtn) {
-      showGraphBtn.addEventListener("click", () => {
-        this.handleShowGraph(deviceId);
+      showGraphBtn.setProperties({
+        onClick: () => {
+          this.handleShowGraph(deviceId);
+        }
       });
     }
 
@@ -264,7 +276,7 @@ export class LightbulbPanelSystem extends createSystem({
 
     // Log child rotations for debugging
     console.log(`[LightbulbPanel] Checking child objects for rotation...`);
-    object3D.traverse((child) => {
+    object3D.traverse((child: any) => {
       if (
         child !== object3D &&
         (child.rotation.x !== 0 ||

@@ -1,15 +1,21 @@
 import {
     createSystem,
     Entity,
-    Object3D,
     AssetManager,
-    AnimationMixer,
-    AnimationAction,
-    LoopOnce,
-    LoopRepeat,
 } from "@iwsdk/core";
 
-import { Box3, MathUtils, Quaternion, SkinnedMesh, Vector3 } from "three";
+import {
+    AnimationAction,
+    AnimationMixer,
+    Box3,
+    LoopOnce,
+    LoopRepeat,
+    MathUtils,
+    Object3D,
+    Quaternion,
+    SkinnedMesh,
+    Vector3,
+} from "three";
 import { SkeletonUtils } from "three-stdlib";
 import { NPCAvatarComponent } from "../components/NPCAvatarComponent";
 import { AVATAR_VISUAL_SCALE } from "../config/avatarScale";
@@ -883,7 +889,7 @@ export class NPCAvatarSystem extends createSystem({
 
             // Find lip-sync morphTarget meshes (Ready Player Me)
             const morphTargetMeshes: SkinnedMesh[] = [];
-            npcModel.traverse((child) => {
+            npcModel.traverse((child: any) => {
                 const maybeMesh = child as any;
                 if (
                     maybeMesh.isSkinnedMesh &&
@@ -1341,7 +1347,7 @@ export class NPCAvatarSystem extends createSystem({
     update(dt: number): void {
         this.timeElapsed += dt;
 
-        const camera = this.world.camera;
+        const camera = (this.world as any).camera;
         if (!camera) return;
 
         const userWorldX = (camera as any).position.x;

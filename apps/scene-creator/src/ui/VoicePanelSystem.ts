@@ -155,7 +155,7 @@ export class VoicePanelSystem extends createSystem({
       this.statusTextRef = statusText;
 
       if (micButton) {
-        micButton.addEventListener("click", () => {
+        (micButton as any).addEventListener("click", () => {
           // Haptic feedback if available (simulated)
           if (navigator.vibrate) navigator.vibrate(50);
           this.handleMicClick();

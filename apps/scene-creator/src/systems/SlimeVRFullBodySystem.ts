@@ -1,20 +1,21 @@
-import { createSystem, Object3D } from "@iwsdk/core";
+import { createSystem } from "@iwsdk/core";
 import {
   AxesHelper,
+  Bone,
+  BoxGeometry,
+  BufferGeometry,
+  CanvasTexture,
+  EdgesGeometry,
+  Float32BufferAttribute,
   Group,
+  LineBasicMaterial,
+  LineSegments,
   Mesh,
   MeshBasicMaterial,
-  BoxGeometry,
-  EdgesGeometry,
-  LineSegments,
-  LineBasicMaterial,
+  Object3D,
+  Quaternion,
   Sprite,
   SpriteMaterial,
-  CanvasTexture,
-  BufferGeometry,
-  Float32BufferAttribute,
-  Quaternion,
-  Bone,
   Vector3,
 } from "three";
 
@@ -113,7 +114,7 @@ export class SlimeVRFullBodySystem extends createSystem({}) {
     g.add(outline);
 
     // Text Label above the box
-    const canvas = document.createElement("canvas");
+    const canvas = window.document.createElement("canvas");
     canvas.width = 256;
     canvas.height = 128;
     const ctx = canvas.getContext("2d")!;
@@ -208,7 +209,7 @@ export class SlimeVRFullBodySystem extends createSystem({}) {
       model.quaternion.identity();
       model.updateMatrixWorld(true);
 
-      model.traverse((child) => {
+      model.traverse((child: any) => {
         if ((child as any).isBone || child.type === "Bone") {
           const bone = child as unknown as Bone;
           this.boneRestWorldQuat.set(bone.name, bone.getWorldQuaternion(new Quaternion()));
@@ -231,7 +232,7 @@ export class SlimeVRFullBodySystem extends createSystem({}) {
     };
 
     const bonesByName = new Map<string, Bone>();
-    model.traverse((c) => {
+    model.traverse((c: any) => {
       if (c.type === "Bone") bonesByName.set(c.name, c as unknown as Bone);
     });
 

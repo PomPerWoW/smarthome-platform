@@ -117,7 +117,9 @@ export class WelcomePanelGestureSystem extends createSystem({}) {
       if (!(inputSource as any).hand) continue;
 
       const hand = (inputSource as any).hand;
-      const handPose = frame.getHandPose?.(hand as XRHand);
+      const getHandPose = (frame as any).getHandPose;
+      if (!getHandPose) continue;
+      const handPose = getHandPose.call(frame, hand);
 
       if (!handPose) continue;
 
@@ -212,7 +214,9 @@ export class WelcomePanelGestureSystem extends createSystem({}) {
       if (!(inputSource as any).hand) continue;
 
       const hand = (inputSource as any).hand;
-      const handPose = frame.getHandPose?.(hand as XRHand);
+      const getHandPose = (frame as any).getHandPose;
+      if (!getHandPose) continue;
+      const handPose = getHandPose.call(frame, hand);
 
       if (!handPose) continue;
 

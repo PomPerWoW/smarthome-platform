@@ -42,6 +42,8 @@ interface WallpaperState {
   lassoStart: { x: number; y: number } | null;
   lassoPreview: WallpaperCutoutRect | null;
   isLassoDrawing: boolean;
+  isSelectingWall: boolean;
+  availableWalls: any[]; // WallInfo[]
 
   // ── Actions ─────────────────────────────────────────────────────────────
 
@@ -67,6 +69,7 @@ interface WallpaperState {
   cutoutAnswerNo: () => void;
   cutoutUndo: () => void;
   cutoutConfirm: () => void;
+  cancelPlacement: () => void;
 
   // ── Lasso drawing helpers ────────────────────────────────────────────────
   setLassoStart: (pt: { x: number; y: number } | null) => void;
@@ -88,6 +91,8 @@ export const wallpaperStore = createStore<WallpaperState>()(
     lassoStart: null,
     lassoPreview: null,
     isLassoDrawing: false,
+    isSelectingWall: false,
+    availableWalls: [],
 
     // ── actions ────────────────────────────────────────────────────────────
 
@@ -115,6 +120,16 @@ export const wallpaperStore = createStore<WallpaperState>()(
         lassoStart: null,
         lassoPreview: null,
         isLassoDrawing: false,
+        isSelectingWall: false,
+      });
+    },
+
+    cancelPlacement() {
+      set({
+        isSelectingWall: false,
+        activeImageDataUrl: null,
+        activeWallpaperName: "",
+        appliedAs: null,
       });
     },
 

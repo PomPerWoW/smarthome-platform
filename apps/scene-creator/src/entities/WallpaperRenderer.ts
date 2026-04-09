@@ -96,7 +96,7 @@ export function applyTextureToRoomWalls(imageDataUrl: string): number {
 
   let count = 0;
 
-  labModel.traverse((child) => {
+  labModel.traverse((child: any) => {
     const mesh = child as Mesh;
     if (!mesh.isMesh || !mesh.material) return;
     if (!isLikelyWallMesh(mesh)) return;
@@ -207,7 +207,7 @@ export function createPlanesOnAllWalls(
   const ids: string[] = [];
   let wallIdx = 0;
 
-  labModel.traverse((child) => {
+  labModel.traverse((child: any) => {
     const mesh = child as Mesh;
     if (!mesh.isMesh || !mesh.material) return;
     if (!isLikelyWallMesh(mesh)) return;
