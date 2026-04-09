@@ -162,7 +162,7 @@ function speakText(text: string): Promise<void> {
       }
       const voice = getSamanthaOrFirst();
       synth.cancel();
-      try { synth.resume(); } catch {}
+      try { synth.resume(); } catch { /* Ignore resume errors */ }
       const u = new SpeechSynthesisUtterance(text);
       u.lang = "en-US";
       if (voice) u.voice = voice;

@@ -391,7 +391,7 @@ function DeviceActivityPage() {
 
     // Fetch device logs from API based on selected date
     const { data: logResponse, isLoading: isLoadingLogs } = useQuery({
-        queryKey: ['deviceLog', deviceId, selectedDate],
+        queryKey: ['deviceLog', deviceId, selectedDate, type],
         queryFn: () => DeviceService.getInstance().getDeviceLog(type as DeviceType, selectedDate, deviceId),
         enabled: !!device,
     })
