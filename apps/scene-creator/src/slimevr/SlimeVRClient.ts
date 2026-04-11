@@ -4,8 +4,9 @@ export function resolveSlimeVRWebSocketUrl(): string | null {
   if (typeof window === "undefined") return null;
   const q = new URLSearchParams(window.location.search).get("slimevrWs");
   if (q) return q.trim();
-  const env = (import.meta as ImportMeta & { env?: { VITE_SLIMEVR_WS?: string } })
-    .env?.VITE_SLIMEVR_WS;
+  const env = (
+    import.meta as ImportMeta & { env?: { VITE_SLIMEVR_WS?: string } }
+  ).env?.VITE_SLIMEVR_WS;
   if (env && env.trim()) return env.trim();
   const definedEnv = process.env.VITE_SLIMEVR_WS;
   if (definedEnv && definedEnv.trim()) return definedEnv.trim();
@@ -21,7 +22,16 @@ export class SlimeVRClient {
   private readonly onDisconnect?: () => void;
 
   constructor(url: string, onDisconnect?: () => void) {
-    this.url = url;
+    // Detect if we are on HTTPS and upgrade the websocket protocol automatically
+    if (
+      typeof window !== "undefined" &&
+      window.location.protocol === "https:"
+    ) {
+      this.url = url.replace(/^ws:\/\//i, "wss://");
+    } else {
+      this.url = url;
+    }
+
     this.onDisconnect = onDisconnect;
   }
 

@@ -1,13 +1,16 @@
 /**
  * Listens for SlimeVR / VRChat-style OSC tracker messages on UDP,
- * aggregates poses, and broadcasts JSON frames over WebSocket.
+ * aggregates poses, and broadcasts JSON frames over Secure WebSocket (WSS).
  */
 import dgram from "node:dgram";
 import { WebSocketServer } from "ws";
 import { fromBuffer } from "osc-min";
+import https from "node:https"; // Added for WSS
+import fs from "node:fs"; // Added to read certs
 
 const OSC_PORT = Number(process.env.SLIMEVR_OSC_PORT || 9000);
 const WS_PORT = Number(process.env.SLIMEVR_WS_PORT || 8765);
+const HOST = "192.168.4.181";
 
 const trackers = new Map();
 
@@ -28,11 +31,7 @@ function applyTrackerMessage(decoded) {
   if (!address || typeof address !== "string") return;
 
   const parts = address.split("/").filter(Boolean);
-  if (
-    parts.length >= 4 &&
-    parts[0] === "tracking" &&
-    parts[1] === "trackers"
-  ) {
+  if (parts.length >= 4 && parts[0] === "tracking" && parts[1] === "trackers") {
     const id = parts[2];
     const kind = parts[3];
     const floats = oscArgsToFloats(decoded.args);
@@ -70,33 +69,42 @@ function handleOscMessage(msg) {
   }
 }
 
+// --- UDP SETUP ---
 const udp = dgram.createSocket("udp4");
 udp.on("message", (msg) => handleOscMessage(msg));
 udp.on("error", (err) => {
   console.error("[slimevr-bridge] UDP error:", err);
   if (err?.code === "EADDRINUSE") {
-    console.error(
-      `[slimevr-bridge] Port ${OSC_PORT} is in use (another bridge or app). Stop it or set SLIMEVR_OSC_PORT.`,
-    );
+    console.error(`[slimevr-bridge] Port ${OSC_PORT} is in use.`);
     process.exit(1);
   }
 });
-udp.bind(OSC_PORT, () => {
-  console.log(
-    `[slimevr-bridge] Listening OSC UDP on 0.0.0.0:${OSC_PORT} — point SlimeVR Server here`,
-  );
+
+udp.bind(OSC_PORT, HOST, () => {
+  console.log(`[slimevr-bridge] Listening OSC UDP on ${HOST}:${OSC_PORT}`);
 });
 
-const wss = new WebSocketServer({ port: WS_PORT });
+// --- SECURE WEBSOCKET (WSS) SETUP ---
+// Load the fake certificates
+const serverOptions = {
+  key: fs.readFileSync("key.pem"),
+  cert: fs.readFileSync("cert.pem"),
+};
+
+// Create an HTTPS server
+const httpsServer = https.createServer(serverOptions);
+
+// Attach WebSocket to the HTTPS server
+const wss = new WebSocketServer({ server: httpsServer });
+
 wss.on("error", (err) => {
   console.error("[slimevr-bridge] WebSocket server error:", err);
   if (err?.code === "EADDRINUSE") {
-    console.error(
-      `[slimevr-bridge] Port ${WS_PORT} is in use. Stop the other process or set SLIMEVR_WS_PORT.`,
-    );
+    console.error(`[slimevr-bridge] Port ${WS_PORT} is in use.`);
   }
   process.exit(1);
 });
+
 let frameSeq = 0;
 const BROADCAST_HZ = 60;
 const intervalMs = 1000 / BROADCAST_HZ;
@@ -110,12 +118,7 @@ function buildFrame() {
       ...(data.rotation ? { rotation: data.rotation } : {}),
     };
   }
-  return {
-    type: "slimevr_frame",
-    seq: ++frameSeq,
-    t,
-    trackers: out,
-  };
+  return { type: "slimevr_frame", seq: ++frameSeq, t, trackers: out };
 }
 
 wss.on("connection", (ws) => {
@@ -133,6 +136,12 @@ setInterval(() => {
   }
 }, intervalMs);
 
-console.log(
-  `[slimevr-bridge] WebSocket server on ws://0.0.0.0:${WS_PORT} — use ?slimevrWs=ws://<host>:${WS_PORT} in scene-creator`,
-);
+// Start the HTTPS server
+httpsServer.listen(WS_PORT, HOST, () => {
+  console.log(
+    `[slimevr-bridge] Secure WebSocket server on wss://${HOST}:${WS_PORT}`,
+  );
+  console.log(
+    `Update your query param to: ?slimevrWs=wss://${HOST}:${WS_PORT}`,
+  );
+});

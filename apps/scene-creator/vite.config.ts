@@ -62,11 +62,11 @@ export default defineConfig(({ mode }) => {
       ),
       "process.env.VITE_DASHBOARD_URL": JSON.stringify(
         env.VITE_DASHBOARD_URL ||
-        env.VITE_FRONTEND_URL ||
-        "https://localhost:3000",
+          env.VITE_FRONTEND_URL ||
+          "https://localhost:3000",
       ),
       "process.env.VITE_SLIMEVR_WS": JSON.stringify(
-        env.VITE_SLIMEVR_WS || `ws://${env.VITE_HOST_IP || "localhost"}:8765`,
+        env.VITE_SLIMEVR_WS || `wss://${env.VITE_HOST_IP || "localhost"}:8765`,
       ),
     },
   };

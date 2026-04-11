@@ -124,8 +124,8 @@ CORS_ALLOWED_ORIGINS = [
     "https://127.0.0.1:3003",
     "https://localhost:3000",
     "https://localhost:3003",
-    "https://10.66.4.224:5173",
-    "https://10.66.4.224:3003",
+    "https://10.66.1.151:5173",
+    "https://10.66.1.151:3003",
 ]
 
 if HOST_IP:
