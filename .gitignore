@@ -181,6 +181,7 @@ public/ui/
 .vscode-test/
 .cert/
 apps/*/certs/
+*.pem
 
 # ===== Scene Creator =====
 apps/scene-creator/scripts/
